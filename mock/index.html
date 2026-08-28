@@ -1,434 +1,1093 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Liberdus DAO Mock Screens</title>
-    <link rel="stylesheet" href="../styles.css" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Liberdus DAO Current Modal Flow</title>
     <style>
-      html {
+      :root {
+        --background-color: #fff;
+        --board-background: #f0f0f0;
+        --border-color: #dee2e6;
+        --danger-color: #dc3545;
+        --input-background: #e4e6e9;
+        --primary-color: #3d3dce;
+        --primary-hover: #3535b8;
+        --primary-tint-12: rgba(61, 61, 206, 0.12);
+        --primary-tint-60: rgba(61, 61, 206, 0.6);
+        --secondary-text-color: #65676b;
+        --success-color: #1e7e34;
+        --text-color: #1c1c21;
+        --warning-color: #ef6c00;
+        --font-primary: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --overlay-border-radius: 8px;
+        --shadow-primary: 0 4px 12px rgba(61, 61, 206, 0.3);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
         height: 100%;
-        overflow: hidden;
+        margin: 0;
       }
 
       body {
-        align-items: stretch;
-        background: var(--surface-muted);
         color: var(--text-color);
-        display: block;
-        height: 100%;
-        min-height: 100vh;
+        font-family: var(--font-primary);
         overflow: hidden;
-        padding: 0;
       }
 
-      .mock-page {
-        margin: 0;
-        max-width: none;
-        min-width: max-content;
-        padding: 24px;
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .mock-viewport {
+        background:
+          radial-gradient(circle at 1px 1px, rgba(61, 61, 206, 0.13) 1px, transparent 0) 0 0 / 24px 24px,
+          var(--board-background);
+        cursor: grab;
+        height: 100%;
+        overflow: hidden;
+        touch-action: none;
+        width: 100%;
+      }
+
+      .mock-viewport.is-dragging {
+        cursor: grabbing;
+      }
+
+      .mock-canvas {
+        min-width: 1900px;
+        padding: 24px 24px 80px;
+        transform-origin: 0 0;
+        width: max-content;
       }
 
       .mock-header {
         align-items: center;
-        background: var(--background-color);
+        background: rgba(255, 255, 255, 0.96);
         border: 1px solid var(--border-color);
-        border-radius: 8px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(28, 28, 33, 0.06);
         display: grid;
-        gap: 16px;
-        grid-template-columns: auto 1fr auto;
-        margin-bottom: 18px;
-        padding: 14px 16px;
+        gap: 20px;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        min-height: 100px;
+        padding: 16px 20px;
       }
 
       .mock-brand {
         align-items: center;
         display: flex;
-        gap: 10px;
-        min-width: 0;
+        gap: 12px;
       }
 
       .mock-logo {
-        height: 34px;
-        width: 34px;
+        height: 36px;
+        width: 36px;
       }
 
       .mock-title {
-        font-size: 20px;
-        font-weight: var(--font-weight-semibold);
-        line-height: 1.2;
+        font-size: 22px;
+        line-height: 1.15;
+        margin: 0;
       }
 
-      .mock-subtitle {
+      .mock-subtitle,
+      .mock-version,
+      .section-note,
+      .screen-note {
         color: var(--secondary-text-color);
         font-size: 13px;
-        margin-top: 3px;
+        line-height: 1.4;
       }
 
-      .mock-tag-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        justify-content: flex-end;
+      .mock-version {
+        text-align: right;
       }
 
-      .mock-tag {
-        align-items: center;
-        background: var(--hover-background);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        color: var(--secondary-text-color);
-        display: inline-flex;
-        font-size: 12px;
-        font-weight: var(--font-weight-medium);
-        min-height: 28px;
-        padding: 0 10px;
+      .current-note {
+        background: rgba(30, 126, 52, 0.08);
+        border: 1px solid rgba(30, 126, 52, 0.24);
+        border-radius: 10px;
+        color: #0f5f27;
+        font-size: 14px;
+        line-height: 1.45;
+        margin-top: 18px;
+        padding: 12px 16px;
       }
 
-      .mock-tag.current {
-        background: rgba(40, 167, 69, 0.1);
-        border-color: rgba(40, 167, 69, 0.24);
-        color: var(--success-color);
+      .current-note strong {
+        display: block;
+        margin-bottom: 2px;
       }
 
-      .mock-tag.mock {
-        background: var(--primary-tint-12);
-        border-color: var(--primary-tint-20);
-        color: var(--primary-color);
+      .flow-section {
+        margin-top: 28px;
       }
 
-      .mock-tag.partial {
-        background: rgba(0, 102, 204, 0.1);
-        border-color: rgba(0, 102, 204, 0.22);
-        color: var(--info-color);
-      }
-
-      .mock-tag.needed {
-        background: rgba(239, 108, 0, 0.1);
-        border-color: rgba(239, 108, 0, 0.25);
-        color: var(--warning-color);
-      }
-
-      .mock-section {
-        margin-top: 22px;
-      }
-
-      .mock-section-header {
-        align-items: end;
+      .section-heading {
+        align-items: baseline;
         display: flex;
         gap: 12px;
-        justify-content: space-between;
         margin-bottom: 12px;
       }
 
-      .mock-section-title {
-        font-size: 16px;
-        font-weight: var(--font-weight-semibold);
+      .section-title {
+        font-size: 18px;
+        margin: 0;
       }
 
-      .mock-section-note {
-        color: var(--secondary-text-color);
-        font-size: 13px;
-      }
-
-      .route-map {
-        background: var(--background-color);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        box-shadow: var(--elev-1);
+      .flow-board {
         display: grid;
-        gap: 12px;
-        min-width: 1320px;
-        padding: 14px;
-      }
-
-      .route-lane {
-        align-items: center;
-        display: grid;
-        gap: 12px;
-        grid-template-columns: 170px 1fr;
-      }
-
-      .route-title {
-        color: var(--text-color);
-        font-size: 13px;
-        font-weight: var(--font-weight-semibold);
-        line-height: 1.25;
-      }
-
-      .route-title span {
-        color: var(--secondary-text-color);
-        display: block;
-        font-size: 12px;
-        font-weight: var(--font-weight-normal);
-        margin-top: 3px;
-      }
-
-      .route-chain {
-        align-items: center;
-        display: flex;
-        gap: 0;
-        min-width: max-content;
-      }
-
-      .route-step {
-        align-items: center;
-        background: var(--hover-background);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        color: var(--text-color);
-        display: inline-flex;
-        font-size: 13px;
-        font-weight: var(--font-weight-medium);
-        min-height: 36px;
-        padding: 0 13px;
-        white-space: nowrap;
-      }
-
-      .route-step.entry {
-        background: var(--primary-tint-12);
-        border-color: var(--primary-tint-20);
-        color: var(--primary-color);
-        font-weight: var(--font-weight-semibold);
-      }
-
-      .route-step.decision {
-        background: rgba(239, 108, 0, 0.1);
-        border-color: rgba(239, 108, 0, 0.25);
-        color: var(--warning-color);
-      }
-
-      .route-step.done {
-        background: rgba(40, 167, 69, 0.1);
-        border-color: rgba(40, 167, 69, 0.24);
-        color: var(--success-color);
-      }
-
-      .route-arrow {
-        background: linear-gradient(90deg, var(--border-color), var(--primary-tint-40));
-        display: inline-block;
-        height: 2px;
-        margin: 0 6px;
+        gap: 40px;
         position: relative;
-        width: 34px;
       }
 
-      .route-arrow::after {
-        border-bottom: 5px solid transparent;
-        border-left: 7px solid var(--primary-tint-40);
-        border-top: 5px solid transparent;
-        content: "";
-        position: absolute;
-        right: -2px;
-        top: -4px;
-      }
-
-      .route-note {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-        line-height: 1.35;
-        margin-left: 182px;
-        margin-top: -6px;
-      }
-
-      .mock-flow {
-        align-items: center;
-        background: var(--background-color);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        display: flex;
-        gap: 0;
-        margin: 0 0 18px;
-        overflow-x: auto;
-        padding: 12px;
-      }
-
-      .flow-node {
-        align-items: center;
-        background: var(--hover-background);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        display: flex;
-        flex: 0 0 160px;
-        font-size: 13px;
-        font-weight: var(--font-weight-semibold);
-        justify-content: center;
-        min-height: 42px;
-        margin-right: 42px;
-        padding: 8px 14px;
-        position: relative;
-        text-align: center;
-      }
-
-      .flow-node:not(:last-child)::after {
-        background: linear-gradient(90deg, var(--border-color), var(--primary-tint-40));
-        content: "";
-        height: 2px;
-        position: absolute;
-        right: -42px;
-        top: 50%;
-        width: 42px;
-      }
-
-      .flow-node:not(:last-child)::before {
-        border-bottom: 5px solid transparent;
-        border-left: 7px solid var(--primary-tint-40);
-        border-top: 5px solid transparent;
-        content: "";
-        position: absolute;
-        right: -42px;
-        top: calc(50% - 5px);
-      }
-
-      .flow-node:last-child {
-        margin-right: 0;
-      }
-
-      .flow-arrow {
-        display: none;
-      }
-
-      .screen-grid {
+      .flow-row {
         align-items: start;
         display: flex;
-        flex-wrap: nowrap;
-        gap: 18px;
-        min-width: max-content;
-        overflow: visible;
+        gap: 86px;
+        min-height: 728px;
+        padding: 0 8px;
         position: relative;
       }
 
-      .row-transition-arrows {
-        height: 760px;
+      .flow-row::before {
+        border-top: 1px dashed rgba(61, 61, 206, 0.22);
+        content: "";
         left: 0;
-        overflow: visible;
-        pointer-events: none;
         position: absolute;
-        top: 0;
-        z-index: 20;
+        right: 0;
+        top: 51px;
       }
 
-      .current-row-arrows {
-        width: 2022px;
-      }
-
-      .potential-row-arrows {
-        width: 4470px;
-      }
-
-      .author-row-arrows {
-        width: 2430px;
-      }
-
-      .voter-row-arrows,
-      .operations-row-arrows {
-        width: 1614px;
-      }
-
-      .branch-flow-board {
-        min-width: 2022px;
-        position: relative;
-      }
-
-      .branch-transition-arrows {
-        left: 0;
-        overflow: visible;
-        pointer-events: none;
-        position: absolute;
-        top: 0;
-        z-index: 20;
-      }
-
-      .branch-row,
-      .branch-flow-board .flow-row-title {
-        position: relative;
-        z-index: 10;
-      }
-
-      .branch-flow-board .flow-row-title.branch-indent {
-        padding-left: 510px;
-      }
-
-      .branch-spacer {
+      .screen {
         flex: 0 0 390px;
+        position: relative;
+        width: 390px;
+        z-index: 2;
+      }
+
+      .screen-label-row {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 7px;
+        min-height: 44px;
+      }
+
+      .screen-label {
+        background: #d8d9da;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+        padding: 10px 14px;
+      }
+
+      .screen-badges {
+        display: flex;
+        gap: 5px;
+      }
+
+      .screen-badge {
+        border: 1px solid rgba(30, 126, 52, 0.28);
+        border-radius: 999px;
+        color: var(--success-color);
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 8px;
+      }
+
+      .screen-badge.role {
+        border-color: rgba(61, 61, 206, 0.26);
+        color: var(--primary-color);
+      }
+
+      .screen-note {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        min-height: 58px;
+        padding: 8px 10px;
+      }
+
+      .screen-note strong {
+        color: var(--text-color);
+        display: block;
+        font-size: 12px;
+        margin-bottom: 2px;
+      }
+
+      .modal {
+        background: var(--background-color);
+        border: 1px solid #cfd3d8;
+        border-radius: 10px;
+        box-shadow: 0 6px 18px rgba(28, 28, 33, 0.14);
+        display: flex;
+        flex-direction: column;
+        height: 640px;
+        overflow: hidden;
+        position: relative;
         width: 390px;
       }
 
-      .flow-row-title {
+      .modal-header {
+        align-items: center;
+        background: var(--background-color);
+        border-bottom: 1px solid var(--border-color);
+        display: grid;
+        flex: 0 0 56px;
+        grid-template-columns: 52px minmax(0, 1fr) 52px;
+        min-height: 56px;
+        padding: 0 8px;
+        z-index: 2;
+      }
+
+      .modal-title {
+        font-size: 16px;
+        font-weight: 700;
+        grid-column: 2;
+        overflow: hidden;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .back-button,
+      .sign-out-header-button {
+        align-items: center;
+        background: transparent;
+        border: 0;
         color: var(--text-color);
-        font-size: 15px;
-        font-weight: var(--font-weight-semibold);
-        margin: 40px 0 14px;
+        display: flex;
+        height: 40px;
+        justify-content: center;
+        padding: 0;
+        width: 40px;
       }
 
-      .flow-row-title span {
-        color: var(--text-secondary);
+      .back-button::before {
+        border-bottom: 2px solid currentColor;
+        border-left: 2px solid currentColor;
+        content: "";
+        height: 10px;
+        transform: rotate(45deg);
+        width: 10px;
+      }
+
+      .sign-out-header-button {
+        color: var(--danger-color);
+        font-size: 20px;
+        grid-column: 3;
+        justify-self: end;
+      }
+
+      .modal-content {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .menu-list,
+      .chat-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .menu-item {
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        font-size: 16px;
+        gap: 14px;
+        min-height: 56px;
+        padding: 12px 16px;
+      }
+
+      .menu-item::before {
+        align-items: center;
+        color: var(--text-color);
+        content: attr(data-glyph);
+        display: inline-flex;
+        font-size: 20px;
+        height: 24px;
+        justify-content: center;
+        width: 24px;
+      }
+
+      .menu-item.is-target {
+        background: var(--primary-tint-12);
+        border: 1px solid rgba(61, 61, 206, 0.35);
+      }
+
+      .dao-toolbar {
+        background: var(--background-color);
+        padding: 4px 8px;
+      }
+
+      .dao-filter-bar {
+        background: rgba(61, 61, 206, 0.14);
+        border-radius: var(--overlay-border-radius);
+        display: grid;
+        gap: 4px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        padding: 8px 12px;
+      }
+
+      .dao-filter-chip {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        border-radius: 6px;
+        color: var(--text-color);
+        display: inline-flex;
+        font-size: 12px;
+        font-weight: 500;
+        gap: 4px;
+        justify-content: center;
+        min-height: 36px;
+        min-width: 0;
+        padding: 6px 4px;
+        white-space: nowrap;
+      }
+
+      .dao-filter-chip.active {
+        background: var(--primary-color);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        color: var(--background-color);
+      }
+
+      .dao-filter-chip-count {
+        align-items: center;
+        background: #d8d9da;
+        border-radius: 999px;
+        color: var(--secondary-text-color);
+        display: inline-flex;
+        font-size: 12px;
+        font-weight: 600;
+        justify-content: center;
+        min-height: 20px;
+        min-width: 22px;
+        padding: 2px 6px;
+      }
+
+      .dao-filter-chip.active .dao-filter-chip-count {
+        background: rgba(255, 255, 255, 0.18);
+        color: var(--background-color);
+      }
+
+      .dao-list-pane {
+        height: calc(100% - 104px);
+        overflow: hidden;
+        padding-bottom: 96px;
+      }
+
+      .dao-proposal-row {
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        min-height: 68px;
+        padding: 10px 16px;
+      }
+
+      .dao-row-content {
+        display: grid;
+        gap: 7px;
+        min-width: 0;
+        width: 100%;
+      }
+
+      .dao-row-title {
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
+      }
+
+      .dao-row-meta {
+        align-items: center;
+        color: var(--secondary-text-color);
+        display: flex;
+        font-size: 12px;
+        gap: 10px;
+      }
+
+      .dao-row-previews {
+        display: flex;
+        flex: 1 1 auto;
+        flex-wrap: wrap;
+        gap: 4px;
+        justify-content: flex-end;
+        margin-left: auto;
+      }
+
+      .dao-row-preview {
+        background: var(--input-background);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-color);
+        font-size: 12px;
+        font-weight: 500;
+        padding: 4px 6px;
+      }
+
+      .dao-row-preview--accepted {
+        background: rgba(30, 126, 52, 0.12);
+        border-color: rgba(30, 126, 52, 0.3);
+      }
+
+      .dao-row-preview--rejected {
+        background: rgba(196, 45, 45, 0.1);
+        border-color: rgba(196, 45, 45, 0.28);
+      }
+
+      .dao-row-preview--emergency {
+        background: rgba(239, 108, 0, 0.12);
+        border-color: rgba(239, 108, 0, 0.32);
+      }
+
+      .notification-dot::after {
+        background: var(--primary-color);
+        border-radius: 50%;
+        content: "";
+        display: inline-block;
+        height: 7px;
+        margin-left: 7px;
+        vertical-align: 2px;
+        width: 7px;
+      }
+
+      .floating-button {
+        align-items: center;
+        background: var(--primary-tint-60);
+        border: 0;
+        border-radius: 50%;
+        bottom: 18px;
+        box-shadow: var(--shadow-primary);
+        color: var(--text-color);
+        display: flex;
+        font-size: 28px;
+        height: 56px;
+        justify-content: center;
+        padding: 0;
+        position: absolute;
+        right: 16px;
+        width: 56px;
+      }
+
+      .form-container {
+        height: 100%;
+        overflow: hidden;
+        padding: 12px 16px 16px;
+      }
+
+      .dao-proposal-form {
+        display: grid;
+        gap: 10px;
+      }
+
+      .form-group {
+        display: grid;
+        gap: 5px;
+      }
+
+      .form-group label,
+      .dao-form-row-title,
+      .dao-form-section-header {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.25;
+      }
+
+      .dao-form-required {
+        color: var(--danger-color);
+        font-weight: 600;
+      }
+
+      .form-control {
+        background: var(--background-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-color);
+        min-height: 38px;
+        padding: 8px 10px;
+        width: 100%;
+      }
+
+      textarea.form-control {
+        min-height: 68px;
+        resize: none;
+      }
+
+      .dao-form-current-value {
+        background: #d8d9da;
+        color: var(--secondary-text-color);
+      }
+
+      .dao-form-grid {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .dao-form-help,
+      .dao-form-meta,
+      .proposal-info-muted,
+      .action-header p {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+        line-height: 1.35;
+        margin: 0;
+      }
+
+      .dao-form-option {
+        background: var(--input-background);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        display: grid;
+        gap: 7px;
+        padding: 9px;
+      }
+
+      .dao-form-option--no-change {
+        border-style: dashed;
+      }
+
+      .dao-form-row-title {
+        align-items: center;
+        color: var(--text-color);
+        display: flex;
+        font-weight: 600;
+        justify-content: space-between;
+      }
+
+      .dao-form-change-box {
+        background: var(--input-background);
+        border-radius: 8px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .dao-form-change-line {
+        align-items: center;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 78px minmax(0, 1fr);
+      }
+
+      .dao-form-add-button {
+        align-items: center;
+        background: transparent;
+        border: 1px dashed var(--border-color);
+        border-radius: 8px;
+        color: var(--primary-color);
+        display: flex;
         font-size: 13px;
-        font-weight: var(--font-weight-regular);
-        margin-left: 10px;
+        font-weight: 600;
+        gap: 8px;
+        justify-content: center;
+        min-height: 38px;
       }
 
-      .screen-grid.flow-grid {
-        gap: 120px;
-        margin-bottom: 128px;
+      .form-actions {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .action-list .mock-list-row.press-target {
-        background: var(--hover-background-purple);
+      .btn {
+        align-items: center;
+        border: 0;
+        display: flex;
+        font-size: 14px;
+        font-weight: 700;
+        height: 42px;
+        justify-content: center;
+        padding: 8px 14px;
+      }
+
+      .btn--primary {
+        background: var(--primary-color);
+        color: var(--background-color);
+      }
+
+      .btn--secondary {
+        background: #d8d9da;
+        color: var(--text-color);
+      }
+
+      .btn--pill {
+        border-radius: 24px;
+      }
+
+      .btn--full {
+        width: 100%;
+      }
+
+      .proposal-info,
+      .proposal-details,
+      .proposal-action-section {
+        display: grid;
+        gap: 12px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      .proposal-info-heading {
+        display: grid;
+        gap: 4px;
+        text-align: center;
+      }
+
+      .proposal-info-title {
+        font-size: 20px;
+        line-height: 1.2;
+        margin: 0;
+      }
+
+      .proposal-type-indicator {
+        color: var(--secondary-text-color);
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0;
+      }
+
+      .proposal-info-description {
+        color: var(--secondary-text-color);
+        font-size: 13px;
+        line-height: 1.35;
+        margin: 0;
+      }
+
+      .proposal-info-section {
+        display: grid;
+        gap: 8px;
+      }
+
+      .proposal-info-section h3,
+      .proposal-action-section h3 {
+        font-size: 16px;
+        line-height: 1.25;
+        margin: 0;
+        text-align: center;
+      }
+
+      .proposal-option-cards {
+        display: grid;
+        gap: 8px;
+      }
+
+      .proposal-option-section {
+        background: rgba(61, 61, 206, 0.055);
+        border-radius: var(--overlay-border-radius);
+        display: grid;
+        gap: 5px;
+        padding: 8px 10px;
+      }
+
+      .proposal-option-label {
+        align-items: center;
+        display: flex;
+        font-size: 13px;
+        font-weight: 600;
+        gap: 10px;
+      }
+
+      .proposal-option-label::after {
+        border-top: 1px solid var(--border-color);
+        content: "";
+        flex: 1 1 auto;
+      }
+
+      .proposal-change-row {
+        align-items: center;
+        display: grid;
+        font-size: 12px;
+        gap: 8px;
+        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      }
+
+      .proposal-change-values {
+        align-items: center;
+        display: grid;
+        gap: 4px;
+        grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
+        text-align: center;
+      }
+
+      .proposal-change-values small {
+        display: grid;
+        gap: 1px;
+      }
+
+      .proposal-change-values small span,
+      .proposal-change-row > span {
+        color: var(--secondary-text-color);
+      }
+
+      .proposal-info-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+      }
+
+      .proposal-info-row {
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(28, 28, 33, 0.05);
+        display: grid;
+        flex: 0 1 calc((100% - 16px) / 3);
+        font-size: 12px;
+        gap: 7px;
+        min-height: 64px;
+        padding: 8px;
+        text-align: center;
+      }
+
+      .proposal-info-row > span:first-child {
+        color: var(--secondary-text-color);
+      }
+
+      .proposal-result-overview {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .proposal-result-card {
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 2px 2px rgba(28, 28, 33, 0.04);
+        display: grid;
+        font-size: 12px;
+        gap: 6px;
+        padding: 10px;
+        text-align: center;
+      }
+
+      .proposal-result-card span:first-child {
+        color: var(--secondary-text-color);
+      }
+
+      .proposal-result-meter {
+        display: grid;
+        gap: 7px;
+      }
+
+      .proposal-result-meter-labels,
+      .proposal-result-meter-track {
+        display: flex;
+      }
+
+      .proposal-result-meter-label {
+        display: grid;
+        flex: 1 1 0;
+        font-size: 12px;
+        gap: 2px;
+      }
+
+      .proposal-result-meter-label:last-child {
+        justify-items: end;
+        text-align: right;
+      }
+
+      .proposal-result-meter-label small {
+        color: var(--secondary-text-color);
+      }
+
+      .proposal-result-meter-track {
+        background: var(--input-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        height: 16px;
+        overflow: hidden;
+      }
+
+      .proposal-result-meter-segment {
+        align-self: stretch;
+      }
+
+      .proposal-result-meter-segment.accept {
+        background: var(--success-color);
+        flex: 3;
+      }
+
+      .proposal-result-meter-segment.withhold {
+        background: #c42d2d;
+        flex: 1;
+      }
+
+      .proposal-result-meter-segment.yes {
+        background: var(--primary-color);
+        flex: 74;
+      }
+
+      .proposal-result-meter-segment.no {
+        background: #c42d2d;
+        flex: 26;
+      }
+
+      .proposal-action-section {
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .proposal-action-section.flat {
+        border: 0;
+        border-top: 1px solid var(--border-color);
+        border-radius: 0;
+        padding: 10px 0 0;
+      }
+
+      .action-header {
+        display: grid;
+        gap: 2px;
+      }
+
+      .proposal-action-toggle {
+        background: var(--input-background);
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 4px;
+      }
+
+      .proposal-decision-option {
+        background: transparent;
+        border: 0;
+        border-radius: 999px;
+        color: var(--secondary-text-color);
+        font-size: 14px;
+        font-weight: 600;
+        height: 36px;
+      }
+
+      .proposal-decision-option.selected {
+        background: var(--primary-color);
+        color: var(--background-color);
+      }
+
+      .proposal-vote-current-heading {
+        align-items: baseline;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .proposal-vote-current-heading span {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+      }
+
+      .proposal-vote-options,
+      .proposal-vote-preview {
+        display: grid;
+        gap: 7px;
+      }
+
+      .proposal-vote-options-header,
+      .proposal-vote-option {
+        align-items: center;
+        display: grid;
+        font-size: 12px;
+        gap: 8px;
+        grid-template-columns: minmax(0, 1fr) 52px 92px;
+      }
+
+      .proposal-vote-options-header {
+        color: var(--secondary-text-color);
+        font-weight: 600;
+      }
+
+      .proposal-vote-option .form-control {
+        min-height: 40px;
+        text-align: center;
+      }
+
+      .proposal-vote-option span:nth-child(2) {
+        color: var(--secondary-text-color);
+        text-align: center;
+      }
+
+      .proposal-vote-requirements,
+      .proposal-vote-spend-multiple-row {
+        align-items: center;
+        color: var(--secondary-text-color);
+        display: grid;
+        font-size: 12px;
+        gap: 6px 8px;
+      }
+
+      .proposal-vote-requirements {
+        grid-template-columns: 1fr auto;
+        justify-self: end;
+      }
+
+      .proposal-vote-spend-multiple-row {
+        grid-template-columns: auto minmax(72px, 1fr) auto;
+      }
+
+      .proposal-vote-preview {
+        background: var(--input-background);
+        border-radius: 8px;
+        font-size: 12px;
+        padding: 8px 10px;
+      }
+
+      .proposal-vote-preview-row {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .proposal-more {
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-top: 10px;
+      }
+
+      .proposal-more summary {
+        cursor: pointer;
+        display: grid;
+        gap: 4px;
+        grid-template-columns: minmax(0, 1fr) 18px;
+        list-style: none;
+        padding: 10px;
+      }
+
+      .proposal-more summary::after {
+        border-bottom: 2px solid var(--secondary-text-color);
+        border-right: 2px solid var(--secondary-text-color);
+        content: "";
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        height: 8px;
+        transform: rotate(45deg);
+        width: 8px;
+      }
+
+      .proposal-more-title {
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .proposal-more-note {
+        color: var(--secondary-text-color);
+        font-size: 12px;
+      }
+
+      .compact-content {
+        transform-origin: top center;
+        margin-left: -4.35%;
+        transform: scale(0.92);
+        width: 108.7%;
+      }
+
+      .compact-content.form-overview {
+        margin-left: -19.45%;
+        transform: scale(0.72);
+        width: 138.9%;
+      }
+
+      .compact-content.action-overview {
+        margin-left: -12.5%;
+        transform: scale(0.8);
+        width: 125%;
+      }
+
+      .form-container.compact-content {
+        height: auto;
+        overflow: visible;
+      }
+
+      .toast-preview {
+        background: rgba(28, 28, 33, 0.94);
+        border-radius: 8px;
+        bottom: 18px;
+        color: #fff;
+        font-size: 13px;
+        left: 50%;
+        padding: 10px 14px;
+        position: absolute;
+        transform: translateX(-50%);
+        white-space: nowrap;
+      }
+
+      .transition-arrows {
+        height: 100%;
+        left: 0;
+        overflow: visible;
+        pointer-events: none;
+        position: absolute;
+        top: 0;
+        width: 100%;
+        z-index: 4;
+      }
+
+      .transition-connector {
+        --connector-color: var(--primary-color);
       }
 
       .transition-path {
         fill: none;
-        stroke: rgba(61, 61, 206, 0.56);
-        stroke-dasharray: 7 6;
+        marker-end: url(#flow-arrowhead);
+        stroke: var(--connector-color);
         stroke-linecap: round;
-        stroke-opacity: 0.86;
-        stroke-width: 2.5;
-        transition: filter 160ms ease, stroke-dashoffset 160ms ease, stroke-opacity 160ms ease, stroke-width 160ms ease;
+        stroke-width: 3;
       }
 
-      .branch-transition-arrows .transition-connector {
-        color: var(--connector-color, var(--primary-color));
-        pointer-events: none;
-      }
-
-      .branch-transition-arrows .transition-hit-path {
-        cursor: pointer;
+      .transition-hit-path {
         fill: none;
         pointer-events: stroke;
-        stroke: rgba(0, 0, 0, 0.001);
-        stroke-linecap: round;
-        stroke-width: 18;
+        stroke: transparent;
+        stroke-width: 20;
       }
 
-      .branch-transition-arrows .transition-label {
+      .transition-label {
         cursor: pointer;
         pointer-events: auto;
       }
 
-      .branch-transition-arrows .transition-connector.is-highlighted .transition-path {
-        animation: connector-dash 800ms linear infinite;
-        filter: drop-shadow(0 0 5px rgba(61, 61, 206, 0.42));
-        stroke-dasharray: 10 5;
-        stroke-opacity: 1;
-        stroke-width: 4.5;
-      }
-
       .transition-label rect {
-        fill: var(--background-color);
-        stroke: rgba(61, 61, 206, 0.24);
-        transition: fill 160ms ease, stroke-width 160ms ease;
+        fill: #fff;
+        rx: 12;
+        stroke: var(--connector-color);
+        stroke-width: 1;
       }
 
       .transition-label text {
-        fill: var(--primary-color);
-        font-family: var(--font-primary);
+        fill: var(--connector-color);
         font-size: 12px;
-        font-weight: var(--font-weight-semibold);
+        font-weight: 700;
+        text-anchor: middle;
       }
 
-      .branch-transition-arrows .transition-connector.is-highlighted .transition-label rect {
-        fill: #fff;
+      .transition-connector.is-highlighted .transition-path {
+        animation: connector-dash 700ms linear infinite;
+        filter: drop-shadow(0 0 5px rgba(61, 61, 206, 0.45));
+        stroke-dasharray: 10 5;
+        stroke-width: 4.5;
+      }
+
+      .transition-connector.is-highlighted .transition-label rect {
         stroke-width: 2;
       }
 
@@ -438,756 +1097,65 @@
         }
       }
 
-      .press-target {
-        box-shadow: 0 0 0 2px rgba(61, 61, 206, 0.3);
-        position: relative;
-      }
-
-      .menu-item.press-target {
-        background: var(--hover-background-purple);
-      }
-
-      .screen {
-        background: var(--background-color);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        box-shadow: var(--overlay-shadow);
-        display: flex;
-        flex: 0 0 390px;
-        flex-direction: column;
-        height: 640px;
-        justify-self: center;
-        margin-top: 104px;
-        overflow: visible;
-        position: relative;
-        width: 390px;
-      }
-
-      .screen.compact {
-        height: 430px;
-      }
-
-      .screen::before {
-        align-items: center;
-        background: var(--hover-background);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        color: var(--text-color);
-        content: attr(data-flow);
-        display: inline-flex;
-        font-size: 13px;
-        font-weight: var(--font-weight-semibold);
-        justify-content: center;
-        left: 0;
-        min-height: 36px;
-        padding: 0 14px;
-        position: absolute;
-        top: -104px;
-        white-space: nowrap;
-      }
-
-      .screen::after {
-        background: var(--background-color);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        color: var(--secondary-text-color);
-        content: "Narrow render: 390 x 640";
-        font-family: var(--font-monospace);
-        font-size: 11px;
-        line-height: 1;
-        padding: 6px 9px;
-        position: absolute;
-        right: 0;
-        top: -58px;
-      }
-
-      .screen.compact::after {
-        content: "Narrow render: 390 x 430";
-      }
-
-      .screen-header {
-        align-items: center;
-        background: var(--background-color);
-        border-bottom: 1px solid var(--border-color);
-        border-radius: 8px 8px 0 0;
-        display: grid;
-        gap: 8px;
-        grid-template-columns: 32px 1fr 32px;
-        min-height: 54px;
-        padding: 0 12px;
-        position: relative;
-      }
-
-      .screen-grid .screen:not(:last-child) .screen-header::before {
-        display: none;
-      }
-
-      .screen-grid .screen:not(:last-child) .screen-header::after {
-        display: none;
-      }
-
-      .screen-header .back-button,
-      .screen-header .icon-button {
-        align-items: center;
-        background-color: transparent;
-        border: 0;
-        color: var(--text-color);
-        display: inline-flex;
-        height: 32px;
-        justify-content: center;
-        min-height: 32px;
-        min-width: 32px;
-        opacity: 0.82;
-        padding: 0;
-        position: static;
-        width: 32px;
-      }
-
-      .screen-header .icon-button.filter-icon {
-        color: var(--primary-color);
-        background-size: 20px;
-      }
-
-      .screen-title {
-        font-size: 15px;
-        font-weight: var(--font-weight-semibold);
-        overflow: hidden;
-        text-align: center;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .screen-body {
-        background: var(--background-color);
-        border-radius: 0 0 8px 8px;
-        display: flex;
-        flex: 1;
-        flex-direction: column;
-        gap: 12px;
-        overflow-y: auto;
-        padding: 14px;
-      }
-
-      .screen-body > .status-line:first-child {
-        left: 0;
-        position: absolute;
-        top: -30px;
-        z-index: 2;
-      }
-
-      .status-line {
-        align-items: center;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .status-pill {
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        color: var(--secondary-text-color);
-        display: inline-flex;
-        font-size: 12px;
-        font-weight: var(--font-weight-medium);
-        min-height: 24px;
-        padding: 3px 9px;
-      }
-
-      .status-pill.current {
-        background: rgba(40, 167, 69, 0.1);
-        border-color: rgba(40, 167, 69, 0.24);
-        color: var(--success-color);
-      }
-
-      .status-pill.mock {
-        background: var(--primary-tint-12);
-        border-color: var(--primary-tint-20);
-        color: var(--primary-color);
-      }
-
-      .status-pill.partial {
-        background: rgba(0, 102, 204, 0.1);
-        border-color: rgba(0, 102, 204, 0.2);
-        color: var(--info-color);
-      }
-
-      .status-pill.needed {
-        background: rgba(239, 108, 0, 0.1);
-        border-color: rgba(239, 108, 0, 0.25);
-        color: var(--warning-color);
-      }
-
-      .status-pill.role {
-        background: rgba(15, 23, 42, 0.06);
-        border-color: rgba(15, 23, 42, 0.14);
-        color: var(--secondary-text-color);
-      }
-
-      .status-pill.committee {
-        background: rgba(220, 53, 69, 0.1);
-        border-color: rgba(220, 53, 69, 0.24);
-        color: var(--danger-color);
-      }
-
-      .action-heading {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-        font-weight: var(--font-weight-semibold);
-        margin-top: 2px;
-        text-transform: uppercase;
-      }
-
-      .screen-context {
-        background: var(--hover-background);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        color: var(--secondary-text-color);
-        font-size: 12px;
-        line-height: 1.4;
-        padding: 9px 10px;
-      }
-
-      .screen-context strong {
-        color: var(--text-color);
-        display: block;
-        font-size: 13px;
-        font-weight: var(--font-weight-semibold);
-        margin-bottom: 3px;
-      }
-
-      .mock-list.action-list .mock-list-row {
-        cursor: pointer;
-      }
-
-      .row-role {
-        align-self: start;
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        color: var(--secondary-text-color);
-        font-size: 11px;
-        font-weight: var(--font-weight-semibold);
-        line-height: 1;
-        padding: 5px 8px;
-        white-space: nowrap;
-      }
-
-      .row-role.committee {
-        border-color: rgba(220, 53, 69, 0.22);
-        color: var(--danger-color);
-      }
-
-      .toggle {
-        background: var(--hover-background-purple);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        display: grid;
-        gap: 6px;
-        grid-template-columns: 1fr 1fr;
-        padding: 6px;
-      }
-
-      .toggle span {
-        border-radius: 6px;
-        color: var(--text-color);
-        display: block;
-        font-size: 13px;
-        font-weight: var(--font-weight-medium);
-        padding: 9px;
-        text-align: center;
-      }
-
-      .toggle .active {
-        background: var(--button-background);
-        box-shadow: var(--elev-1);
-      }
-
-      .mock-list {
-        border-bottom: 1px solid var(--border-color);
-        border-top: 1px solid var(--border-color);
-        margin-left: -14px;
-        margin-right: -14px;
-        overflow: hidden;
-      }
-
-      .mock-list-row {
-        background: var(--background-color);
-        border-bottom: 1px solid var(--border-color);
-        display: grid;
-        gap: 8px;
-        grid-template-columns: 1fr auto;
-        min-height: 58px;
-        padding: 11px 14px;
-      }
-
-      .mock-list-row:last-child {
-        border-bottom: 0;
-      }
-
-      .mock-list-title {
-        font-size: 14px;
-        font-weight: var(--font-weight-semibold);
-        line-height: 1.25;
-      }
-
-      .mock-list-meta,
-      .mock-muted {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-        line-height: 1.35;
-      }
-
-      .mock-kpi-grid {
-        display: grid;
-        gap: 8px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .mock-kpi {
-        background: var(--hover-background);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        min-height: 64px;
-        padding: 10px;
-      }
-
-      .mock-kpi-value {
-        font-size: 20px;
-        font-weight: var(--font-weight-semibold);
-        line-height: 1.1;
-      }
-
-      .mock-kpi-label {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-        margin-top: 4px;
-      }
-
-      .parameter-grid .mock-kpi {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        min-height: 76px;
-      }
-
-      .parameter-grid .mock-kpi-value {
-        font-size: 18px;
-      }
-
-      .parameter-grid .mock-kpi-label {
-        overflow-wrap: anywhere;
-      }
-
-      .parameter-grid .mock-kpi:last-child:nth-child(odd) {
-        grid-column: span 2;
-      }
-
-      .state-target {
-        box-shadow: 0 0 0 2px rgba(61, 61, 206, 0.18);
-      }
-
-      .field-stack {
-        display: grid;
-        gap: 10px;
-      }
-
-      .field {
-        display: grid;
-        gap: 5px;
-      }
-
-      .field label {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-        font-weight: var(--font-weight-medium);
-      }
-
-      .field-box {
-        align-items: center;
-        background: var(--input-background);
-        border: 1px solid transparent;
-        border-radius: 8px;
-        color: var(--text-color);
-        display: flex;
-        font-size: 14px;
-        min-height: 40px;
-        padding: 8px 10px;
-      }
-
-      .field-box.tall {
-        align-items: flex-start;
-        min-height: 92px;
-      }
-
-      .button-row {
-        background: var(--background-color);
-        border-top: 1px solid var(--border-color);
-        display: grid;
-        flex-shrink: 0;
-        gap: 8px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        margin: auto -14px -14px;
-        padding: 12px 14px;
-      }
-
-      .screen-body > .mock-button:last-child {
-        align-self: stretch;
-        flex-shrink: 0;
-        margin-top: auto;
-      }
-
-      .mock-button {
-        align-items: center;
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        display: inline-flex;
-        font-size: 14px;
-        font-weight: var(--font-weight-semibold);
-        justify-content: center;
-        min-height: 40px;
-        padding: 0 12px;
-      }
-
-      .mock-button.primary {
-        background: var(--primary-color);
-        border-color: var(--primary-color);
-        color: #fff;
-      }
-
-      .mock-button.secondary {
-        background: var(--button-background);
-        color: var(--text-color);
-      }
-
-      .proposal-title {
-        font-size: 16px;
-        font-weight: var(--font-weight-semibold);
-        line-height: 1.25;
-      }
-
-      .proposal-body {
-        color: var(--text-color);
-        font-size: 14px;
-        line-height: 1.45;
-      }
-
-      .detail-pair {
-        display: grid;
-        gap: 6px;
-      }
-
-      .detail-line {
-        color: var(--text-color);
-        font-size: 13px;
-      }
-
-      .detail-line span {
-        color: var(--secondary-text-color);
-      }
-
-      .floating-plus {
-        align-items: center;
-        align-self: flex-end;
-        background: var(--primary-color);
-        border-radius: 50%;
-        box-shadow: var(--shadow-primary);
-        color: #fff;
-        display: inline-flex;
-        font-size: 24px;
-        font-weight: var(--font-weight-normal);
-        height: 48px;
-        justify-content: center;
-        margin-top: auto;
-        width: 48px;
-      }
-
-      .menu-preview {
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        overflow: hidden;
-      }
-
-      .menu-item-preview {
-        align-items: center;
-        border-bottom: 1px solid var(--border-color);
-        display: flex;
-        font-size: 14px;
-        gap: 10px;
-        min-height: 42px;
-        padding: 0 12px;
-      }
-
-      .menu-item-preview:last-child {
-        border-bottom: 0;
-      }
-
-      .menu-dot {
-        background: var(--primary-color);
-        border-radius: 50%;
-        height: 8px;
-        width: 8px;
-      }
-
-      .screen .menu-list {
-        margin: -14px;
-      }
-
-      .screen .menu-item {
-        min-height: 56px;
-      }
-
-      .screen .message-context-menu.mock-context-menu {
-        display: block;
-        position: absolute;
-        right: 14px;
-        top: 64px;
-        z-index: 8;
-      }
-
-      .screen .message-context-menu.mock-context-menu .context-menu-option {
-        min-height: 44px;
-      }
-
-      .screen .message-context-menu.mock-context-menu .context-menu-text {
-        font-size: var(--font-size-base);
-      }
-
-      .mock-underlay-list {
-        opacity: 0.42;
-      }
-
-      .progress-bar {
-        background: var(--hover-background);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        height: 10px;
-        overflow: hidden;
-      }
-
-      .progress-fill {
-        background: var(--primary-color);
-        height: 100%;
-      }
-
-      .impact-preview {
-        background: var(--hover-background);
-        border: 1px solid var(--primary-tint-20);
-        border-radius: 8px;
-        display: grid;
-        gap: 6px;
-        padding: 8px;
-      }
-
-      .impact-preview-title {
-        align-items: center;
-        color: var(--text-color);
-        display: flex;
-        font-size: 13px;
-        font-weight: var(--font-weight-semibold);
-        justify-content: space-between;
-      }
-
-      .impact-preview-title span {
-        color: var(--secondary-text-color);
-        font-size: 11px;
-        font-weight: var(--font-weight-regular);
-      }
-
-      .impact-row {
-        display: grid;
-        gap: 3px;
-      }
-
-      .impact-row-header {
-        align-items: center;
-        color: var(--text-color);
-        display: flex;
-        font-size: 12px;
-        font-weight: var(--font-weight-semibold);
-        justify-content: space-between;
-      }
-
-      .impact-row.no .progress-fill {
-        background: var(--info-color);
-      }
-
-      .impact-summary-line {
-        color: var(--secondary-text-color);
-        display: grid;
-        font-size: 11px;
-        gap: 3px;
-        line-height: 1.25;
-      }
-
-      .impact-summary-line strong {
-        color: var(--text-color);
-      }
-
-      .two-col {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .timeline {
-        display: grid;
-        gap: 8px;
-      }
-
-      .timeline-row {
-        align-items: start;
-        display: grid;
-        gap: 8px;
-        grid-template-columns: 10px 1fr;
-      }
-
-      .timeline-dot {
-        background: var(--primary-color);
-        border-radius: 50%;
-        height: 10px;
-        margin-top: 4px;
-        width: 10px;
-      }
-
-      .flow-note {
-        background: var(--background-color);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        color: var(--secondary-text-color);
-        font-size: 13px;
-        line-height: 1.45;
-        margin-top: 16px;
-        padding: 12px 14px;
-      }
-
-      .mock-viewport {
-        cursor: grab;
-        height: 100vh;
-        overflow: hidden;
-        position: relative;
-        touch-action: none;
-        width: 100vw;
-      }
-
-      .mock-viewport.is-dragging {
-        cursor: grabbing;
-      }
-
-      .mock-viewport.is-dragging .mock-canvas {
-        user-select: none;
-      }
-
-      .mock-canvas {
-        transform: translate(0, 0) scale(1);
-        transform-origin: 0 0;
-        will-change: transform;
-      }
-
       .zoom-controls {
         align-items: center;
-        background: rgba(255, 255, 255, 0.94);
+        background: rgba(255, 255, 255, 0.96);
         border: 1px solid var(--border-color);
-        border-radius: 8px;
-        box-shadow: var(--overlay-shadow);
-        display: inline-flex;
+        border-radius: 10px;
+        box-shadow: 0 4px 14px rgba(28, 28, 33, 0.16);
+        display: flex;
         gap: 6px;
         padding: 6px;
         position: fixed;
-        right: 16px;
-        top: 16px;
-        z-index: 1000;
+        right: 18px;
+        top: 18px;
+        z-index: 20;
       }
 
       .zoom-button,
       .zoom-reset {
-        align-items: center;
-        background: var(--background-color);
+        background: #fff;
         border: 1px solid var(--border-color);
-        border-radius: 8px;
+        border-radius: 7px;
         color: var(--text-color);
-        cursor: pointer;
-        display: inline-flex;
-        font-family: var(--font-primary);
-        font-size: 16px;
-        font-weight: var(--font-weight-semibold);
-        height: 34px;
-        justify-content: center;
-        line-height: 1;
-        min-width: 34px;
-        padding: 0 10px;
+        height: 36px;
+        padding: 0;
+      }
+
+      .zoom-button {
+        font-size: 20px;
+        width: 36px;
       }
 
       .zoom-reset {
-        color: var(--secondary-text-color);
         font-size: 12px;
-        min-width: 58px;
+        font-weight: 700;
+        min-width: 62px;
       }
 
-      .zoom-button:hover,
-      .zoom-reset:hover {
-        background: var(--hover-background-purple);
-        border-color: var(--primary-tint-40);
-        color: var(--primary-color);
+      .zoom-help {
+        color: var(--secondary-text-color);
+        font-size: 11px;
+        max-width: 118px;
+        padding: 0 6px;
       }
 
-      .zoom-button:disabled {
-        color: var(--text-tertiary);
-        cursor: not-allowed;
-        opacity: 0.55;
-      }
-
-      @media (max-width: 900px) {
-        .mock-page {
-          padding: 14px;
-        }
-
+      @media (max-width: 760px) {
         .mock-header {
-          grid-template-columns: 1fr;
+          grid-template-columns: auto minmax(0, 1fr);
         }
 
-        .mock-tag-row {
-          justify-content: flex-start;
+        .mock-version {
+          display: none;
         }
 
-        .mock-flow {
-          align-items: stretch;
-          flex-direction: column;
-          overflow-x: visible;
+        .zoom-controls {
+          bottom: 18px;
+          top: auto;
         }
 
-        .flow-node {
-          flex-basis: auto;
-          margin-bottom: 28px;
-          margin-right: 0;
-          width: 100%;
-        }
-
-        .flow-node:not(:last-child)::after {
-          height: 28px;
-          left: 50%;
-          right: auto;
-          top: 100%;
-          width: 2px;
-        }
-
-        .flow-node:not(:last-child)::before {
-          border-left: 5px solid transparent;
-          border-right: 5px solid transparent;
-          border-top: 7px solid var(--primary-tint-40);
-          left: calc(50% - 5px);
-          right: auto;
-          top: calc(100% + 21px);
-        }
-
-        .flow-node:last-child {
-          margin-bottom: 0;
-        }
-      }
-
-      @media (max-width: 560px) {
-        .mock-section-header {
-          align-items: start;
-          flex-direction: column;
-          gap: 4px;
+        .zoom-help {
+          display: none;
         }
       }
     </style>
@@ -1195,922 +1163,382 @@
   <body>
     <div class="mock-viewport" data-pan-viewport>
       <div class="zoom-controls" aria-label="Mock board zoom controls">
-        <button class="zoom-button" type="button" data-zoom-out aria-label="Zoom out">-</button>
+        <span class="zoom-help">Wheel to zoom · drag to pan · click an arrow to pin</span>
+        <button class="zoom-button" type="button" data-zoom-out aria-label="Zoom out">−</button>
         <button class="zoom-reset" type="button" data-zoom-reset aria-label="Reset zoom and position">100%</button>
         <button class="zoom-button" type="button" data-zoom-in aria-label="Zoom in">+</button>
       </div>
-      <main class="mock-page mock-canvas" data-pan-canvas>
-      <header class="mock-header">
-        <div class="mock-brand">
-          <img class="mock-logo" src="../media/liberdus_logo_50.png" alt="" />
-          <div>
-            <h1 class="mock-title">DAO Screen Mock Board</h1>
-            <div class="mock-subtitle">Single-page HTML version of DAO_SCREEN_FLOW.md</div>
-          </div>
-        </div>
-        <div class="mock-subtitle">
-          Current mock screens and possible future screens are shown together so layout, copy, and workflow gaps can be reviewed visually.
-        </div>
-        <div class="mock-tag-row" aria-label="Legend">
-          <span class="mock-tag current">Current</span>
-          <span class="mock-tag mock">Mock data</span>
-          <span class="mock-tag partial">Partial</span>
-          <span class="mock-tag needed">Needed</span>
-        </div>
-      </header>
 
-      <section class="mock-section" aria-labelledby="dao-routes-title">
-        <div class="mock-section-header">
-          <div>
-            <h2 class="mock-section-title" id="dao-routes-title">DAO Routes From Menu</h2>
-            <div class="mock-section-note">The DAO entry point branches by task and role. This version is aligned to the server DAO Phase 1 statuses and transaction names.</div>
-          </div>
-        </div>
-        <div class="route-map" aria-label="DAO route map">
-          <div class="route-lane">
-            <div class="route-title">Browse route<span>Any user</span></div>
-            <div class="route-chain">
-              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
-              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Active / archived list</span><span class="route-arrow"></span>
-              <span class="route-step">Filter by status</span><span class="route-arrow"></span>
-              <span class="route-step">Proposal detail</span>
+      <main class="mock-canvas" data-pan-canvas>
+        <header class="mock-header">
+          <div class="mock-brand">
+            <img class="mock-logo" src="../media/liberdus_logo_50.png" alt="" />
+            <div>
+              <h1 class="mock-title">DAO Current Modal Flow</h1>
+              <div class="mock-subtitle">Interactive UI/UX reference using the modal structure and copy on current main.</div>
             </div>
           </div>
-          <div class="route-lane">
-            <div class="route-title">Create route<span>Proposal author</span></div>
-            <div class="route-chain">
-              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
-              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Proposal builder</span><span class="route-arrow"></span>
-              <span class="route-step">Confirm dao_proposal_create</span><span class="route-arrow"></span>
-              <span class="route-step decision">Review status</span>
-            </div>
+          <div class="mock-subtitle">
+            All proposal states reuse the same Proposal modal. Role- and time-dependent actions appear inside it; they are not separate routes.
           </div>
-          <div class="route-note">Regular proposals start in review. Committee votes are recorded during review; after reviewEnd, dao_committee_result moves the proposal to voting or withheld. Emergency proposals are committee-only and can be accepted and applied without community voting.</div>
-          <div class="route-lane">
-            <div class="route-title">Committee route<span>Committee member</span></div>
-            <div class="route-chain">
-              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
-              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Review proposals</span><span class="route-arrow"></span>
-              <span class="route-step">dao_committee_vote</span><span class="route-arrow"></span>
-              <span class="route-step decision">dao_committee_result</span><span class="route-arrow"></span>
-              <span class="route-step">Withheld or voting</span>
-            </div>
-          </div>
-          <div class="route-lane">
-            <div class="route-title">Voting route<span>Eligible voter</span></div>
-            <div class="route-chain">
-              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
-              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Voting proposals</span><span class="route-arrow"></span>
-              <span class="route-step">Weighted vote form</span><span class="route-arrow"></span>
-              <span class="route-step">dao_vote</span><span class="route-arrow"></span>
-              <span class="route-step">dao_vote_result</span><span class="route-arrow"></span>
-              <span class="route-step">Results / audit</span>
-            </div>
-          </div>
-          <div class="route-lane">
-            <div class="route-title">After vote route<span>Voter or any user</span></div>
-            <div class="route-chain">
-              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
-              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Accepted / rejected result</span><span class="route-arrow"></span>
-              <span class="route-step">dao_claim_reward</span><span class="route-arrow"></span>
-              <span class="route-step">dao_apply_parameters</span><span class="route-arrow"></span>
-              <span class="route-step done">dao_burn_reward</span>
-            </div>
-          </div>
-          <div class="route-lane">
-            <div class="route-title">Emergency route<span>Committee member</span></div>
-            <div class="route-chain">
-              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
-              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">Emergency create</span><span class="route-arrow"></span>
-              <span class="route-step">Decisive accept</span><span class="route-arrow"></span>
-              <span class="route-step done">Apply immediately</span>
-            </div>
-          </div>
-          <div class="route-lane">
-            <div class="route-title">Reference route<span>Any user</span></div>
-            <div class="route-chain">
-              <span class="route-step entry">Menu</span><span class="route-arrow"></span>
-              <span class="route-step entry">DAO overview</span><span class="route-arrow"></span>
-              <span class="route-step">DAO parameters</span><span class="route-arrow"></span>
-              <span class="route-step">Current values</span><span class="route-arrow"></span>
-              <span class="route-step">Create parameter proposal</span>
-            </div>
-          </div>
-        </div>
-      </section>
+          <div class="mock-version">Aligned to main<br /><strong>9c02dfb3 · Aug 26, 2026</strong></div>
+        </header>
 
-      <section class="mock-section" aria-labelledby="current-flow-title">
-        <div class="mock-section-header">
-          <div>
-            <h2 class="mock-section-title" id="current-flow-title">Current Entry Flow</h2>
-            <div class="mock-section-note">What exists today in the app, backed by in-memory DAO mock data.</div>
-          </div>
-        </div>
-        <div class="screen-grid">
-          <svg class="row-transition-arrows current-row-arrows" viewBox="0 0 2022 760" aria-hidden="true">
-            <defs>
-              <marker id="arrow-current" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(61, 61, 206, 0.56)"></path>
-              </marker>
-            </defs>
-            <path class="transition-path" marker-end="url(#arrow-current)" d="M 389 459 C 430 459 372 220 408 220"></path>
-            <g class="transition-label">
-              <rect x="314" y="400" width="70" height="24" rx="12"></rect>
-              <text x="327" y="416">tap DAO</text>
-            </g>
-            <path class="transition-path" marker-end="url(#arrow-current)" d="M 769 132 C 840 132 910 169 991 169"></path>
-            <g class="transition-label">
-              <rect x="820" y="108" width="78" height="24" rx="12"></rect>
-              <text x="833" y="124">tap filter</text>
-            </g>
-            <path class="transition-path" marker-end="url(#arrow-current)" d="M 797 373 C 1010 330 1350 320 1632 278"></path>
-            <g class="transition-label">
-              <rect x="1018" y="300" width="116" height="24" rx="12"></rect>
-              <text x="1031" y="316">tap proposal row</text>
-            </g>
-            <path class="transition-path" marker-end="url(#arrow-current)" d="M 759 705 C 930 730 1080 650 1224 620"></path>
-            <g class="transition-label">
-              <rect x="906" y="682" width="54" height="24" rx="12"></rect>
-              <text x="919" y="698">tap +</text>
-            </g>
-          </svg>
-          <article class="screen" data-flow="1. Menu -> DAO">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Menu</div>
-              <button class="sign-out-header-button active" aria-label="Sign Out"></button>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill current">Current</span>
-                <span class="status-pill mock">Mock data</span>
-                <span class="status-pill partial">Devnet only</span>
-              </div>
-              <div class="screen-context"><strong>Entry point</strong>DAO is currently reached from the main app menu. In the real app this item only appears on Devnet, then opens the DAO proposal list.</div>
-              <ul class="menu-list">
-                <li class="menu-item" data-icon="mail">Invite</li>
-                <li class="menu-item" data-icon="trending-up">Farm</li>
-                <li class="menu-item" data-icon="shield">Validator</li>
-                <li class="menu-item press-target" data-icon="dao">DAO</li>
-                <li class="menu-item" data-icon="arrow-right-arrow-left">Bridge</li>
-                <li class="menu-item" data-icon="search">Explorer</li>
-                <li class="menu-item" data-icon="globe">Network</li>
-                <li class="menu-item" data-icon="file-text">Logs</li>
-                <li class="menu-item" data-icon="github">Help</li>
-                <li class="menu-item" data-icon="info">About</li>
-                <li class="menu-item sign-out" data-icon="log-out">Sign Out</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="screen" data-flow="2. DAO list">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">DAO - Active - Voting</div>
-              <button class="icon-button filter-icon press-target" aria-label="Filter"></button>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill current">Current</span>
-                <span class="status-pill mock">Mock data</span>
-              </div>
-              <div class="screen-context"><strong>Proposal list</strong>Shows active or archived proposals filtered by status. Tap the filter icon to change status, tap a row for details, or tap + to create a proposal.</div>
-              <div class="toggle" aria-label="Proposal group">
-                <span class="active">Active 22</span>
-                <span>Archived 14</span>
-              </div>
-              <div class="mock-list">
-                <div class="mock-list-row press-target">
-                  <div>
-                    <div class="mock-list-title">#3 Adjust minimum transaction fee</div>
-                    <div class="mock-list-meta">Change the minimum transaction fee to better match network load.</div>
-                  </div>
-                  <div class="mock-list-meta">9:10 AM</div>
-                </div>
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">No proposals found</div>
-                    <div class="mock-list-meta">Use + to create a proposal</div>
-                  </div>
-                </div>
-              </div>
-              <div class="floating-plus press-target">+</div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow="2a. Filter menu open">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">DAO - Active - Voting</div>
-              <button class="icon-button filter-icon" aria-label="Filter"></button>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill current">Current</span>
-                <span class="status-pill mock">Mock data</span>
-              </div>
-              <div class="screen-context"><strong>Filter overlay</strong>This is the existing DAO status menu opened from the funnel icon. Counts are calculated from the current group, not a separate modal route.</div>
-              <div class="toggle" aria-label="Proposal group">
-                <span class="active">Active 22</span>
-                <span>Archived 14</span>
-              </div>
-              <div class="mock-list mock-underlay-list">
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">#3 Adjust minimum transaction fee</div>
-                    <div class="mock-list-meta">Change the minimum transaction fee to better match network load.</div>
-                  </div>
-                  <div class="mock-list-meta">9:10 AM</div>
-                </div>
-              </div>
-              <div class="message-context-menu mock-context-menu">
-                <div class="context-menu-option" data-state-key="review">
-                  <span class="context-menu-text">Review 2</span>
-                </div>
-                <div class="context-menu-option" data-state-key="withheld">
-                  <span class="context-menu-text">Withheld 7</span>
-                </div>
-                <div class="context-menu-option" data-state-key="voting">
-                  <span class="context-menu-text">Voting 1</span>
-                </div>
-                <div class="context-menu-option" data-state-key="rejected">
-                  <span class="context-menu-text">Rejected 1</span>
-                </div>
-                <div class="context-menu-option" data-state-key="accepted">
-                  <span class="context-menu-text">Accepted 2</span>
-                </div>
-                <div class="context-menu-option" data-state-key="applied">
-                  <span class="context-menu-text">Applied 3</span>
-                </div>
-              </div>
-              <div class="floating-plus">+</div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow="3a. Add proposal">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Add Proposal</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill current">Current</span>
-                <span class="status-pill mock">Mock data</span>
-                <span class="status-pill partial">Partial</span>
-              </div>
-              <div class="screen-context"><strong>Mock proposal creation</strong>Creates an in-memory proposal and does not yet send server DAO transactions. Phase 1 needs dao_proposal_create, committee review, weighted voting, rewards, apply, and burn actions.</div>
-              <div class="field-stack">
-                <div class="field">
-                  <label>Title</label>
-                  <div class="field-box">Increase vote exponent</div>
-                </div>
-                <div class="field">
-                  <label>Type</label>
-                  <div class="field-box">Governance</div>
-                </div>
-                <div class="two-col">
-                  <div class="field">
-                    <label>Parameter</label>
-                    <div class="field-box">voteExponent</div>
-                  </div>
-                  <div class="field">
-                    <label>New value</label>
-                    <div class="field-box">1.2</div>
-                  </div>
-                </div>
-                <div class="field">
-                  <label>Summary</label>
-                  <div class="field-box tall">Change voteExponent from 1.1 to 1.2 and keep yes/no ballot options.</div>
-                </div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button primary">Submit</div>
-                <div class="mock-button secondary">Cancel</div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow="3b. Proposal detail">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Proposal</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill current">Current</span>
-                <span class="status-pill mock">Mock data</span>
-                <span class="status-pill partial">Partial</span>
-              </div>
-              <div class="screen-context"><strong>Proposal detail</strong>Displays the selected proposal and simple mock Yes/No voting only when status is Voting. Server voting needs weights[], spend, eligibility checks, dao_vote_result, and an audit trail.</div>
-              <div>
-                <div class="mock-muted">Proposal #3</div>
-                <div class="proposal-title">Adjust minimum transaction fee</div>
-                <div class="mock-muted">Type: Economic</div>
-                <div class="mock-muted">Voting - 6/15/2026, 9:10 AM - by carol</div>
-              </div>
-              <p class="proposal-body">Change the minimum transaction fee to better match network load.</p>
-              <div class="detail-pair">
-                <div class="detail-line"><span>minTxFee:</span> 0.001</div>
-                <div class="detail-line"><span>nodeRewards:</span> unchanged</div>
-              </div>
-              <div class="proposal-title">Vote</div>
-              <div class="button-row">
-                <div class="mock-button primary">Yes</div>
-                <div class="mock-button secondary">No</div>
-              </div>
-              <div class="mock-muted">Yes: 12 - No: 4</div>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="mock-section" aria-labelledby="needed-flow-title">
-        <div class="mock-section-header">
-          <div>
-            <h2 class="mock-section-title" id="needed-flow-title">Potential Role-Specific DAO Screens</h2>
-            <div class="mock-section-note">Server-aligned Phase 1 flow. The DAO overview is a category hub; category rows open list screens, and list rows open the action modal.</div>
-          </div>
+        <div class="current-note">
+          <strong>What changed from the old mock</strong>
+          Backend proposal data, the eight-chip filter bar, review confirmation, committee decisions, weighted voting, finalization, reward claims, and parameter application are all represented below. The obsolete funnel menu, Active/Archived tabs, category dashboard, and standalone reward/parameter/action screens are gone.
         </div>
 
-        <div class="branch-flow-board" data-branch-board>
-          <svg class="branch-transition-arrows" data-branch-arrows aria-hidden="true"></svg>
-
-          <div class="flow-row-title">Shared DAO entry and proposal creation path <span>Create opens the builder; signing creates a review proposal. Authors land on review status, while committee members see the same proposal in their queue.</span></div>
-          <div class="screen-grid flow-grid branch-row">
-          <article class="screen" data-flow="1. DAO category hub">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">DAO</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill committee">Demo: committee</span>
-                <span class="status-pill role">Role-aware</span>
-              </div>
-              <div class="screen-context"><strong>Demo user: committee member</strong>Rows are DAO queues, not direct action links. Tap a category to open its list, then tap a proposal row to open the vote, reward, review, apply, or result modal.</div>
-              <div class="action-heading">DAO queues</div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="dao-active-category">
-                  <div>
-                    <div class="mock-list-title">Active proposals</div>
-                    <div class="mock-list-meta">All review, voting, accepted, and applied proposals</div>
-                  </div>
-                  <div class="row-role">22</div>
-                </div>
-                <div class="mock-list-row press-target" data-flow-source="dao-voting-category">
-                  <div>
-                    <div class="mock-list-title">Voting now</div>
-                    <div class="mock-list-meta">Filtered active proposals currently in voting</div>
-                  </div>
-                  <div class="row-role">1</div>
-                </div>
-                <div class="mock-list-row press-target" data-flow-source="dao-reward-category">
-                  <div>
-                    <div class="mock-list-title">Claimable rewards</div>
-                    <div class="mock-list-meta">Proposals this user voted on with open claims</div>
-                  </div>
-                  <div class="row-role">4.23 LIB</div>
-                </div>
-                <div class="mock-list-row press-target" data-flow-source="dao-committee-category">
-                  <div>
-                    <div class="mock-list-title">Committee review</div>
-                    <div class="mock-list-meta">Visible because this demo user is a committee member</div>
-                  </div>
-                  <div class="row-role committee">2</div>
-                </div>
-                <div class="mock-list-row press-target" data-flow-source="dao-ready-actions-category">
-                  <div>
-                    <div class="mock-list-title">Ready actions</div>
-                    <div class="mock-list-meta">Permissionless finalize/apply/burn transactions when ready</div>
-                  </div>
-                  <div class="row-role">3</div>
-                </div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button secondary press-target" data-flow-source="dao-parameters">Parameters</div>
-                <div class="mock-button primary press-target" data-flow-source="dao-create">Create</div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow-target="builder" data-flow="2. Proposal builder">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Create Proposal</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill partial">Expands current add</span>
-                <span class="status-pill role">Proposal author</span>
-              </div>
-              <div class="screen-context"><strong>Phase 1 proposal draft</strong>Builds a governance, economic, or protocol proposal with 2-10 ballot options. Emergency creation is committee-only and pays no proposal fee.</div>
-              <div class="field-stack">
-                <div class="field"><label>Step 1: Type</label><div class="field-box">Governance</div></div>
-                <div class="field"><label>Step 2: Ballot options</label><div class="field-box">yes, no, add option</div></div>
-                <div class="field"><label>Step 3: Payload</label><div class="field-box">governance.voteExponent: 1.1 -&gt; 1.2</div></div>
-                <div class="field"><label>Step 4: Timing and fee</label><div class="field-box">fee: 50.0 USD, emergency: no</div></div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button secondary">Back</div>
-                <div class="mock-button primary press-target" data-flow-source="builder-review">Review</div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow-target="confirm" data-flow="3. Confirm create">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Confirm Proposal</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Proposal author</span>
-              </div>
-              <div class="screen-context"><strong>Confirm dao_proposal_create</strong>Final checkpoint before signing. Non-committee authors land on review status after submit; committee-only controls stay in the committee queue.</div>
-              <div class="mock-kpi">
-                <div class="mock-kpi-value">50.0 USD</div>
-                <div class="mock-kpi-label">Proposal fee / reward pool</div>
-              </div>
-              <div class="detail-pair">
-                <div class="detail-line"><span>Starts:</span> review</div>
-                <div class="detail-line"><span>Type:</span> Governance</div>
-                <div class="detail-line"><span>Tx:</span> dao_proposal_create</div>
-                <div class="detail-line"><span>Options:</span> yes, no</div>
-                <div class="detail-line"><span>Next:</span> author review status</div>
-              </div>
-              <div class="field"><label>Payload preview</label><div class="field-box tall">description, options, governance changes, fee, signature request</div></div>
-              <div class="mock-button primary press-target" data-flow-source="confirm-sign">Sign dao_proposal_create</div>
-            </div>
-          </article>
-
-
-          <article class="screen" data-flow-target="review-status" data-flow="4. Submitted review status">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Proposal Submitted</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Proposal author</span>
-              </div>
-              <div class="screen-context"><strong>Author post-submit view</strong>After dao_proposal_create, non-committee authors see the proposal in review status. They can track timing and votes, but cannot use committee-only controls.</div>
-              <div>
-                <div class="proposal-title">#21 Increase vote exponent</div>
-                <div class="mock-muted">Status: review</div>
-              </div>
-              <div class="mock-list">
-                <div class="mock-list-row"><div class="mock-list-title">Review window</div><div class="mock-list-meta">ends in 1d 3h</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Committee visibility</div><div class="mock-list-meta">appears in committee queue</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Next public state</div><div class="mock-list-meta">voting or withheld after dao_committee_result</div></div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow-target="committee-queue" data-flow="5. Committee queue">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Committee Queue</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill committee">Committee only</span>
-              </div>
-              <div class="screen-context"><strong>Review list</strong>Visible only to committee members. Rows are review-status proposals that need accept, withhold, or result finalization.</div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="committee-list-row">
-                  <div>
-                    <div class="mock-list-title">#21 Increase vote exponent</div>
-                    <div class="mock-list-meta">review - 3 accept / 1 withhold - ends in 1d 3h</div>
-                  </div>
-                  <div class="row-role committee">review</div>
-                </div>
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">#18 Emergency endpoint patch</div>
-                    <div class="mock-list-meta">emergency - committee-only proposal</div>
-                  </div>
-                  <div class="row-role committee">emergency</div>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow-target="committee" data-flow="6. Committee review">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Committee Review</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill committee">Committee only</span>
-              </div>
-              <div class="screen-context"><strong>Committee review</strong>Committee members vote accept or withhold during review. Withhold requires a reason; regular accepted proposals still wait for reviewEnd.</div>
-              <div>
-                <div class="proposal-title">Proposal #21</div>
-                <div class="mock-muted">Review ends in 1d 3h</div>
-              </div>
-              <div class="mock-kpi-grid" data-flow-target="committee-tally">
-                <div class="mock-kpi"><div class="mock-kpi-value">3</div><div class="mock-kpi-label">Accept</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">1</div><div class="mock-kpi-label">Withhold</div></div>
-              </div>
-              <div class="field" data-flow-target="withhold-reason"><label>Withhold reason</label><div class="field-box">Required when withholding</div></div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="committee-result">
-                  <div>
-                    <div class="mock-list-title">Finalize review result</div>
-                    <div class="mock-list-meta">dao_committee_result after reviewEnd</div>
-                  </div>
-                  <div class="row-role">any user</div>
-                </div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button primary press-target" data-flow-source="committee-accept">Accept</div>
-                <div class="mock-button secondary press-target" data-flow-source="committee-withhold">Withhold</div>
-              </div>
-            </div>
-          </article>
+        <section class="flow-section" aria-labelledby="current-flow-title">
+          <div class="section-heading">
+            <h2 class="section-title" id="current-flow-title">Current production flow</h2>
+            <div class="section-note">The labels above each device explain when the real modal state is shown.</div>
           </div>
 
-          <div class="flow-row-title branch-indent">Proposal list, voting, and result branch <span>Active proposals opens the full active list. Voting now opens the same list in its Voting-filtered state, then selecting a proposal opens the weighted vote modal.</span></div>
-          <div class="screen-grid flow-grid branch-row">
-            <div class="branch-spacer" aria-hidden="true"></div>
-          <article class="screen" data-flow-target="proposal-list" data-flow="2a. Active proposals list">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Active Proposals</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
-              </div>
-              <div class="screen-context"><strong>Full active list</strong>Active proposals opens this full active-status view. It can include voting, accepted, and review proposals; tapping each row opens the status-specific next screen.</div>
-              <div class="toggle" aria-label="Proposal filters">
-                <span class="active">All active 22</span>
-                <span>Voting 1</span>
-              </div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="proposal-list-vote-row">
-                  <div>
-                    <div class="mock-list-title">#21 Increase vote exponent</div>
-                    <div class="mock-list-meta">voting - ends in 5d 2h - opens weighted vote</div>
-                  </div>
-                  <div class="row-role">vote</div>
-                </div>
-                <div class="mock-list-row press-target" data-flow-source="proposal-list-result-row">
-                  <div>
-                    <div class="mock-list-title">#19 Adjust minimum spend</div>
-                    <div class="mock-list-meta">accepted - claim period open - opens results</div>
-                  </div>
-                  <div class="row-role">result</div>
-                </div>
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">#20 Minimum spend update</div>
-                    <div class="mock-list-meta">review - waiting for committee result</div>
-                  </div>
-                  <div class="row-role">review</div>
-                </div>
-              </div>
-            </div>
-          </article>
+          <div class="flow-board" data-flow-board>
+            <svg class="transition-arrows" data-flow-arrows aria-label="Interactive flow connections">
+              <defs>
+                <marker id="flow-arrowhead" markerHeight="10" markerWidth="10" orient="auto" refX="8" refY="5">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#3d3dce"></path>
+                </marker>
+              </defs>
+            </svg>
 
-          <article class="screen" data-flow-target="voting-filter-list" data-flow="2b. Voting filter selected">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Voting Proposals</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Eligible voter</span>
-              </div>
-              <div class="screen-context"><strong>Filtered list state</strong>Voting now does not open a unique voting modal. It opens the proposal list with the Voting filter already selected, showing only proposals that can be inspected or voted on now.</div>
-              <div class="toggle" aria-label="Proposal filters">
-                <span>All active 22</span>
-                <span class="active">Voting 1</span>
-              </div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="voting-filter-row">
-                  <div>
-                    <div class="mock-list-title">#21 Increase vote exponent</div>
-                    <div class="mock-list-meta">voting - eligible users can open the weighted vote form</div>
-                  </div>
-                  <div class="row-role">vote</div>
+            <div class="flow-row">
+              <article class="screen">
+                <div class="screen-label-row">
+                  <div class="screen-label">1. Menu</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Devnet</span></div>
                 </div>
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">No other voting proposals</div>
-                    <div class="mock-list-meta">Changing the filter returns to the full active list.</div>
+                <div class="screen-note"><strong>Entry point</strong>DAO remains a Devnet-only Menu item and opens the proposal list.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header">
+                    <button class="back-button" type="button" aria-label="Back"></button>
+                    <div class="modal-title">Menu</div>
+                    <button class="sign-out-header-button" type="button" aria-label="Sign out">↪</button>
+                  </div>
+                  <div class="modal-content">
+                    <ul class="menu-list">
+                      <li class="menu-item" data-glyph="✉">Invite</li>
+                      <li class="menu-item" data-glyph="◇">EVM Assets</li>
+                      <li class="menu-item" data-glyph="↗">Farm</li>
+                      <li class="menu-item" data-glyph="♢">Validator</li>
+                      <li class="menu-item is-target" data-glyph="⬡" data-flow-source="menu-dao">DAO</li>
+                      <li class="menu-item" data-glyph="↔">Bridge</li>
+                      <li class="menu-item" data-glyph="⌕">Explorer</li>
+                      <li class="menu-item" data-glyph="◎">Network</li>
+                      <li class="menu-item" data-glyph="▤">Logs</li>
+                    </ul>
                   </div>
                 </div>
-              </div>
-            </div>
-          </article>
+              </article>
 
-          <article class="screen" data-flow-target="community-vote" data-flow="3a. Community vote">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Vote</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Eligible voter</span>
-              </div>
-              <div class="screen-context"><strong>Weighted dao_vote</strong>Eligible voters submit weights[] for proposal options plus spend. The server requires balance above voteThreshold and spend at least minimumSpend.</div>
-              <div class="mock-muted">Eligible: balance above 100.0 USD threshold - voting ends in 5d 2h</div>
-              <div class="field-stack">
-                <div class="field"><label>Option[0] yes weight</label><div class="field-box">3</div></div>
-                <div class="field"><label>Option[1] no weight</label><div class="field-box">1</div></div>
-                <div class="field"><label>Spend amount</label><div class="field-box">10.00 USD</div></div>
-              </div>
-              <div class="impact-preview state-target" data-flow-target="vote-estimate">
-                <div class="impact-preview-title">Your vote impact <span>Total 12.59 (12.6x min)</span></div>
-                <div class="impact-row">
-                  <div class="impact-row-header"><span>Yes</span><span>+9.44</span></div>
-                  <div class="progress-bar"><div class="progress-fill" style="width: 75%"></div></div>
+              <article class="screen" data-flow-target="dao-list">
+                <div class="screen-label-row">
+                  <div class="screen-label">2. DAO proposal list</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Any user</span></div>
                 </div>
-                <div class="impact-row no">
-                  <div class="impact-row-header"><span>No</span><span>+3.15</span></div>
-                  <div class="progress-bar"><div class="progress-fill" style="width: 25%"></div></div>
+                <div class="screen-note"><strong>Default state</strong>The modal opens on Vote unless a DAO notification selects Vote or Claim.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header">
+                    <button class="back-button" type="button" aria-label="Back"></button>
+                    <div class="modal-title">DAO - Vote</div>
+                  </div>
+                  <div class="modal-content">
+                    <div class="dao-toolbar">
+                      <div class="dao-filter-bar" role="tablist" aria-label="Proposal filter">
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Review</span><span class="dao-filter-chip-count">2</span></button>
+                        <button class="dao-filter-chip active" type="button"><span class="dao-filter-chip-label">Vote</span><span class="dao-filter-chip-count">3</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Accepted</span><span class="dao-filter-chip-count">1</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Claim</span><span class="dao-filter-chip-count">1</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Withheld</span><span class="dao-filter-chip-count">2</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Rejected</span><span class="dao-filter-chip-count">1</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Applied</span><span class="dao-filter-chip-count">4</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">14</span></button>
+                      </div>
+                    </div>
+                    <div class="dao-list-pane">
+                      <ul class="chat-list">
+                        <li class="dao-proposal-row">
+                          <div class="dao-row-content">
+                            <div class="dao-row-title notification-dot">Increase vote exponent</div>
+                            <div class="dao-row-meta"><span>Governance</span><div class="dao-row-previews"><span class="dao-row-preview">Ends 4:30 PM</span></div></div>
+                          </div>
+                        </li>
+                        <li class="dao-proposal-row">
+                          <div class="dao-row-content">
+                            <div class="dao-row-title">Adjust minimum spend</div>
+                            <div class="dao-row-meta"><span>Economic</span><div class="dao-row-previews"><span class="dao-row-preview">Ends Aug 29, 2026</span></div></div>
+                          </div>
+                        </li>
+                        <li class="dao-proposal-row">
+                          <div class="dao-row-content">
+                            <div class="dao-row-title">Protocol fee schedule</div>
+                            <div class="dao-row-meta"><span>Protocol</span><div class="dao-row-previews"><span class="dao-row-preview">Ready to finalize</span></div></div>
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                    <button class="floating-button" type="button" data-flow-source="dao-add" aria-label="Add proposal">+</button>
+                  </div>
                 </div>
-                <div class="impact-summary-line">
-                  <div><strong>Before:</strong> Yes 124.44 / No 88.10</div>
-                  <div><strong>After:</strong> Yes 133.88 / No 91.25</div>
+              </article>
+            </div>
+
+            <div class="flow-row">
+              <article class="screen" data-flow-target="add-proposal">
+                <div class="screen-label-row">
+                  <div class="screen-label">3. Add Proposal</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div>
                 </div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button secondary press-target" data-flow-source="vote-preview">Preview</div>
-                <div class="mock-button primary press-target" data-flow-source="vote-submit">Submit dao_vote</div>
-              </div>
-            </div>
-          </article>
+                <div class="screen-note"><strong>Draft builder</strong>Uses typed parameter controls, a fixed “no change” option, timing pickers, and DAO-derived limits.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header">
+                    <button class="back-button" type="button" aria-label="Back"></button>
+                    <div class="modal-title">Add Proposal</div>
+                  </div>
+                  <div class="modal-content">
+                    <div class="form-container">
+                      <form class="dao-proposal-form compact-content form-overview">
+                        <div class="dao-form-grid">
+                          <div class="form-group"><label>Emergency <span class="dao-form-required">*</span></label><select class="form-control"><option>No</option></select><div class="dao-form-help">Emergency proposals allow only one additional option.</div></div>
+                          <div class="form-group"><label>Proposal Fee</label><input class="form-control dao-form-current-value" value="50 USD" readonly /><div class="dao-form-help">Derived from DAO params. Emergency proposals use 0.</div></div>
+                        </div>
+                        <div class="form-group"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Increase vote exponent" /></div>
+                        <div class="form-group"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control">Increase voteExponent so larger single votes receive the expected spend boost.</textarea></div>
+                        <div class="form-group"><label>Proposal Type <span class="dao-form-required">*</span></label><select class="form-control"><option>Governance</option></select><div class="dao-form-help">The type controls which parameters can be selected.</div></div>
+                        <div class="form-group">
+                          <label>Options and Parameter Changes <span class="dao-form-required">*</span></label>
+                          <div class="dao-form-option dao-form-option--no-change"><div class="dao-form-row-title">No change</div><p class="dao-form-help">This is always the first option.</p></div>
+                          <div class="dao-form-option">
+                            <div class="dao-form-row-title"><span>Option 1</span><span>Remove option</span></div>
+                            <div class="dao-form-change-box">
+                              <div class="dao-form-change-line"><label>Select</label><select class="form-control"><option>Vote exponent</option></select></div>
+                              <div class="dao-form-change-line"><label>Current</label><input class="form-control dao-form-current-value" value="1.1" readonly /></div>
+                              <div class="dao-form-change-line"><label>Enter</label><input class="form-control" value="1.2" /></div>
+                            </div>
+                          </div>
+                          <button class="dao-form-add-button" type="button">⊕ Add option</button>
+                        </div>
+                        <div class="dao-form-grid">
+                          <div class="form-group"><label>Review Delay (ms)</label><button class="form-control" type="button">0</button><div class="dao-form-help">Delay: 0 sec</div></div>
+                          <div class="form-group"><label>Grace Period (ms) <span class="dao-form-required">*</span></label><button class="form-control" type="button">86,400,000</button><div class="dao-form-help">Duration: 1 day</div></div>
+                        </div>
+                        <div class="form-actions"><button class="btn btn--secondary btn--pill" type="button">Cancel</button><button class="btn btn--primary btn--pill" type="button" data-flow-source="draft-review">Review Draft</button></div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </article>
 
-          <article class="screen" data-flow-target="results" data-flow="4a. Results / audit">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Results</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
-              </div>
-              <div class="screen-context"><strong>dao_vote_result and audit</strong>After votingEnd, dao_vote_result sets accepted or rejected from the winning option and burns pctBurned from the reward pool as initialBurnedReward.</div>
-              <div class="proposal-title">Winning option: Yes</div>
-              <div class="detail-pair">
-                <div class="detail-line"><span>Yes:</span> 124.44</div>
-                <div class="progress-bar"><div class="progress-fill" style="width: 59%"></div></div>
-                <div class="detail-line"><span>No:</span> 88.10</div>
-                <div class="progress-bar"><div class="progress-fill" style="width: 41%"></div></div>
-                <div class="detail-line"><span>voterRewardPool:</span> 50.0 USD</div>
-                <div class="detail-line"><span>initialBurnedReward:</span> 25.0 USD</div>
-              </div>
-              <div class="mock-list" data-flow-target="results-audit">
-                <div class="mock-list-row"><div><div class="mock-list-title">address...9f21</div><div class="mock-list-meta">spend 10 - weights 3/1 - 8:42 AM</div></div></div>
-                <div class="mock-list-row"><div><div class="mock-list-title">address...0ac4</div><div class="mock-list-meta">spend 1 - weights 0/1 - 8:10 AM</div></div></div>
-              </div>
-              <div class="mock-button secondary press-target" data-flow-source="results-vote-result">Run vote result</div>
-            </div>
-          </article>
+              <article class="screen" data-flow-target="confirm-proposal">
+                <div class="screen-label-row">
+                  <div class="screen-label">4. Review Proposal</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div>
+                </div>
+                <div class="screen-note"><strong>Confirmation modal</strong>Reuses Proposal heading, option cards, overview cards, and review-timeline cards before signing.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Review Proposal</div></div>
+                  <div class="modal-content">
+                    <div class="form-container">
+                      <div class="proposal-info">
+                        <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p><p class="proposal-info-description">Increase voteExponent so larger single votes receive the expected spend boost.</p></div>
+                        <section class="proposal-info-section">
+                          <h3>Proposal Options</h3>
+                          <div class="proposal-option-cards">
+                            <div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div>
+                            <div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div>
+                          </div>
+                        </section>
+                        <section class="proposal-info-section"><h3>Overview</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Type</span><span>Governance</span></div><div class="proposal-info-row"><span>Proposal fee</span><span>50 USD</span></div><div class="proposal-info-row"><span>Initial state</span><span>Review after submission</span></div></div></section>
+                        <section class="proposal-info-section"><h3>Review Timeline</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Scheduled review start</span><span>Start now</span></div><div class="proposal-info-row"><span>Time until start</span><span>0 sec (0 ms)</span></div><div class="proposal-info-row"><span>Grace period</span><span>1 day</span></div></div></section>
+                        <p class="proposal-info-muted">Signing submits this proposal for review and seeds the voter reward pool.</p>
+                      </div>
+                      <div class="form-actions" style="margin-top: 12px"><button class="btn btn--secondary btn--pill" type="button">Back</button><button class="btn btn--primary btn--pill" type="button" data-flow-source="sign-proposal">Sign Proposal</button></div>
+                    </div>
+                  </div>
+                </div>
+              </article>
 
-          <article class="screen" data-flow-target="rewards" data-flow="5a. Rewards">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Rewards</div>
-              <span></span>
+              <article class="screen" data-flow-target="dao-review">
+                <div class="screen-label-row">
+                  <div class="screen-label">5. DAO - Review</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Any user</span></div>
+                </div>
+                <div class="screen-note"><strong>After submission</strong>The confirmation and draft close back to the prior filter. After settlement, select Review to see the new proposal.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">DAO - Review</div></div>
+                  <div class="modal-content">
+                    <div class="dao-toolbar">
+                      <div class="dao-filter-bar">
+                        <button class="dao-filter-chip active" type="button"><span class="dao-filter-chip-label">Review</span><span class="dao-filter-chip-count">3</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Vote</span><span class="dao-filter-chip-count">3</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Accepted</span><span class="dao-filter-chip-count">1</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Claim</span><span class="dao-filter-chip-count">1</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Withheld</span><span class="dao-filter-chip-count">2</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Rejected</span><span class="dao-filter-chip-count">1</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Applied</span><span class="dao-filter-chip-count">4</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">15</span></button>
+                      </div>
+                    </div>
+                    <div class="dao-list-pane">
+                      <ul class="chat-list">
+                        <li class="dao-proposal-row" data-flow-source="review-row"><div class="dao-row-content"><div class="dao-row-title notification-dot">Increase vote exponent</div><div class="dao-row-meta"><span>Governance</span><div class="dao-row-previews"><span class="dao-row-preview">Ends Aug 29, 2026</span></div></div></div></li>
+                        <li class="dao-proposal-row"><div class="dao-row-content"><div class="dao-row-title">Reduce proposal fee</div><div class="dao-row-meta"><span>Economic</span><div class="dao-row-previews"><span class="dao-row-preview dao-row-preview--accepted">Approved</span><span class="dao-row-preview">Ready to finalize</span></div></div></div></li>
+                        <li class="dao-proposal-row"><div class="dao-row-content"><div class="dao-row-title">Emergency endpoint patch</div><div class="dao-row-meta"><span>Protocol</span><div class="dao-row-previews"><span class="dao-row-preview dao-row-preview--emergency">Emergency</span><span class="dao-row-preview">Starts 2:00 PM</span></div></div></div></li>
+                      </ul>
+                    </div>
+                    <button class="floating-button" type="button" aria-label="Add proposal">+</button>
+                    <div class="toast-preview">Proposal submitted—pending confirmation</div>
+                  </div>
+                </div>
+              </article>
             </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Voter</span>
-              </div>
-              <div class="screen-context"><strong>Reward claim</strong>Eligible voters can claim during claimDuration. Claims update claimedReward; after claimEnd, the remaining reward pool can be burned.</div>
-              <div class="proposal-title">Winner: Yes</div>
-              <div class="mock-list" data-flow-target="reward-breakdown">
-                <div class="mock-list-row"><div class="mock-list-title">Initial burn</div><div class="mock-list-meta">50%</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Claim period</div><div class="mock-list-meta">30d</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Your reward estimate</div><div class="mock-list-meta">4.23 LIB</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">claimedReward</div><div class="mock-list-meta">18.40 LIB</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Unclaimed after claimEnd</div><div class="mock-list-meta">6.60 LIB</div></div>
-              </div>
-              <div class="button-row">
-                <div class="mock-button primary press-target" data-flow-source="reward-claim">Claim reward</div>
-                <div class="mock-button secondary press-target" data-flow-source="reward-burn">Burn unclaimed</div>
-              </div>
-            </div>
-          </article>
 
-          <article class="screen" data-flow-target="burn-reward" data-flow="6a. Burn unclaimed">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Burn Unclaimed</div>
-              <span></span>
+            <div class="flow-row">
+              <article class="screen" data-flow-target="proposal-review">
+                <div class="screen-label-row">
+                  <div class="screen-label">6. Proposal - Review</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Committee</span></div>
+                </div>
+                <div class="screen-note"><strong>Committee member view</strong>The shared Proposal modal adds current committee totals and an embedded Accept/Withhold action.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Review</div></div>
+                  <div class="modal-content"><div class="form-container compact-content">
+                    <div class="proposal-info">
+                      <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p><p class="proposal-info-description">Increase voteExponent so larger single votes receive the expected spend boost.</p></div>
+                      <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
+                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Committee Review</h3><span>Review ends: Aug 29</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>Accept</strong><small>75% (3 votes)</small></div><div class="proposal-result-meter-label"><strong>Withhold</strong><small>25% (1 vote)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment accept"></span><span class="proposal-result-meter-segment withhold"></span></div></div></section>
+                    </div>
+                    <section class="proposal-action-section" style="margin-top: 10px"><div class="action-header"><h3>Committee action</h3><p>Submit or update your review decision while the review window is open.</p></div><div class="proposal-action-toggle"><button class="proposal-decision-option selected" type="button">Accept</button><button class="proposal-decision-option" type="button">Withhold</button></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="committee-submit">Submit review</button></section>
+                    <details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, committee review, reward accounting</span></summary></details>
+                  </div></div>
+                </div>
+              </article>
+
+              <article class="screen" data-flow-target="review-finalize">
+                <div class="screen-label-row">
+                  <div class="screen-label">7. Review ended</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Funded user</span></div>
+                </div>
+                <div class="screen-note"><strong>Permissionless finalization</strong>After reviewEnd, the same Proposal modal replaces committee input with Finalize review result.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Review</div></div>
+                  <div class="modal-content"><div class="form-container">
+                    <div class="proposal-info">
+                      <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p></div>
+                      <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
+                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Committee Review</h3><span>Review ended: Aug 29</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>Accept</strong><small>75% (3 votes)</small></div><div class="proposal-result-meter-label"><strong>Withhold</strong><small>25% (1 vote)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment accept"></span><span class="proposal-result-meter-segment withhold"></span></div></div></section>
+                    </div>
+                    <section class="proposal-action-section" style="border: 0; margin-top: 12px"><div class="action-header"><h3>Review result</h3><p>Review ended. Finalize the review result to move this proposal to Voting.</p></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="finalize-review">Finalize review result</button></section>
+                    <details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, committee review, reward accounting</span></summary></details>
+                  </div></div>
+                </div>
+              </article>
+
+              <article class="screen" data-flow-target="proposal-voting">
+                <div class="screen-label-row">
+                  <div class="screen-label">8. Proposal - Voting</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Eligible voter</span></div>
+                </div>
+                <div class="screen-note"><strong>Weighted vote</strong>Current totals and the vote form share the Proposal modal. Weights become percentages; spend is a whole-number multiple.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Voting</div></div>
+                  <div class="modal-content"><div class="form-container compact-content action-overview">
+                    <div class="proposal-info">
+                      <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p></div>
+                      <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
+                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Current Vote</h3><span>Voting ends: Aug 31</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>no</strong><small>26% (8.4 power)</small></div><div class="proposal-result-meter-label"><strong>Option 1</strong><small>74% (24.1 power)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment no"></span><span class="proposal-result-meter-segment yes"></span></div></div></section>
+                    </div>
+                    <section class="proposal-action-section flat"><div class="action-header"><h3>Vote preview</h3><p>Allocate option weights and choose a minimum-spend multiple to preview voting power.</p></div><div class="proposal-vote-options"><div class="proposal-vote-options-header"><span>Option</span><span>%</span><span>Weight ⓘ</span></div><label class="proposal-vote-option"><span>no</span><span>25%</span><input class="form-control" value="1" /></label><label class="proposal-vote-option"><span>Option 1</span><span>75%</span><input class="form-control" value="3" /></label><div class="proposal-vote-requirements"><span>Vote Threshold ⓘ</span><strong>10 LIB</strong><span>Minimum Spend ⓘ</span><strong>1 LIB</strong></div></div><div class="proposal-vote-spend-multiple-row"><label>Spend multiple</label><input class="form-control" value="2" /><span>× 1 LIB minimum spend</span></div><div class="proposal-vote-preview"><div class="proposal-vote-preview-row"><span>Spend</span><strong>2 LIB</strong></div><div class="proposal-vote-preview-row"><span>Time factor</span><strong>74%</strong></div><div class="proposal-vote-preview-row"><span>Estimated voting power</span><strong>14.8 power</strong></div></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="vote-submit">Submit vote</button></section>
+                  </div></div>
+                </div>
+              </article>
             </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
-              </div>
-              <div class="screen-context"><strong>Final reward burn</strong>dao_burn_reward runs after claimEnd for accepted, applied, or rejected proposals and moves remaining rewards into finalBurnedReward.</div>
-              <div class="proposal-title">Claim window complete</div>
-              <div class="mock-list" data-flow-target="burn-ledger">
-                <div class="mock-list-row"><div class="mock-list-title">Proposal status</div><div class="mock-list-meta">accepted/applied/rejected</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Unclaimed reward pool</div><div class="mock-list-meta">6.60 LIB</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">finalBurnedReward</div><div class="mock-list-meta">6.60 LIB</div></div>
-              </div>
-              <div class="mock-muted">Withheld proposals already burn the pool during review result handling.</div>
+
+            <div class="flow-row">
+              <article class="screen" data-flow-target="vote-ended">
+                <div class="screen-label-row">
+                  <div class="screen-label">9. Voting ended</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Funded user</span></div>
+                </div>
+                <div class="screen-note"><strong>Vote finalization</strong>After votingEnd, the input is hidden and a lifecycle action finalizes the result.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Voting</div></div>
+                  <div class="modal-content"><div class="form-container">
+                    <div class="proposal-info">
+                      <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p></div>
+                      <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
+                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Current Vote</h3><span><strong>Vote ended: Aug 31</strong></span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>no</strong><small>26% (8.4 power)</small></div><div class="proposal-result-meter-label"><strong>Option 1</strong><small>74% (24.1 power)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment no"></span><span class="proposal-result-meter-segment yes"></span></div></div></section>
+                    </div>
+                    <section class="proposal-action-section" style="margin-top: 12px"><div class="action-header"><h3>Vote result</h3><p>Voting has ended. Finalize the vote result to move this proposal to accepted or rejected.</p></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="finalize-vote">Finalize vote result</button></section>
+                    <details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, reward accounting</span></summary></details>
+                  </div></div>
+                </div>
+              </article>
+
+              <article class="screen" data-flow-target="result-actions">
+                <div class="screen-label-row">
+                  <div class="screen-label">10. Accepted + actions</div>
+                  <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Contextual</span></div>
+                </div>
+                <div class="screen-note"><strong>Result and lifecycle</strong>Results, reward claim, apply, and burn are sections in Proposal—not separate modals or queues.</div>
+                <div class="modal fixed-header active">
+                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Accepted</div></div>
+                  <div class="modal-content"><div class="form-container compact-content action-overview">
+                    <div class="proposal-info">
+                      <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p></div>
+                      <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
+                      <section class="proposal-info-section"><h3>Results</h3><div class="proposal-result-overview"><div class="proposal-result-card"><span>Winner</span><strong>Option 1</strong></div><div class="proposal-result-card"><span>Total voting power</span><strong>32.5 power</strong></div></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>no</strong><small>26% (8.4 power)</small></div><div class="proposal-result-meter-label"><strong>Option 1</strong><small>74% (24.1 power)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment no"></span><span class="proposal-result-meter-segment yes"></span></div></div></section>
+                    </div>
+                    <section class="proposal-action-section" style="margin-top: 10px"><div class="action-header"><h3>Reward claim</h3><p>Your estimated claim is 18.4 LIB. Submit the claim and refresh proposal accounting.</p></div><button class="btn btn--primary btn--pill btn--full" type="button">Claim reward</button></section>
+                    <section class="proposal-action-section" style="margin-top: 8px"><div class="action-header"><h3>Apply parameters</h3><p>The grace period has ended. Apply this accepted proposal to the network parameters.</p></div><button class="btn btn--primary btn--pill btn--full" type="button">Apply parameters</button></section>
+                    <details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, reward accounting</span></summary></details>
+                  </div></div>
+                </div>
+              </article>
+
             </div>
-          </article>
           </div>
-
-          <div class="flow-row-title branch-indent">Reward category list <span>Claimable rewards remains a separate voter-specific list because it is based on the user claim state.</span></div>
-          <div class="screen-grid flow-grid branch-row">
-            <div class="branch-spacer" aria-hidden="true"></div>
-          <article class="screen" data-flow-target="reward-list" data-flow="3b. Claimable rewards">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Claimable Rewards</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Voter</span>
-              </div>
-              <div class="screen-context"><strong>Claimable proposal list</strong>Shows proposals where this voter is eligible to claim during claimDuration. Selecting a row opens the reward claim modal.</div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="reward-list-row">
-                  <div>
-                    <div class="mock-list-title">#21 Increase vote exponent</div>
-                    <div class="mock-list-meta">4.23 LIB estimate - claim window open</div>
-                  </div>
-                  <div class="row-role">claim</div>
-                </div>
-              </div>
-            </div>
-          </article>
-          </div>
-
-          <div class="flow-row-title branch-indent">Reference and ready-action branch <span>Parameters open directly; ready actions are permissionless finalization tasks unless emergency rules apply.</span></div>
-          <div class="screen-grid flow-grid branch-row">
-            <div class="branch-spacer" aria-hidden="true"></div>
-          <article class="screen" data-flow-target="parameters" data-flow="2c. Parameters">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">DAO Parameters</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
-              </div>
-              <div class="screen-context"><strong>DAO parameter reference</strong>Shows current server DAO params and committee size before users create, review, vote, apply, or claim rewards.</div>
-              <div class="mock-kpi-grid parameter-grid">
-                <div class="mock-kpi"><div class="mock-kpi-value">50.0 USD</div><div class="mock-kpi-label">proposalFee</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">100.0 USD</div><div class="mock-kpi-label">voteThreshold</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">1.0 USD</div><div class="mock-kpi-label">minimumSpend</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">1.1</div><div class="mock-kpi-label">voteExponent</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">50%</div><div class="mock-kpi-label">pctBurned</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">2d</div><div class="mock-kpi-label">reviewDuration</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">8d</div><div class="mock-kpi-label">votingDuration</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">7d</div><div class="mock-kpi-label">graceDuration</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">30d</div><div class="mock-kpi-label">claimDuration</div></div>
-                <div class="mock-kpi"><div class="mock-kpi-value">5</div><div class="mock-kpi-label">committee members</div></div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow-target="ready-actions" data-flow="3c. Ready actions">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Ready Actions</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
-              </div>
-              <div class="screen-context"><strong>Permissionless lifecycle actions</strong>No separate operator account is required. Any funded user can run these timing/status transactions when they become valid.</div>
-              <div class="mock-list action-list">
-                <div class="mock-list-row press-target" data-flow-source="ready-action-row">
-                  <div>
-                    <div class="mock-list-title">#21 Ready to apply</div>
-                    <div class="mock-list-meta">applyEligibleAt reached - governance parameter change</div>
-                  </div>
-                  <div class="row-role">apply</div>
-                </div>
-                <div class="mock-list-row">
-                  <div>
-                    <div class="mock-list-title">#17 Ready for final burn</div>
-                    <div class="mock-list-meta">claimEnd passed - unclaimed pool remains</div>
-                  </div>
-                  <div class="row-role">burn</div>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article class="screen" data-flow-target="apply" data-flow="4c. Apply parameters">
-            <div class="screen-header">
-              <button class="back-button" aria-label="Back"></button>
-              <div class="screen-title">Apply Parameters</div>
-              <span></span>
-            </div>
-            <div class="screen-body">
-              <div class="status-line">
-                <span class="status-pill needed">Needed</span>
-                <span class="status-pill role">Any user</span>
-              </div>
-              <div class="screen-context"><strong>dao_apply_parameters</strong>Regular accepted proposals can be applied by any funded user after applyEligibleAt. Emergency proposals can only be applied by a committee member.</div>
-              <div class="proposal-title">Accepted governance proposal</div>
-              <div class="mock-list">
-                <div class="mock-list-row"><div class="mock-list-title">voteExponent</div><div class="mock-list-meta">1.1 -&gt; 1.2</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Permission</div><div class="mock-list-meta">any user for regular proposal</div></div>
-                <div class="mock-list-row"><div class="mock-list-title">Next status</div><div class="mock-list-meta">applied</div></div>
-              </div>
-              <div class="timeline" data-flow-target="apply-timeline">
-                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Accepted</div><div class="mock-muted">Proposal passed or emergency accepted.</div></div></div>
-                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Eligible</div><div class="mock-muted">applyEligibleAt reached, unless emergency.</div></div></div>
-                <div class="timeline-row"><span class="timeline-dot"></span><div><div class="mock-list-title">Applied</div><div class="mock-muted">Server updates DAO parameters.</div></div></div>
-              </div>
-              <div class="mock-button primary press-target" data-flow-source="apply-parameters">Apply parameters</div>
-            </div>
-          </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="mock-section" aria-labelledby="backend-title">
-        <div class="mock-section-header">
-          <div>
-            <h2 class="mock-section-title" id="backend-title">Backend Integration Shape</h2>
-            <div class="mock-section-note">Same repo abstraction as the current mock, with live fetchers and transaction actions behind it.</div>
-          </div>
-        </div>
-        <div class="mock-flow">
-          <div class="flow-node">DAO screens</div>
-          <div class="flow-arrow">-&gt;</div>
-          <div class="flow-node">dao.repo.js</div>
-          <div class="flow-arrow">-&gt;</div>
-          <div class="flow-node">Backend fetcher</div>
-          <div class="flow-arrow">-&gt;</div>
-          <div class="flow-node">Network state</div>
-        </div>
-        <div class="flow-note">
-          The live client should read `GET dao/proposals`, `GET dao/proposals/:id`, `GET dao/proposals/meta`, and `GET dao/voters/:proposalId`. Phase 1 writes map to `dao_proposal_create`, `dao_committee_vote`, `dao_committee_result`, `dao_vote`, `dao_vote_result`, `dao_claim_reward`, `dao_apply_parameters`, and `dao_burn_reward`.
-        </div>
-      </section>
+        </section>
       </main>
     </div>
+
     <script>
       (() => {
         const viewport = document.querySelector("[data-pan-viewport]");
         const canvas = document.querySelector("[data-pan-canvas]");
+        const board = document.querySelector("[data-flow-board]");
+        const arrows = document.querySelector("[data-flow-arrows]");
         const zoomIn = document.querySelector("[data-zoom-in]");
         const zoomOut = document.querySelector("[data-zoom-out]");
         const zoomReset = document.querySelector("[data-zoom-reset]");
-        const minScale = 0.45;
+        const minScale = 0.35;
         const maxScale = 1.8;
-        const step = 0.12;
-        const wheelStep = 0.08;
+        const zoomStep = 0.12;
         let scale = 1;
         let offsetX = 0;
         let offsetY = 0;
         let dragging = false;
         let lastX = 0;
         let lastY = 0;
+        const pinnedConnectors = new Set();
 
-        const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+        const connectors = [
+          { from: "menu-dao", to: "dao-list", label: "open DAO" },
+          { from: "dao-add", to: "add-proposal", label: "tap +" },
+          { from: "draft-review", to: "confirm-proposal", label: "review draft" },
+          { from: "sign-proposal", to: "dao-review", label: "settle + select Review" },
+          { from: "review-row", to: "proposal-review", label: "open proposal" },
+          { from: "committee-submit", to: "review-finalize", label: "after reviewEnd" },
+          { from: "finalize-review", to: "proposal-voting", label: "moves to voting" },
+          { from: "vote-submit", to: "vote-ended", label: "after votingEnd" },
+          { from: "finalize-vote", to: "result-actions", label: "accepted result" },
+        ];
 
-        const update = () => {
+        const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+
+        const updateTransform = () => {
           canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
           zoomReset.textContent = `${Math.round(scale * 100)}%`;
           zoomOut.disabled = scale <= minScale + 0.001;
@@ -2118,572 +1546,151 @@
         };
 
         const zoomAt = (nextScale, anchorX, anchorY) => {
-          const clamped = clamp(nextScale, minScale, maxScale);
+          const clampedScale = clamp(nextScale, minScale, maxScale);
           const canvasX = (anchorX - offsetX) / scale;
           const canvasY = (anchorY - offsetY) / scale;
-          scale = clamped;
+          scale = clampedScale;
           offsetX = anchorX - canvasX * scale;
           offsetY = anchorY - canvasY * scale;
-          update();
+          updateTransform();
         };
 
-        const zoomTo = (nextScale) => {
-          zoomAt(nextScale, viewport.clientWidth / 2, viewport.clientHeight / 2);
-        };
-
-        zoomIn.addEventListener("click", () => zoomTo(scale + step));
-        zoomOut.addEventListener("click", () => zoomTo(scale - step));
-        viewport.addEventListener("wheel", (event) => {
-          if (event.target.closest(".zoom-controls")) {
-            return;
-          }
-          event.preventDefault();
-          const direction = event.deltaY < 0 ? 1 : -1;
-          zoomAt(scale + direction * wheelStep, event.clientX, event.clientY);
-        }, { passive: false });
+        zoomIn.addEventListener("click", () => zoomAt(scale + zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2));
+        zoomOut.addEventListener("click", () => zoomAt(scale - zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2));
         zoomReset.addEventListener("click", () => {
           scale = 1;
           offsetX = 0;
           offsetY = 0;
-          update();
+          updateTransform();
         });
 
+        viewport.addEventListener("wheel", (event) => {
+          if (event.target.closest(".zoom-controls")) return;
+          event.preventDefault();
+          zoomAt(scale + (event.deltaY < 0 ? 0.08 : -0.08), event.clientX, event.clientY);
+        }, { passive: false });
+
+        const isInteractive = (target) => target.closest("button, input, select, textarea, summary, [data-flow-source], .transition-connector, .zoom-controls");
+
         viewport.addEventListener("pointerdown", (event) => {
-          if (event.button !== 0 || event.target.closest(".zoom-controls")) {
-            return;
-          }
+          if (event.button !== 0 || isInteractive(event.target)) return;
           dragging = true;
           lastX = event.clientX;
           lastY = event.clientY;
           viewport.classList.add("is-dragging");
-          try {
-            viewport.setPointerCapture(event.pointerId);
-          } catch {
-            // Synthetic pointer events in tests do not always create an active pointer capture target.
-          }
+          viewport.setPointerCapture?.(event.pointerId);
           event.preventDefault();
         });
 
         viewport.addEventListener("pointermove", (event) => {
-          if (!dragging) {
-            return;
-          }
+          if (!dragging) return;
           offsetX += event.clientX - lastX;
           offsetY += event.clientY - lastY;
           lastX = event.clientX;
           lastY = event.clientY;
-          update();
+          updateTransform();
         });
 
         const stopDragging = (event) => {
-          if (!dragging) {
-            return;
-          }
+          if (!dragging) return;
           dragging = false;
           viewport.classList.remove("is-dragging");
-          try {
-            if (viewport.hasPointerCapture(event.pointerId)) {
-              viewport.releasePointerCapture(event.pointerId);
-            }
-          } catch {
-            // Ignore synthetic pointer events without a browser-managed capture target.
-          }
+          viewport.releasePointerCapture?.(event.pointerId);
         };
 
         viewport.addEventListener("pointerup", stopDragging);
         viewport.addEventListener("pointercancel", stopDragging);
 
-        const pinnedBranchConnectors = new Set();
+        const svgElement = (tag, attributes = {}) => {
+          const element = document.createElementNS("http://www.w3.org/2000/svg", tag);
+          Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
+          return element;
+        };
 
-        const renderBranchArrows = () => {
-          const board = document.querySelector("[data-branch-board]");
-          const svg = document.querySelector("[data-branch-arrows]");
-          if (!board || !svg) {
-            return;
-          }
-
-          const svgNS = "http://www.w3.org/2000/svg";
-          const connectors = [
-            { from: "dao-create", to: "builder", label: "open builder", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -22, labelDy: -30 },
-            { from: "builder-review", to: "confirm", label: "review payload", fromSide: "top", toSide: "left", toRatio: 0.8, route: "same-row", labelDx: -28, labelDy: -28 },
-            { from: "confirm-sign", to: "review-status", label: "submitted review", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -46, labelDy: -40, labelWidth: 134 },
-            { from: "review-status", to: "committee-queue", label: "committee view", fromSide: "right", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -36, labelDy: -38, labelWidth: 122 },
-            { from: "committee-list-row", to: "committee", label: "tap review item", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -32, labelDy: -34 },
-            { from: "committee-accept", to: "committee-tally", label: "dao_committee_vote", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -78, labelDy: -16, labelWidth: 154 },
-            { from: "committee-withhold", to: "withhold-reason", label: "withhold reason", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -10 },
-            { from: "committee-result", to: "proposal-list", label: "moves to voting", fromSide: "right", toSide: "right", wrapSide: "right", toRatio: 0.2, route: "branch-reverse", lane: 3, laneOffset: 66, rowOffset: 100, labelDx: -94, labelDy: -10, labelWidth: 126 },
-            { from: "dao-committee-category", to: "committee-queue", label: "open committee list", fromSide: "right", wrapFromSide: "right", toSide: "left", wrapSide: "left", toRatio: 0.34, route: "branch", lane: 0, laneOffset: 30, rowOffset: 68, wrapAround: "bottom", wrapLabelDx: -78, wrapLabelDy: -30, labelWidth: 148 },
-            { from: "dao-voting-category", to: "voting-filter-list", label: "open voting filter", fromSide: "right", toSide: "left", wrapSide: "left", toRatio: 0.32, route: "branch", lane: 1, laneOffset: 42, rowOffset: 72, labelDx: -96, labelDy: -30, labelWidth: 144 },
-            { from: "proposal-list-vote-row", to: "community-vote", label: "tap voting row", fromSide: "top", toSide: "left", toRatio: 0.45, route: "branch", lane: 1, laneOffset: 42, rowOffset: 72, wrapAround: "bottom", labelDx: -34, labelDy: -34, labelWidth: 120 },
-            { from: "voting-filter-row", to: "community-vote", label: "tap voting row", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 120 },
-            { from: "vote-preview", to: "vote-estimate", label: "shows estimate", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -30, labelDy: -16 },
-            { from: "vote-submit", to: "results", label: "dao_vote", fromSide: "top", toSide: "left", toRatio: 0.45, route: "same-row", labelDx: 2, labelDy: -30 },
-            { from: "results-vote-result", to: "results-audit", label: "dao_vote_result", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -44, labelDy: -22, labelWidth: 130 },
-            { from: "results", to: "rewards", label: "claim period starts", fromSide: "right", fromRatio: 0.43, toSide: "left", toRatio: 0.43, route: "same-row", labelDx: -34, labelDy: -38 },
-            { from: "reward-claim", to: "reward-breakdown", label: "dao_claim_reward", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -48, labelDy: -18, labelWidth: 138 },
-            { from: "reward-burn", to: "burn-reward", label: "dao_burn_reward", fromSide: "top", toSide: "left", toRatio: 0.5, route: "same-row", labelDx: -34, labelDy: -34, labelWidth: 132 },
-            { from: "dao-active-category", to: "proposal-list", label: "open active list", fromSide: "left", wrapFromSide: "left", toSide: "left", wrapSide: "left", toRatio: 0.18, route: "branch-low", lane: 0, laneOffset: 28, rowOffset: 58, wrapLabelDx: -92, wrapLabelDy: -30, labelWidth: 126 },
-            { from: "proposal-list-result-row", to: "results", label: "tap result row", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", lane: 2, laneOffset: 50, rowOffset: 88, labelDx: -54, labelDy: -54, labelWidth: 118 },
-            { from: "dao-reward-category", to: "reward-list", label: "open rewards list", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", lane: 1, laneOffset: 52, rowOffset: 86, wrapLabelDx: -106, wrapLabelDy: -30, labelWidth: 138 },
-            { from: "reward-list-row", to: "rewards", label: "tap claim item", fromSide: "right", toSide: "left", toRatio: 0.42, route: "branch-reverse", lane: 0, laneOffset: 24, rowOffset: 62, labelDx: -52, labelDy: -50 },
-            { from: "dao-parameters", to: "parameters", label: "tap Parameters", fromSide: "top", toSide: "left", toRatio: 0.8, route: "branch", lane: 3, laneOffset: 70, rowOffset: 110, labelDx: -80, labelDy: -30 },
-            { from: "dao-ready-actions-category", to: "ready-actions", label: "open ready actions", fromSide: "left", wrapFromSide: "left", toSide: "left", toRatio: 0.42, route: "branch-low", lane: 2, laneOffset: 76, rowOffset: 116, wrapLabelDx: -126, wrapLabelDy: -30, labelWidth: 154 },
-            { from: "ready-action-row", to: "apply", label: "tap ready item", fromSide: "top", toSide: "left", toRatio: 0.42, route: "same-row", labelDx: -34, labelDy: -34 },
-            { from: "apply-parameters", to: "apply-timeline", label: "dao_apply_parameters", fromSide: "top", toSide: "bottom", route: "local-up", labelDx: -74, labelDy: -24, labelWidth: 170 }
-          ];
-
-          const makeSvgElement = (tag, attrs = {}) => {
-            const element = document.createElementNS(svgNS, tag);
-            Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
-            return element;
+        const boxInBoard = (element) => {
+          const elementRect = element.getBoundingClientRect();
+          const boardRect = board.getBoundingClientRect();
+          return {
+            x: (elementRect.left - boardRect.left) / scale,
+            y: (elementRect.top - boardRect.top) / scale,
+            width: elementRect.width / scale,
+            height: elementRect.height / scale,
           };
+        };
 
-          const findAnchor = (id) => board.querySelector(`[data-flow-source="${id}"], [data-flow-target="${id}"]`);
+        const toggleConnector = (group, connectorId) => {
+          const pinned = !pinnedConnectors.has(connectorId);
+          if (pinned) pinnedConnectors.add(connectorId);
+          else pinnedConnectors.delete(connectorId);
+          group.classList.toggle("is-highlighted", pinned);
+        };
 
-          const boxInBoard = (element) => {
-            let x = 0;
-            let y = 0;
-            let node = element;
-            while (node && node !== board) {
-              x += node.offsetLeft || 0;
-              y += node.offsetTop || 0;
-              node = node.offsetParent;
-            }
-            return { x, y, width: element.offsetWidth, height: element.offsetHeight };
-          };
-
-          const pointFor = (element, side, ratio = 0.5) => {
-            const box = boxInBoard(element);
-            if (side === "left") {
-              return { x: box.x, y: box.y + box.height * ratio };
-            }
-            if (side === "right") {
-              return { x: box.x + box.width, y: box.y + box.height * ratio };
-            }
-            if (side === "top") {
-              return { x: box.x + box.width * ratio, y: box.y };
-            }
-            if (side === "bottom") {
-              return { x: box.x + box.width * ratio, y: box.y + box.height };
-            }
-            return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-          };
-
-          const pointOnBox = (box, side, ratio = 0.5) => {
-            if (side === "left") {
-              return { x: box.x, y: box.y + box.height * ratio };
-            }
-            if (side === "right") {
-              return { x: box.x + box.width, y: box.y + box.height * ratio };
-            }
-            if (side === "top") {
-              return { x: box.x + box.width * ratio, y: box.y };
-            }
-            if (side === "bottom") {
-              return { x: box.x + box.width * ratio, y: box.y + box.height };
-            }
-            return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-          };
-
-          const measureTextWidth = (() => {
-            const canvas = document.createElement("canvas");
-            const context = canvas.getContext("2d");
-            return (text, font) => {
-              if (!context) {
-                return text.length * 7;
-              }
-              context.font = font;
-              return context.measureText(text).width;
-            };
-          })();
-
-          const boxesOverlap = (first, second, padding = 0) => !(
-            first.x + first.width + padding < second.x ||
-            second.x + second.width + padding < first.x ||
-            first.y + first.height + padding < second.y ||
-            second.y + second.height + padding < first.y
-          );
-
-          const createReservedBoxes = () => {
-            const boxes = [];
-            board.querySelectorAll(".flow-row-title").forEach((title) => {
-              const box = boxInBoard(title);
-              boxes.push({ ...box, type: "row-title" });
-            });
-
-            board.querySelectorAll(".screen").forEach((screen) => {
-              const box = boxInBoard(screen);
-              const flowLabel = screen.getAttribute("data-flow");
-              if (flowLabel) {
-                boxes.push({
-                  x: box.x,
-                  y: box.y - 104,
-                  width: Math.ceil(measureTextWidth(flowLabel, "600 13px Arial")) + 30,
-                  height: 36,
-                  type: "screen-flow-token"
-                });
-              }
-
-              const dimensionLabel = screen.classList.contains("compact")
-                ? "Narrow render: 390 x 430"
-                : "Narrow render: 390 x 640";
-              const dimensionWidth = Math.ceil(measureTextWidth(dimensionLabel, "11px monospace")) + 20;
-              boxes.push({
-                x: box.x + box.width - dimensionWidth,
-                y: box.y - 58,
-                width: dimensionWidth,
-                height: 24,
-                type: "screen-dimension-token"
-              });
-            });
-            return boxes;
-          };
-
-          const connectorPalette = [
-            "#d00000",
-            "#c2410c",
-            "#9a6700",
-            "#15803d",
-            "#047857",
-            "#0369a1",
-            "#1d4ed8",
-            "#6d28d9",
-            "#be185d"
-          ];
-          const targetColorMap = new Map();
-          const markerMap = new Map();
-          const modalLandingSlots = [
-            { side: "top", ratio: 0.24 },
-            { side: "right", ratio: 0.28 },
-            { side: "bottom", ratio: 0.76 },
-            { side: "left", ratio: 0.72 },
-            { side: "top", ratio: 0.76 },
-            { side: "right", ratio: 0.72 },
-            { side: "bottom", ratio: 0.24 },
-            { side: "left", ratio: 0.28 }
-          ];
-
-          const colorForTarget = (target) => {
-            if (!targetColorMap.has(target)) {
-              const color = connectorPalette[targetColorMap.size % connectorPalette.length];
-              targetColorMap.set(target, color);
-            }
-            return targetColorMap.get(target);
-          };
-
-          const hexToRgba = (hex, alpha) => {
-            const value = hex.replace("#", "");
-            const red = parseInt(value.slice(0, 2), 16);
-            const green = parseInt(value.slice(2, 4), 16);
-            const blue = parseInt(value.slice(4, 6), 16);
-            return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-          };
-
-          const isWrapRoute = (route) => ["branch", "branch-low", "branch-reverse"].includes(route);
-
-          const screenBoxFor = (element) => {
-            const screen = element.closest(".screen") || element;
-            return boxInBoard(screen);
-          };
-
-          let reservedBoxes = [];
-
-          const avoidReservedHorizontalLane = (laneY, firstX, secondX) => {
-            const x = Math.min(firstX, secondX);
-            const width = Math.abs(secondX - firstX);
-            if (width <= 0) {
-              return laneY;
-            }
-
-            const candidates = [0, -34, 34, -68, 68, -102, 102, -136, 136, -170, 170];
-            const lineBoxFor = (candidateY) => ({
-              x,
-              y: candidateY - 12,
-              width,
-              height: 24
-            });
-            const isClear = (candidateY) => {
-              const lineBox = lineBoxFor(candidateY);
-              return !reservedBoxes.some((reservedBox) => boxesOverlap(lineBox, reservedBox, 4));
-            };
-
-            const clearOffset = candidates.find((offset) => isClear(laneY + offset));
-            return clearOffset === undefined ? laneY : laneY + clearOffset;
-          };
-
-          const routeDetailsFor = (from, to, start, end, connector, index, targetLanding) => {
-            if (connector.route === "local-up") {
-              return {
-                d: `M ${start.x} ${start.y} C ${start.x} ${start.y - 76}, ${end.x} ${end.y + 76}, ${end.x} ${end.y}`,
-                labelX: (start.x + end.x) / 2,
-                labelY: (start.y + end.y) / 2,
-                wrapped: false
-              };
-            }
-
-            if (isWrapRoute(connector.route)) {
-              const sourceBox = screenBoxFor(from);
-              const targetBox = screenBoxFor(to);
-              const sourceCenterX = sourceBox.x + sourceBox.width / 2;
-              const targetCenterX = targetBox.x + targetBox.width / 2;
-              const lane = connector.lane ?? (index % 4);
-              const laneOffset = connector.laneOffset ?? 20 + lane * 16;
-              const rowOffset = connector.rowOffset ?? 48 + lane * 18;
-              const sourceSide = connector.wrapFromSide ?? (connector.fromSide === "left" || connector.fromSide === "right"
-                ? connector.fromSide
-                : (targetCenterX >= sourceCenterX ? "right" : "left"));
-              const targetSide = targetLanding?.auto
-                ? targetLanding.side
-                : (connector.wrapSide ?? targetLanding?.side ?? (index % 2 === 0 ? "left" : "right"));
-              const sourceLaneX = sourceSide === "right"
-                ? sourceBox.x + sourceBox.width + laneOffset
-                : sourceBox.x - laneOffset;
-              const targetRatio = targetLanding?.ratio ?? clamp((end.y - targetBox.y) / targetBox.height, 0.08, 0.92);
-              const targetPoint = pointOnBox(targetBox, targetSide, targetRatio);
-              const targetLaneX = targetSide === "right"
-                ? targetBox.x + targetBox.width + laneOffset
-                : targetSide === "left"
-                  ? targetBox.x - laneOffset
-                  : targetPoint.x;
-              let laneY;
-              if (connector.wrapAround === "top") {
-                laneY = Math.min(sourceBox.y, targetBox.y) - rowOffset;
-              } else if (connector.wrapAround === "bottom") {
-                laneY = Math.max(sourceBox.y + sourceBox.height, targetBox.y + targetBox.height) + rowOffset;
-              } else if (targetSide === "top") {
-                laneY = targetBox.y - rowOffset;
-              } else if (targetSide === "bottom") {
-                laneY = targetBox.y + targetBox.height + rowOffset;
-              } else if (targetBox.y > sourceBox.y) {
-                laneY = targetBox.y - rowOffset;
-              } else if (targetBox.y < sourceBox.y) {
-                laneY = targetBox.y + targetBox.height + rowOffset;
-              } else {
-                laneY = Math.min(sourceBox.y, targetBox.y) - rowOffset;
-              }
-              laneY = avoidReservedHorizontalLane(laneY, sourceLaneX, targetLaneX);
-              const sourceControlX = sourceSide === "right" ? start.x + 28 : start.x - 28;
-              if (targetSide === "top" || targetSide === "bottom") {
-                const targetControlY = targetSide === "top" ? targetPoint.y - 28 : targetPoint.y + 28;
-                return {
-                  d: `M ${start.x} ${start.y} C ${sourceControlX} ${start.y}, ${sourceLaneX} ${start.y}, ${sourceLaneX} ${start.y} L ${sourceLaneX} ${laneY} L ${targetLaneX} ${laneY} L ${targetLaneX} ${targetControlY} C ${targetLaneX} ${targetControlY}, ${targetPoint.x} ${targetControlY}, ${targetPoint.x} ${targetPoint.y}`,
-                  labelX: (sourceLaneX + targetLaneX) / 2,
-                  labelY: laneY,
-                  wrapped: true
-                };
-              }
-              const targetControlX = targetSide === "right" ? targetPoint.x + 28 : targetPoint.x - 28;
-              return {
-                d: `M ${start.x} ${start.y} C ${sourceControlX} ${start.y}, ${sourceLaneX} ${start.y}, ${sourceLaneX} ${start.y} L ${sourceLaneX} ${laneY} L ${targetLaneX} ${laneY} L ${targetLaneX} ${targetPoint.y} C ${targetLaneX} ${targetPoint.y}, ${targetControlX} ${targetPoint.y}, ${targetPoint.x} ${targetPoint.y}`,
-                labelX: (sourceLaneX + targetLaneX) / 2,
-                labelY: laneY,
-                wrapped: true
-              };
-            }
-
-            const distance = Math.abs(end.x - start.x);
-            const control = Math.max(90, Math.min(240, distance * 0.45));
-            const startControl = start.x <= end.x ? start.x + control : start.x - control;
-            const endControl = start.x <= end.x ? end.x - control : end.x + control;
-            return {
-              d: `M ${start.x} ${start.y} C ${startControl} ${start.y}, ${endControl} ${end.y}, ${end.x} ${end.y}`,
-              labelX: (start.x + end.x) / 2,
-              labelY: (start.y + end.y) / 2,
-              wrapped: false
-            };
-          };
-
-          const defs = makeSvgElement("defs");
-          svg.replaceChildren(defs);
-
-          const markerFor = (target, color) => {
-            if (markerMap.has(target)) {
-              return markerMap.get(target);
-            }
-            const safeTarget = target.replace(/[^a-z0-9_-]/gi, "-");
-            const markerId = `arrow-branch-${safeTarget}`;
-            const marker = makeSvgElement("marker", {
-              id: markerId,
-              markerWidth: "10",
-              markerHeight: "10",
-              refX: "8",
-              refY: "5",
-              orient: "auto"
-            });
-            marker.appendChild(makeSvgElement("path", {
-              d: "M 0 0 L 10 5 L 0 10 z",
-              fill: color
-            }));
-            defs.appendChild(marker);
-            markerMap.set(target, markerId);
-            return markerId;
-          };
-
+        const renderArrows = () => {
+          arrows.querySelectorAll(".transition-connector").forEach((element) => element.remove());
           const width = board.scrollWidth;
           const height = board.scrollHeight;
-          svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-          svg.style.width = `${width}px`;
-          svg.style.height = `${height}px`;
-          reservedBoxes = createReservedBoxes();
+          arrows.setAttribute("viewBox", `0 0 ${width} ${height}`);
+          arrows.setAttribute("width", width);
+          arrows.setAttribute("height", height);
 
-          const modalTargetCounts = new Map();
           connectors.forEach((connector) => {
-            const target = findAnchor(connector.to);
-            if (target?.classList.contains("screen")) {
-              modalTargetCounts.set(connector.to, (modalTargetCounts.get(connector.to) ?? 0) + 1);
-            }
-          });
-          const modalTargetIndexes = new Map();
-          const targetLandingFor = (connector, target) => {
-            if (!target.classList.contains("screen")) {
-              return null;
-            }
-            const hasExplicitLanding = connector.toSide || connector.toRatio !== undefined || connector.wrapSide;
-            if (hasExplicitLanding || (modalTargetCounts.get(connector.to) ?? 0) <= 1) {
-              return {
-                side: connector.wrapSide ?? connector.toSide ?? "left",
-                ratio: connector.toRatio ?? 0.5,
-                auto: false
-              };
-            }
-            const slotIndex = modalTargetIndexes.get(connector.to) ?? 0;
-            modalTargetIndexes.set(connector.to, slotIndex + 1);
-            return { ...modalLandingSlots[slotIndex % modalLandingSlots.length], auto: true };
-          };
+            const source = board.querySelector(`[data-flow-source="${connector.from}"]`);
+            const target = board.querySelector(`[data-flow-target="${connector.to}"]`);
+            if (!source || !target) return;
 
-          const attachConnectorInteraction = (group, targets, connectorId) => {
-            const show = () => {
-              group.classList.add("is-hovered", "is-highlighted");
-            };
-            const hide = () => {
-              group.classList.remove("is-hovered");
-              if (!group.classList.contains("is-pinned")) {
-                group.classList.remove("is-highlighted");
-              }
-            };
-            const stopDrag = (event) => {
-              event.stopPropagation();
-            };
-            const togglePinned = (event) => {
-              event.stopPropagation();
-              const pinned = !group.classList.contains("is-pinned");
-              group.classList.toggle("is-pinned", pinned);
-              group.classList.toggle("is-highlighted", pinned || group.classList.contains("is-hovered"));
-              if (pinned) {
-                pinnedBranchConnectors.add(connectorId);
-              } else {
-                pinnedBranchConnectors.delete(connectorId);
-              }
-            };
-
-            targets.forEach((target) => {
-              target.addEventListener("mouseenter", show);
-              target.addEventListener("mouseleave", hide);
-              target.addEventListener("pointerdown", stopDrag);
-              target.addEventListener("click", togglePinned);
-            });
-          };
-
-          const placedLabelBoxes = [];
-          const labelPositionFor = (x, y, width) => {
-            const height = 24;
-            const candidates = [
-              [0, 0],
-              [0, -34],
-              [0, 34],
-              [-42, 0],
-              [42, 0],
-              [-42, -34],
-              [42, -34],
-              [-42, 34],
-              [42, 34],
-              [0, -68],
-              [0, 68],
-              [-84, 0],
-              [84, 0],
-              [-84, -34],
-              [84, -34],
-              [-84, 34],
-              [84, 34],
-              [0, -102],
-              [0, 102]
-            ];
-            const blockedBoxes = [...reservedBoxes, ...placedLabelBoxes];
-            const firstClear = candidates.find(([dx, dy]) => {
-              const box = { x: x + dx, y: y + dy, width, height };
-              return !blockedBoxes.some((blockedBox) => boxesOverlap(box, blockedBox, 6));
-            });
-            const [dx, dy] = firstClear ?? [0, 0];
-            const box = { x: x + dx, y: y + dy, width, height };
-            placedLabelBoxes.push(box);
-            return box;
-          };
-
-          connectors.forEach((connector, index) => {
-            const from = findAnchor(connector.from);
-            const to = findAnchor(connector.to);
-            if (!from || !to) {
-              return;
-            }
-            const connectorId = connector.id ?? `${connector.from}-${connector.to}-${index}`;
-            const color = colorForTarget(connector.to);
-            const markerId = markerFor(connector.to, color);
-            const targetLanding = targetLandingFor(connector, to);
-            const start = pointFor(from, connector.fromSide, connector.fromRatio ?? 0.5);
-            const end = targetLanding
-              ? pointFor(to, targetLanding.side, targetLanding.ratio)
-              : pointFor(to, connector.toSide, connector.toRatio ?? 0.5);
-            const route = routeDetailsFor(from, to, start, end, connector, index, targetLanding);
-            const group = makeSvgElement("g", {
-              class: `transition-connector${pinnedBranchConnectors.has(connectorId) ? " is-pinned is-highlighted" : ""}`,
+            const sourceBox = boxInBoard(source);
+            const targetBox = boxInBoard(target);
+            const start = { x: sourceBox.x + sourceBox.width, y: sourceBox.y + sourceBox.height / 2 };
+            const end = { x: targetBox.x, y: targetBox.y + 156 };
+            const horizontalDistance = Math.max(56, Math.abs(end.x - start.x) * 0.42);
+            const pathData = `M ${start.x} ${start.y} C ${start.x + horizontalDistance} ${start.y}, ${end.x - horizontalDistance} ${end.y}, ${end.x} ${end.y}`;
+            const connectorId = `${connector.from}:${connector.to}`;
+            const group = svgElement("g", {
+              class: `transition-connector${pinnedConnectors.has(connectorId) ? " is-highlighted" : ""}`,
               "data-connector": connectorId,
-              style: `--connector-color: ${color};`
             });
-            const hitPath = makeSvgElement("path", {
-              class: "transition-hit-path",
-              d: route.d
-            });
-            group.appendChild(hitPath);
-            const path = makeSvgElement("path", {
-              class: "transition-path",
-              d: route.d,
-              style: `stroke: ${color};`,
-              "marker-end": `url(#${markerId})`
-            });
-            group.appendChild(path);
-
-            const labelWidth = connector.labelWidth ?? connector.label.length * 7 + 26;
-            const labelDx = route.wrapped ? (connector.wrapLabelDx ?? 0) : (connector.labelDx ?? 0);
-            const labelDy = route.wrapped ? (connector.wrapLabelDy ?? -28) : (connector.labelDy ?? 0);
-            const x = route.labelX + labelDx;
-            const y = route.labelY + labelDy;
-            const labelBox = labelPositionFor(x, y, labelWidth);
-            const label = makeSvgElement("g", { class: "transition-label" });
-            label.appendChild(makeSvgElement("rect", {
-              x: String(labelBox.x),
-              y: String(labelBox.y),
-              width: String(labelWidth),
-              height: "24",
-              rx: "12",
-              style: `stroke: ${hexToRgba(color, 0.42)};`
-            }));
-            const text = makeSvgElement("text", {
-              x: String(labelBox.x + 13),
-              y: String(labelBox.y + 16),
-              style: `fill: ${color};`
-            });
+            const hitPath = svgElement("path", { class: "transition-hit-path", d: pathData });
+            const path = svgElement("path", { class: "transition-path", d: pathData });
+            const labelWidth = Math.max(74, connector.label.length * 7 + 20);
+            const labelX = (start.x + end.x) / 2;
+            const labelY = (start.y + end.y) / 2 - 12;
+            const label = svgElement("g", { class: "transition-label" });
+            label.appendChild(svgElement("rect", { x: labelX - labelWidth / 2, y: labelY - 12, width: labelWidth, height: 24 }));
+            const text = svgElement("text", { x: labelX, y: labelY + 4 });
             text.textContent = connector.label;
             label.appendChild(text);
-            group.appendChild(label);
-            attachConnectorInteraction(group, [hitPath, label], connectorId);
-            svg.appendChild(group);
+            group.append(hitPath, path, label);
+            arrows.appendChild(group);
+
+            [hitPath, label].forEach((targetElement) => {
+              targetElement.addEventListener("pointerdown", (event) => event.stopPropagation());
+              targetElement.addEventListener("click", (event) => {
+                event.stopPropagation();
+                toggleConnector(group, connectorId);
+              });
+            });
+
           });
         };
 
-        renderBranchArrows();
-        window.addEventListener("resize", renderBranchArrows);
+        board.addEventListener("click", (event) => {
+          const source = event.target.closest("[data-flow-source]");
+          if (!source) return;
+          const connector = connectors.find((candidate) => candidate.from === source.dataset.flowSource);
+          if (!connector) return;
+          const connectorId = `${connector.from}:${connector.to}`;
+          const group = arrows.querySelector(`[data-connector="${connectorId}"]`);
+          if (!group) return;
+          event.preventDefault();
+          event.stopPropagation();
+          toggleConnector(group, connectorId);
+        });
 
-        update();
+        window.addEventListener("resize", renderArrows);
+        requestAnimationFrame(() => {
+          renderArrows();
+          updateTransform();
+        });
       })();
     </script>
   </body>
