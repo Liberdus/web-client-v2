@@ -38,6 +38,53 @@ for (const action of productionActions) {
   assert.ok(mockHtml.includes(action), `Mock action is unavailable: ${action}`);
 }
 
+assert.ok(
+  mockHtml.includes('const productionStylesUrl = new URL("../styles.css", window.location.href).href'),
+  'Device frames must resolve the production stylesheet',
+);
+assert.ok(
+  mockHtml.includes('<link rel="stylesheet" href="${productionStylesUrl}" />'),
+  'Device documents must load the production stylesheet',
+);
+
+for (const productionAddProposalHook of [
+  'id="addProposalModal"',
+  'id="addProposalForm" class="form--narrow dao-proposal-form"',
+  'id="addProposalOptionsList"',
+  'class="form-group dao-form-section"',
+  'class="dao-form-grid dao-form-grid--timing"',
+]) {
+  assert.ok(
+    productionHtml.includes(productionAddProposalHook),
+    `Production Add Proposal hook is unavailable: ${productionAddProposalHook}`,
+  );
+  assert.ok(
+    mockHtml.includes(productionAddProposalHook),
+    `Mock must reuse the production Add Proposal hook: ${productionAddProposalHook}`,
+  );
+}
+
+for (const deviceBehavior of [
+  '--device-viewport-height: 874px',
+  '--device-viewport-width: 402px',
+  'className = "device-frame"',
+  'mountDeviceFrames()',
+  'getScrollSurface(frameDocument)',
+  'scrollSurface.scrollTop += event.deltaY',
+  'renderProposalDetails(screen.dataset.proposalState || "review")',
+  'proposal-more-content',
+]) {
+  assert.ok(mockHtml.includes(deviceBehavior), `Missing device behavior: ${deviceBehavior}`);
+}
+
+assert.equal(
+  [...mockHtml.matchAll(/data-app-modal="[^"]+"/g)].length,
+  10,
+  'Every mock screen must mount one isolated app modal',
+);
+
+assert.ok(!mockHtml.includes('compact-content'), 'Mock must render production UI without scale-to-fit classes');
+
 for (const staleCopy of [
   'Mock data',
   'backed by in-memory DAO mock data',
