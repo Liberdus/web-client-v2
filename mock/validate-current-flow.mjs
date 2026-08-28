@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [productionHtml, productionJs, mockHtml] = await Promise.all([
+const [productionHtml, productionJs, productionCss, mockHtml] = await Promise.all([
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../app.js', import.meta.url), 'utf8'),
+  readFile(new URL('../styles.css', import.meta.url), 'utf8'),
   readFile(new URL('./index.html', import.meta.url), 'utf8'),
 ]);
 
@@ -80,15 +81,86 @@ for (const deviceBehavior of [
   'proposal-more-content',
   'const frameMounts = mountDeviceFrames()',
   'data-flow-screen',
+  'data-device-root',
+  'data-showcase-tab',
+  'canvas.querySelectorAll(".screen[data-app-modal]")',
+  '#chatModal .messages-container',
+  'activateShowcasePanel',
+  'new URLSearchParams(window.location.search).get("tab")',
+  'renderChatOverlay',
 ]) {
   assert.ok(mockHtml.includes(deviceBehavior), `Missing device behavior: ${deviceBehavior}`);
 }
 
 assert.equal(
   [...mockHtml.matchAll(/data-app-modal="[^"]+"/g)].length,
-  10,
-  'Every mock screen must mount one isolated app modal',
+  27,
+  'Every DAO, screen, modal, and chat-overlay preview must mount an isolated device frame',
 );
+
+const showcaseTabs = [...mockHtml.matchAll(/data-showcase-tab="([^"]+)"/g)].map((match) => match[1]);
+const showcasePanels = [...mockHtml.matchAll(/data-showcase-panel="([^"]+)"/g)].map((match) => match[1]);
+assert.deepEqual(showcaseTabs, ['dao', 'screens', 'chat', 'my-info', 'contact-info']);
+assert.deepEqual(showcasePanels, showcaseTabs, 'Every showcase tab must own exactly one panel');
+
+for (const primaryScreen of ['chatsScreen', 'contactsScreen', 'walletScreen']) {
+  assert.ok(productionHtml.includes(`id="${primaryScreen}"`), `Production screen is unavailable: ${primaryScreen}`);
+  assert.ok(mockHtml.includes(`data-app-modal="${primaryScreen}"`), `Mock screen is unavailable: ${primaryScreen}`);
+}
+
+for (const profileModal of ['myInfoModal', 'contactInfoModal']) {
+  assert.ok(productionHtml.includes(`id="${profileModal}"`), `Production profile modal is unavailable: ${profileModal}`);
+  assert.ok(mockHtml.includes(`data-app-modal="${profileModal}"`), `Mock profile modal is unavailable: ${profileModal}`);
+}
+
+const chatMessageHooks = [
+  'update-toll-required-divider',
+  'message-content',
+  'reply-quote',
+  'attachment-row',
+  'payment-info',
+  'call-message',
+  'call-message-schedule',
+  'voice-message',
+  'location-message',
+  'message-edited-label',
+  'deleted-message',
+  'message-reactions',
+];
+for (const messageHook of chatMessageHooks) {
+  assert.ok(
+    productionHtml.includes(messageHook)
+      || productionJs.includes(messageHook)
+      || productionCss.includes(messageHook),
+    `Production chat message hook is unavailable: ${messageHook}`,
+  );
+  assert.ok(mockHtml.includes(messageHook), `Mock chat message hook is unavailable: ${messageHook}`);
+}
+assert.ok(productionCss.includes(".message.sent[data-status='failed']"), 'Production failed-message style is unavailable');
+assert.ok(mockHtml.includes('data-status="failed"'), 'Mock failed-message example is unavailable');
+
+const chatOverlayIds = [
+  'voiceRecordingModal',
+  'callScheduleChoiceModal',
+  'dateTimePickerModal',
+  'durationPickerModal',
+  'chatHeaderContextMenu',
+  'messageContextMenu',
+  'imageAttachmentContextMenu',
+  'attachmentOptionsContextMenu',
+  'locationSharePanel',
+  'chatReactionSheetOverlay',
+  'cameraCaptureOverlay',
+];
+assert.equal(
+  [...mockHtml.matchAll(/data-chat-overlay="[^"]+"/g)].length,
+  chatOverlayIds.length,
+  'Expected every requested chat overlay to have a device preview',
+);
+for (const overlayId of chatOverlayIds) {
+  assert.ok(productionHtml.includes(`id="${overlayId}"`), `Production chat overlay is unavailable: ${overlayId}`);
+  assert.ok(mockHtml.includes(`id="${overlayId}"`), `Mock chat overlay is unavailable: ${overlayId}`);
+}
 const flowScreens = [...mockHtml.matchAll(/<article class="screen"[^>]*data-flow-screen="([^"]+)"/g)]
   .map((match) => match[1]);
 assert.equal(flowScreens.length, 10, 'Every mock screen must expose a connector fallback anchor');
@@ -167,4 +239,4 @@ assert.notEqual(scriptEnd, -1, 'Mock inline script is not closed');
 assert.ok(bodyEnd > scriptEnd, 'Live Server must not inject reload code inside the mock script');
 new Function(mockHtml.slice(scriptStart + '<script>'.length, scriptEnd));
 
-console.log('DAO current modal flow mock validation passed');
+console.log('Liberdus UI showcase validation passed');

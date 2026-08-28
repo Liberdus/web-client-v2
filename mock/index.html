@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Liberdus DAO Current Modal Flow</title>
+    <title>Liberdus UI/UX Flow Reference</title>
     <style>
       :root {
         --background-color: #fff;
@@ -129,6 +129,64 @@
 
       .flow-section {
         margin-top: 28px;
+      }
+
+      .showcase-tabs {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 18px;
+        padding: 6px;
+        width: fit-content;
+      }
+
+      .showcase-tab {
+        background: transparent;
+        border: 0;
+        border-radius: 8px;
+        color: var(--secondary-text-color);
+        font-size: 13px;
+        font-weight: 700;
+        min-height: 38px;
+        padding: 0 16px;
+      }
+
+      .showcase-tab[aria-selected="true"] {
+        background: var(--primary-color);
+        color: #fff;
+      }
+
+      .showcase-tab:focus-visible {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+      }
+
+      .showcase-panel[hidden] {
+        display: none;
+      }
+
+      .preview-panel {
+        margin-top: 28px;
+      }
+
+      .preview-grid {
+        align-items: start;
+        display: grid;
+        gap: 40px 86px;
+        grid-template-columns: repeat(3, var(--device-viewport-width));
+        padding: 0 8px;
+      }
+
+      .preview-grid--single {
+        grid-template-columns: var(--device-viewport-width);
+      }
+
+      .preview-subsection {
+        margin-top: 40px;
       }
 
       .section-heading {
@@ -379,22 +437,31 @@
           <div class="mock-brand">
             <img class="mock-logo" src="../media/liberdus_logo_50.png" alt="" />
             <div>
-              <h1 class="mock-title">DAO Current Modal Flow</h1>
-              <div class="mock-subtitle">Interactive UI/UX reference using the modal structure and copy on current main.</div>
+              <h1 class="mock-title">Liberdus UI/UX Flow Reference</h1>
+              <div class="mock-subtitle">Interactive screens, modals, overlays, and DAO flows using the current app structure.</div>
             </div>
           </div>
           <div class="mock-subtitle">
-            All proposal states reuse the same Proposal modal. Role- and time-dependent actions appear inside it; they are not separate routes.
+            Each preview is isolated at a current iPhone viewport and loads the production stylesheet directly.
           </div>
-          <div class="mock-version">Aligned to main<br /><strong>9c02dfb3 · Aug 26, 2026</strong></div>
+          <div class="mock-version">Production-aligned<br /><strong>Scrollable · zoomable · pannable</strong></div>
         </header>
 
-        <div class="current-note">
-          <strong>What changed from the old mock</strong>
-          Backend proposal data, the eight-chip filter bar, review confirmation, committee decisions, weighted voting, finalization, reward claims, and parameter application are all represented below. The obsolete funnel menu, Active/Archived tabs, category dashboard, and standalone reward/parameter/action screens are gone.
+        <div class="showcase-tabs" role="tablist" aria-label="UI preview categories">
+          <button class="showcase-tab" id="showcase-tab-dao" type="button" role="tab" aria-controls="showcase-panel-dao" aria-selected="true" data-showcase-tab="dao">DAO Flow</button>
+          <button class="showcase-tab" id="showcase-tab-screens" type="button" role="tab" aria-controls="showcase-panel-screens" aria-selected="false" tabindex="-1" data-showcase-tab="screens">Screens</button>
+          <button class="showcase-tab" id="showcase-tab-chat" type="button" role="tab" aria-controls="showcase-panel-chat" aria-selected="false" tabindex="-1" data-showcase-tab="chat">Chat</button>
+          <button class="showcase-tab" id="showcase-tab-my-info" type="button" role="tab" aria-controls="showcase-panel-my-info" aria-selected="false" tabindex="-1" data-showcase-tab="my-info">My Info</button>
+          <button class="showcase-tab" id="showcase-tab-contact-info" type="button" role="tab" aria-controls="showcase-panel-contact-info" aria-selected="false" tabindex="-1" data-showcase-tab="contact-info">Contact Info</button>
         </div>
 
-        <section class="flow-section" aria-labelledby="current-flow-title">
+        <section class="showcase-panel" id="showcase-panel-dao" role="tabpanel" aria-labelledby="showcase-tab-dao" data-showcase-panel="dao">
+          <div class="current-note">
+            <strong>What changed from the old mock</strong>
+            Backend proposal data, the eight-chip filter bar, review confirmation, committee decisions, weighted voting, finalization, reward claims, and parameter application are all represented below. The obsolete funnel menu, Active/Archived tabs, category dashboard, and standalone reward/parameter/action screens are gone.
+          </div>
+
+          <section class="flow-section" aria-labelledby="current-flow-title">
           <div class="section-heading">
             <h2 class="section-title" id="current-flow-title">Current production flow</h2>
             <div class="section-note">The labels above each device explain when the real modal state is shown.</div>
@@ -719,6 +786,135 @@
 
             </div>
           </div>
+          </section>
+        </section>
+
+        <section class="showcase-panel preview-panel" id="showcase-panel-screens" role="tabpanel" aria-labelledby="showcase-tab-screens" data-showcase-panel="screens" hidden>
+          <div class="section-heading">
+            <h2 class="section-title">Primary app screens</h2>
+            <div class="section-note">Chats, Contacts, and Wallet use the production header, content, floating action, and footer navigation.</div>
+          </div>
+          <div class="preview-grid">
+            <article class="screen" data-app-modal="chatsScreen">
+              <div class="screen-label-row"><div class="screen-label">Chats screen</div><div class="screen-badges"><span class="screen-badge">Current</span></div></div>
+              <div class="screen-note"><strong>Conversation list</strong>Unread, failed, payment, call, voice, location, and draft previews use the live list styles.</div>
+              <div data-device-root>
+                <header class="header active"><div id="logo"><img src="../media/liberdus_logo_50.png" alt="" /></div><div class="app-name-container"><div class="app-name-avatar"></div><div class="app-name">Liberdus</div></div><div class="header-icons"><button class="icon-button" id="upcomingCallsBtn" aria-label="Upcoming calls"></button><button class="icon-button" id="toggleSettings" aria-label="Settings"></button><button class="icon-button" id="toggleMenu" aria-label="Menu"></button></div></header>
+                <div class="app-screen active" id="chatsScreen">
+                  <div class="search-bar-container"><div class="search-bar"><span class="search-icon"></span><input class="search-input" placeholder="Search messages..." readonly /></div></div>
+                  <ul class="chat-list" id="chatList">
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#dcdcf8"/><path d="M8 15h16v16H8zM24 7h16v16H24zM24 31h16v10H24z" fill="#3d3dce"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Ari Rivera</div><div class="chat-time">4:30 PM</div></div><div class="chat-message"><span class="chat-unread">3</span> &gt; Can you review the latest flow?</div></div></li>
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e9f7ee"/><path d="M12 12h24v10H12zM12 26h10v10H12zM26 26h10v10H26z" fill="#1e7e34"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Governance Group</div><div class="chat-time">3:12 PM</div></div><div class="chat-message">&lt; <span class="payment-preview">- 12.500000 LIB</span> <span class="memo-preview">| Proposal deposit</span></div></div></li>
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e0f2fe"/><path d="M10 10h12v28H10zM26 10h12v12H26zM26 26h12v12H26z" fill="#0369a1"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Kai Nelson</div><div class="chat-time">2:45 PM</div></div><div class="chat-message">&gt; <i>Join call</i></div></div></li>
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#fff0da"/><path d="M9 9h13v13H9zM26 9h13v30H26zM9 26h13v13H9z" fill="#d97706"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Mina Chen</div><div class="chat-time">1:08 PM</div></div><div class="chat-message">&gt; <i>Voice message</i></div></div></li>
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e8eefc"/><path d="M8 8h14v32H8zM26 8h14v14H26zM26 26h14v14H26z" fill="#3157a4"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Sam Okafor</div><div class="chat-time">Yesterday</div></div><div class="chat-message"><span class="chat-failed-indicator" aria-label="Not sent">!</span>&lt; <i>Shared location</i></div></div></li>
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#f3e8ff"/><circle cx="16" cy="16" r="8" fill="#7e22ce"/><circle cx="32" cy="32" r="8" fill="#7e22ce"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Design Team</div><div class="chat-time">Mon</div></div><div class="chat-message"><span class="chat-draft" title="Draft"></span> &lt; Updated screenshots attached</div></div></li>
+                  </ul>
+                </div>
+                <button class="floating-button visible" type="button" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
+                <footer class="footer active"><div class="nav-buttons"><button class="nav-button active" id="switchToChats">Chats</button><button class="nav-button" id="switchToContacts">Contacts</button><button class="nav-button" id="switchToWallet">Wallet</button></div></footer>
+              </div>
+            </article>
+
+            <article class="screen" data-app-modal="contactsScreen">
+              <div class="screen-label-row"><div class="screen-label">Contacts screen</div><div class="screen-badges"><span class="screen-badge">Current</span></div></div>
+              <div class="screen-note"><strong>Grouped contacts</strong>Connection, tolled, and blocked sections use the same rows and address treatment as the app.</div>
+              <div data-device-root>
+                <header class="header active"><div id="logo"><img src="../media/liberdus_logo_50.png" alt="" /></div><div class="app-name-container"><div class="app-name-avatar"></div><div class="app-name">Liberdus</div></div><div class="header-icons"><button class="icon-button" id="toggleSettings" aria-label="Settings"></button><button class="icon-button" id="toggleMenu" aria-label="Menu"></button></div></header>
+                <div class="app-screen active" id="contactsScreen">
+                  <div class="search-bar-container"><div class="search-bar"><span class="search-icon"></span><input class="search-input" placeholder="Search contacts..." readonly /></div></div>
+                  <ul class="chat-list" id="contactsList">
+                    <li class="contact-section-header">Connections</li>
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#dcdcf8"/><path d="M8 15h16v16H8zM24 7h16v16H24zM24 31h16v10H24z" fill="#3d3dce"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Ari Rivera</div></div><div class="contact-list-info">0x8f2a19c1…82d7a1</div></div></li>
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e9f7ee"/><path d="M12 12h24v10H12zM12 26h10v10H12zM26 26h10v10H26z" fill="#1e7e34"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Mina Chen</div></div><div class="contact-list-info">0x1c947ea0…43bc20</div></div></li>
+                    <li class="contact-section-header">Tolled</li>
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e8eefc"/><path d="M8 8h14v32H8zM26 8h14v14H26zM26 26h14v14H26z" fill="#3157a4"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name"><span class="contact-incomplete" title="Incomplete contact"></span>Sam Okafor</div></div><div class="contact-list-info">0x94bd1203…2f1d00</div></div></li>
+                    <li class="contact-section-header">Blocked</li>
+                    <li class="chat-item blocked"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#f3f4f6"/><path d="M10 10h28v28H10z" fill="#6b7280"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Blocked contact</div></div><div class="contact-list-info">0x003c1120…7a210f</div></div></li>
+                  </ul>
+                </div>
+                <button class="floating-button visible" type="button" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
+                <footer class="footer active"><div class="nav-buttons"><button class="nav-button" id="switchToChats">Chats</button><button class="nav-button active" id="switchToContacts">Contacts</button><button class="nav-button" id="switchToWallet">Wallet</button></div></footer>
+              </div>
+            </article>
+
+            <article class="screen" data-app-modal="walletScreen">
+              <div class="screen-label-row"><div class="screen-label">Wallet screen</div><div class="screen-badges"><span class="screen-badge">Current</span></div></div>
+              <div class="screen-note"><strong>Balances and actions</strong>The wallet keeps the production balance hero, six actions, asset list, and footer navigation.</div>
+              <div data-device-root>
+                <header class="header active"><div id="logo"><img src="../media/liberdus_logo_50.png" alt="" /></div><div class="app-name-container"><div class="app-name-avatar"></div><div class="app-name">Liberdus</div></div><div class="header-icons"><button class="icon-button" id="toggleSettings" aria-label="Settings"></button><button class="icon-button" id="toggleMenu" aria-label="Menu"></button></div></header>
+                <div class="app-screen active" id="walletScreen">
+                  <div class="wallet-balance"><div class="balance-label">Total Balance</div><div class="balance-amount"><span>$248.42</span><button class="refresh-button">↻</button></div></div>
+                  <div class="wallet-actions"><button class="wallet-action-button" id="openSendAssetFormModal"><span class="action-icon"></span><span class="action-label">Send</span></button><button class="wallet-action-button" id="openReceiveModal"><span class="action-icon"></span><span class="action-label">Receive</span></button><button class="wallet-action-button" id="openHistoryModal"><span class="action-icon"></span><span class="action-label">History</span></button><div class="wallet-actions-break"></div><button class="wallet-action-button" id="openBuyButton"><span class="action-icon"></span><span class="action-label">Buy</span></button><button class="wallet-action-button" id="openSellButton"><span class="action-icon"></span><span class="action-label">Sell</span></button><button class="wallet-action-button" id="openFaucetBridgeButton"><span class="action-icon"></span><span class="action-label">Faucet</span></button></div>
+                  <div class="wallet-assets"><div class="section-title">Assets</div><div id="assetsList"><div class="asset-item"><div class="asset-logo"><img src="../media/liberdus_logo_50.png" alt="" class="asset-logo" /></div><div class="asset-info"><div class="asset-name">Liberdus</div><div class="asset-symbol">$0.841762 / LIB</div></div><div class="asset-balance">295.120000<br /><span class="asset-symbol">$248.42</span></div></div><div class="asset-item"><div class="asset-logo">Ξ</div><div class="asset-info"><div class="asset-name">Ethereum</div><div class="asset-symbol">$4,212.10 / ETH</div></div><div class="asset-balance">0.000000<br /><span class="asset-symbol">$0.00</span></div></div></div></div>
+                </div>
+                <footer class="footer active"><div class="nav-buttons"><button class="nav-button" id="switchToChats">Chats</button><button class="nav-button" id="switchToContacts">Contacts</button><button class="nav-button active" id="switchToWallet">Wallet</button></div></footer>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="showcase-panel preview-panel" id="showcase-panel-chat" role="tabpanel" aria-labelledby="showcase-tab-chat" data-showcase-panel="chat" hidden>
+          <div class="section-heading"><h2 class="section-title">Chat modal</h2><div class="section-note">Scroll inside the phone to inspect every production message shape and state.</div></div>
+          <div class="preview-grid preview-grid--single">
+            <article class="screen" data-app-modal="chatModal">
+              <div class="screen-label-row"><div class="screen-label">Message gallery</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">All variants</span></div></div>
+              <div class="screen-note"><strong>Real chat bubble classes</strong>Text, replies, attachments, payments, calls, voice, location, deletion, reactions, edits, toll changes, and failure are represented.</div>
+              <div class="modal fixed-header active" id="chatModal">
+                <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="chat-user-info"><div class="modal-avatar"><svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="20" fill="#dcdcf8"/><path d="M7 13h13v13H7zM20 6h13v13H20zM20 27h13v8H20z" fill="#3d3dce"/></svg></div><div class="modal-title">Ari Rivera</div></div><div class="header-actions"><button class="icon-button add-friend-icon" type="button" aria-label="Add friend"></button><button class="icon-button menu-icon" type="button" aria-label="More options"></button></div></div>
+                <div class="messages-container"><div class="messages-list">
+                  <div class="update-toll-required-divider" role="status"><span class="update-toll-required-text">Ari’s message toll changed to 0.25 LIB</span></div>
+                  <div class="message received"><div class="message-content">Plain received text with a link to <a href="#">liberdus.com</a>.</div><div class="message-time">9:30 AM</div></div>
+                  <div class="message sent has-reactions"><div class="message-content">Plain sent text with reactions.</div><div class="message-time">9:31 AM</div><div class="message-reactions" aria-label="Reactions"><span class="message-reaction-chip my-reaction">👍</span><span class="message-reaction-chip">❤️</span></div></div>
+                  <div class="message received"><div class="reply-quote reply-owner-me"><span class="reply-quote-label reply-owner-me">You</span><div class="reply-quote-text">Plain sent text with reactions.</div></div><div class="message-content">This reply quotes your earlier message.</div><div class="message-time">9:32 AM</div></div>
+                  <div class="message received"><div class="attachment-row" style="display:flex;flex-direction:column;background:#f5f5f7;border-radius:12px;padding:5px;margin-bottom:6px" data-image-attachment="true"><div class="attachment-icon-container" style="margin-bottom:10px;flex-direction:column"><div class="attachment-icon" data-file-type="image"></div><div class="attachment-preview-hint">Click for options</div></div><div><span class="attachment-label" style="font-weight:500;color:#222;display:block">flow-review.png</span><span class="attachment-meta" style="color:#888">PNG · 842 KB</span></div></div><div class="message-content">Updated mobile flow.</div><div class="message-time">9:34 AM</div></div>
+                  <div class="message sent"><div class="attachment-row" style="display:flex;align-items:center;background:#f5f5f7;border-radius:12px;padding:10px 12px;margin-bottom:6px"><div class="attachment-icon-container" style="margin-right:14px;flex-shrink:0"><div class="attachment-icon" data-file-type="pdf"></div></div><div><span class="attachment-label" style="font-weight:500;color:#222;display:block">governance-notes.pdf</span><span class="attachment-meta" style="color:#888">PDF · 1.4 MB</span></div></div><div class="message-time">9:36 AM</div></div>
+                  <div class="message received payment-info"><div class="payment-header"><span class="payment-direction">+</span><span class="payment-amount">18.400000 LIB</span></div><div class="payment-memo">Review reward</div><div class="message-time">9:40 AM</div></div>
+                  <div class="message sent"><div class="call-message"><a href="#" class="call-message-phone-button" aria-label="Join Video Call"><span class="sr-only">Join Video Call</span></a><div><div class="call-message-text">Join Video Call</div></div></div><div class="message-time">9:42 AM</div></div>
+                  <div class="message received"><div class="call-message"><a href="#" class="call-message-phone-button" aria-label="Join scheduled video call"><span class="sr-only">Join Video Call</span></a><div><div class="call-message-text">Join Video Call</div><div class="call-message-schedule">Scheduled: Aug 29, 4:30 PM</div></div></div><div class="message-time">9:44 AM</div></div>
+                  <div class="message received"><div class="call-message"><div class="call-message-text"><i>Ari Rivera called you</i></div></div><div class="message-time">Yesterday</div></div>
+                  <div class="message sent"><div class="voice-message" data-duration="42"><div class="voice-message-controls"><div class="voice-message-top-row"><button class="voice-message-play-button" type="button" aria-label="Play voice message"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button><div class="voice-message-text">Voice message</div><div class="voice-message-time-display">0:00 / 0:42</div></div><div class="voice-message-bottom-row"><input type="range" class="voice-message-seek" min="0" max="42" value="0" aria-label="Seek voice message" /><button class="voice-message-speed-button" type="button">1x</button></div></div></div><div class="message-time">9:47 AM</div></div>
+                  <div class="message received"><div class="location-message"><a class="location-message-summary" href="#"><span class="location-message-icon" aria-hidden="true"></span><span class="location-message-body"><span class="location-message-title">Shared location</span><span class="location-message-coordinates">41.878113, -87.629799</span><span class="location-message-accuracy">Accurate to 12 m</span><span class="location-message-link">Open in Google Maps</span></span></a></div><div class="message-time">9:50 AM</div></div>
+                  <div class="message sent"><div class="message-content">Edited copy after review.</div><div class="message-time">9:52 AM <span class="message-edited-label">edited</span></div></div>
+                  <div class="message received"><div class="message-content">Updated response.</div><div class="message-time">9:53 AM <span class="message-edited-label">edited</span> <span class="edited-new-dot" title="Edited since last read"></span></div></div>
+                  <div class="message received deleted-message"><div class="message-content deleted-content">This message was deleted</div><div class="message-time">9:55 AM</div></div>
+                  <div class="message sent" data-status="failed"><div class="message-content">This outgoing message failed.</div><div class="message-time">9:57 AM</div></div>
+                </div></div>
+                <div class="message-input-container"><div class="toll-container chat-toll-container"><span class="toll-label">Toll:</span><span class="toll-value">0.25 LIB</span><span class="toll-info-icon" data-icon="info"></span></div><div class="message-input-row"><button class="icon-button add-attachment-button" type="button" aria-label="Add attachment"></button><div class="message-input-wrapper"><textarea class="message-input" placeholder="Type a message..."></textarea><button class="icon-button voice-record-button" type="button" aria-label="Record voice message"></button><button class="send-button" type="button" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg></button></div></div></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="preview-subsection">
+            <div class="section-heading"><h2 class="section-title">Chat overlays</h2><div class="section-note">Each preview shows the real overlay above a dimmed Chat modal.</div></div>
+            <div class="preview-grid">
+              <article class="screen" data-app-modal="voiceRecordingModal" data-chat-overlay="voice"><div class="screen-label-row"><div class="screen-label">Voice message</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Initial recording state</strong>Cancel or begin recording without leaving Chat.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="callScheduleChoiceModal" data-chat-overlay="call-choice"><div class="screen-label-row"><div class="screen-label">Start a Call</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Call choice</strong>Start immediately or continue into scheduling.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="dateTimePickerModal" data-chat-overlay="date-time"><div class="screen-label-row"><div class="screen-label">Schedule call</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Date and time</strong>Production date, hour, minute, and AM/PM controls.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="durationPickerModal" data-chat-overlay="duration"><div class="screen-label-row"><div class="screen-label">Call duration</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Duration picker</strong>Days, hours, and minutes use the shared picker dialog.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="chatHeaderContextMenu" data-chat-overlay="chat-menu"><div class="screen-label-row"><div class="screen-label">Chat actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Header menu</strong>Call, pay, and contact info actions open from the Chat header.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="messageContextMenu" data-chat-overlay="message-menu"><div class="screen-label-row"><div class="screen-label">Message actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Bubble menu</strong>Quick reactions, reply, copy, edit, and deletion actions.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="imageAttachmentContextMenu" data-chat-overlay="image-menu"><div class="screen-label-row"><div class="screen-label">Image actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Attachment menu</strong>Image reactions, save, share, reply, and deletion actions.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="attachmentOptionsContextMenu" data-chat-overlay="attachments"><div class="screen-label-row"><div class="screen-label">Add attachment</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Attachment menu</strong>Camera, library, files, contacts, and location entry points.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="locationSharePanel" data-chat-overlay="location"><div class="screen-label-row"><div class="screen-label">Share location</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Location confirmation</strong>Coordinates and accuracy are reviewed before sending.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="chatReactionSheetOverlay" data-chat-overlay="reactions"><div class="screen-label-row"><div class="screen-label">Reaction picker</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Expanded reactions</strong>Category rail and emoji grid use the production bottom sheet.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="cameraCaptureOverlay" data-chat-overlay="camera"><div class="screen-label-row"><div class="screen-label">Camera capture</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Camera confirmation</strong>The capture surface retains the live app controls and backdrop.</div><div data-device-root></div></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="showcase-panel preview-panel" id="showcase-panel-my-info" role="tabpanel" aria-labelledby="showcase-tab-my-info" data-showcase-panel="my-info" hidden>
+          <div class="section-heading"><h2 class="section-title">My Info modal</h2><div class="section-note">Current self-profile structure populated with representative account data.</div></div>
+          <div class="preview-grid preview-grid--single">
+            <article class="screen" data-app-modal="myInfoModal"><div class="screen-label-row"><div class="screen-label">My Info</div><div class="screen-badges"><span class="screen-badge">Current</span></div></div><div class="screen-note"><strong>Self identity</strong>Avatar, QR code, address copy action, and editable display name use production styling.</div><div class="modal fixed-header active" id="myInfoModal"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">My Info</div></div><div class="modal-content"><div class="form-container"><div class="contact-info-list"><div class="contact-avatar-section"><div class="avatar"><svg viewBox="0 0 96 96" aria-hidden="true"><rect width="96" height="96" rx="48" fill="#dcdcf8"/><path d="M14 28h34v34H14zM48 12h34v34H48zM48 64h34v20H48z" fill="#3d3dce"/></svg></div><div class="name">Alex Morgan</div><div id="myInfoQR"><svg width="160" height="160" viewBox="0 0 21 21" aria-label="Account QR code"><rect width="21" height="21" fill="white"/><path d="M1 1h6v6H1zm13 0h6v6h-6zM1 14h6v6H1zm8-5h2v2H9zm4 0h2v2h-2zm4 1h3v2h-3zM8 13h3v2H8zm5 0h2v4h-2zm4 1h3v2h-3zM9 18h3v2H9zm7 0h4v2h-4z" fill="#111"/><rect x="3" y="3" width="2" height="2" fill="white"/><rect x="16" y="3" width="2" height="2" fill="white"/><rect x="3" y="16" width="2" height="2" fill="white"/></svg></div><div class="myinfo-address-row"><div class="form-control address-display myinfo-address-display" role="button" tabindex="0">0x5a21d08b…91fa2c</div><button class="icon-button address-copy-button" type="button" aria-label="Copy address"></button></div></div><div class="contact-info-item"><div class="contact-info-label">Name</div><div class="contact-info-value-container"><div class="contact-info-value">Alex Morgan</div><button class="icon-button edit-icon" type="button" aria-label="Edit profile"></button></div></div></div></div></div></div></article>
+          </div>
+        </section>
+
+        <section class="showcase-panel preview-panel" id="showcase-panel-contact-info" role="tabpanel" aria-labelledby="showcase-tab-contact-info" data-showcase-panel="contact-info" hidden>
+          <div class="section-heading"><h2 class="section-title">Contact Info modal</h2><div class="section-note">Current contact actions and editable local metadata populated with representative data.</div></div>
+          <div class="preview-grid preview-grid--single">
+            <article class="screen" data-app-modal="contactInfoModal"><div class="screen-label-row"><div class="screen-label">Contact Info</div><div class="screen-badges"><span class="screen-badge">Current</span></div></div><div class="screen-note"><strong>Contact identity</strong>Chat, payment, connection, copy, name, and notes actions match the live modal.</div><div class="modal fixed-header active" id="contactInfoModal"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Contact Info</div><div class="header-actions"><button class="icon-button chat-icon" type="button" aria-label="Open chat"></button><button class="icon-button send-money-icon" type="button" aria-label="Send money"></button><button class="icon-button add-friend-icon" type="button" aria-label="Add friend"></button></div></div><div class="modal-content"><div class="form-container"><div class="contact-info-list"><div class="contact-avatar-section"><div class="avatar"><svg viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="48" fill="#e9f7ee"/><path d="M22 22h52v22H22zM22 52h22v22H22zM52 52h22v22H52z" fill="#1e7e34"/></svg></div><div class="name">Ari Rivera</div><div class="address-container"><div class="subtitle">0x8f2a19c1…82d7a1</div><button class="icon-button address-copy-button" type="button" aria-label="Copy address"></button></div></div><div class="contact-info-item"><div class="contact-info-label">Name</div><div class="contact-info-value-container"><div class="contact-info-value">Ari Rivera</div><button class="icon-button edit-icon" type="button" aria-label="Edit name"></button></div></div><div class="contact-info-item"><div class="contact-info-label">Notes</div><div class="contact-info-value-container"><div class="contact-info-value">DAO committee member · Chicago</div><button class="icon-button edit-icon" type="button" aria-label="Edit notes"></button></div></div></div></div></div></div></article>
+          </div>
         </section>
       </main>
     </div>
@@ -732,6 +928,8 @@
         const zoomIn = document.querySelector("[data-zoom-in]");
         const zoomOut = document.querySelector("[data-zoom-out]");
         const zoomReset = document.querySelector("[data-zoom-reset]");
+        const showcaseTabs = [...document.querySelectorAll("[data-showcase-tab]")];
+        const showcasePanels = [...document.querySelectorAll("[data-showcase-panel]")];
         const minScale = 0.35;
         const maxScale = 1.8;
         const zoomStep = 0.12;
@@ -794,8 +992,66 @@
           return `<div class="proposal-more-content">${sections.join("")}</div>`;
         };
 
+        const renderChatBackdrop = () => `
+          <div class="modal fixed-header active is-transition-complete" id="chatModal" aria-hidden="true">
+            <div class="modal-header">
+              <button class="back-button" type="button" aria-label="Back"></button>
+              <div class="chat-user-info"><div class="modal-avatar"></div><div class="modal-title">Ari Rivera</div></div>
+              <div class="header-actions"><button class="icon-button menu-icon" type="button" aria-label="More options"></button></div>
+            </div>
+            <div class="messages-container"><div class="messages-list">
+              <div class="message received"><div class="message-content">Chat remains visible behind this overlay.</div><div class="message-time">9:30 AM</div></div>
+              <div class="message sent"><div class="message-content">The overlay keeps its production position and backdrop.</div><div class="message-time">9:31 AM</div></div>
+            </div></div>
+            <div class="message-input-container"><div class="message-input-row"><button class="icon-button add-attachment-button" type="button" aria-label="Add attachment"></button><div class="message-input-wrapper"><textarea class="message-input" placeholder="Type a message..."></textarea><button class="icon-button voice-record-button" type="button" aria-label="Record voice message"></button><button class="send-button" type="button" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg></button></div></div></div>
+          </div>`;
+
+        const renderChatOverlay = (kind) => {
+          switch (kind) {
+            case "voice":
+              return `
+                <div id="voiceRecordingModal" style="display: flex">
+                  <div class="voice-recording-content"><div class="voice-recording-header"><h3>Voice Message</h3></div><div class="voice-recording-body"><div class="voice-recording-visual"><div class="recording-indicator"><div class="microphone-icon"><svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></div></div><div class="recording-timer">00:00</div></div><div class="voice-recording-controls"><div class="initial-controls"><button class="voice-btn voice-btn-secondary" type="button">Cancel</button><button class="voice-btn voice-btn-primary" type="button">Start Recording</button></div></div></div></div>
+                </div>`;
+            case "call-choice":
+              return `
+                <div class="modal modal-dialog active" id="callScheduleChoiceModal"><div class="dialog-box-content"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Start a Call</div></div><div class="modal-content"><div class="form-container call-invite-modal-container"><p class="modal-summary">Choose to call now or schedule a future time.</p><div class="form--narrow"><div class="form-actions"><div class="contact-time">Ari’s time: 4:30 PM</div><button type="button" class="btn btn--primary btn--pill btn--full">Call Now</button><button type="button" class="btn btn--primary btn--pill btn--full">Schedule</button><button type="button" class="btn btn--secondary btn--pill btn--full">Cancel</button></div></div></div></div></div></div>`;
+            case "date-time":
+              return `
+                <div class="modal modal-dialog active" id="dateTimePickerModal"><div class="dialog-box-content"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Select Date and Time</div><div class="current-time">4:30 PM</div></div><div class="modal-content"><div class="form-container call-invite-modal-container"><form class="form--narrow"><div class="form-group"><label>Select date and time</label><div class="picker-row"><input type="date" class="form-control date-time-picker-date-input" value="2026-08-29" /></div><div class="picker-row"><select class="form-control picker-select" aria-label="Hour"><option>4</option></select><select class="form-control picker-select" aria-label="Minute"><option>30</option></select><select class="form-control picker-select" aria-label="AM or PM"><option>PM</option></select></div></div><div class="form-actions"><div class="contact-time picker-preview">Aug 29, 2026 at 4:30 PM</div><button type="button" class="btn btn--primary btn--pill btn--full">Submit</button><button type="button" class="btn btn--secondary btn--pill btn--full">Cancel</button></div></form></div></div></div></div>`;
+            case "duration":
+              return `
+                <div class="modal modal-dialog active" id="durationPickerModal"><div class="dialog-box-content"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Select Duration</div></div><div class="modal-content"><div class="form-container call-invite-modal-container"><form class="form--narrow"><div class="form-group"><div class="picker-row"><div class="picker-field"><label>Days</label><select class="form-control picker-select"><option>0</option></select></div><div class="picker-field"><label>Hours</label><select class="form-control picker-select"><option>1</option></select></div><div class="picker-field"><label>Minutes</label><select class="form-control picker-select"><option>30</option></select></div></div></div><div class="form-actions"><div class="contact-time picker-preview">1 hour 30 minutes</div><button type="button" class="btn btn--primary btn--pill btn--full">Submit</button><button type="button" class="btn btn--secondary btn--pill btn--full">Cancel</button></div></form></div></div></div></div>`;
+            case "chat-menu":
+              return `
+                <div class="message-context-menu" id="chatHeaderContextMenu" style="display: block; right: 18px; top: 58px"><div class="context-menu-option" data-icon="call"><span class="context-menu-icon"></span><span class="context-menu-text">Call</span></div><div class="context-menu-option" data-icon="send-money"><span class="context-menu-icon"></span><span class="context-menu-text">Pay</span></div><div class="context-menu-option" data-icon="info"><span class="context-menu-icon"></span><span class="context-menu-text">Info</span></div></div>`;
+            case "message-menu":
+              return `
+                <div class="message-context-menu" id="messageContextMenu" style="display: block; right: 18px; top: 210px"><div class="message-context-reactions" aria-label="Quick reactions">${["👍", "❤️", "😂", "😮", "👎"].map((emoji) => `<button class="message-context-reaction-button" type="button">${emoji}</button>`).join("")}<button class="message-context-reaction-button message-context-reaction-button-more" type="button"><span class="plus-glyph">+</span></button></div><div class="context-menu-option" data-icon="reply"><span class="context-menu-icon"></span><span class="context-menu-text">Reply</span></div><div class="context-menu-option" data-icon="copy"><span class="context-menu-icon"></span><span class="context-menu-text">Copy</span></div><div class="context-menu-option" data-icon="edit"><span class="context-menu-icon"></span><span class="context-menu-text">Edit</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for me</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for all</span></div></div>`;
+            case "image-menu":
+              return `
+                <div class="message-context-menu" id="imageAttachmentContextMenu" style="display: block; left: 18px; top: 210px"><div class="message-context-reactions" aria-label="Quick reactions">${["👍", "❤️", "😂", "😮", "👎"].map((emoji) => `<button class="message-context-reaction-button" type="button">${emoji}</button>`).join("")}<button class="message-context-reaction-button message-context-reaction-button-more" type="button"><span class="plus-glyph">+</span></button></div><div class="context-menu-option" data-icon="download"><span class="context-menu-icon"></span><span class="context-menu-text">Save</span></div><div class="context-menu-option" data-icon="share"><span class="context-menu-icon"></span><span class="context-menu-text">Share</span></div><div class="context-menu-option" data-icon="reply"><span class="context-menu-icon"></span><span class="context-menu-text">Reply</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for me</span></div></div>`;
+            case "attachments":
+              return `
+                <div class="message-context-menu" id="attachmentOptionsContextMenu" style="bottom: 96px; display: block; left: 18px">
+                  <div class="context-menu-option" data-icon="camera"><span class="context-menu-icon"></span><span class="context-menu-text">Camera</span></div><div class="context-menu-option" data-icon="image"><span class="context-menu-icon"></span><span class="context-menu-text">Photo Library</span></div><div class="context-menu-option" data-icon="file"><span class="context-menu-icon"></span><span class="context-menu-text">Files</span></div><div class="context-menu-option" data-icon="camera"><span class="context-menu-icon"></span><span class="context-menu-text">Camera/File</span></div><div class="context-menu-option" data-icon="contacts"><span class="context-menu-icon"></span><span class="context-menu-text">Contacts</span></div><div class="context-menu-option" data-icon="location"><span class="context-menu-icon"></span><span class="context-menu-text">Share Location</span></div>
+                </div>`;
+            case "location":
+              return `
+                <div class="location-share-panel" id="locationSharePanel" style="display: flex" role="dialog" aria-modal="true" aria-labelledby="locationShareTitle"><div class="voice-recording-content"><div class="voice-recording-header"><h3 id="locationShareTitle">Share Location</h3></div><div class="voice-recording-body"><div class="voice-recording-visual"><div class="location-share-icon" aria-hidden="true"></div><div class="location-share-coordinates">41.878113, -87.629799</div><div class="location-share-accuracy">Accurate to 12 m</div><a class="location-message-link location-share-map-link" href="#">Open in Google Maps</a></div><div class="voice-recording-controls location-share-actions"><button type="button" class="voice-btn voice-btn-secondary">Cancel</button><button type="button" class="voice-btn voice-btn-primary">Send</button></div></div></div></div>`;
+            case "reactions":
+              return `
+                <div class="chat-reaction-sheet-overlay active" id="chatReactionSheetOverlay" aria-hidden="false"><div class="chat-reaction-sheet" role="dialog" aria-label="Choose a reaction"><div class="chat-reaction-sheet-drag-region"><div class="chat-reaction-sheet-handle" aria-hidden="true"></div><div class="chat-reaction-sheet-header"><div class="chat-reaction-sheet-title">Choose reaction</div><div class="chat-reaction-sheet-actions"><button class="chat-reaction-sheet-close" type="button">Close</button></div></div></div><div class="chat-reaction-sheet-body"><div class="chat-reaction-sheet-tabs" aria-label="Emoji categories"><button class="chat-reaction-sheet-tab active" type="button" aria-label="Recent">🕘</button><button class="chat-reaction-sheet-tab" type="button" aria-label="Smileys">🙂</button><button class="chat-reaction-sheet-tab" type="button" aria-label="Objects">💡</button></div><div class="chat-reaction-sheet-grid" aria-label="Emoji reactions">${["👍", "❤️", "😂", "😮", "👎", "🎉", "🔥", "👏", "🙏", "✅", "💯", "🚀", "🤝", "👀", "💡", "⭐", "🥳", "🙌"].map((emoji) => `<button class="chat-reaction-sheet-button" type="button">${emoji}</button>`).join("")}</div></div></div></div>`;
+            case "camera":
+              return `
+                <div class="camera-capture-overlay" id="cameraCaptureOverlay" style="display: flex" role="dialog" aria-modal="true" aria-label="Camera"><div class="camera-capture-dialog"><video class="camera-capture-video" playsinline muted></video><div class="camera-capture-controls"><button type="button" class="btn btn--secondary btn--pill">Cancel</button><button type="button" class="btn btn--primary btn--pill">Capture photo</button></div></div></div>`;
+            default:
+              throw new Error(`Unknown chat overlay: ${kind}`);
+          }
+        };
+
         // Omit optional end tags so Live Server does not inject reload code into this template.
-        const createDeviceDocument = (modalMarkup) => `<!doctype html>
+        const createDeviceDocument = (rootMarkup) => `<!doctype html>
           <html lang="en">
             <head>
               <meta charset="utf-8" />
@@ -806,11 +1062,14 @@
                 body { min-height: 0; padding: 0; }
                 .container { border-radius: 0; box-shadow: none; height: 100dvh; width: 100%; }
                 .modal { transition: none; }
+                [data-device-root] { display: contents; }
               </style>
             </head>
-            <body><main class="container">${modalMarkup}</main>`;
+            <body><main class="container">${rootMarkup}</main>`;
 
-        const getScrollSurface = (frameDocument) => frameDocument.querySelector("#daoModal .dao-list-pane, .modal-content");
+        const getScrollSurface = (frameDocument) => frameDocument.querySelector(
+          ".modal-dialog.active .modal-content, #daoModal .dao-list-pane, #chatModal .messages-container, .app-screen.active, .modal.active .modal-content",
+        );
 
         const wireDeviceFrame = (frame) => {
           const frameDocument = frame.contentDocument;
@@ -821,10 +1080,8 @@
             const scrollSurface = getScrollSurface(frameDocument);
             if (!target || !scrollSurface) return;
 
-            const nativeScrollTarget = scrollSurface.matches(".dao-list-pane")
-              ? target.closest(".dao-list-pane")
-              : target.closest(".modal-content");
-            if (nativeScrollTarget) return;
+            const nativeScrollTarget = target.closest(".dao-list-pane, .messages-container, .app-screen, .modal-content");
+            if (nativeScrollTarget === scrollSurface) return;
 
             event.preventDefault();
             scrollSurface.scrollTop += event.deltaY;
@@ -841,16 +1098,21 @@
         };
 
         const mountDeviceFrames = () => Promise.all(
-          [...board.querySelectorAll(".screen[data-app-modal]")].map((screen) => new Promise((resolve) => {
-            const modal = screen.querySelector(".modal");
-            if (!modal) {
+          [...canvas.querySelectorAll(".screen[data-app-modal]")].map((screen) => new Promise((resolve) => {
+            const deviceRoot = screen.querySelector("[data-device-root], .modal");
+            if (!deviceRoot) {
               resolve();
               return;
             }
 
-            modal.id = screen.dataset.appModal;
-            modal.classList.add("is-transition-complete");
-            const details = modal.querySelector(".proposal-more");
+            if (screen.dataset.chatOverlay) {
+              deviceRoot.innerHTML = renderChatBackdrop() + renderChatOverlay(screen.dataset.chatOverlay);
+            } else if (deviceRoot.matches(".modal")) {
+              deviceRoot.id = screen.dataset.appModal;
+              deviceRoot.classList.add("is-transition-complete");
+            }
+
+            const details = deviceRoot.querySelector(".proposal-more");
             if (details && !details.querySelector(".proposal-more-content")) {
               details.insertAdjacentHTML("beforeend", renderProposalDetails(screen.dataset.proposalState || "review"));
             }
@@ -864,8 +1126,9 @@
               wireDeviceFrame(frame);
               resolve();
             }, { once: true });
-            modal.replaceWith(frame);
-            frame.srcdoc = createDeviceDocument(modal.outerHTML);
+            const rootMarkup = deviceRoot.outerHTML;
+            deviceRoot.replaceWith(frame);
+            frame.srcdoc = createDeviceDocument(rootMarkup);
           })),
         );
 
@@ -1124,6 +1387,7 @@
         };
 
         const renderArrows = () => {
+          if (board.closest("[hidden]")) return;
           arrows.querySelectorAll(".transition-connector").forEach((element) => element.remove());
           const width = board.scrollWidth;
           const height = board.scrollHeight;
@@ -1166,6 +1430,37 @@
 
           });
         };
+
+        const activateShowcasePanel = (panelName) => {
+          showcaseTabs.forEach((tab) => {
+            const isActive = tab.dataset.showcaseTab === panelName;
+            tab.setAttribute("aria-selected", isActive);
+            tab.tabIndex = isActive ? 0 : -1;
+          });
+          showcasePanels.forEach((panel) => {
+            panel.hidden = panel.dataset.showcasePanel !== panelName;
+          });
+          requestAnimationFrame(() => {
+            if (panelName === "dao") renderArrows();
+          });
+        };
+
+        showcaseTabs.forEach((tab, tabIndex) => {
+          tab.addEventListener("click", () => activateShowcasePanel(tab.dataset.showcaseTab));
+          tab.addEventListener("keydown", (event) => {
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+            event.preventDefault();
+            const direction = event.key === "ArrowRight" ? 1 : -1;
+            const nextTab = showcaseTabs[(tabIndex + direction + showcaseTabs.length) % showcaseTabs.length];
+            activateShowcasePanel(nextTab.dataset.showcaseTab);
+            nextTab.focus();
+          });
+        });
+
+        const requestedPanel = new URLSearchParams(window.location.search).get("tab");
+        if (showcasePanels.some((panel) => panel.dataset.showcasePanel === requestedPanel)) {
+          activateShowcasePanel(requestedPanel);
+        }
 
         board.addEventListener("click", (event) => {
           const source = event.target.closest("[data-flow-source]");
