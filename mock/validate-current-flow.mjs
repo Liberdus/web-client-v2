@@ -64,6 +64,11 @@ for (const productionAddProposalHook of [
   );
 }
 
+assert.ok(
+  mockHtml.includes('class="floating-button visible" id="daoAddProposalButton"'),
+  'The mock proposal list must expose the production add-proposal action',
+);
+
 for (const deviceBehavior of [
   '--device-viewport-height: 874px',
   '--device-viewport-width: 402px',
@@ -117,6 +122,21 @@ for (const interactionHook of [
   'data-flow-target',
 ]) {
   assert.ok(mockHtml.includes(interactionHook), `Missing interaction hook: ${interactionHook}`);
+}
+
+for (const connectorGeometryHook of [
+  'markerUnits="userSpaceOnUse"',
+  'const connectorGeometry =',
+  'const connectorLabel =',
+  'labelTangent',
+  'labelNormal',
+  'dominant-baseline',
+  'rotate(${labelAngle.toFixed(1)}) scale(${labelScale.toFixed(2)})',
+]) {
+  assert.ok(
+    mockHtml.includes(connectorGeometryHook),
+    `Missing adaptive connector geometry: ${connectorGeometryHook}`,
+  );
 }
 
 const connectors = [...mockHtml.matchAll(
