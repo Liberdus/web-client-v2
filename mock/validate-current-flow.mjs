@@ -73,6 +73,8 @@ for (const deviceBehavior of [
   'scrollSurface.scrollTop += event.deltaY',
   'renderProposalDetails(screen.dataset.proposalState || "review")',
   'proposal-more-content',
+  'const frameMounts = mountDeviceFrames()',
+  'data-flow-screen',
 ]) {
   assert.ok(mockHtml.includes(deviceBehavior), `Missing device behavior: ${deviceBehavior}`);
 }
@@ -82,6 +84,10 @@ assert.equal(
   10,
   'Every mock screen must mount one isolated app modal',
 );
+const flowScreens = [...mockHtml.matchAll(/<article class="screen"[^>]*data-flow-screen="([^"]+)"/g)]
+  .map((match) => match[1]);
+assert.equal(flowScreens.length, 10, 'Every mock screen must expose a connector fallback anchor');
+assert.equal(new Set(flowScreens).size, flowScreens.length, 'Connector fallback anchors must be unique');
 assert.equal(
   [...mockHtml.matchAll(/data-proposal-state="[^"]+"/g)].length,
   [...mockHtml.matchAll(/<details class="proposal-more">/g)].length,
@@ -114,8 +120,8 @@ for (const interactionHook of [
 }
 
 const connectors = [...mockHtml.matchAll(
-  /\{ from: "([^"]+)", to: "([^"]+)", label: "([^"]+)" \}/g,
-)].map((match) => ({ from: match[1], to: match[2], label: match[3] }));
+  /\{ from: "([^"]+)", screen: "([^"]+)", to: "([^"]+)", label: "([^"]+)" \}/g,
+)].map((match) => ({ from: match[1], screen: match[2], to: match[3], label: match[4] }));
 assert.equal(connectors.length, 9, 'Expected every current modal transition to have a connector');
 
 for (const connector of connectors) {
@@ -126,6 +132,10 @@ for (const connector of connectors) {
   assert.ok(
     mockHtml.includes(`data-flow-target="${connector.to}"`),
     `Missing connector target: ${connector.to}`,
+  );
+  assert.ok(
+    mockHtml.includes(`data-flow-screen="${connector.screen}"`),
+    `Missing connector fallback screen: ${connector.screen}`,
   );
 }
 
