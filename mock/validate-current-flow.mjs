@@ -131,8 +131,10 @@ for (const connector of connectors) {
 
 const scriptStart = mockHtml.indexOf('<script>');
 const scriptEnd = mockHtml.indexOf('</script>', scriptStart);
+const bodyEnd = mockHtml.indexOf('</body>');
 assert.notEqual(scriptStart, -1, 'Mock inline script is missing');
 assert.notEqual(scriptEnd, -1, 'Mock inline script is not closed');
+assert.ok(bodyEnd > scriptEnd, 'Live Server must not inject reload code inside the mock script');
 new Function(mockHtml.slice(scriptStart + '<script>'.length, scriptEnd));
 
 console.log('DAO current modal flow mock validation passed');
