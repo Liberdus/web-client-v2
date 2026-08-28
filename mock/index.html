@@ -794,6 +794,7 @@
           return `<div class="proposal-more-content">${sections.join("")}</div>`;
         };
 
+        // Omit optional end tags so Live Server does not inject reload code into this template.
         const createDeviceDocument = (modalMarkup) => `<!doctype html>
           <html lang="en">
             <head>
@@ -807,8 +808,7 @@
                 .modal { transition: none; }
               </style>
             </head>
-            <body><main class="container">${modalMarkup}</main></body>
-          </html>`;
+            <body><main class="container">${modalMarkup}</main>`;
 
         const getScrollSurface = (frameDocument) => frameDocument.querySelector("#daoModal .dao-list-pane, .modal-content");
 
