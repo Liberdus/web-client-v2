@@ -410,7 +410,7 @@
             </svg>
 
             <div class="flow-row">
-              <article class="screen" data-app-modal="menuModal">
+              <article class="screen" data-app-modal="menuModal" data-flow-screen="menu">
                 <div class="screen-label-row">
                   <div class="screen-label">1. Menu</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Devnet</span></div>
@@ -438,7 +438,7 @@
                 </div>
               </article>
 
-              <article class="screen" data-app-modal="daoModal" data-flow-target="dao-list">
+              <article class="screen" data-app-modal="daoModal" data-flow-screen="dao-list" data-flow-target="dao-list">
                 <div class="screen-label-row">
                   <div class="screen-label">2. DAO proposal list</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Any user</span></div>
@@ -491,7 +491,7 @@
             </div>
 
             <div class="flow-row">
-              <article class="screen" data-app-modal="addProposalModal" data-flow-target="add-proposal">
+              <article class="screen" data-app-modal="addProposalModal" data-flow-screen="add-proposal" data-flow-target="add-proposal">
                 <div class="screen-label-row">
                   <div class="screen-label">3. Add Proposal</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div>
@@ -551,7 +551,7 @@
                 </div>
               </article>
 
-              <article class="screen" data-app-modal="confirmProposalModal" data-flow-target="confirm-proposal">
+              <article class="screen" data-app-modal="confirmProposalModal" data-flow-screen="confirm-proposal" data-flow-target="confirm-proposal">
                 <div class="screen-label-row">
                   <div class="screen-label">4. Review Proposal</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div>
@@ -580,7 +580,7 @@
                 </div>
               </article>
 
-              <article class="screen" data-app-modal="daoModal" data-flow-target="dao-review">
+              <article class="screen" data-app-modal="daoModal" data-flow-screen="dao-review" data-flow-target="dao-review">
                 <div class="screen-label-row">
                   <div class="screen-label">5. DAO - Review</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Any user</span></div>
@@ -615,7 +615,7 @@
             </div>
 
             <div class="flow-row">
-              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="review" data-flow-target="proposal-review">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="review" data-flow-screen="proposal-review" data-flow-target="proposal-review">
                 <div class="screen-label-row">
                   <div class="screen-label">6. Proposal - Review</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Committee</span></div>
@@ -635,7 +635,7 @@
                 </div>
               </article>
 
-              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="review" data-flow-target="review-finalize">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="review" data-flow-screen="review-finalize" data-flow-target="review-finalize">
                 <div class="screen-label-row">
                   <div class="screen-label">7. Review ended</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Funded user</span></div>
@@ -655,7 +655,7 @@
                 </div>
               </article>
 
-              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="voting" data-flow-target="proposal-voting">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="voting" data-flow-screen="proposal-voting" data-flow-target="proposal-voting">
                 <div class="screen-label-row">
                   <div class="screen-label">8. Proposal - Voting</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Eligible voter</span></div>
@@ -677,7 +677,7 @@
             </div>
 
             <div class="flow-row">
-              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="voting" data-flow-target="vote-ended">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="voting" data-flow-screen="vote-ended" data-flow-target="vote-ended">
                 <div class="screen-label-row">
                   <div class="screen-label">9. Voting ended</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Funded user</span></div>
@@ -697,7 +697,7 @@
                 </div>
               </article>
 
-              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="accepted" data-flow-target="result-actions">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="accepted" data-flow-screen="result-actions" data-flow-target="result-actions">
                 <div class="screen-label-row">
                   <div class="screen-label">10. Accepted + actions</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Contextual</span></div>
@@ -870,15 +870,15 @@
         );
 
         const connectors = [
-          { from: "menu-dao", to: "dao-list", label: "open DAO" },
-          { from: "dao-add", to: "add-proposal", label: "tap +" },
-          { from: "draft-review", to: "confirm-proposal", label: "review draft" },
-          { from: "sign-proposal", to: "dao-review", label: "settle + select Review" },
-          { from: "review-row", to: "proposal-review", label: "open proposal" },
-          { from: "committee-submit", to: "review-finalize", label: "after reviewEnd" },
-          { from: "finalize-review", to: "proposal-voting", label: "moves to voting" },
-          { from: "vote-submit", to: "vote-ended", label: "after votingEnd" },
-          { from: "finalize-vote", to: "result-actions", label: "accepted result" },
+          { from: "menu-dao", screen: "menu", to: "dao-list", label: "open DAO" },
+          { from: "dao-add", screen: "dao-list", to: "add-proposal", label: "tap +" },
+          { from: "draft-review", screen: "add-proposal", to: "confirm-proposal", label: "review draft" },
+          { from: "sign-proposal", screen: "confirm-proposal", to: "dao-review", label: "settle + select Review" },
+          { from: "review-row", screen: "dao-review", to: "proposal-review", label: "open proposal" },
+          { from: "committee-submit", screen: "proposal-review", to: "review-finalize", label: "after reviewEnd" },
+          { from: "finalize-review", screen: "review-finalize", to: "proposal-voting", label: "moves to voting" },
+          { from: "vote-submit", screen: "proposal-voting", to: "vote-ended", label: "after votingEnd" },
+          { from: "finalize-vote", screen: "vote-ended", to: "result-actions", label: "accepted result" },
         ];
 
         const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -956,7 +956,13 @@
           const elementRect = element.getBoundingClientRect();
           const boardRect = board.getBoundingClientRect();
           const ownerFrame = [...board.querySelectorAll(".device-frame")]
-            .find((frame) => frame.contentDocument === element.ownerDocument);
+            .find((frame) => {
+              try {
+                return frame.contentDocument === element.ownerDocument;
+              } catch {
+                return false;
+              }
+            });
 
           if (ownerFrame) {
             const frameRect = ownerFrame.getBoundingClientRect();
@@ -983,8 +989,12 @@
           if (boardElement) return boardElement;
 
           for (const frame of board.querySelectorAll(".device-frame")) {
-            const frameElement = frame.contentDocument?.querySelector(selector);
-            if (frameElement) return frameElement;
+            try {
+              const frameElement = frame.contentDocument?.querySelector(selector);
+              if (frameElement) return frameElement;
+            } catch {
+              // The screen-level anchor still renders the connector if iframe access is unavailable.
+            }
           }
 
           return null;
@@ -1017,13 +1027,15 @@
           arrows.setAttribute("height", height);
 
           connectors.forEach((connector) => {
-            const source = findFlowElement(`[data-flow-source="${connector.from}"]`);
+            const source = findFlowElement(`[data-flow-source="${connector.from}"]`)
+              || board.querySelector(`[data-flow-screen="${connector.screen}"]`);
             const target = board.querySelector(`[data-flow-target="${connector.to}"]`);
             if (!source || !target) return;
 
             const sourceBox = boxInBoard(source);
             const targetBox = boxInBoard(target);
-            const start = { x: sourceBox.x + sourceBox.width, y: sourceBox.y + sourceBox.height / 2 };
+            const sourceY = source.matches?.(".screen") ? 156 : sourceBox.height / 2;
+            const start = { x: sourceBox.x + sourceBox.width, y: sourceBox.y + sourceY };
             const end = { x: targetBox.x, y: targetBox.y + 156 };
             const horizontalDistance = Math.max(56, Math.abs(end.x - start.x) * 0.42);
             const pathData = `M ${start.x} ${start.y} C ${start.x + horizontalDistance} ${start.y}, ${end.x - horizontalDistance} ${end.y}, ${end.x} ${end.y}`;
@@ -1063,10 +1075,12 @@
         });
 
         window.addEventListener("resize", renderArrows);
-        mountDeviceFrames().then(() => requestAnimationFrame(() => {
+        const frameMounts = mountDeviceFrames();
+        requestAnimationFrame(() => {
           renderArrows();
           updateTransform();
-        }));
+        });
+        frameMounts.then(() => requestAnimationFrame(renderArrows));
       })();
     </script>
   </body>
