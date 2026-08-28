@@ -403,8 +403,8 @@
           <div class="flow-board" data-flow-board>
             <svg class="transition-arrows" data-flow-arrows aria-label="Interactive flow connections">
               <defs>
-                <marker id="flow-arrowhead" markerHeight="10" markerWidth="10" orient="auto" refX="8" refY="5">
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#3d3dce"></path>
+                <marker id="flow-arrowhead" markerHeight="12" markerUnits="userSpaceOnUse" markerWidth="12" orient="auto" overflow="visible" refX="12" refY="6" viewBox="0 0 12 12">
+                  <path d="M 0 0 L 12 6 L 0 12 L 3 6 z" fill="#3d3dce"></path>
                 </marker>
               </defs>
             </svg>
@@ -484,7 +484,7 @@
                         </li>
                       </ul>
                     </div>
-                    <button class="floating-button" id="daoAddProposalButton" type="button" data-flow-source="dao-add" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
+                    <button class="floating-button visible" id="daoAddProposalButton" type="button" data-flow-source="dao-add" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
                   </div>
                 </div>
               </article>
@@ -1007,6 +1007,111 @@
           group.classList.toggle("is-highlighted", pinned);
         };
 
+        const pointOnCubic = (start, controlA, controlB, end, progress) => {
+          const remainder = 1 - progress;
+          return {
+            x: remainder ** 3 * start.x
+              + 3 * remainder ** 2 * progress * controlA.x
+              + 3 * remainder * progress ** 2 * controlB.x
+              + progress ** 3 * end.x,
+            y: remainder ** 3 * start.y
+              + 3 * remainder ** 2 * progress * controlA.y
+              + 3 * remainder * progress ** 2 * controlB.y
+              + progress ** 3 * end.y,
+          };
+        };
+
+        const tangentOnCubic = (start, controlA, controlB, end, progress) => {
+          const remainder = 1 - progress;
+          return {
+            x: 3 * remainder ** 2 * (controlA.x - start.x)
+              + 6 * remainder * progress * (controlB.x - controlA.x)
+              + 3 * progress ** 2 * (end.x - controlB.x),
+            y: 3 * remainder ** 2 * (controlA.y - start.y)
+              + 6 * remainder * progress * (controlB.y - controlA.y)
+              + 3 * progress ** 2 * (end.y - controlB.y),
+          };
+        };
+
+        const cubicLength = (start, controlA, controlB, end) => {
+          let length = 0;
+          let previous = start;
+          for (let step = 1; step <= 16; step += 1) {
+            const point = pointOnCubic(start, controlA, controlB, end, step / 16);
+            length += Math.hypot(point.x - previous.x, point.y - previous.y);
+            previous = point;
+          }
+          return length;
+        };
+
+        const connectorGeometry = (start, end, sourceScreenBox, targetBox) => {
+          if (end.x > start.x) {
+            const horizontalGap = end.x - start.x;
+            const handle = Math.min(Math.max(28, horizontalGap * 0.4), horizontalGap * 0.48);
+            const controlA = { x: start.x + handle, y: start.y };
+            const controlB = { x: end.x - handle, y: end.y };
+            const labelPoint = pointOnCubic(start, controlA, controlB, end, 0.5);
+            const labelTangent = tangentOnCubic(start, controlA, controlB, end, 0.5);
+            return {
+              labelLength: cubicLength(start, controlA, controlB, end) * 0.58,
+              labelNormal: null,
+              labelPoint,
+              labelTangent,
+              pathData: `M ${start.x} ${start.y} C ${controlA.x} ${controlA.y}, ${controlB.x} ${controlB.y}, ${end.x} ${end.y}`,
+            };
+          }
+
+          const sourceBottom = sourceScreenBox.y + sourceScreenBox.height;
+          const rowGap = Math.max(32, targetBox.y - sourceBottom);
+          const channelY = sourceBottom + clamp(rowGap * 0.18, 7, 10);
+          const exitX = sourceScreenBox.x + sourceScreenBox.width + 36;
+          const entryX = end.x - 32;
+          const cornerRadius = 12;
+          const horizontalStart = exitX - cornerRadius;
+          const horizontalEnd = entryX + cornerRadius;
+          const startHandle = Math.min(42, Math.max(28, (exitX - start.x) * 0.72));
+          const endHandle = Math.min(42, Math.max(28, end.x - entryX));
+          return {
+            labelLength: Math.abs(horizontalEnd - horizontalStart),
+            labelNormal: { x: 0, y: 1 },
+            labelPoint: { x: (horizontalStart + horizontalEnd) / 2, y: channelY },
+            labelTangent: { x: -1, y: 0 },
+            pathData: [
+              `M ${start.x} ${start.y}`,
+              `C ${start.x + startHandle} ${start.y}, ${exitX} ${channelY - 34}, ${exitX} ${channelY - cornerRadius}`,
+              `Q ${exitX} ${channelY}, ${horizontalStart} ${channelY}`,
+              `L ${horizontalEnd} ${channelY}`,
+              `Q ${entryX} ${channelY}, ${entryX} ${channelY + cornerRadius}`,
+              `C ${entryX} ${end.y - 34}, ${end.x - endHandle} ${end.y}, ${end.x} ${end.y}`,
+            ].join(" "),
+          };
+        };
+
+        const connectorLabel = (textContent, geometry) => {
+          const naturalWidth = Math.max(64, textContent.length * 7 + 20);
+          const labelScale = clamp((geometry.labelLength - 16) / naturalWidth, 0.62, 1);
+          const tangentLength = Math.hypot(geometry.labelTangent.x, geometry.labelTangent.y) || 1;
+          const tangent = {
+            x: geometry.labelTangent.x / tangentLength,
+            y: geometry.labelTangent.y / tangentLength,
+          };
+          const normal = geometry.labelNormal || {
+            x: tangent.y,
+            y: -tangent.x,
+          };
+          const labelOffset = 12 * labelScale + 7;
+          const labelX = geometry.labelPoint.x + normal.x * labelOffset;
+          const labelY = geometry.labelPoint.y + normal.y * labelOffset;
+          const labelAngle = Math.atan2(tangent.y, tangent.x) * 180 / Math.PI;
+          const transform = `translate(${labelX.toFixed(1)} ${labelY.toFixed(1)}) rotate(${labelAngle.toFixed(1)}) scale(${labelScale.toFixed(2)})`;
+          const label = svgElement("g", { class: "transition-label", transform });
+          label.appendChild(svgElement("rect", { x: -naturalWidth / 2, y: -12, width: naturalWidth, height: 24 }));
+          const text = svgElement("text", { "dominant-baseline": "central", x: 0, y: 0 });
+          text.textContent = textContent;
+          label.appendChild(text);
+          return label;
+        };
+
         const activateFlowSource = (source, event) => {
           const connector = connectors.find((candidate) => candidate.from === source.dataset.flowSource);
           if (!connector) return;
@@ -1034,26 +1139,20 @@
 
             const sourceBox = boxInBoard(source);
             const targetBox = boxInBoard(target);
+            const sourceScreen = board.querySelector(`[data-flow-screen="${connector.screen}"]`);
+            const sourceScreenBox = boxInBoard(sourceScreen);
             const sourceY = source.matches?.(".screen") ? 156 : sourceBox.height / 2;
             const start = { x: sourceBox.x + sourceBox.width, y: sourceBox.y + sourceY };
             const end = { x: targetBox.x, y: targetBox.y + 156 };
-            const horizontalDistance = Math.max(56, Math.abs(end.x - start.x) * 0.42);
-            const pathData = `M ${start.x} ${start.y} C ${start.x + horizontalDistance} ${start.y}, ${end.x - horizontalDistance} ${end.y}, ${end.x} ${end.y}`;
+            const geometry = connectorGeometry(start, end, sourceScreenBox, targetBox);
             const connectorId = `${connector.from}:${connector.to}`;
             const group = svgElement("g", {
               class: `transition-connector${pinnedConnectors.has(connectorId) ? " is-highlighted" : ""}`,
               "data-connector": connectorId,
             });
-            const hitPath = svgElement("path", { class: "transition-hit-path", d: pathData });
-            const path = svgElement("path", { class: "transition-path", d: pathData });
-            const labelWidth = Math.max(74, connector.label.length * 7 + 20);
-            const labelX = (start.x + end.x) / 2;
-            const labelY = (start.y + end.y) / 2 - 12;
-            const label = svgElement("g", { class: "transition-label" });
-            label.appendChild(svgElement("rect", { x: labelX - labelWidth / 2, y: labelY - 12, width: labelWidth, height: 24 }));
-            const text = svgElement("text", { x: labelX, y: labelY + 4 });
-            text.textContent = connector.label;
-            label.appendChild(text);
+            const hitPath = svgElement("path", { class: "transition-hit-path", d: geometry.pathData });
+            const path = svgElement("path", { class: "transition-path", d: geometry.pathData });
+            const label = connectorLabel(connector.label, geometry);
             group.append(hitPath, path, label);
             arrows.appendChild(group);
 
