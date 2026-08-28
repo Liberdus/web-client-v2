@@ -82,6 +82,11 @@ assert.equal(
   10,
   'Every mock screen must mount one isolated app modal',
 );
+assert.equal(
+  [...mockHtml.matchAll(/data-proposal-state="[^"]+"/g)].length,
+  [...mockHtml.matchAll(/<details class="proposal-more">/g)].length,
+  'Every proposal-state screen must expose expandable proposal details',
+);
 
 assert.ok(!mockHtml.includes('compact-content'), 'Mock must render production UI without scale-to-fit classes');
 
