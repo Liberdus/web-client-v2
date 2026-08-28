@@ -9,19 +9,14 @@
         --background-color: #fff;
         --board-background: #f0f0f0;
         --border-color: #dee2e6;
-        --danger-color: #dc3545;
-        --input-background: #e4e6e9;
         --primary-color: #3d3dce;
-        --primary-hover: #3535b8;
-        --primary-tint-12: rgba(61, 61, 206, 0.12);
-        --primary-tint-60: rgba(61, 61, 206, 0.6);
         --secondary-text-color: #65676b;
         --success-color: #1e7e34;
         --text-color: #1c1c21;
-        --warning-color: #ef6c00;
         --font-primary: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        --overlay-border-radius: 8px;
-        --shadow-primary: 0 4px 12px rgba(61, 61, 206, 0.3);
+        /* iPhone 17 Pro logical viewport (1206 × 2622 physical pixels at 3×). */
+        --device-viewport-height: 874px;
+        --device-viewport-width: 402px;
       }
 
       * {
@@ -158,7 +153,7 @@
         align-items: start;
         display: flex;
         gap: 86px;
-        min-height: 728px;
+        min-height: calc(var(--device-viewport-height) + 120px);
         padding: 0 8px;
         position: relative;
       }
@@ -173,9 +168,9 @@
       }
 
       .screen {
-        flex: 0 0 390px;
+        flex: 0 0 var(--device-viewport-width);
         position: relative;
-        width: 390px;
+        width: var(--device-viewport-width);
         z-index: 2;
       }
 
@@ -230,805 +225,15 @@
         margin-bottom: 2px;
       }
 
-      .modal {
+      .device-frame {
         background: var(--background-color);
-        border: 1px solid #cfd3d8;
+        border: 0;
         border-radius: 10px;
         box-shadow: 0 6px 18px rgba(28, 28, 33, 0.14);
-        display: flex;
-        flex-direction: column;
-        height: 640px;
-        overflow: hidden;
-        position: relative;
-        width: 390px;
-      }
-
-      .modal-header {
-        align-items: center;
-        background: var(--background-color);
-        border-bottom: 1px solid var(--border-color);
-        display: grid;
-        flex: 0 0 56px;
-        grid-template-columns: 52px minmax(0, 1fr) 52px;
-        min-height: 56px;
-        padding: 0 8px;
-        z-index: 2;
-      }
-
-      .modal-title {
-        font-size: 16px;
-        font-weight: 700;
-        grid-column: 2;
-        overflow: hidden;
-        text-align: center;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .back-button,
-      .sign-out-header-button {
-        align-items: center;
-        background: transparent;
-        border: 0;
-        color: var(--text-color);
-        display: flex;
-        height: 40px;
-        justify-content: center;
-        padding: 0;
-        width: 40px;
-      }
-
-      .back-button::before {
-        border-bottom: 2px solid currentColor;
-        border-left: 2px solid currentColor;
-        content: "";
-        height: 10px;
-        transform: rotate(45deg);
-        width: 10px;
-      }
-
-      .sign-out-header-button {
-        color: var(--danger-color);
-        font-size: 20px;
-        grid-column: 3;
-        justify-self: end;
-      }
-
-      .modal-content {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow: hidden;
-        position: relative;
-      }
-
-      .menu-list,
-      .chat-list {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      .menu-item {
-        align-items: center;
-        border-bottom: 1px solid var(--border-color);
-        display: flex;
-        font-size: 16px;
-        gap: 14px;
-        min-height: 56px;
-        padding: 12px 16px;
-      }
-
-      .menu-item::before {
-        align-items: center;
-        color: var(--text-color);
-        content: attr(data-glyph);
-        display: inline-flex;
-        font-size: 20px;
-        height: 24px;
-        justify-content: center;
-        width: 24px;
-      }
-
-      .menu-item.is-target {
-        background: var(--primary-tint-12);
-        border: 1px solid rgba(61, 61, 206, 0.35);
-      }
-
-      .dao-toolbar {
-        background: var(--background-color);
-        padding: 4px 8px;
-      }
-
-      .dao-filter-bar {
-        background: rgba(61, 61, 206, 0.14);
-        border-radius: var(--overlay-border-radius);
-        display: grid;
-        gap: 4px;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        padding: 8px 12px;
-      }
-
-      .dao-filter-chip {
-        align-items: center;
-        background: transparent;
-        border: 0;
-        border-radius: 6px;
-        color: var(--text-color);
-        display: inline-flex;
-        font-size: 12px;
-        font-weight: 500;
-        gap: 4px;
-        justify-content: center;
-        min-height: 36px;
-        min-width: 0;
-        padding: 6px 4px;
-        white-space: nowrap;
-      }
-
-      .dao-filter-chip.active {
-        background: var(--primary-color);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        color: var(--background-color);
-      }
-
-      .dao-filter-chip-count {
-        align-items: center;
-        background: #d8d9da;
-        border-radius: 999px;
-        color: var(--secondary-text-color);
-        display: inline-flex;
-        font-size: 12px;
-        font-weight: 600;
-        justify-content: center;
-        min-height: 20px;
-        min-width: 22px;
-        padding: 2px 6px;
-      }
-
-      .dao-filter-chip.active .dao-filter-chip-count {
-        background: rgba(255, 255, 255, 0.18);
-        color: var(--background-color);
-      }
-
-      .dao-list-pane {
-        height: calc(100% - 104px);
-        overflow: hidden;
-        padding-bottom: 96px;
-      }
-
-      .dao-proposal-row {
-        align-items: center;
-        border-bottom: 1px solid var(--border-color);
-        display: flex;
-        min-height: 68px;
-        padding: 10px 16px;
-      }
-
-      .dao-row-content {
-        display: grid;
-        gap: 7px;
-        min-width: 0;
-        width: 100%;
-      }
-
-      .dao-row-title {
-        font-size: 16px;
-        font-weight: 600;
-        line-height: 1.2;
-        overflow-wrap: anywhere;
-      }
-
-      .dao-row-meta {
-        align-items: center;
-        color: var(--secondary-text-color);
-        display: flex;
-        font-size: 12px;
-        gap: 10px;
-      }
-
-      .dao-row-previews {
-        display: flex;
-        flex: 1 1 auto;
-        flex-wrap: wrap;
-        gap: 4px;
-        justify-content: flex-end;
-        margin-left: auto;
-      }
-
-      .dao-row-preview {
-        background: var(--input-background);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        color: var(--text-color);
-        font-size: 12px;
-        font-weight: 500;
-        padding: 4px 6px;
-      }
-
-      .dao-row-preview--accepted {
-        background: rgba(30, 126, 52, 0.12);
-        border-color: rgba(30, 126, 52, 0.3);
-      }
-
-      .dao-row-preview--rejected {
-        background: rgba(196, 45, 45, 0.1);
-        border-color: rgba(196, 45, 45, 0.28);
-      }
-
-      .dao-row-preview--emergency {
-        background: rgba(239, 108, 0, 0.12);
-        border-color: rgba(239, 108, 0, 0.32);
-      }
-
-      .notification-dot::after {
-        background: var(--primary-color);
-        border-radius: 50%;
-        content: "";
-        display: inline-block;
-        height: 7px;
-        margin-left: 7px;
-        vertical-align: 2px;
-        width: 7px;
-      }
-
-      .floating-button {
-        align-items: center;
-        background: var(--primary-tint-60);
-        border: 0;
-        border-radius: 50%;
-        bottom: 18px;
-        box-shadow: var(--shadow-primary);
-        color: var(--text-color);
-        display: flex;
-        font-size: 28px;
-        height: 56px;
-        justify-content: center;
-        padding: 0;
-        position: absolute;
-        right: 16px;
-        width: 56px;
-      }
-
-      .form-container {
-        height: 100%;
-        overflow: hidden;
-        padding: 12px 16px 16px;
-      }
-
-      .dao-proposal-form {
-        display: grid;
-        gap: 10px;
-      }
-
-      .form-group {
-        display: grid;
-        gap: 5px;
-      }
-
-      .form-group label,
-      .dao-form-row-title,
-      .dao-form-section-header {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-        font-weight: 500;
-        line-height: 1.25;
-      }
-
-      .dao-form-required {
-        color: var(--danger-color);
-        font-weight: 600;
-      }
-
-      .form-control {
-        background: var(--background-color);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        color: var(--text-color);
-        min-height: 38px;
-        padding: 8px 10px;
-        width: 100%;
-      }
-
-      textarea.form-control {
-        min-height: 68px;
-        resize: none;
-      }
-
-      .dao-form-current-value {
-        background: #d8d9da;
-        color: var(--secondary-text-color);
-      }
-
-      .dao-form-grid {
-        display: grid;
-        gap: 8px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .dao-form-help,
-      .dao-form-meta,
-      .proposal-info-muted,
-      .action-header p {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-        line-height: 1.35;
-        margin: 0;
-      }
-
-      .dao-form-option {
-        background: var(--input-background);
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        display: grid;
-        gap: 7px;
-        padding: 9px;
-      }
-
-      .dao-form-option--no-change {
-        border-style: dashed;
-      }
-
-      .dao-form-row-title {
-        align-items: center;
-        color: var(--text-color);
-        display: flex;
-        font-weight: 600;
-        justify-content: space-between;
-      }
-
-      .dao-form-change-box {
-        background: var(--input-background);
-        border-radius: 8px;
-        display: grid;
-        gap: 6px;
-      }
-
-      .dao-form-change-line {
-        align-items: center;
-        display: grid;
-        gap: 8px;
-        grid-template-columns: 78px minmax(0, 1fr);
-      }
-
-      .dao-form-add-button {
-        align-items: center;
-        background: transparent;
-        border: 1px dashed var(--border-color);
-        border-radius: 8px;
-        color: var(--primary-color);
-        display: flex;
-        font-size: 13px;
-        font-weight: 600;
-        gap: 8px;
-        justify-content: center;
-        min-height: 38px;
-      }
-
-      .form-actions {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .btn {
-        align-items: center;
-        border: 0;
-        display: flex;
-        font-size: 14px;
-        font-weight: 700;
-        height: 42px;
-        justify-content: center;
-        padding: 8px 14px;
-      }
-
-      .btn--primary {
-        background: var(--primary-color);
-        color: var(--background-color);
-      }
-
-      .btn--secondary {
-        background: #d8d9da;
-        color: var(--text-color);
-      }
-
-      .btn--pill {
-        border-radius: 24px;
-      }
-
-      .btn--full {
-        width: 100%;
-      }
-
-      .proposal-info,
-      .proposal-details,
-      .proposal-action-section {
-        display: grid;
-        gap: 12px;
-        margin: 0 auto;
-        width: 100%;
-      }
-
-      .proposal-info-heading {
-        display: grid;
-        gap: 4px;
-        text-align: center;
-      }
-
-      .proposal-info-title {
-        font-size: 20px;
-        line-height: 1.2;
-        margin: 0;
-      }
-
-      .proposal-type-indicator {
-        color: var(--secondary-text-color);
-        font-size: 13px;
-        font-weight: 600;
-        margin: 0;
-      }
-
-      .proposal-info-description {
-        color: var(--secondary-text-color);
-        font-size: 13px;
-        line-height: 1.35;
-        margin: 0;
-      }
-
-      .proposal-info-section {
-        display: grid;
-        gap: 8px;
-      }
-
-      .proposal-info-section h3,
-      .proposal-action-section h3 {
-        font-size: 16px;
-        line-height: 1.25;
-        margin: 0;
-        text-align: center;
-      }
-
-      .proposal-option-cards {
-        display: grid;
-        gap: 8px;
-      }
-
-      .proposal-option-section {
-        background: rgba(61, 61, 206, 0.055);
-        border-radius: var(--overlay-border-radius);
-        display: grid;
-        gap: 5px;
-        padding: 8px 10px;
-      }
-
-      .proposal-option-label {
-        align-items: center;
-        display: flex;
-        font-size: 13px;
-        font-weight: 600;
-        gap: 10px;
-      }
-
-      .proposal-option-label::after {
-        border-top: 1px solid var(--border-color);
-        content: "";
-        flex: 1 1 auto;
-      }
-
-      .proposal-change-row {
-        align-items: center;
-        display: grid;
-        font-size: 12px;
-        gap: 8px;
-        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-      }
-
-      .proposal-change-values {
-        align-items: center;
-        display: grid;
-        gap: 4px;
-        grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
-        text-align: center;
-      }
-
-      .proposal-change-values small {
-        display: grid;
-        gap: 1px;
-      }
-
-      .proposal-change-values small span,
-      .proposal-change-row > span {
-        color: var(--secondary-text-color);
-      }
-
-      .proposal-info-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        justify-content: center;
-      }
-
-      .proposal-info-row {
-        background: rgba(255, 255, 255, 0.92);
-        border-radius: 8px;
-        box-shadow: 0 1px 2px rgba(28, 28, 33, 0.05);
-        display: grid;
-        flex: 0 1 calc((100% - 16px) / 3);
-        font-size: 12px;
-        gap: 7px;
-        min-height: 64px;
-        padding: 8px;
-        text-align: center;
-      }
-
-      .proposal-info-row > span:first-child {
-        color: var(--secondary-text-color);
-      }
-
-      .proposal-result-overview {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .proposal-result-card {
-        background: rgba(255, 255, 255, 0.92);
-        border-radius: 0 0 8px 8px;
-        box-shadow: 0 2px 2px rgba(28, 28, 33, 0.04);
-        display: grid;
-        font-size: 12px;
-        gap: 6px;
-        padding: 10px;
-        text-align: center;
-      }
-
-      .proposal-result-card span:first-child {
-        color: var(--secondary-text-color);
-      }
-
-      .proposal-result-meter {
-        display: grid;
-        gap: 7px;
-      }
-
-      .proposal-result-meter-labels,
-      .proposal-result-meter-track {
-        display: flex;
-      }
-
-      .proposal-result-meter-label {
-        display: grid;
-        flex: 1 1 0;
-        font-size: 12px;
-        gap: 2px;
-      }
-
-      .proposal-result-meter-label:last-child {
-        justify-items: end;
-        text-align: right;
-      }
-
-      .proposal-result-meter-label small {
-        color: var(--secondary-text-color);
-      }
-
-      .proposal-result-meter-track {
-        background: var(--input-background);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        height: 16px;
-        overflow: hidden;
-      }
-
-      .proposal-result-meter-segment {
-        align-self: stretch;
-      }
-
-      .proposal-result-meter-segment.accept {
-        background: var(--success-color);
-        flex: 3;
-      }
-
-      .proposal-result-meter-segment.withhold {
-        background: #c42d2d;
-        flex: 1;
-      }
-
-      .proposal-result-meter-segment.yes {
-        background: var(--primary-color);
-        flex: 74;
-      }
-
-      .proposal-result-meter-segment.no {
-        background: #c42d2d;
-        flex: 26;
-      }
-
-      .proposal-action-section {
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        gap: 8px;
-        padding: 10px;
-      }
-
-      .proposal-action-section.flat {
-        border: 0;
-        border-top: 1px solid var(--border-color);
-        border-radius: 0;
-        padding: 10px 0 0;
-      }
-
-      .action-header {
-        display: grid;
-        gap: 2px;
-      }
-
-      .proposal-action-toggle {
-        background: var(--input-background);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        padding: 4px;
-      }
-
-      .proposal-decision-option {
-        background: transparent;
-        border: 0;
-        border-radius: 999px;
-        color: var(--secondary-text-color);
-        font-size: 14px;
-        font-weight: 600;
-        height: 36px;
-      }
-
-      .proposal-decision-option.selected {
-        background: var(--primary-color);
-        color: var(--background-color);
-      }
-
-      .proposal-vote-current-heading {
-        align-items: baseline;
-        display: flex;
-        justify-content: space-between;
-      }
-
-      .proposal-vote-current-heading span {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-      }
-
-      .proposal-vote-options,
-      .proposal-vote-preview {
-        display: grid;
-        gap: 7px;
-      }
-
-      .proposal-vote-options-header,
-      .proposal-vote-option {
-        align-items: center;
-        display: grid;
-        font-size: 12px;
-        gap: 8px;
-        grid-template-columns: minmax(0, 1fr) 52px 92px;
-      }
-
-      .proposal-vote-options-header {
-        color: var(--secondary-text-color);
-        font-weight: 600;
-      }
-
-      .proposal-vote-option .form-control {
-        min-height: 40px;
-        text-align: center;
-      }
-
-      .proposal-vote-option span:nth-child(2) {
-        color: var(--secondary-text-color);
-        text-align: center;
-      }
-
-      .proposal-vote-requirements,
-      .proposal-vote-spend-multiple-row {
-        align-items: center;
-        color: var(--secondary-text-color);
-        display: grid;
-        font-size: 12px;
-        gap: 6px 8px;
-      }
-
-      .proposal-vote-requirements {
-        grid-template-columns: 1fr auto;
-        justify-self: end;
-      }
-
-      .proposal-vote-spend-multiple-row {
-        grid-template-columns: auto minmax(72px, 1fr) auto;
-      }
-
-      .proposal-vote-preview {
-        background: var(--input-background);
-        border-radius: 8px;
-        font-size: 12px;
-        padding: 8px 10px;
-      }
-
-      .proposal-vote-preview-row {
-        display: grid;
-        gap: 8px;
-        grid-template-columns: minmax(0, 1fr) auto;
-      }
-
-      .proposal-more {
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        margin-top: 10px;
-      }
-
-      .proposal-more summary {
-        cursor: pointer;
-        display: grid;
-        gap: 4px;
-        grid-template-columns: minmax(0, 1fr) 18px;
-        list-style: none;
-        padding: 10px;
-      }
-
-      .proposal-more summary::after {
-        border-bottom: 2px solid var(--secondary-text-color);
-        border-right: 2px solid var(--secondary-text-color);
-        content: "";
-        grid-column: 2;
-        grid-row: 1 / span 2;
-        height: 8px;
-        transform: rotate(45deg);
-        width: 8px;
-      }
-
-      .proposal-more-title {
-        font-size: 14px;
-        font-weight: 600;
-      }
-
-      .proposal-more-note {
-        color: var(--secondary-text-color);
-        font-size: 12px;
-      }
-
-      .compact-content {
-        transform-origin: top center;
-        margin-left: -4.35%;
-        transform: scale(0.92);
-        width: 108.7%;
-      }
-
-      .compact-content.form-overview {
-        margin-left: -19.45%;
-        transform: scale(0.72);
-        width: 138.9%;
-      }
-
-      .compact-content.action-overview {
-        margin-left: -12.5%;
-        transform: scale(0.8);
-        width: 125%;
-      }
-
-      .form-container.compact-content {
-        height: auto;
-        overflow: visible;
-      }
-
-      .toast-preview {
-        background: rgba(28, 28, 33, 0.94);
-        border-radius: 8px;
-        bottom: 18px;
-        color: #fff;
-        font-size: 13px;
-        left: 50%;
-        padding: 10px 14px;
-        position: absolute;
-        transform: translateX(-50%);
-        white-space: nowrap;
+        display: block;
+        height: var(--device-viewport-height);
+        outline: 1px solid #cfd3d8;
+        width: var(--device-viewport-width);
       }
 
       .transition-arrows {
@@ -1136,7 +341,7 @@
       .zoom-help {
         color: var(--secondary-text-color);
         font-size: 11px;
-        max-width: 118px;
+        max-width: 170px;
         padding: 0 6px;
       }
 
@@ -1163,7 +368,7 @@
   <body>
     <div class="mock-viewport" data-pan-viewport>
       <div class="zoom-controls" aria-label="Mock board zoom controls">
-        <span class="zoom-help">Wheel to zoom · drag to pan · click an arrow to pin</span>
+        <span class="zoom-help">Device: wheel to scroll · canvas: wheel to zoom, drag to pan · arrow: click to pin</span>
         <button class="zoom-button" type="button" data-zoom-out aria-label="Zoom out">−</button>
         <button class="zoom-reset" type="button" data-zoom-reset aria-label="Reset zoom and position">100%</button>
         <button class="zoom-button" type="button" data-zoom-in aria-label="Zoom in">+</button>
@@ -1205,7 +410,7 @@
             </svg>
 
             <div class="flow-row">
-              <article class="screen">
+              <article class="screen" data-app-modal="menuModal">
                 <div class="screen-label-row">
                   <div class="screen-label">1. Menu</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Devnet</span></div>
@@ -1215,25 +420,25 @@
                   <div class="modal-header">
                     <button class="back-button" type="button" aria-label="Back"></button>
                     <div class="modal-title">Menu</div>
-                    <button class="sign-out-header-button" type="button" aria-label="Sign out">↪</button>
+                    <button class="sign-out-header-button" data-icon="log-out" type="button" aria-label="Sign out"></button>
                   </div>
                   <div class="modal-content">
                     <ul class="menu-list">
-                      <li class="menu-item" data-glyph="✉">Invite</li>
-                      <li class="menu-item" data-glyph="◇">EVM Assets</li>
-                      <li class="menu-item" data-glyph="↗">Farm</li>
-                      <li class="menu-item" data-glyph="♢">Validator</li>
-                      <li class="menu-item is-target" data-glyph="⬡" data-flow-source="menu-dao">DAO</li>
-                      <li class="menu-item" data-glyph="↔">Bridge</li>
-                      <li class="menu-item" data-glyph="⌕">Explorer</li>
-                      <li class="menu-item" data-glyph="◎">Network</li>
-                      <li class="menu-item" data-glyph="▤">Logs</li>
+                      <li class="menu-item" data-icon="mail">Invite</li>
+                      <li class="menu-item" data-icon="assets">EVM Assets</li>
+                      <li class="menu-item" data-icon="trending-up">Farm</li>
+                      <li class="menu-item" data-icon="shield">Validator</li>
+                      <li class="menu-item" data-icon="dao" data-flow-source="menu-dao">DAO</li>
+                      <li class="menu-item" data-icon="arrow-right-arrow-left">Bridge</li>
+                      <li class="menu-item" data-icon="search">Explorer</li>
+                      <li class="menu-item" data-icon="globe">Network</li>
+                      <li class="menu-item" data-icon="file-text">Logs</li>
                     </ul>
                   </div>
                 </div>
               </article>
 
-              <article class="screen" data-flow-target="dao-list">
+              <article class="screen" data-app-modal="daoModal" data-flow-target="dao-list">
                 <div class="screen-label-row">
                   <div class="screen-label">2. DAO proposal list</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Any user</span></div>
@@ -1258,7 +463,7 @@
                       </div>
                     </div>
                     <div class="dao-list-pane">
-                      <ul class="chat-list">
+                      <ul class="chat-list" id="daoProposalList">
                         <li class="dao-proposal-row">
                           <div class="dao-row-content">
                             <div class="dao-row-title notification-dot">Increase vote exponent</div>
@@ -1279,59 +484,74 @@
                         </li>
                       </ul>
                     </div>
-                    <button class="floating-button" type="button" data-flow-source="dao-add" aria-label="Add proposal">+</button>
+                    <button class="floating-button" id="daoAddProposalButton" type="button" data-flow-source="dao-add" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
                   </div>
                 </div>
               </article>
             </div>
 
             <div class="flow-row">
-              <article class="screen" data-flow-target="add-proposal">
+              <article class="screen" data-app-modal="addProposalModal" data-flow-target="add-proposal">
                 <div class="screen-label-row">
                   <div class="screen-label">3. Add Proposal</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div>
                 </div>
                 <div class="screen-note"><strong>Draft builder</strong>Uses typed parameter controls, a fixed “no change” option, timing pickers, and DAO-derived limits.</div>
-                <div class="modal fixed-header active">
+                <div class="modal fixed-header active" id="addProposalModal">
                   <div class="modal-header">
-                    <button class="back-button" type="button" aria-label="Back"></button>
+                    <button class="back-button" id="closeAddProposalModal" type="button" aria-label="Back"></button>
                     <div class="modal-title">Add Proposal</div>
                   </div>
                   <div class="modal-content">
                     <div class="form-container">
-                      <form class="dao-proposal-form compact-content form-overview">
+                      <form id="addProposalForm" class="form--narrow dao-proposal-form" novalidate>
                         <div class="dao-form-grid">
-                          <div class="form-group"><label>Emergency <span class="dao-form-required">*</span></label><select class="form-control"><option>No</option></select><div class="dao-form-help">Emergency proposals allow only one additional option.</div></div>
-                          <div class="form-group"><label>Proposal Fee</label><input class="form-control dao-form-current-value" value="50 USD" readonly /><div class="dao-form-help">Derived from DAO params. Emergency proposals use 0.</div></div>
+                          <div class="form-group"><label for="addProposalEmergency">Emergency <span class="dao-form-required" aria-hidden="true">*</span></label><select id="addProposalEmergency" class="form-control" required><option value="false">No</option><option value="true">Yes</option></select><div class="dao-form-help">Emergency proposals allow only one additional option.</div></div>
+                          <div class="form-group"><label for="addProposalFee">Proposal Fee</label><input id="addProposalFee" class="form-control dao-form-current-value" type="text" value="50 USD" readonly /><div class="dao-form-help">Derived from DAO params. Emergency proposals use 0.</div></div>
                         </div>
-                        <div class="form-group"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Increase vote exponent" /></div>
-                        <div class="form-group"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control">Increase voteExponent so larger single votes receive the expected spend boost.</textarea></div>
-                        <div class="form-group"><label>Proposal Type <span class="dao-form-required">*</span></label><select class="form-control"><option>Governance</option></select><div class="dao-form-help">The type controls which parameters can be selected.</div></div>
-                        <div class="form-group">
-                          <label>Options and Parameter Changes <span class="dao-form-required">*</span></label>
-                          <div class="dao-form-option dao-form-option--no-change"><div class="dao-form-row-title">No change</div><p class="dao-form-help">This is always the first option.</p></div>
-                          <div class="dao-form-option">
-                            <div class="dao-form-row-title"><span>Option 1</span><span>Remove option</span></div>
-                            <div class="dao-form-change-box">
-                              <div class="dao-form-change-line"><label>Select</label><select class="form-control"><option>Vote exponent</option></select></div>
-                              <div class="dao-form-change-line"><label>Current</label><input class="form-control dao-form-current-value" value="1.1" readonly /></div>
-                              <div class="dao-form-change-line"><label>Enter</label><input class="form-control" value="1.2" /></div>
-                            </div>
+                        <div class="form-group"><label for="addProposalTitle">Title <span class="dao-form-required" aria-hidden="true">*</span></label><input id="addProposalTitle" class="form-control" type="text" maxlength="100" value="Increase vote exponent" required /></div>
+                        <div class="form-group"><label for="addProposalDescription">Description <span class="dao-form-required" aria-hidden="true">*</span></label><textarea id="addProposalDescription" class="form-control" rows="6" maxlength="10000" required>Increase voteExponent so larger single votes receive the expected spend boost.</textarea></div>
+                        <div class="form-group"><label for="addProposalType">Proposal Type <span class="dao-form-required" aria-hidden="true">*</span></label><select id="addProposalType" class="form-control" required><option value="governance">Governance</option><option value="economic">Economic</option><option value="protocol">Protocol</option></select><div class="dao-form-help">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div></div>
+                        <div class="form-group dao-form-section">
+                          <div class="dao-form-label-with-help"><label>Options and Parameter Changes <span class="dao-form-required" aria-hidden="true">*</span></label><button type="button" class="toll-info-icon dao-form-tooltip" data-icon="info" title="No change is always the first option. Choose parameters in Option 1; later options provide alternative values for the same parameters." aria-label="About proposal options"></button></div>
+                          <div class="dao-form-help" id="addProposalOptionsLimitHelp">2 to 10 total options.</div>
+                          <div class="dao-form-list" id="addProposalOptionsList">
+                            <div class="dao-form-option dao-form-option--no-change"><div class="dao-form-row-title"><label>Option: No change</label></div><div class="form-control dao-form-current-value">No change</div><p class="dao-form-help">This required first option makes no parameter changes.</p></div>
+                            <section class="dao-form-option" data-dao-option="0">
+                              <div class="dao-form-row-title"><label>Option 1</label><button type="button" class="btn btn--secondary dao-form-remove-button" disabled>Remove option</button></div>
+                              <div class="dao-form-section-header"><label>Parameter Changes</label></div>
+                              <div class="dao-form-list">
+                                <div class="dao-form-row dao-form-row--change">
+                                  <div class="dao-form-row-title"><label>Parameter change 1</label><button type="button" class="btn btn--secondary dao-form-remove-button" disabled>Remove</button></div>
+                                  <div class="dao-form-change-box">
+                                    <div class="dao-form-change-line"><label for="addProposalOption1Config1">Select <span class="dao-form-required" aria-hidden="true">*</span></label><select id="addProposalOption1Config1" class="form-control" required><option>Vote exponent</option></select></div>
+                                    <div class="dao-form-change-line"><label for="addProposalOption1Current1">Current</label><input id="addProposalOption1Current1" class="form-control dao-form-current-value" type="text" value="1.1" readonly /></div>
+                                    <div class="dao-form-change-line"><label for="addProposalOption1Proposed1">Enter <span class="dao-form-required" aria-hidden="true">*</span></label><input id="addProposalOption1Proposed1" class="form-control" type="number" step="any" inputmode="decimal" min="0" value="1.2" required /></div>
+                                    <div class="dao-form-meta">current.voteExponent · number</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <button type="button" class="btn btn--secondary dao-form-add-button"><span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span><span>Add parameter change</span></button>
+                            </section>
                           </div>
-                          <button class="dao-form-add-button" type="button">⊕ Add option</button>
+                          <button type="button" class="btn btn--secondary dao-form-add-button" id="addProposalOptionButton"><span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span><span>Add option</span></button>
                         </div>
-                        <div class="dao-form-grid">
-                          <div class="form-group"><label>Review Delay (ms)</label><button class="form-control" type="button">0</button><div class="dao-form-help">Delay: 0 sec</div></div>
-                          <div class="form-group"><label>Grace Period (ms) <span class="dao-form-required">*</span></label><button class="form-control" type="button">86,400,000</button><div class="dao-form-help">Duration: 1 day</div></div>
+                        <div class="form-group dao-form-section">
+                          <label>Timing</label>
+                          <div class="dao-form-grid dao-form-grid--timing">
+                            <div class="form-group"><div class="dao-form-label-with-help"><label for="addProposalReviewStartTime">Review Delay (ms)</label><button type="button" class="toll-info-icon dao-form-tooltip" data-icon="info" title="How long to wait before proposal review starts. Select a date and time, or use 0 to start immediately." aria-label="About Review Delay"></button></div><button id="addProposalReviewStartTime" class="form-control dao-review-start-button" type="button">0</button><div class="dao-form-help" id="addProposalReviewStartHelp">Delay: 0 sec</div></div>
+                            <div class="form-group"><div class="dao-form-label-with-help"><label for="addProposalGracePeriodMs">Grace Period (ms) <span class="dao-form-required" aria-hidden="true">*</span></label><button type="button" class="toll-info-icon dao-form-tooltip" data-icon="info" title="How long to wait after voting ends before the proposal can be applied. Cannot exceed the DAO grace duration." aria-label="About Grace Period"></button></div><button id="addProposalGracePeriodMs" class="form-control dao-review-start-button" type="button">86,400,000</button><div class="dao-form-help" id="addProposalGracePeriodHelp">Duration: 1 day</div></div>
+                          </div>
                         </div>
-                        <div class="form-actions"><button class="btn btn--secondary btn--pill" type="button">Cancel</button><button class="btn btn--primary btn--pill" type="button" data-flow-source="draft-review">Review Draft</button></div>
+                        <div class="form-actions"><button id="cancelAddProposal" class="btn btn--secondary btn--pill btn--full" type="button">Cancel</button><button class="btn btn--primary btn--pill btn--full" type="submit" data-flow-source="draft-review">Review Draft</button></div>
                       </form>
                     </div>
                   </div>
+                  <a class="last-item" href="#"> </a>
                 </div>
               </article>
 
-              <article class="screen" data-flow-target="confirm-proposal">
+              <article class="screen" data-app-modal="confirmProposalModal" data-flow-target="confirm-proposal">
                 <div class="screen-label-row">
                   <div class="screen-label">4. Review Proposal</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div>
@@ -1354,13 +574,13 @@
                         <section class="proposal-info-section"><h3>Review Timeline</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Scheduled review start</span><span>Start now</span></div><div class="proposal-info-row"><span>Time until start</span><span>0 sec (0 ms)</span></div><div class="proposal-info-row"><span>Grace period</span><span>1 day</span></div></div></section>
                         <p class="proposal-info-muted">Signing submits this proposal for review and seeds the voter reward pool.</p>
                       </div>
-                      <div class="form-actions" style="margin-top: 12px"><button class="btn btn--secondary btn--pill" type="button">Back</button><button class="btn btn--primary btn--pill" type="button" data-flow-source="sign-proposal">Sign Proposal</button></div>
+                      <div class="form-actions dao-confirm-actions"><button class="btn btn--secondary btn--pill btn--full" type="button">Back</button><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="sign-proposal">Sign Proposal</button></div>
                     </div>
                   </div>
                 </div>
               </article>
 
-              <article class="screen" data-flow-target="dao-review">
+              <article class="screen" data-app-modal="daoModal" data-flow-target="dao-review">
                 <div class="screen-label-row">
                   <div class="screen-label">5. DAO - Review</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Any user</span></div>
@@ -1382,21 +602,20 @@
                       </div>
                     </div>
                     <div class="dao-list-pane">
-                      <ul class="chat-list">
+                      <ul class="chat-list" id="daoProposalList">
                         <li class="dao-proposal-row" data-flow-source="review-row"><div class="dao-row-content"><div class="dao-row-title notification-dot">Increase vote exponent</div><div class="dao-row-meta"><span>Governance</span><div class="dao-row-previews"><span class="dao-row-preview">Ends Aug 29, 2026</span></div></div></div></li>
                         <li class="dao-proposal-row"><div class="dao-row-content"><div class="dao-row-title">Reduce proposal fee</div><div class="dao-row-meta"><span>Economic</span><div class="dao-row-previews"><span class="dao-row-preview dao-row-preview--accepted">Approved</span><span class="dao-row-preview">Ready to finalize</span></div></div></div></li>
                         <li class="dao-proposal-row"><div class="dao-row-content"><div class="dao-row-title">Emergency endpoint patch</div><div class="dao-row-meta"><span>Protocol</span><div class="dao-row-previews"><span class="dao-row-preview dao-row-preview--emergency">Emergency</span><span class="dao-row-preview">Starts 2:00 PM</span></div></div></div></li>
                       </ul>
                     </div>
-                    <button class="floating-button" type="button" aria-label="Add proposal">+</button>
-                    <div class="toast-preview">Proposal submitted—pending confirmation</div>
+                    <button class="floating-button" id="daoAddProposalButton" type="button" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
                   </div>
                 </div>
               </article>
             </div>
 
             <div class="flow-row">
-              <article class="screen" data-flow-target="proposal-review">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="review" data-flow-target="proposal-review">
                 <div class="screen-label-row">
                   <div class="screen-label">6. Proposal - Review</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Committee</span></div>
@@ -1404,19 +623,19 @@
                 <div class="screen-note"><strong>Committee member view</strong>The shared Proposal modal adds current committee totals and an embedded Accept/Withhold action.</div>
                 <div class="modal fixed-header active">
                   <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Review</div></div>
-                  <div class="modal-content"><div class="form-container compact-content">
+                  <div class="modal-content"><div class="form-container">
                     <div class="proposal-info">
                       <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p><p class="proposal-info-description">Increase voteExponent so larger single votes receive the expected spend boost.</p></div>
                       <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
-                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Committee Review</h3><span>Review ends: Aug 29</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>Accept</strong><small>75% (3 votes)</small></div><div class="proposal-result-meter-label"><strong>Withhold</strong><small>25% (1 vote)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment accept"></span><span class="proposal-result-meter-segment withhold"></span></div></div></section>
+                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Committee Review</h3><span>Review ends: Aug 29</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label proposal-result-meter-label--start proposal-result-meter-label--accept"><span>Accept</span><small>75% (3 votes)</small></div><div class="proposal-result-meter-label proposal-result-meter-label--end proposal-result-meter-label--withhold"><span>Withhold</span><small>25% (1 vote)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment proposal-result-meter-segment--accept" style="--result-segment-units: 750"></span><span class="proposal-result-meter-segment proposal-result-meter-segment--withhold" style="--result-segment-units: 250"></span></div></div></section>
                     </div>
-                    <section class="proposal-action-section" style="margin-top: 10px"><div class="action-header"><h3>Committee action</h3><p>Submit or update your review decision while the review window is open.</p></div><div class="proposal-action-toggle"><button class="proposal-decision-option selected" type="button">Accept</button><button class="proposal-decision-option" type="button">Withhold</button></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="committee-submit">Submit review</button></section>
-                    <details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, committee review, reward accounting</span></summary></details>
+                    <section class="proposal-committee-actions"><div class="proposal-committee-actions-header"><h3>Committee action</h3><p>Submit or update your review decision while the review window is open.</p></div><div class="proposal-decision-field"><div class="proposal-decision-label">Review decision</div><div class="proposal-action-toggle" role="radiogroup" aria-label="Committee review decision"><button class="proposal-decision-option proposal-decision-option--selected" type="button" role="radio" aria-checked="true">Accept</button><button class="proposal-decision-option" type="button" role="radio" aria-checked="false">Withhold</button></div></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="committee-submit">Submit review</button></section>
+                    <div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, committee review, reward accounting</span></summary></details></div>
                   </div></div>
                 </div>
               </article>
 
-              <article class="screen" data-flow-target="review-finalize">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="review" data-flow-target="review-finalize">
                 <div class="screen-label-row">
                   <div class="screen-label">7. Review ended</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Funded user</span></div>
@@ -1428,15 +647,15 @@
                     <div class="proposal-info">
                       <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p></div>
                       <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
-                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Committee Review</h3><span>Review ended: Aug 29</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>Accept</strong><small>75% (3 votes)</small></div><div class="proposal-result-meter-label"><strong>Withhold</strong><small>25% (1 vote)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment accept"></span><span class="proposal-result-meter-segment withhold"></span></div></div></section>
+                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Committee Review</h3><span class="proposal-vote-current-deadline--ended">Review ended: Aug 29</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label proposal-result-meter-label--start proposal-result-meter-label--accept"><span>Accept</span><small>75% (3 votes)</small></div><div class="proposal-result-meter-label proposal-result-meter-label--end proposal-result-meter-label--withhold"><span>Withhold</span><small>25% (1 vote)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment proposal-result-meter-segment--accept" style="--result-segment-units: 750"></span><span class="proposal-result-meter-segment proposal-result-meter-segment--withhold" style="--result-segment-units: 250"></span></div></div></section>
                     </div>
-                    <section class="proposal-action-section" style="border: 0; margin-top: 12px"><div class="action-header"><h3>Review result</h3><p>Review ended. Finalize the review result to move this proposal to Voting.</p></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="finalize-review">Finalize review result</button></section>
-                    <details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, committee review, reward accounting</span></summary></details>
+                    <section class="proposal-review-result-actions"><div class="proposal-committee-actions-header"><h3>Review result</h3><p>Review ended. Finalize the review result to move this proposal to Voting.</p></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="finalize-review">Finalize review result</button></section>
+                    <div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, committee review, reward accounting</span></summary></details></div>
                   </div></div>
                 </div>
               </article>
 
-              <article class="screen" data-flow-target="proposal-voting">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="voting" data-flow-target="proposal-voting">
                 <div class="screen-label-row">
                   <div class="screen-label">8. Proposal - Voting</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Eligible voter</span></div>
@@ -1444,20 +663,20 @@
                 <div class="screen-note"><strong>Weighted vote</strong>Current totals and the vote form share the Proposal modal. Weights become percentages; spend is a whole-number multiple.</div>
                 <div class="modal fixed-header active">
                   <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Voting</div></div>
-                  <div class="modal-content"><div class="form-container compact-content action-overview">
+                  <div class="modal-content"><div class="form-container">
                     <div class="proposal-info">
                       <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p></div>
                       <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
-                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Current Vote</h3><span>Voting ends: Aug 31</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>no</strong><small>26% (8.4 power)</small></div><div class="proposal-result-meter-label"><strong>Option 1</strong><small>74% (24.1 power)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment no"></span><span class="proposal-result-meter-segment yes"></span></div></div></section>
+                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Current Vote</h3><span>Voting ends: Aug 31</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label proposal-result-meter-label--start proposal-result-meter-label--palette-0"><span>no</span><small>26% (8.4 power)</small></div><div class="proposal-result-meter-label proposal-result-meter-label--end proposal-result-meter-label--palette-1 proposal-result-meter-label--winner"><span>Option 1</span><small>74% (24.1 power)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment proposal-result-meter-segment--palette-0" style="--result-segment-units: 260"></span><span class="proposal-result-meter-segment proposal-result-meter-segment--palette-1" style="--result-segment-units: 740"></span></div></div></section>
                     </div>
-                    <section class="proposal-action-section flat"><div class="action-header"><h3>Vote preview</h3><p>Allocate option weights and choose a minimum-spend multiple to preview voting power.</p></div><div class="proposal-vote-options"><div class="proposal-vote-options-header"><span>Option</span><span>%</span><span>Weight ⓘ</span></div><label class="proposal-vote-option"><span>no</span><span>25%</span><input class="form-control" value="1" /></label><label class="proposal-vote-option"><span>Option 1</span><span>75%</span><input class="form-control" value="3" /></label><div class="proposal-vote-requirements"><span>Vote Threshold ⓘ</span><strong>10 LIB</strong><span>Minimum Spend ⓘ</span><strong>1 LIB</strong></div></div><div class="proposal-vote-spend-multiple-row"><label>Spend multiple</label><input class="form-control" value="2" /><span>× 1 LIB minimum spend</span></div><div class="proposal-vote-preview"><div class="proposal-vote-preview-row"><span>Spend</span><strong>2 LIB</strong></div><div class="proposal-vote-preview-row"><span>Time factor</span><strong>74%</strong></div><div class="proposal-vote-preview-row"><span>Estimated voting power</span><strong>14.8 power</strong></div></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="vote-submit">Submit vote</button></section>
+                    <section class="proposal-vote-actions"><div class="proposal-committee-actions-header"><h3>Vote preview</h3><p>Allocate option weights and choose a minimum-spend multiple to preview voting power.</p></div><div class="proposal-vote-options"><div class="proposal-vote-options-header"><span>Option</span><span>%</span><span>Weight ⓘ</span></div><label class="proposal-vote-option"><span>no</span><span>25%</span><input class="form-control" value="1" /></label><label class="proposal-vote-option"><span>Option 1</span><span>75%</span><input class="form-control" value="3" /></label><div class="proposal-vote-requirements"><span>Vote Threshold ⓘ</span><strong>10 LIB</strong><span>Minimum Spend ⓘ</span><strong>1 LIB</strong></div></div><div class="proposal-vote-spend-multiple-row"><label>Spend multiple</label><input class="form-control" value="2" /><span>× 1 LIB minimum spend</span></div><div class="proposal-vote-preview"><div class="proposal-vote-preview-row"><span>Spend</span><strong>2 LIB</strong></div><div class="proposal-vote-preview-row"><span>Time factor</span><strong>74%</strong></div><div class="proposal-vote-preview-row"><span>Estimated voting power</span><strong>14.8 power</strong></div></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="vote-submit">Submit vote</button></section>
                   </div></div>
                 </div>
               </article>
             </div>
 
             <div class="flow-row">
-              <article class="screen" data-flow-target="vote-ended">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="voting" data-flow-target="vote-ended">
                 <div class="screen-label-row">
                   <div class="screen-label">9. Voting ended</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Funded user</span></div>
@@ -1469,15 +688,15 @@
                     <div class="proposal-info">
                       <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p></div>
                       <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
-                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Current Vote</h3><span><strong>Vote ended: Aug 31</strong></span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>no</strong><small>26% (8.4 power)</small></div><div class="proposal-result-meter-label"><strong>Option 1</strong><small>74% (24.1 power)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment no"></span><span class="proposal-result-meter-segment yes"></span></div></div></section>
+                      <section class="proposal-info-section"><div class="proposal-vote-current-heading"><h3>Current Vote</h3><span class="proposal-vote-current-deadline--ended">Vote ended: Aug 31</span></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label proposal-result-meter-label--start proposal-result-meter-label--palette-0"><span>no</span><small>26% (8.4 power)</small></div><div class="proposal-result-meter-label proposal-result-meter-label--end proposal-result-meter-label--palette-1 proposal-result-meter-label--winner"><span>Option 1</span><small>74% (24.1 power)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment proposal-result-meter-segment--palette-0" style="--result-segment-units: 260"></span><span class="proposal-result-meter-segment proposal-result-meter-segment--palette-1" style="--result-segment-units: 740"></span></div></div></section>
                     </div>
-                    <section class="proposal-action-section" style="margin-top: 12px"><div class="action-header"><h3>Vote result</h3><p>Voting has ended. Finalize the vote result to move this proposal to accepted or rejected.</p></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="finalize-vote">Finalize vote result</button></section>
-                    <details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, reward accounting</span></summary></details>
+                    <section class="proposal-lifecycle-actions"><div class="proposal-lifecycle-action"><div class="proposal-committee-actions-header"><h3>Vote result</h3><p>Voting has ended. Finalize the vote result to move this proposal to accepted or rejected.</p></div><button class="btn btn--primary btn--pill btn--full" type="button" data-flow-source="finalize-vote">Finalize vote result</button></div></section>
+                    <div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, reward accounting</span></summary></details></div>
                   </div></div>
                 </div>
               </article>
 
-              <article class="screen" data-flow-target="result-actions">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="accepted" data-flow-target="result-actions">
                 <div class="screen-label-row">
                   <div class="screen-label">10. Accepted + actions</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Contextual</span></div>
@@ -1485,15 +704,14 @@
                 <div class="screen-note"><strong>Result and lifecycle</strong>Results, reward claim, apply, and burn are sections in Proposal—not separate modals or queues.</div>
                 <div class="modal fixed-header active">
                   <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Accepted</div></div>
-                  <div class="modal-content"><div class="form-container compact-content action-overview">
+                  <div class="modal-content"><div class="form-container">
                     <div class="proposal-info">
                       <div class="proposal-info-heading"><h2 class="proposal-info-title">Increase vote exponent</h2><p class="proposal-type-indicator">Standard Governance proposal</p></div>
                       <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards"><div class="proposal-option-section"><span class="proposal-option-label">no</span><p class="proposal-info-muted">→ No parameter changes.</p></div><div class="proposal-option-section"><span class="proposal-option-label">Option 1</span><div class="proposal-change-row"><span>voteExponent</span><div class="proposal-change-values"><small><span>Current:</span><strong>1.1</strong></small><span>→</span><small><span>New:</span><strong>1.2</strong></small></div></div></div></div></section>
-                      <section class="proposal-info-section"><h3>Results</h3><div class="proposal-result-overview"><div class="proposal-result-card"><span>Winner</span><strong>Option 1</strong></div><div class="proposal-result-card"><span>Total voting power</span><strong>32.5 power</strong></div></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label"><strong>no</strong><small>26% (8.4 power)</small></div><div class="proposal-result-meter-label"><strong>Option 1</strong><small>74% (24.1 power)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment no"></span><span class="proposal-result-meter-segment yes"></span></div></div></section>
+                      <section class="proposal-info-section"><h3>Results</h3><div class="proposal-result-overview"><div class="proposal-result-card"><span>Winner</span><span class="proposal-result-value">Option 1</span></div><div class="proposal-result-card"><span>Total voting power</span><span class="proposal-result-value">32.5 power</span></div></div><div class="proposal-result-meter"><div class="proposal-result-meter-labels"><div class="proposal-result-meter-label proposal-result-meter-label--start proposal-result-meter-label--palette-0"><span>no</span><small>26% (8.4 power)</small></div><div class="proposal-result-meter-label proposal-result-meter-label--end proposal-result-meter-label--palette-1 proposal-result-meter-label--winner"><span>Option 1</span><small>74% (24.1 power)</small></div></div><div class="proposal-result-meter-track"><span class="proposal-result-meter-segment proposal-result-meter-segment--palette-0" style="--result-segment-units: 260"></span><span class="proposal-result-meter-segment proposal-result-meter-segment--palette-1" style="--result-segment-units: 740"></span></div></div></section>
                     </div>
-                    <section class="proposal-action-section" style="margin-top: 10px"><div class="action-header"><h3>Reward claim</h3><p>Your estimated claim is 18.4 LIB. Submit the claim and refresh proposal accounting.</p></div><button class="btn btn--primary btn--pill btn--full" type="button">Claim reward</button></section>
-                    <section class="proposal-action-section" style="margin-top: 8px"><div class="action-header"><h3>Apply parameters</h3><p>The grace period has ended. Apply this accepted proposal to the network parameters.</p></div><button class="btn btn--primary btn--pill btn--full" type="button">Apply parameters</button></section>
-                    <details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, reward accounting</span></summary></details>
+                    <section class="proposal-lifecycle-actions"><div class="proposal-lifecycle-action"><div class="proposal-committee-actions-header"><h3>Reward claim</h3><p>Your estimated claim is 18.4 LIB. Submit the claim and refresh proposal accounting.</p></div><button class="btn btn--primary btn--pill btn--full" type="button">Claim reward</button></div><div class="proposal-lifecycle-action"><div class="proposal-committee-actions-header"><h3>Apply parameters</h3><p>The grace period has ended. Apply this accepted proposal to the network parameters.</p></div><button class="btn btn--primary btn--pill btn--full" type="button">Apply parameters</button></div></section>
+                    <div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Overview, review timeline, reward accounting</span></summary></details></div>
                   </div></div>
                 </div>
               </article>
@@ -1523,6 +741,132 @@
         let lastX = 0;
         let lastY = 0;
         const pinnedConnectors = new Set();
+        const productionStylesUrl = new URL("../styles.css", window.location.href).href;
+
+        const renderDetailSection = (title, rows) => `
+          <section class="proposal-info-section">
+            <h3>${title}</h3>
+            <div class="proposal-info-grid">
+              ${rows.map(([label, value, tone = ""]) => `
+                <div class="proposal-info-row${tone ? ` proposal-info-row--${tone}` : ""}">
+                  <span>${label}</span>
+                  <span class="proposal-info-value">${value}</span>
+                </div>
+              `).join("")}
+            </div>
+          </section>
+        `;
+
+        const renderProposalDetails = (state) => {
+          const stateLabel = state === "accepted" ? "Accepted" : state === "voting" ? "Voting" : "Review";
+          const sections = [
+            renderDetailSection("Overview", [
+              ["Number", "#1042"],
+              ["Type", "Governance"],
+              ["Status", stateLabel],
+              ["Created", "Aug 27, 2026, 10:15 AM"],
+              ["Updated", "Aug 29, 2026, 4:30 PM"],
+            ]),
+            renderDetailSection("Review Timeline", [
+              ["Window state", state === "review" ? "Review ended" : "Review complete"],
+              ["Review starts", "Aug 27, 2026, 10:15 AM"],
+              ["Review ends", "Aug 29, 2026, 4:30 PM"],
+            ]),
+          ];
+
+          if (state === "review") {
+            sections.push(renderDetailSection("Committee Review", [
+              ["Committee size", "4 members"],
+              ["Accept", "3 votes", "accept"],
+              ["Withhold", "1 vote"],
+              ["Next state", "Voting if finalized"],
+            ]));
+          }
+
+          sections.push(renderDetailSection("Rewards", [
+            ["Claim status", state === "accepted" ? "Ready to claim" : "Not yet claimable", state === "accepted" ? "accept" : ""],
+            ["Claim estimate", state === "accepted" ? "18.4 LIB" : "Unavailable"],
+            ["Reward pool", "250 LIB"],
+            ["Claimed", state === "accepted" ? "74 LIB" : "0 LIB"],
+          ]));
+
+          return `<div class="proposal-more-content">${sections.join("")}</div>`;
+        };
+
+        const createDeviceDocument = (modalMarkup) => `<!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <link rel="stylesheet" href="${productionStylesUrl}" />
+              <style>
+                html, body { height: 100%; overflow: hidden; }
+                body { min-height: 0; padding: 0; }
+                .container { border-radius: 0; box-shadow: none; height: 100dvh; width: 100%; }
+                .modal { transition: none; }
+              </style>
+            </head>
+            <body><main class="container">${modalMarkup}</main></body>
+          </html>`;
+
+        const getScrollSurface = (frameDocument) => frameDocument.querySelector("#daoModal .dao-list-pane, .modal-content");
+
+        const wireDeviceFrame = (frame) => {
+          const frameDocument = frame.contentDocument;
+          if (!frameDocument) return;
+
+          frameDocument.addEventListener("wheel", (event) => {
+            const target = event.target instanceof frame.contentWindow.Element ? event.target : null;
+            const scrollSurface = getScrollSurface(frameDocument);
+            if (!target || !scrollSurface) return;
+
+            const nativeScrollTarget = scrollSurface.matches(".dao-list-pane")
+              ? target.closest(".dao-list-pane")
+              : target.closest(".modal-content");
+            if (nativeScrollTarget) return;
+
+            event.preventDefault();
+            scrollSurface.scrollTop += event.deltaY;
+          }, { passive: false });
+
+          frameDocument.addEventListener("click", (event) => {
+            const target = event.target instanceof frame.contentWindow.Element ? event.target : null;
+            const source = target?.closest("[data-flow-source]");
+            if (!source) return;
+            activateFlowSource(source, event);
+          });
+
+          frameDocument.addEventListener("toggle", () => requestAnimationFrame(renderArrows), true);
+        };
+
+        const mountDeviceFrames = () => Promise.all(
+          [...board.querySelectorAll(".screen[data-app-modal]")].map((screen) => new Promise((resolve) => {
+            const modal = screen.querySelector(".modal");
+            if (!modal) {
+              resolve();
+              return;
+            }
+
+            modal.id = screen.dataset.appModal;
+            modal.classList.add("is-transition-complete");
+            const details = modal.querySelector(".proposal-more");
+            if (details && !details.querySelector(".proposal-more-content")) {
+              details.insertAdjacentHTML("beforeend", renderProposalDetails(screen.dataset.proposalState || "review"));
+            }
+
+            const frame = document.createElement("iframe");
+            const label = screen.querySelector(".screen-label")?.textContent?.trim() || "App modal";
+            frame.className = "device-frame";
+            frame.dataset.appModal = screen.dataset.appModal;
+            frame.title = `${label} interactive phone preview`;
+            frame.addEventListener("load", () => {
+              wireDeviceFrame(frame);
+              resolve();
+            }, { once: true });
+            modal.replaceWith(frame);
+            frame.srcdoc = createDeviceDocument(modal.outerHTML);
+          })),
+        );
 
         const connectors = [
           { from: "menu-dao", to: "dao-list", label: "open DAO" },
@@ -1570,7 +914,7 @@
           zoomAt(scale + (event.deltaY < 0 ? 0.08 : -0.08), event.clientX, event.clientY);
         }, { passive: false });
 
-        const isInteractive = (target) => target.closest("button, input, select, textarea, summary, [data-flow-source], .transition-connector, .zoom-controls");
+        const isInteractive = (target) => target.closest(".screen, button, input, select, textarea, summary, [data-flow-source], .transition-connector, .zoom-controls");
 
         viewport.addEventListener("pointerdown", (event) => {
           if (event.button !== 0 || isInteractive(event.target)) return;
@@ -1610,6 +954,21 @@
         const boxInBoard = (element) => {
           const elementRect = element.getBoundingClientRect();
           const boardRect = board.getBoundingClientRect();
+          const ownerFrame = [...board.querySelectorAll(".device-frame")]
+            .find((frame) => frame.contentDocument === element.ownerDocument);
+
+          if (ownerFrame) {
+            const frameRect = ownerFrame.getBoundingClientRect();
+            const frameScaleX = frameRect.width / ownerFrame.clientWidth;
+            const frameScaleY = frameRect.height / ownerFrame.clientHeight;
+            return {
+              x: (frameRect.left + elementRect.left * frameScaleX - boardRect.left) / scale,
+              y: (frameRect.top + elementRect.top * frameScaleY - boardRect.top) / scale,
+              width: elementRect.width * frameScaleX / scale,
+              height: elementRect.height * frameScaleY / scale,
+            };
+          }
+
           return {
             x: (elementRect.left - boardRect.left) / scale,
             y: (elementRect.top - boardRect.top) / scale,
@@ -1618,11 +977,34 @@
           };
         };
 
+        const findFlowElement = (selector) => {
+          const boardElement = board.querySelector(selector);
+          if (boardElement) return boardElement;
+
+          for (const frame of board.querySelectorAll(".device-frame")) {
+            const frameElement = frame.contentDocument?.querySelector(selector);
+            if (frameElement) return frameElement;
+          }
+
+          return null;
+        };
+
         const toggleConnector = (group, connectorId) => {
           const pinned = !pinnedConnectors.has(connectorId);
           if (pinned) pinnedConnectors.add(connectorId);
           else pinnedConnectors.delete(connectorId);
           group.classList.toggle("is-highlighted", pinned);
+        };
+
+        const activateFlowSource = (source, event) => {
+          const connector = connectors.find((candidate) => candidate.from === source.dataset.flowSource);
+          if (!connector) return;
+          const connectorId = `${connector.from}:${connector.to}`;
+          const group = arrows.querySelector(`[data-connector="${connectorId}"]`);
+          if (!group) return;
+          event.preventDefault();
+          event.stopPropagation();
+          toggleConnector(group, connectorId);
         };
 
         const renderArrows = () => {
@@ -1634,7 +1016,7 @@
           arrows.setAttribute("height", height);
 
           connectors.forEach((connector) => {
-            const source = board.querySelector(`[data-flow-source="${connector.from}"]`);
+            const source = findFlowElement(`[data-flow-source="${connector.from}"]`);
             const target = board.querySelector(`[data-flow-target="${connector.to}"]`);
             if (!source || !target) return;
 
@@ -1676,21 +1058,14 @@
         board.addEventListener("click", (event) => {
           const source = event.target.closest("[data-flow-source]");
           if (!source) return;
-          const connector = connectors.find((candidate) => candidate.from === source.dataset.flowSource);
-          if (!connector) return;
-          const connectorId = `${connector.from}:${connector.to}`;
-          const group = arrows.querySelector(`[data-connector="${connectorId}"]`);
-          if (!group) return;
-          event.preventDefault();
-          event.stopPropagation();
-          toggleConnector(group, connectorId);
+          activateFlowSource(source, event);
         });
 
         window.addEventListener("resize", renderArrows);
-        requestAnimationFrame(() => {
+        mountDeviceFrames().then(() => requestAnimationFrame(() => {
           renderArrows();
           updateTransform();
-        });
+        }));
       })();
     </script>
   </body>

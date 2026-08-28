@@ -2,6 +2,8 @@
 
 This document describes the DAO UI that exists on `main` at `9c02dfb3` (August 26, 2026). The interactive reference is [`mock/index.html`](mock/index.html).
 
+Its device frames use the iPhone 17 Pro logical viewport (`402 × 874`) and load the production stylesheet. Mock-only styling is limited to the surrounding flow board and annotations.
+
 ## Entry and list
 
 The Devnet-only **DAO** Menu item opens `daoModal`. The modal loads proposal metadata and details from the DAO backend and defaults to the **Vote** filter. A DAO notification can choose **Vote** or **Claim** as the initial filter.
@@ -103,7 +105,8 @@ Their functions now live in the filter bar, proposal-row preview badges, and the
 
 ## Interactive mock controls
 
-- Use **+**, **−**, the mouse wheel, or the percentage button to control zoom.
+- Hover a device and use the mouse wheel or trackpad to scroll its production-sized content.
+- Use **+**, **−**, the percentage button, or the mouse wheel outside a device to control zoom.
 - Drag the board background to pan.
 - Click a flow arrow, arrow label, or connected source control to pin its animated highlight.
 - Run `node mock/validate-current-flow.mjs` after changing production DAO modal labels or actions.
