@@ -1201,6 +1201,7 @@ class GroupInfoModal {
     $('groupResetButton').addEventListener('click', () => this.reset());
     $('groupInfoAlertAction').addEventListener('click', () => this.repair());
     $('groupInfoAddButton').addEventListener('click', () => this.addSelected());
+    $('groupMaintenanceTopUp')?.addEventListener('click', () => this.topUpMaintenance());
     $('groupInfoAddCancel').addEventListener('click', () => this.toggleAdd(false));
     $('groupLeaveButton').addEventListener('click', () => this.leave());
     $('groupMuteRow').addEventListener('click', () => this.toggleMute());
@@ -1293,6 +1294,53 @@ class GroupInfoModal {
     // which is already in hand.
     this.loadRequests();
     this.renderFees();
+    this.renderMaintenance();
+  }
+
+  /**
+   * What the group has left to pay for repairing its own tree.
+   *
+   * Shown to everyone, not just admins: when the balance runs dry the fee falls
+   * on whichever member performs the next repair, so every member has a stake
+   * in it, and anyone may top it up.
+   *
+   * A healthy group shows nothing. This row is only worth a line when it is
+   * running low, which is the point at which someone can still do something
+   * about it before a member gets charged.
+   */
+  renderMaintenance() {
+    const row = $('groupMaintenanceRow');
+    if (!row) return;
+    const view = this.view();
+    const health = groups.maintenanceHealth(view);
+    row.hidden = !health.low;
+    if (!health.low) return;
+
+    const summary = $('groupMaintenanceSummary');
+    summary.textContent = health.empty
+      ? 'Empty — the next repair will be charged to a member'
+      : `${formatLib(health.balance)} LIB left of ${formatLib(health.needed)} LIB`;
+  }
+
+  async topUpMaintenance() {
+    const view = this.view();
+    const health = groups.maintenanceHealth(view);
+    // Enough to clear the shortfall outright, so one top-up settles it rather
+    // than leaving the banner up.
+    const suggested = health.needed > health.balance ? health.needed - health.balance : health.needed;
+    const button = $('groupMaintenanceTopUp');
+    button.disabled = true;
+    button.textContent = 'Adding…';
+    try {
+      await groups.fundGroupMaintenance(this.groupId, suggested);
+      toast(`Added ${formatLib(suggested)} LIB for upkeep`, 3000, 'success');
+      this.render();
+    } catch (e) {
+      toast(e?.message || 'Could not add to upkeep', 4000, 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Top up';
+    }
   }
 
   /**
