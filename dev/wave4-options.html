@@ -1,0 +1,260 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Menu, settings and you</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin:0; background:#ececed; font-family:'Inter',sans-serif; }
+      .page { max-width:1240px; margin:0 auto; padding:26px 20px 90px; }
+      h2 { font-size:15px; margin:34px 0 4px; letter-spacing:-.01em }
+      .why { font-size:12.5px; line-height:1.6; color:#65676b; margin:0 0 14px; max-width:76ch }
+      .why code { background:#e2e2e8; padding:1px 4px; border-radius:3px; font-size:.9em }
+      .why b { color:#3a3c48 }
+      .pair { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start }
+      .col { width:340px }
+      .lbl { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#797c8c; margin-bottom:6px }
+      .lbl b.now { color:#8a2018 } .lbl b.rec { color:#1f6b2a }
+      .stage { background:#fff; border:1px solid #dcdce4; border-radius:12px; height:600px;
+               display:flex; flex-direction:column; overflow:hidden }
+      .stage .modal-header { flex:none }
+      .body { flex:1; overflow-y:auto }
+      .stage .menu-item { font-size:15px }
+
+      /* ---------- proposed: a navigation row ----------
+         `ui-row` is a SETTINGS row — label plus a muted trailing value, as in
+         "Invite link · Copy". A menu row is a different job: it goes somewhere.
+         Same hierarchy (label primary), so unlike `contact-info-item` this does
+         convert — but it needs an icon slot and a chevron that `ui-row` has no
+         reason to carry. Hence a variant, not a reuse. */
+      .n-group { padding:0 4px }
+      .n-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em;
+                 color:var(--secondary-text-color); padding:18px 16px 6px; text-align:left }
+      .n-row { display:flex; align-items:center; gap:14px; width:100%; padding:11px 16px;
+               background:none; border:0; cursor:pointer; font-family:var(--font-primary);
+               font-size:var(--font-size-base); font-weight:500; color:var(--text-color);
+               text-align:left }
+      .n-row:hover { background:var(--hover-background) }
+      .n-row .ic { flex:none; width:20px; height:20px; background-repeat:no-repeat;
+                   background-position:center; background-size:20px; opacity:.75 }
+      .n-row .k { flex:1; min-width:0 }
+      .n-row .v { flex:none; font-size:13.5px; color:var(--secondary-text-color) }
+      .n-row::after { content:''; flex:none; width:16px; height:16px; opacity:.35;
+                      background:var(--chev) center/16px no-repeat }
+      .n-row--danger { color:var(--danger-color) }
+      .n-row--danger .ic { opacity:.9 }
+      .n-row--flat::after { display:none }
+
+      /* ---------- proposed: the You screen ---------- */
+      .y-hero { display:flex; flex-direction:column; align-items:center; padding:26px 20px 20px }
+      .y-av { width:88px; height:88px; border-radius:50%; overflow:hidden; background:var(--light-color) }
+      .y-av svg { width:100%; height:100% ; display:block }
+      .y-name { font-size:22px; font-weight:600; letter-spacing:-.01em; margin-top:14px }
+      .y-user { font-size:14px; color:var(--secondary-text-color); margin-top:2px }
+      .y-addr { display:flex; align-items:center; gap:8px; margin-top:16px; padding:9px 12px;
+                border-radius:999px; background:var(--input-background); max-width:100% }
+      .y-addr code { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--text-color);
+                     white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+      /* the app's own .address-copy-button, not a lookalike */
+      .y-addr .address-copy-button { flex:none; width:26px; height:26px; padding:0 }
+      .y-qr { margin-top:18px; width:132px; height:132px; border-radius:10px; background:#fff;
+              border:1px solid var(--border-color); display:grid; place-items:center }
+      .y-qr svg { width:112px; height:112px }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+    <script type="module">
+      const { addressAvatar } = await import('../lib.js');
+      const page = document.getElementById('page');
+      const ME = '18ed49a5c07b3f61d2904ae8b5731cf0a629d4e7'.padEnd(64,'0');
+
+      // pull the real icon for a data-icon value straight out of styles.css, so
+      // the proposal uses the app's own icon set rather than lookalikes
+      const iconFor = (name) => {
+        for (const sh of document.styleSheets) {
+          let rules; try { rules = sh.cssRules } catch { continue }
+          for (const r of rules) {
+            if (r.selectorText === `.menu-item[data-icon="${name}"]::before`)
+              return r.style.backgroundImage;
+          }
+        }
+        return 'none';
+      };
+      const CHEV = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%231c1c21' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E")`;
+      document.documentElement.style.setProperty('--chev', CHEV);
+
+      const header = (title, signout) => `
+        <div class="modal-header">
+          <button class="back-button"></button>
+          <div class="modal-title">${title}</div>
+          ${signout ? '<button class="sign-out-header-button" data-icon="log-out" title="Sign out"></button>' : ''}
+        </div>`;
+
+      const nowList = (items) => `
+        <div class="body"><ul class="menu-list">
+          ${items.map(([t,i,c]) => `<li class="menu-item ${c||''}" data-icon="${i}">${t}</li>`).join('')}
+        </ul></div>`;
+
+      // The icon is applied from JS after insertion, never interpolated into a
+      // style attribute: the CSSOM returns `url("data:…")` WITH double quotes,
+      // and those terminate the HTML attribute, leaving `background-image:url("")`.
+      // No sub-labels. A two-line row centres its icon against the whole block,
+      // so the icon drops out of line with every single-line row around it —
+      // and the rows that wanted a note were the ones whose label already said
+      // it. One line per row keeps the icon column straight.
+      const nRow = ([label, icon, , value, mod]) => `
+        <button class="n-row ${mod||''}">
+          <span class="ic" data-icon="${icon}"></span>
+          <span class="k">${label}</span>
+          ${value?`<span class="v">${value}</span>`:''}
+        </button>`;
+
+      const newList = (groups) => `
+        <div class="body"><div class="n-group">
+          ${groups.map(([title, rows]) =>
+            (title ? `<div class="n-title">${title}</div>` : '<div style="height:10px"></div>')
+            + rows.map(nRow).join('')).join('')}
+          <div style="height:18px"></div>
+        </div></div>`;
+
+      // ---------------- MENU ----------------
+      const menuNow = [['Invite','mail'],['EVM Assets','assets'],['Farm','trending-up'],
+        ['Validator','shield'],['DAO','dao'],['Bridge','arrow-right-arrow-left'],['Explorer','search'],
+        ['Network','globe'],['Logs','file-text'],['Help','github'],['About','info'],
+        ['Sign Out','log-out','sign-out']];
+
+      const menuNew = [
+        ['', [['Invite someone','mail']]],
+        ['Assets', [['EVM Assets','assets'],['Farm','trending-up'],['Bridge','arrow-right-arrow-left']]],
+        ['Network', [['Validator','shield'],['DAO','dao'],['Explorer','search'],['Network status','globe']]],
+        ['About', [['Help','github'],['About Liberdus','info','',' 2026.08.21'],
+                   ['Diagnostic logs','file-text']]],
+      ];
+
+      // ---------------- SETTINGS ----------------
+      const setNow = [['Calls','call'],['Profile','user'],['Contacts','contacts'],['Appearance','eye'],
+        ['Chat','chat'],['Toll','dollar-sign'],['Lock','lock'],['Secret','key'],['Backup','download'],
+        ['Remove','trash-2'],['Sign Out','log-out','sign-out']];
+
+      const setNew = [
+        ['', [['Appearance','eye','','Gradient'],['Chat','chat','','Medium'],['Calls','call'],
+              ['Contacts','contacts']]],
+        ['Your account', [['Profile','user'],
+                          ['Toll','dollar-sign','','1 LIB']]],
+        ['Keys and recovery', [['App lock','lock','','Off'],
+                               ['Backup account','download'],
+                               ['Show private key','key']]],
+        ['', [['Delete this account','trash-2','','','n-row--danger n-row--flat']]],
+      ];
+
+      // ---------------- YOU ----------------
+      const qr = `<svg viewBox="0 0 29 29" shape-rendering="crispEdges">${
+        (()=>{ // deterministic pseudo-QR, purely for the mock
+          let s='', seed=7;
+          const rnd=()=> (seed = (seed*1103515245+12345) & 0x7fffffff) / 0x7fffffff;
+          for(let y=0;y<29;y++) for(let x=0;x<29;x++){
+            const finder = (x<7&&y<7)||(x>21&&y<7)||(x<7&&y>21);
+            const ring = finder && !((x%7>0&&x%7<6&&y%7>0&&y%7<6) && !((x%7===3)&&(y%7===3)));
+            if (finder ? ring : rnd()>0.55) s+=`<rect x="${x}" y="${y}" width="1" height="1"/>`;
+          }
+          return s;
+        })()}</svg>`;
+
+      const youNow = `
+        ${header('My Info')}
+        <div class="body"><div class="form-container"><div class="contact-info-list">
+          <div class="contact-avatar-section">
+            <div class="avatar">${addressAvatar(ME,80)}</div>
+            <div class="name">thantsintoe</div>
+            <div class="myinfo-qr">${qr}</div>
+            <div class="myinfo-address-row">
+              <div class="form-control address-display myinfo-address-display">0x18ed49a5c07b3f61d2904ae8b5731cf0a629d4e7</div>
+              <button class="icon-button address-copy-button"></button>
+            </div>
+          </div>
+          <div class="contact-info-item" style="display:flex">
+            <div class="contact-info-label">Name</div>
+            <div class="contact-info-value-container">
+              <div class="contact-info-value">Thant Sin Toe</div>
+              <button class="icon-button edit-icon"></button>
+            </div>
+          </div>
+        </div></div></div>`;
+
+      const youNew = `
+        ${header('You')}
+        <div class="body">
+          <div class="y-hero">
+            <div class="y-av">${addressAvatar(ME,88)}</div>
+            <div class="y-name">Thant Sin Toe</div>
+            <div class="y-user">thantsintoe</div>
+            <div class="y-addr"><code>0x18ed49a5…29d4e7</code><button class="icon-button address-copy-button" aria-label="Copy address"></button></div>
+            <div class="y-qr">${qr}</div>
+          </div>
+          <div class="n-group">
+            <div class="n-title">Shared with your connections</div>
+            ${nRow(['Name','user','','Thant Sin Toe'])}
+            ${nRow(['LinkedIn','user','','Add'])}
+            ${nRow(['X','user','','Add'])}
+          </div>
+        </div>`;
+
+      page.innerHTML = `
+        <h2>Menu — 13 rows, one weight, four audiences</h2>
+        <p class="why">The list mixes <b>everyday</b> (Invite, Help, About), <b>DeFi</b> (EVM Assets, Farm,
+        Bridge), <b>node operator</b> (Validator, Explorer, Network) and <b>diagnostics</b> (Logs) at
+        identical weight — the same failure the group-info screen had, and §1.3 says diagnostics are not
+        features. Nothing here tells you that Invite is the row almost everyone wants and Logs is the row
+        almost nobody does. <b>Sign Out appears twice on this screen at once</b>: the red icon in the header
+        and the red row at the bottom. Its row also has a black icon above red text.</p>
+        <p class="why">The proposal groups without moving anything between screens — every id and handler
+        stays put, so this is markup, not rewiring. Invite gets the ungrouped top slot and a line saying what
+        it does, because it is the one row here an ordinary user wants. Logs moves under About and is named
+        <b>Diagnostic logs</b>, so it reads as an escape hatch rather than a feature.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div>
+            <div class="stage">${header('Menu',1)}${nowList(menuNow)}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Proposed</b></div>
+            <div class="stage">${header('More',1)}${newList(menuNew)}</div></div>
+        </div>
+
+        <h2>Settings — and the one row that deletes your account</h2>
+        <p class="why"><b>Remove</b> destroys an account and is styled exactly like <b>Calls</b>: same size,
+        same weight, same black icon, sat directly under Backup. <code>ui-row--danger</code> already exists in
+        the stylesheet and is unused here. <b>Secret</b> is the private key — a label nobody can act on
+        safely without knowing that. And rows that hold a value show none: you cannot see your toll, your
+        avatar style or whether the lock is even on without opening each one.</p>
+        <p class="why">The proposal shows the value in the row instead of a sub-label, splits preferences from
+        account from keys, and puts the destructive row alone at the bottom in danger weight — separated by a gap rather than
+        sitting flush against Backup, so the tap that follows a mis-scroll is not the irreversible one.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div>
+            <div class="stage">${header('Settings',1)}${nowList(setNow)}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Proposed</b></div>
+            <div class="stage">${header('Settings',1)}${newList(setNew)}</div></div>
+        </div>
+
+        <h2>My Info + My Profile — one concept, two screens</h2>
+        <p class="why"><b>These are the same thing.</b> <code>#myInfoModal</code> ("My Info") is the
+        read-only view, reached from the header avatar; <code>#accountModal</code> ("My Profile") is its
+        editor, reached from Settings → Profile. Two names, two screens, two entry points, one idea — and
+        the pencil on the Name row is a third way in. Three of My Info's five fields are permanently
+        <code>display:none</code> by inline style, with a commented-out block between them.</p>
+        <p class="why">The card is also the wallet's tinted-box problem again: a lavender rectangle drawn
+        around content that is already the whole screen. The <b>username is the biggest text and the display
+        name is a small field below it</b> — inverted, since the display name is what people actually see.
+        The address is a <code>form-control</code> — an input's clothes on a read-only value — centred and
+        wrapped across two lines with the copy button beside the second one.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div><div class="stage">${youNow}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Proposed</b></div><div class="stage">${youNew}</div></div>
+        </div>`;
+
+      for (const el of page.querySelectorAll('.ic[data-icon]')) {
+        el.style.backgroundImage = iconFor(el.dataset.icon);
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,773 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Group UI harness</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin: 0; }
+      #harness-bar {
+        position: relative; z-index: 99999;
+        display: flex; gap: 6px; flex-wrap: wrap;
+        padding: 6px; background: #111; color: #fff; font: 12px system-ui;
+      }
+      #harness-bar button { font: 12px system-ui; padding: 4px 8px; cursor: pointer; }
+      /* The app sizes .container from its own layout; the harness has to
+         supply the geometry the modals slide within. */
+      /* styles.css centres the app with a flex body, so a shrink-to-fit
+         wrapper collapses to zero. The harness states the geometry outright. */
+      #host {
+        flex: none;
+        width: 430px;
+        height: 820px;
+        margin: 0 auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="harness-bar"></div>
+    <div class="container" id="host"></div>
+
+    <!-- the app's own QR encoder, so the `you` scene sizes its QR the way the
+         app does rather than approximating it -->
+    <script src="../external/qr.js"></script>
+    <script type="module">
+      // Pull the real modal markup out of index.html so this exercises exactly
+      // what ships, not a copy that can drift.
+      const html = await (await fetch('../index.html')).text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const host = document.getElementById('host');
+      for (const id of ['createGroupModal', 'groupChatModal', 'joinGroupModal', 'groupInfoModal', 'appearanceModal', 'chatModal', 'signInModal', 'createAccountModal', 'groupMessageMenu']) {
+        host.appendChild(doc.getElementById(id));
+      }
+
+      /*
+       * A slice of the real chat list, so the group row can be compared against
+       * the 1:1 rows it actually sits beside. The list markup lives in app.js,
+       * which needs a signed-in account, so it is reproduced here rather than
+       * imported — keep it in step with renderChatList if that changes.
+       */
+      const listHost = document.createElement('div');
+      listHost.id = 'listHost';
+      listHost.style.cssText = 'height:100%;overflow-y:auto;background:#fff';
+      listHost.style.display = 'none';
+      host.appendChild(listHost);
+
+      /*
+       * normalizeAddress() demands exactly 40 hex chars and longAddress() pads
+       * them back to 64 with zeros, so fixtures have to satisfy both.
+       *
+       * These are deliberately unpatterned. Sequential fixtures ('2'.repeat(40),
+       * '3'.repeat(40)) hash to adjacent hues, so every avatar came out the
+       * same colour and the palette looked broken when it was not.
+       */
+      const REAL = [
+        '18ed49a5c07b3f61d2904ae8b5731cf0a629d4e7',
+        'e195adfc4b8210d6739ce0af52186b3d9c74a018',
+        'b0a1f42b6c95307edf28a4193bd0c6e75f831a24',
+        '4bc12e910d7a5f36b8e204c9137ade65028fb4d1',
+        '011012aa93c7e5b41d80f62a7bc4931e5da06f88',
+        'ccf42901a7e3b5d6820f14c93ba7e05d61f28a37',
+        '7d3b9e15c8a02f47b6d1930e5ac82f7160bd4e92',
+        '2a86f0d4193b7ce5820af61d93c7b04e58a12f6b',
+      ];
+      const long = (c) => c + '0'.repeat(24);
+      const ME = long(REAL[0]);
+      const addr = (n) => long(REAL[(Number(n) - 1) % REAL.length]);
+
+      const GROUP = {
+        groupId: '8f3a4b'.padEnd(64, 'c'),
+        name: 'Weekend hikers',
+        members: [ME, addr(2), addr(3), addr(4), addr(5)],
+        admins: [ME, addr(2)],
+        memberNames: { [addr(2)]: 'ana', [addr(3)]: 'ben', [addr(4)]: 'cleo', [addr(5)]: 'dana' },
+        epoch: 5,
+        chainEpoch: 5,
+        memberSinceEpoch: 2,
+        messages: [
+          { txid: 'tx1', from: addr(2), message: 'Trailhead at 7? Parking fills up fast.', timestamp: Date.now() - 9e5 },
+          // Two in a row from one person, to exercise sender-run grouping.
+          { txid: 'tx2', from: addr(2), message: 'Bring water, there is no tap at the top.', timestamp: Date.now() - 85e4 },
+          { txid: 'tx3', from: ME, mine: true, message: "Works for me. I'll bring the extra poles.", timestamp: Date.now() - 5e5 },
+          { txid: 'tx4', from: ME, mine: true, message: 'Parking spot 4 if anyone is late.', timestamp: Date.now() - 48e4 },
+          { txid: 'tx5', from: addr(3), message: 'Same. Weather looks clear until 2.', timestamp: Date.now() - 4e5 },
+        ],
+        unread: 0,
+        lastActivity: Date.now(),
+        createdAt: new Date('2026-08-12T10:00:00Z').getTime(),
+        removed: false,
+      };
+
+      const myData = {
+        account: { private: false },
+        contacts: {
+          [addr(6)]: { username: 'erin' },
+          [addr(7)]: { username: 'finn' },
+          [addr(8)]: { username: 'gus' },
+        },
+        groups: { [GROUP.groupId]: structuredClone(GROUP) },
+        chats: [],
+      };
+
+      const { initGroupUI, createGroupModal, groupChatModal, groupInfoModal, joinGroupModal } = await import('../groupUI.js');
+      const { generateIdenticon: genIdenticon, generateAvatar: genAvatar, addressAvatar: addrAvatar, setAvatarStyle: setStyle, getAvatarStyle: getStyle } = await import('../lib.js');
+
+      initGroupUI({
+        queryNetwork: async () => ({}),
+        getMyAccount: () => ({ keys: { address: ME } }),
+        getMyData: () => myData,
+        showToast: (m) => console.log('[toast]', m),
+        onChatListChanged: () => {},
+      });
+
+      /*
+       * groupUI reads some view-model state through groupManager (mute, read
+       * marks), which no-ops silently until its deps exist. Only getMyData is
+       * needed here -- nothing in these scenes touches the network or MLS.
+       */
+      const { initGroupManager } = await import('../groupManager.js');
+      initGroupManager({
+        queryNetwork: async () => ({}),
+        /*
+         * pqSeed is not decoration: deriveIdentity hex-decodes it, so without
+         * one every call that needs an identity throws before reaching the code
+         * under test -- which made an optimistic-then-revert path look like it
+         * had passed when nothing had run at all.
+         */
+        getMyAccount: () => ({ keys: { address: ME, pqSeed: 'ab'.repeat(64) } }),
+        getMyData: () => myData,
+        getNetworkId: () => 'harness',
+        // Enough of the transaction surface for the optimistic paths to run.
+        // The send itself still fails (no MLS state), which is what exercises
+        // the revert.
+        getTransactionTimestamp: () => Date.now(),
+        getTransactionFeeWei: () => 0n,
+        signObj: () => {},
+        injectTx: async () => ({ result: { success: false, reason: 'harness: no network' } }),
+        saveState: () => {},
+        // The app re-renders the open group here; scenes that change state
+        // mid-flight show nothing without it.
+        onGroupUpdated: () => { if (groupChatModal.isActive()) groupChatModal.render(); },
+      });
+
+      const view = () => myData.groups[GROUP.groupId];
+      const reset = () => { myData.groups[GROUP.groupId] = structuredClone(GROUP); };
+      const closeAll = () => { document.querySelectorAll('.modal.active').forEach((m) => m.classList.remove('active')); listHost.style.display = 'none'; };
+
+      const scenes = {
+        'chat: fine': () => { reset(); groupChatModal.open(GROUP.groupId); },
+        'chat: reactions': () => {
+          reset();
+          const v = view();
+          v.reactions = [
+            // Two people on one message, one of them us, so the count and the
+            // "mine" accent both show; and a single reaction on another.
+            { sender: ME,      targetTxid: 'tx1', emoji: '\u{1F44D}', timestamp: Date.now() - 1e5, reactionTxId: 'r1' },
+            { sender: addr(2), targetTxid: 'tx1', emoji: '\u{1F44D}', timestamp: Date.now() - 9e4, reactionTxId: 'r2' },
+            { sender: addr(3), targetTxid: 'tx1', emoji: '\u{1F389}', timestamp: Date.now() - 8e4, reactionTxId: 'r3' },
+            { sender: addr(2), targetTxid: 'tx3', emoji: '\u{2764}\u{FE0F}', timestamp: Date.now() - 7e4, reactionTxId: 'r4' },
+          ];
+          groupChatModal.open(GROUP.groupId);
+        },
+        'chat: replies': () => {
+          reset();
+          const v = view();
+          // Someone quoting another member, me quoting them, and a reply whose
+          // target predates our join — the case 1:1 never has to render.
+          v.messages.push(
+            { txid: 'tx6', from: addr(3), message: 'Poles would help on the scree.',
+              timestamp: Date.now() - 3e5,
+              replyId: 'tx3', replyMessage: "Works for me. I'll bring the extra poles.", replyFrom: ME },
+            { txid: 'tx7', from: ME, mine: true, message: 'Got two spare pairs.',
+              timestamp: Date.now() - 2e5,
+              replyId: 'tx6', replyMessage: 'Poles would help on the scree.', replyFrom: addr(3) },
+            { txid: 'tx8', from: addr(4), message: 'Agreed, that was the plan.',
+              timestamp: Date.now() - 1e5,
+              replyId: 'gone', replyMessage: 'a message from before you joined', replyFrom: addr(5) },
+          );
+          groupChatModal.open(GROUP.groupId);
+        },
+        'chat: replying (composer)': () => {
+          reset(); groupChatModal.open(GROUP.groupId);
+          setTimeout(() => groupChatModal.startReply(
+            document.querySelector('#groupMessagesList .message[data-txid="tx1"]')), 60);
+        },
+        'chat: catching up': () => { reset(); view().chainEpoch = 7; groupChatModal.open(GROUP.groupId); },
+        'chat: needs attention': () => { reset(); view().applyFailedAtEpoch = 6; view().chainEpoch = 7; groupChatModal.open(GROUP.groupId); },
+        'chat: unrecoverable': () => { reset(); view().needsRecovery = true; groupChatModal.open(GROUP.groupId); },
+        'chat: invited': () => { reset(); view().invitePending = { from: addr(2) }; groupChatModal.open(GROUP.groupId); },
+        'chat: removed': () => { reset(); view().removed = true; groupChatModal.open(GROUP.groupId); },
+        'create': () => { closeAll(); createGroupModal.open(); },
+        'info: admin': () => {
+          reset(); groupInfoModal.open(GROUP.groupId);
+          setTimeout(() => {
+            groupInfoModal.requests = [{ address: addr(6), message: 'met you at the trail meetup' }];
+            groupInfoModal.renderPeople();
+            // renderFees needs a network read the harness cannot serve; drive
+            // the row directly so the Collect state is visible.
+            const row = document.getElementById('groupFeesRow');
+            row.hidden = false;
+            document.getElementById('groupFeesSummary').textContent = '2 LIB ready · 1 LIB held until 27 Aug';
+          }, 900);
+        },
+        'info: admin + add': () => {
+          reset(); groupInfoModal.open(GROUP.groupId); groupInfoModal.toggleAdd(true);
+        },
+        'info: non-admin': () => { reset(); view().admins = [addr(2)]; groupInfoModal.open(GROUP.groupId); },
+        // Three people waiting, one of them mid-commit. The others must stay on
+        // screen — they used to vanish until the receipt landed.
+        'info: approving one of three': () => {
+          reset();
+          groupInfoModal.open(GROUP.groupId);
+          // Non-members, so they read as genuine requests rather than roster rows.
+          // Applied on a timer so open()'s own async loadRequests has landed
+          // first. Longer than the 900ms in 'info: admin': clicking every scene
+          // in turn leaves that scene's timer still pending, and it would
+          // otherwise land on top of this one's fixture.
+          setTimeout(() => {
+          groupInfoModal.requests = [
+            { address: addr(6), message: 'Met at the conference' },
+            { address: addr(7), message: '' },
+            { address: addr(8), message: 'Please add me' },
+          ];
+          view().memberNames[addr(6)] = 'erin';
+          view().memberNames[addr(7)] = 'femi';
+          view().memberNames[addr(8)] = 'gus';
+          view().pendingChange = { kind: 'add', addresses: [addr(6)], since: Date.now() };
+          groupInfoModal.renderPeople();
+          }, 1200);
+        },
+        'chat list': () => {
+          listHost.style.display = 'block';
+          // Reproduces renderChatList's markup exactly — keep in step with it.
+          const row = (o) => `
+            <li class="chat-item${o.group ? ' chat-item--group' : ''}">
+              <div class="chat-avatar">${addrAvatar(o.addr, o.group ? 48 : 50)}</div>
+              <div class="chat-content">
+                <div class="chat-header">
+                  <div class="chat-name">${o.name}</div>
+                  <div class="chat-time">${o.time}</div>
+                </div>
+                <div class="chat-message">
+                  <span class="chat-preview">${o.state ? `<span class="chat-status" data-state="${o.state}">${o.state === 'failed' ? '!' : ''}</span>` : ''}${o.prefix || ''}${o.preview}</span>
+                  ${o.unread ? `<span class="chat-unread">${o.unread}</span>` : ''}
+                  ${o.draft ? '<span class="chat-draft" title="Draft"></span>' : ''}
+                </div>
+              </div>
+            </li>`;
+          listHost.innerHTML = `<ul class="chat-list" id="chatList">
+            ${row({ addr: addr(2), name: 'ana', time: '9:53 PM', prefix: '', preview: 'see you tomorrow', unread: 3 })}
+            ${row({ addr: '8f3a4b'.padEnd(64, 'c'), name: 'Weekend hikers', time: '10:01 PM', group: true, state: 'sent', preview: 'Weather looks clear until 2, see you there.' })}
+            ${row({ addr: addr(3), name: 'ben', time: 'Mon', state: 'failed', preview: 'thanks!' })}
+            ${row({ addr: addr(4), name: 'cleo', time: 'Sun', prefix: 'Draft: ', preview: 'half-written thought', draft: true })}
+            ${row({ addr: addr(6), name: 'finn', time: 'now', state: 'pending', preview: 'on my way' })}
+            ${row({ addr: addr(5), name: 'a-very-long-username-that-should-truncate', time: '12 Aug', state: 'sent', preview: 'a long preview line that has to ellipsis rather than wrap onto a second line' })}
+          </ul>`;
+        },
+        'settings menu': () => {
+          listHost.style.display = 'block';
+          // `.ui-nav` since the Wave 4 conversion; the welcome menu is still
+          // `.menu-list`, so take whichever this modal has.
+          const nav = doc.getElementById('settingsModal').querySelector('.ui-nav, .menu-list');
+          listHost.innerHTML = nav.outerHTML;
+          listHost.style.padding = '12px';
+          // the rows read their value from JS at open() time, which does not run
+          // in the harness — fill them so the row geometry is real
+          const v = { settingsAppearanceValue: 'Gradient', settingsChatValue: 'Medium', settingsLockValue: 'Off' };
+          for (const [id, text] of Object.entries(v)) {
+            const el = listHost.querySelector('#' + id);
+            if (el) el.textContent = text;
+          }
+        },
+        // Exactly the markup renderChatMessageHTML emits for a payment.
+        // The dialog that replaced fifteen native alert/confirm/prompt calls.
+        'restore': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('importModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+        },
+        'restore: overwriting': () => {
+          scenes['restore']();
+          const cb = listHost.querySelector('#overwriteAccountsCheckbox');
+          cb.checked = true;
+          listHost.querySelector('.restore-advanced').open = true;
+        },
+        'backup': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('backupModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#backupAllAccountsGroup').hidden = false;
+        },
+        'backup: no password': () => {
+          scenes['backup']();
+          listHost.querySelector('input[name="backupEncryption"][value="none"]').checked = true;
+          listHost.querySelector('#backupPasswordFields').hidden = true;
+        },
+        'confirm dialog': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('uiConfirmDialog').outerHTML;
+          listHost.style.padding = '0';
+          const d = listHost.querySelector('#uiConfirmDialog');
+          d.style.position = 'relative';
+          d.style.height = '340px';
+          d.classList.add('active');
+          d.querySelector('#uiConfirmTitle').textContent = 'Remove all accounts from this device?';
+          d.querySelector('#uiConfirmBody').textContent =
+            'This deletes every account here and everything stored with them — chats, contacts and history. '
+            + 'They stay on the network, but without a backup file you cannot get back in.';
+          d.querySelector('#uiConfirmTypeGroup').hidden = false;
+          d.querySelector('#uiConfirmTypeLabel').textContent = 'Type REMOVE ALL to confirm';
+          const accept = d.querySelector('#uiConfirmAccept');
+          accept.textContent = 'Remove all accounts';
+          accept.className = 'btn btn--pill btn--danger';
+          accept.disabled = true;
+        },
+        'payment bubbles': () => {
+          listHost.style.display = 'none';
+          const m = document.getElementById('chatModal');
+          m.querySelector('.modal-title').textContent = 'brave';
+          m.querySelector('#chatSubtitle').textContent = '@brave';
+          m.querySelector('.modal-avatar').innerHTML = addrAvatar(REAL[1], 36);
+          const pay = (cls, amt, usd, memo, time) => `
+            <div class="message ${cls} payment-info" data-message-timestamp="1">
+              <div class="payment-row">
+                <span class="payment-dir" aria-hidden="true"></span>
+                <span class="payment-figures">
+                  <span class="payment-amount">${amt}</span>
+                  ${usd ? `<span class="payment-usd">${usd}</span>` : ''}
+                </span>
+              </div>
+              ${memo ? `<div class="payment-memo">${memo}</div>` : ''}
+              <div class="message-time">${time}</div>
+            </div>`;
+          m.querySelector('.messages-list').innerHTML =
+            pay('sent', '1 LIB', '≈ $1.02', '', '11:50 AM') +
+            pay('received', '2 LIB', '≈ $2.04', 'For coffee', '11:51 AM') +
+            // no stability factor yet: the USD line is omitted, not blanked
+            pay('sent', '0.5 LIB', '', 'Before parameters load', '11:52 AM');
+          m.classList.add('active');
+        },
+        'history': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('historyModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          const names = ['Ana Ruiz', 'Chen Wei', 'Brave', '0x9f2a…c31d', 'Validator 7'];
+          const rows = [
+            ['For lunch', '\u221225 LIB', '2:14 PM', 'out', 'Today', ''],
+            ['Failed', '\u22123.25 LIB', '11:03 AM', 'out', '', 'failed'],
+            ['Received', '+120.5 LIB', '9:02 AM', 'in', 'Yesterday', ''],
+            ['Thanks!', '+0.01 LIB', '11:47 AM', 'in', '19 August', ''],
+            ['Staked', '\u2212500 LIB', '4:20 PM', 'out', '', ''],
+          ];
+          listHost.querySelector('#transactionList').innerHTML = rows
+            .map(([sub, amt, time, dir, head, state], i) =>
+              (head ? `<div class="tx-day">${head}</div>` : '') +
+              `<button class="tx ${dir === 'in' ? 'tx--in' : ''} ${state ? 'tx--' + state : ''}" data-kind="transfer">
+                 <span class="tx-av"><span class="tx-av-img">${addrAvatar(REAL[i % REAL.length], 38)}</span>
+                   <span class="tx-dir"></span></span>
+                 <span class="tx-main"><span class="tx-who">${names[i]}</span>
+                   <span class="tx-sub">${sub}</span></span>
+                 <span class="tx-right"><span class="tx-amt">${amt}</span>
+                   <span class="tx-time">${time}</span></span>
+               </button>`).join('');
+        },
+        'contact': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('contactInfoModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#contactInfoAvatar').insertAdjacentHTML('afterbegin', addrAvatar(REAL[0], 88));
+          listHost.querySelector('#contactInfoName').textContent = 'Ana Ruiz';
+          listHost.querySelector('#contactInfoHandle').textContent = '@ana';
+          listHost.querySelector('#contactInfoDisplayAddress').textContent = '0xa1b2c3d4…12345678';
+          listHost.querySelector('#contactInfoNameValue').textContent = 'Ana Ruiz';
+          const st = listHost.querySelector('#contactInfoStatus');
+          st.textContent = 'Connection';
+          st.className = 'ui-nav-value contact-status contact-status--connection';
+          listHost.querySelector('#contactInfoNotes').textContent =
+            'Met at the Lisbon conference in March. Runs the validator working group.';
+        },
+        'contact: blocked': () => {
+          scenes['contact']();
+          const st = listHost.querySelector('#contactInfoStatus');
+          st.textContent = 'Blocked';
+          st.className = 'ui-nav-value contact-status contact-status--blocked';
+        },
+        'contact: tolled, no note': () => {
+          scenes['contact']();
+          const st = listHost.querySelector('#contactInfoStatus');
+          st.textContent = 'Tolled';
+          st.className = 'ui-nav-value contact-status contact-status--tolled';
+          listHost.querySelector('#contactInfoNotes').textContent = '';
+          const n = listHost.querySelector('#contactInfoNameValue');
+          n.textContent = 'Add';
+          n.classList.add('ui-nav-value--empty');
+        },
+        'new chat': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('newChatModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          const names = ['Ana Ruiz', 'Brave', 'Chen Wei'];
+          listHost.querySelector('#newChatPicker').innerHTML = REAL.slice(0, 3)
+            .map((a, i) => `<li class="ui-list-row" data-address="${a}">
+                 <span class="ui-list-avatar">${addrAvatar(a, 34)}</span>
+                 <span class="ui-list-name">${names[i]}</span></li>`).join('');
+        },
+        // The row that appears when no contact matches, in each state the
+        // username lookup can leave it in.
+        'new chat: lookup': () => {
+          scenes['new chat']();
+          listHost.querySelector('#chatRecipient').value = 'zoe';
+          listHost.querySelector('#newChatListTitle').textContent = 'Matches';
+          const row = (note) => `<li><button type="button" class="ui-list-action" data-resolve="1">
+               <span class="ui-list-plus" aria-hidden="true">+</span>
+               <span class="ui-list-name">Start a chat with &ldquo;zoe&rdquo;
+                 <span class="ui-list-note">${note}</span></span>
+             </button></li>`;
+          const rowOk = `<li><button type="button" class="ui-list-action" data-resolve="1">
+               <span class="ui-list-plus" aria-hidden="true">+</span>
+               <span class="ui-list-name">Start a chat with &ldquo;zoe&rdquo;
+                 <span class="ui-list-note ui-list-note--ok">Account found</span></span>
+             </button></li>`;
+          listHost.querySelector('#newChatPicker').innerHTML =
+            row('Checking…') + rowOk + row('Could not check — tap to try anyway')
+            + `<li><button type="button" class="ui-list-action" data-resolve="1">
+                 <span class="ui-list-plus" aria-hidden="true">+</span>
+                 <span class="ui-list-name">Start a chat with &ldquo;zoe&rdquo;</span>
+               </button></li>`
+            + '<li class="ui-list-empty ui-list-empty--error">No account called &ldquo;zoe&rdquo;.</li>'
+            + '<li class="ui-list-empty">That is your own account.</li>';
+        },
+        'send': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('sendAssetFormModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#sendAsset').innerHTML = '<option>Liberdus (LIB)</option>';
+          listHost.querySelector('#balanceAmount').textContent = '1,234.50 LIB';
+          listHost.querySelector('#transactionFee').textContent = '0.01 LIB';
+        },
+        'send: bad recipient': () => {
+          scenes['send']();
+          listHost.querySelector('#sendToAddress').value = 'anaa';
+          listHost.querySelector('#sendToAddress').classList.add('is-invalid');
+          listHost.querySelector('#sendToAddressError').textContent = 'not found';
+        },
+        'receive': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('receiveModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#displayAddress').textContent = '0x18ed49a5…29d4e7';
+          listHost.querySelector('#receiveAsset').innerHTML = '<option>Liberdus (LIB)</option>';
+          const bytes = qr.encodeQR('liberdus://' + btoa('{"u":"ana","a":"25.00","s":"LIB"}'), 'gif', { scale: 4 });
+          const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(bytes)));
+          listHost.querySelector('#qrcode').innerHTML = '<img alt="" src="data:image/gif;base64,' + b64 + '">';
+          listHost.querySelector('#receiveAmount').value = '25.00';
+          listHost.querySelector('#qrCaption').innerHTML = 'This code requests <strong>25.00 LIB</strong>';
+        },
+        'send: confirm': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('sendAssetConfirmModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          const set = (id, text) => { listHost.querySelector('#' + id).textContent = text; };
+          set('confirmRecipient', 'ana');
+          set('confirmAmount', '25.00 LIB');
+          set('confirmAmountUSD', '≈ $25.50');
+          set('confirmMemo', 'For lunch');
+          set('confirmFee', '0.01 LIB');
+          set('confirmTotal', '25.01 LIB');
+          for (const id of ['confirmMemoGroup', 'confirmFeeGroup', 'confirmTotalGroup']) {
+            listHost.querySelector('#' + id).hidden = false;
+          }
+        },
+        'you': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('myInfoModal').querySelector('.modal-content').innerHTML;
+          listHost.style.padding = '0';
+          listHost.querySelector('#myInfoAvatar').insertAdjacentHTML('afterbegin', addrAvatar(REAL[0], 88));
+          listHost.querySelector('#myInfoDisplayName').textContent = 'Ana Ruiz';
+          listHost.querySelector('#myInfoUsername').textContent = '@ana';
+          listHost.querySelector('#myInfoDisplayUsername').textContent = '0x18ed49a5…29d4e7';
+          listHost.querySelector('#myInfoName').textContent = 'Ana Ruiz';
+          for (const id of ['#myInfoLinkedin', '#myInfoX']) {
+            const el = listHost.querySelector(id);
+            el.textContent = 'Add';
+            el.classList.add('ui-nav-value--empty');
+          }
+          // real encoder output, so the QR is sized the way the app sizes it
+          const bytes = qr.encodeQR('liberdus://harness', 'gif', { scale: 4 });
+          const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(bytes)));
+          listHost.querySelector('#myInfoQR').innerHTML =
+            '<img alt="Username QR code" src="data:image/gif;base64,' + b64 + '">';
+        },
+        'menu': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('menuModal').querySelector('.ui-nav').outerHTML;
+          listHost.style.padding = '12px';
+          const v = listHost.querySelector('#menuVersionValue');
+          if (v) v.textContent = '2026.08.21';
+        },
+        '1:1 chat': () => {
+          listHost.style.display = 'none';
+          const m = document.getElementById('chatModal');
+          m.querySelector('.modal-title').textContent = 'Ana Ruiz';
+          m.querySelector('#chatSubtitle').textContent = '@ana';
+          m.querySelector('.modal-avatar').innerHTML = addrAvatar(REAL[1], 36);
+          // .message markup as buildMessageBubble emits it, so the bubbles are
+          // the real ones and not an approximation.
+          // Runs are computed the way buildChatMessageRangeHTML does it.
+          const bub = (mine, text, time, run) => `
+            <div class="message ${mine ? 'sent' : 'received'}${run ? ' message--continues' : ''}">
+              <div class="message-content">${text}</div>
+              <div class="message-time">${time}</div>
+            </div>`;
+          const msgs = [
+            [false, 'Are we still on for tomorrow?', '9:41 AM'],
+            [true, 'Yes — 7am at the trailhead.', '9:43 AM'],
+            [true, 'Bringing the extra poles.', '9:43 AM'],
+            [true, 'Parking spot 4 if you are late.', '9:44 AM'],
+            [false, 'Perfect, see you there.', '9:45 AM'],
+          ];
+          let last = null;
+          m.querySelector('.messages-list').innerHTML = msgs
+            .map(([mine, text, time]) => {
+              const run = last !== null && last === mine;
+              last = mine;
+              return bub(mine, text, time, run);
+            })
+            .join('');
+          m.classList.add('active');
+        },
+        'message parts': () => {
+          listHost.style.display = 'none';
+          const m = document.getElementById('chatModal');
+          m.querySelector('.modal-title').textContent = 'Ana Ruiz';
+          m.querySelector('#chatSubtitle').textContent = '@ana';
+          m.querySelector('.modal-avatar').innerHTML = addrAvatar(REAL[1], 36);
+          // Exactly the markup renderChatMessageHTML and buildReactionChipsHTML
+          // produce, so this verifies what ships rather than a mock of it.
+          const quote = (who, text) =>
+            `<div class="reply-quote"><span class="reply-quote-label">${who}</span>` +
+            `<div class="reply-quote-text">${text}</div></div>`;
+          const rx = (chips) =>
+            `<div class="message-reactions" aria-label="Reactions">${chips}</div>`;
+          const chip = (e, n, mine) =>
+            `<span class="message-reaction-chip${mine ? ' my-reaction' : ''}">` +
+            `<span class="message-reaction-emoji">${e}</span>` +
+            (n > 1 ? `<span class="message-reaction-count">${n}</span>` : '') + '</span>';
+          const media = `<div class="attachment-row attachment-row--media">
+              <div class="attachment-icon-container">
+                <img class="attachment-thumbnail" src="../media/liberdus_logo_512.png" alt="Thumbnail">
+              </div></div>`;
+          const file = `<div class="attachment-row attachment-row--file">
+              <div class="attachment-icon-container"><div class="attachment-icon" data-file-type="pdf"></div></div>
+              <div class="attachment-details">
+                <span class="attachment-label">Q3-report.pdf</span>
+                <span class="attachment-meta">PDF · 1.2 MB</span>
+              </div></div>`;
+          m.querySelector('.messages-list').innerHTML = `
+            <div class="message received">${quote('You', "Hey I'm good.")}
+              <div class="message-content">How's your wife?</div>
+              <div class="message-time">12:48 PM</div></div>
+            <div class="message sent">${quote('ana', "Hey I'm good.")}
+              <div class="message-content">Doing well, thanks.</div>
+              <div class="message-time">12:48 PM</div></div>
+            <div class="message sent">${media}
+              <div class="message-content">They are my friends.</div>
+              <div class="message-time">12:49 PM</div>
+              ${rx(chip('👍', 2, true) + chip('🎉', 1, false))}</div>
+            <div class="message sent">
+              <div class="message-content">The message after a reaction.</div>
+              <div class="message-time">12:50 PM</div></div>
+            <div class="message received">${file}
+              <div class="message-content">Here's the report.</div>
+              <div class="message-time">12:51 PM</div></div>`;
+          // The three toll states, which used to include two self-contradictions.
+          const toll = m.querySelector('#tollValue');
+          toll.textContent = 'free';
+          toll.className = 'toll-value toll-free';
+          m.classList.add('active');
+        },
+        'welcome': () => {
+          listHost.style.display = 'block';
+          const w = doc.getElementById('welcomeScreen').cloneNode(true);
+          w.className = 'welcome-screen';
+          w.innerHTML = w.innerHTML.replaceAll('./media/', '../media/');
+          w.querySelectorAll('.welcome-buttons button').forEach((b) => b.classList.remove('hidden'));
+          w.querySelector('#networkNameDisplay').textContent = 'Testnet';
+          w.querySelector('#versionDisplay').textContent = '2026.08.21.10.15';
+          listHost.innerHTML = '';
+          listHost.appendChild(w);
+        },
+        'sign in': () => {
+          listHost.style.display = 'none';
+          const m = document.getElementById('signInModal');
+          // Exactly what renderListItem produces.
+          const row = (name, opts = {}) => `
+            <li class="sign-in-account-item${opts.priv ? ' is-private' : ''}" data-username="${name}">
+              <div class="sign-in-account-card">
+                <span class="sign-in-account-avatar">${addrAvatar(REAL[opts.i || 1], 40)}</span>
+                <span class="sign-in-account-name">${name}</span>
+                ${opts.bell ? '<span class="sign-in-account-badge" aria-label="Has notifications">🔔</span>' : ''}
+              </div>
+            </li>`;
+          m.querySelector('#signInAccountList').innerHTML =
+            row('thantsintoe', { bell: true, i: 0 }) + row('brave', { i: 2 }) + row('testerarc', { i: 3 }) +
+            '<li class="sign-in-account-section" role="presentation">Private accounts</li>' +
+            row('firefox', { priv: true, i: 4 });
+          m.classList.add('active');
+        },
+        'create account': () => {
+          listHost.style.display = 'none';
+          document.getElementById('createAccountModal').classList.add('active');
+        },
+        'toll states': () => {
+          listHost.style.display = 'block';
+          const row = (label, value, cls) => `
+            <div class="toll-container chat-toll-container" style="justify-content:flex-end">
+              <span class="toll-label">${label}</span>
+              <span class="toll-value ${cls}">${value}</span>
+              <span class="toll-info-icon" data-icon="info"></span>
+            </div>`;
+          listHost.innerHTML = `<div style="padding:16px">
+            ${row('Toll:', 'free', 'toll-free')}
+            ${row('Toll:', '0.050000 USD', 'toll-cost')}
+            ${row('Toll:', 'blocked', 'toll-cost')}
+            ${row('Toll:', 'offline', '')}
+          </div>`;
+        },
+        'wallet': () => {
+          listHost.style.display = 'block';
+          const wallet = doc.getElementById('walletScreen').cloneNode(true);
+          wallet.style.display = 'block';
+          wallet.querySelector('#walletTotalBalance').textContent = '1,284.50';
+          wallet.querySelector('#walletNativeBalance').textContent = '1234.500000 LIB';
+          // History carries an unread marker set by the transaction poll.
+          wallet.querySelector('#openHistoryModal').classList.add('has-notification');
+          // Reproduces the asset row from updateWalletView.
+          const asset = (name, price, bal, worth) => `
+            <div class="asset-item">
+              <div class="asset-logo"><img src="../media/liberdus_logo_50.png" alt=""></div>
+              <div class="asset-info">
+                <div class="asset-name">${name}</div>
+                <div class="asset-symbol ui-num">${price}</div>
+              </div>
+              <div class="asset-balance"><span>${bal}</span><span class="asset-symbol ui-num">${worth}</span></div>
+            </div>`;
+          wallet.querySelector('#assetsList').innerHTML =
+            asset('Liberdus', '$1.02', '1234.500000', '$1,259.19') +
+            asset('Ethereum', '$3,401.88', '0.007400', '$25.17') +
+            asset('USD Coin', '$1.00', '0.140000', '$0.14');
+          listHost.innerHTML = '';
+          listHost.appendChild(wallet);
+        },
+        'contacts': () => {
+          listHost.style.display = 'block';
+          // Reproduces renderContactItem + the group headings.
+          const row = (o) => `
+            <li class="chat-item${o.blocked ? ' blocked' : ''}">
+              <div class="chat-avatar">${addrAvatar(o.addr, 50)}</div>
+              <div class="chat-content">
+                <div class="chat-header">
+                  <div class="chat-name">${o.incomplete ? '<span class="contact-incomplete" title="Incomplete contact"></span>' : ''}${o.name}</div>
+                </div>
+                <div class="contact-list-info${o.address ? ' contact-list-info--address' : ''}">${o.info}</div>
+              </div>
+            </li>`;
+          const head = (l) => `<li class="contact-section-header" role="presentation">${l}</li>`;
+          listHost.innerHTML = `<ul class="chat-list" id="contactsList">
+            ${head('Connections')}
+            ${row({ addr: REAL[1], name: 'ana', info: 'ana@example.com' })}
+            ${row({ addr: REAL[2], name: 'ben', info: '18ed49a5…29d4e7', address: true })}
+            ${head('Tolled')}
+            ${row({ addr: REAL[3], name: 'cleo', info: '+1 555 0134', incomplete: true })}
+            ${head('Blocked')}
+            ${row({ addr: REAL[4], name: 'dana', info: 'dana@example.com', blocked: true })}
+          </ul>`;
+        },
+        'app header': () => {
+          listHost.style.display = 'block';
+          const hdr = doc.getElementById('header').outerHTML;
+          const search = doc.getElementById('searchBarContainer').outerHTML;
+          // index.html's paths are relative to the app root, not to /dev/.
+          listHost.innerHTML = (hdr + search).replaceAll('./media/', '../media/');
+          const h = listHost.querySelector('.header');
+          h.style.display = 'flex';
+          h.style.height = '60px';
+          listHost.querySelector('.search-bar-container').style.position = 'static';
+          listHost.querySelector('#headerTitle').textContent = 'Chats';
+          listHost.querySelector('#openMyInfo').innerHTML = genAvatar(REAL[0] + '0'.repeat(24), 30);
+        },
+        'app header (private)': () => {
+          scenes['app header']();
+          const a = listHost.querySelector('#openMyInfo');
+          a.classList.add('is-private');
+          a.setAttribute('aria-label', 'Your profile (private account)');
+        },
+        'tab bar': () => {
+          listHost.style.display = 'block';
+          listHost.innerHTML = doc.getElementById('footer').outerHTML;
+          const f = listHost.querySelector('.footer');
+          f.classList.add('active');
+          // .footer is position:fixed in the app; pin it inside the harness
+          // frame instead so it can be inspected beside the other scenes.
+          f.style.cssText = 'position:relative;height:auto';
+          const btns = [...f.querySelectorAll('.nav-button')];
+          btns[0].classList.add('active');
+          btns[1].classList.add('has-notification');
+          f.addEventListener('click', (e) => {
+            const b = e.target.closest('.nav-button');
+            if (!b) return;
+            btns.forEach((x) => { x.classList.remove('active'); x.removeAttribute('aria-current'); });
+            b.classList.add('active');
+            b.setAttribute('aria-current', 'page');
+          });
+        },
+        'appearance': () => {
+          listHost.style.display = 'none';
+          const q = (id) => document.getElementById(id);
+          const sample = REAL[0];
+          q('avatarStyleSwatchGradient').innerHTML = genAvatar(sample, 28);
+          q('avatarStyleSwatchIdenticon').innerHTML = genIdenticon(sample, 28);
+          const draw = () => {
+            q('avatarStylePreview').innerHTML = REAL.slice(0, 4)
+              .map((a, i) => `<li class="ui-list-row"><span class="ui-list-avatar">${addrAvatar(a, 28)}</span>
+                <span class="ui-list-name">${['You', 'ana', 'ben', 'cleo'][i]}</span></li>`).join('');
+          };
+          q('avatarStyleOptions').querySelectorAll('input').forEach((i) => {
+            i.checked = i.value === getStyle();
+            i.onchange = () => { setStyle(i.value); draw(); };
+          });
+          draw();
+          q('appearanceModal').classList.add('active');
+        },
+        'join group': () => {
+          listHost.style.display = 'none';
+          joinGroupModal.open();
+          // previewGroup() needs the network; fill the preview directly so the
+          // resolved state is inspectable without one.
+          setTimeout(() => {
+            const q = (id) => document.getElementById(id);
+            q('joinGroupAvatar').innerHTML = genAvatar(REAL[4] + '0'.repeat(24), 56);
+            q('joinGroupMeta').textContent = '4 of 50 members · 10 LIB to join';
+            q('joinGroupNote').textContent =
+              'The fee is held, not spent: an admin only receives it by approving you.';
+            q('joinGroupPreview').hidden = false;
+          }, 400);
+        },
+        'info: needs attention': () => {
+          reset(); view().applyFailedAtEpoch = 6; view().chainEpoch = 7; groupInfoModal.open(GROUP.groupId);
+        },
+      };
+
+      const bar = document.getElementById('harness-bar');
+      for (const [name, run] of Object.entries(scenes)) {
+        const b = document.createElement('button');
+        b.textContent = name;
+        b.onclick = () => { closeAll(); listHost.style.display = 'none'; run(); };
+        bar.appendChild(b);
+      }
+      Object.assign(window, { scenes, closeAll, addrAvatar, setStyle, getStyle, groupChatModal, groupInfoModal, createGroupModal, joinGroupModal, myData, addr, ME });
+      console.log('[harness] ready');
+    </script>
+  </body>
+</html>

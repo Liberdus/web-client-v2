@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reply, reaction, attachment</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin:0; background:#ececed; font-family:'Inter',sans-serif; }
+      .page { max-width:1180px; margin:0 auto; padding:26px 20px 90px; }
+      h2 { font-size:15px; margin:30px 0 4px; }
+      .why { font-size:12.5px; line-height:1.55; color:#65676b; margin:0 0 12px; max-width:70ch; }
+      .pair { display:flex; gap:24px; flex-wrap:wrap; }
+      .col { width:360px; }
+      .lbl { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#797c8c; margin-bottom:6px; }
+      .lbl b.now { color:#8a2018 } .lbl b.rec { color:#1f6b2a }
+      .stage { background:#fff; border:1px solid #dcdce4; border-radius:12px; padding:14px 12px 22px; }
+      .stage .messages-list { display:flex; flex-direction:column; gap:4px; padding:0; }
+
+      /* ---------- proposed reply quote ----------
+         No rail, no border. A border inside a bubble reads as a second frame
+         around something that already has one. The tint alone carries it. */
+      .rq2 { display:block; margin-bottom:6px; padding:6px 10px; border-radius:10px; cursor:pointer; }
+      .message.sent .rq2 { background:rgba(255,255,255,.18); }
+      .message.received .rq2 { background:rgba(0,0,0,.055); }
+      .rq2-who { font-size:11px; font-weight:700; display:block; margin-bottom:1px; }
+      .message.sent .rq2-who { color:rgba(255,255,255,.92) }
+      .message.received .rq2-who { color:var(--primary-color) }
+      .rq2-text { font-size:13px; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+      .message.sent .rq2-text { color:rgba(255,255,255,.72) }
+      .message.received .rq2-text { color:var(--secondary-text-color) }
+
+      /* ---------- proposed reactions ----------
+         Solid white, never a tint of the bubble: the chip straddles the
+         bubble's edge, so anything translucent blends into whichever colour
+         happens to be behind it. A soft shadow lifts it off both. */
+      .message.has-rx { margin-bottom:14px; }
+      .rx2 { position:absolute; bottom:-11px; display:flex; gap:4px; }
+      .message.received .rx2 { left:12px } .message.sent .rx2 { right:12px }
+      .rx2-chip { display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 8px;
+                  border-radius:999px; background:#fff; border:0; font-size:13px; line-height:1;
+                  box-shadow:0 1px 4px rgba(20,20,40,.18); }
+      .rx2-chip .n { font-size:11px; font-weight:600; color:var(--secondary-text-color);
+                     font-variant-numeric:tabular-nums }
+      /* "You reacted" is the count going accent — no ring, no tint. */
+      .rx2-chip.mine .n { color:var(--primary-color) }
+
+      /* ---------- proposed attachment ----------
+         Full bleed. The image runs to the bubble's own edges so there is one
+         edge instead of two; its top corners take the bubble's radius and the
+         bottom stays square where a caption continues below it. */
+      .at2 { display:block; margin:-12px -16px 8px; overflow:hidden;
+             border-radius:16px 16px 0 0; }
+      .at2.only { margin-bottom:-12px; border-radius:16px; }
+      .at2 img { display:block; width:100%; height:auto; }
+      .at2-file { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px;
+                  margin-bottom:6px; }
+      .message.sent .at2-file { background:rgba(255,255,255,.18) }
+      .message.received .at2-file { background:rgba(0,0,0,.055) }
+      .at2-file .ic { width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;
+                      font-size:14px }
+      .message.sent .at2-file .ic { background:rgba(255,255,255,.22) }
+      .message.received .at2-file .ic { background:rgba(0,0,0,.07) }
+      .at2-file .nm { min-width:0; flex:1 }
+      .at2-file .nm b { display:block; font-size:13.5px; font-weight:500; overflow:hidden;
+                        text-overflow:ellipsis; white-space:nowrap }
+      .at2-file .nm span { font-size:11.5px; opacity:.72 }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+    <script type="module">
+      const IMG = '../media/liberdus_logo_512.png';
+      const page = document.getElementById('page');
+
+      const now = (inner, cls='sent') => `<div class="message ${cls}" style="position:relative">${inner}</div>`;
+
+      const blocks = [];
+
+      // ---------- REPLY ----------
+      blocks.push({
+        title: 'Reply quote',
+        why: `The quote is currently a solid box in the colour of whoever wrote the quoted message — so a reply to <i>yourself</i> puts a saturated indigo block inside a grey bubble, and it becomes the loudest thing on screen. You read the quote before the message that contains it, which is backwards. The proposal tints the bubble's own colour instead — no rail, no border, because a border inside a bubble is a second frame around something already framed. A quote is then always quieter than the message quoting it, on either side, with no per-owner rules.`,
+        a: now(`<div class="reply-quote reply-owner-me"><span class="reply-quote-label reply-owner-me">You</span><div class="reply-quote-text">Hey I'm good.</div></div><div class="message-content">How's your wife?</div><div class="message-time">12:48 PM</div>`,'received'),
+        b: now(`<div class="rq2"><span class="rq2-who">You</span><span class="rq2-text">Hey I'm good.</span></div><div class="message-content">How's your wife?</div><div class="message-time">12:48 PM</div>`,'received'),
+        a2: now(`<div class="reply-quote"><span class="reply-quote-label">brave</span><div class="reply-quote-text">Hey I'm good.</div></div><div class="message-content">How's your wife?</div><div class="message-time">12:48 PM</div>`,'sent'),
+        b2: now(`<div class="rq2"><span class="rq2-who">brave</span><span class="rq2-text">Hey I'm good.</span></div><div class="message-content">How's your wife?</div><div class="message-time">12:48 PM</div>`,'sent'),
+      });
+
+      // ---------- REACTION ----------
+      blocks.push({
+        title: 'Reaction',
+        why: `Today the chip hangs 14px <b>below</b> the bubble and overlaps whatever follows — measured at 12px into the next message. It also sits bottom-left on every bubble, including right-aligned sent ones, and never shows a count. The proposal reserves the space, puts it on the bubble's own side, counts, and is <b>solid white</b> — the chip straddles the bubble's edge, so any tint blends into whichever colour is behind it.`,
+        a: now(`<div class="message-content">They are my friends.</div><div class="message-time">12:49 PM</div><div class="message-reactions"><span class="message-reaction-chip my-reaction">👍</span></div>`,'sent')
+           + now(`<div class="message-content">The next message, overlapped.</div><div class="message-time">12:50 PM</div>`,'sent'),
+        b: now(`<div class="message-content">They are my friends.</div><div class="message-time">12:49 PM</div><div class="rx2"><span class="rx2-chip mine">👍<span class="n">2</span></span><span class="rx2-chip">🎉</span></div>`,'sent has-rx')
+           + now(`<div class="message-content">The next message, clear of it.</div><div class="message-time">12:50 PM</div>`,'sent'),
+      });
+
+      // ---------- ATTACHMENT ----------
+      blocks.push({
+        title: 'Attachment',
+        why: `For an image you can already see, "IMG_0717.jpeg / JPEG · 277.6 KB" is two lines of metadata nobody asked for, in a white card nested inside the bubble — and it is drawn with inline <code>background:#f5f5f7</code>, <code>color:#222</code>, <code>color:#888</code>, which no stylesheet can reach. The proposal runs the image to the bubble's own edges — one edge instead of two — and keeps a filename row only for files you cannot see.`,
+        a: now(`<div class="attachment-row" style="display:flex;flex-direction:column;background:#f5f5f7;border-radius:12px;padding:10px;margin-bottom:6px"><img src="${IMG}" style="width:100%;border-radius:8px"><span class="attachment-label" style="font-weight:500;color:#222;display:block;margin-top:8px">IMG_0717.jpeg</span><span class="attachment-meta" style="color:#888;font-size:12px">JPEG · 277.6 KB</span></div><div class="message-content">They are my friends.</div><div class="message-time">12:49 PM</div>`,'sent'),
+        b: now(`<a class="at2"><img src="${IMG}"></a><div class="message-content">They are my friends.</div><div class="message-time">12:49 PM</div>`,'sent')
+           + now(`<div class="at2-file"><span class="ic">📄</span><span class="nm"><b>Q3-report.pdf</b><span>PDF · 1.2 MB</span></span></div><div class="message-content">Here's the report.</div><div class="message-time">12:51 PM</div>`,'received'),
+      });
+
+      page.innerHTML = blocks.map(b => `
+        <h2>${b.title}</h2>
+        <p class="why">${b.why}</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div>
+            <div class="stage"><div class="messages-list">${b.a}${b.a2||''}</div></div></div>
+          <div class="col"><div class="lbl"><b class="rec">Proposed</b></div>
+            <div class="stage"><div class="messages-list">${b.b}${b.b2||''}</div></div></div>
+        </div>`).join('');
+    </script>
+  </body>
+</html>

@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-8" />
+    <link rel="stylesheet" href="./styles.css?v=1455-75" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-12" type="module"></script>
+    <script src="./app.js?v=1455-89" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -81,10 +81,13 @@
             ><img src="./media/liberdus_logo_50.png"
           /></a>
         </div>
-        <div class="app-name-container">
-          <div class="app-name-avatar"></div>
-          <div class="app-name">Liberdus</div>
-        </div>
+        <!--
+          Centred screen title, matching every modal header in the app:
+          something on the left, a centred title, actions on the right.
+          role=heading rather than <h1> because the global h1 rule is a 50px
+          welcome-screen style that would have to be overridden line by line.
+        -->
+        <div class="header-title" id="headerTitle" role="heading" aria-level="1"></div>
         <div class="header-icons">
           <div class="offline-indicator" id="offlineIndicator">Offline</div>
           <button class="icon-button" id="upcomingCallsBtn" style="display: none;"></button>
@@ -95,29 +98,43 @@
             aria-label="Open DAO notifications"
             hidden
           ></button>
+          <!--
+            Your own identity, as a control rather than a label. It used to be a
+            40px avatar plus your username in the largest, boldest text in the
+            header — the one thing you already know — sitting in the slot the
+            screen title needed.
+          -->
+          <button class="header-avatar" id="openMyInfo" aria-label="Your profile"></button>
           <button class="icon-button" id="toggleSettings"></button>
           <button class="icon-button" id="toggleMenu"></button>
         </div>
       </header>
 
       <div class="welcome-screen is-booting" id="welcomeScreen">
-        <a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link">
-          <img src="./media/liberdus_logo_250.png" alt="Liberdus Logo" style="margin-bottom: 20px" />
-        </a>
-        <h1>
-          <span id="welcomeBrandTitle">Liberdus</span><br />
-          <div style="font-size: 0.8rem; margin-top: 1px; text-align: center" id="networkNameDisplay"></div>
-        </h1>
+        <div class="welcome-identity">
+          <a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link">
+            <img src="./media/liberdus_logo_250.png" alt="" class="welcome-logo" />
+          </a>
+          <!-- Was a <div> nested inside the <h1>, which is invalid: h1 takes
+               phrasing content. The network is a sibling, not part of the name. -->
+          <h1 class="welcome-brand" id="welcomeBrandTitle">Liberdus</h1>
+          <!--
+            Which network you are on is the most consequential fact on this
+            screen: a testnet mistake with real money is not recoverable. It was
+            0.8rem of grey text carrying exactly the weight of the version
+            string below it. Empty on mainnet, where no warning is due — a
+            warning that is always present is decoration.
+          -->
+          <div class="welcome-network" id="networkNameDisplay"></div>
+        </div>
         <div class="welcome-buttons">
-          <button id="signInButton" class="btn btn--primary btn--pill btn--full hidden">Sign In</button>
-          <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create Account</button>
-          <button id="openWelcomeMenu" class="btn btn--secondary btn--pill btn--full hidden">Menu</button>
+          <button id="signInButton" class="btn btn--primary btn--pill btn--full hidden">Sign in</button>
+          <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create account</button>
+          <button id="openWelcomeMenu" class="btn btn--text welcome-more hidden">More options</button>
         </div>
-        <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
-          Version <span id="versionDisplay"></span>
-        </div>
-        <div style="font-size: 0.8rem; margin-top: 5px; text-align: center" id="appVersionDisplay" class="hidden">
-          App Version: <span id="appVersionText"></span>
+        <div class="welcome-version">
+          <span id="versionDisplay"></span>
+          <span id="appVersionDisplay" class="hidden">· app <span id="appVersionText"></span></span>
         </div>
         <!-- Add a unused anchor tag with nothing in it and add a class to it so can't shift and end up on another modal. Should still be displayed but will just show nothing -->
         <a class="last-item" href="#" id="welcomeScreenLastItem"> </a>
@@ -174,39 +191,39 @@
       <button class="floating-button" id="newChatButton" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
 
       <div class="app-screen" id="walletScreen">
+        <!--
+          No panel around the balance: it is the largest thing on the page and
+          does not need a box to be found. The tint it used to sit in was the
+          accent at 8%, and the accent means "this does something".
+        -->
         <div class="wallet-balance">
-          <div class="balance-label">Total Balance</div>
+          <div class="balance-label">Total balance</div>
           <div class="balance-amount">
             <span id="walletTotalBalance">-.--</span>
-            <button class="refresh-button" id="refreshBalance">↻</button>
           </div>
+          <div class="balance-native" id="walletNativeBalance"></div>
         </div>
-        <div class="wallet-actions">
-          <button class="wallet-action-button" id="openSendAssetFormModal">
-            <span class="action-icon"></span>
-            <span class="action-label">Send</span>
+
+        <!--
+          These were six identical bordered boxes, which asserted they were six
+          of a kind. They are three: Send and Receive act on your money in the
+          app, History is a destination, and Buy and Sell open liberdus.com in a
+          new tab. Three tiers, one per kind.
+        -->
+        <div class="wallet-primary-actions">
+          <button class="btn btn--primary btn--pill wallet-primary-action" id="openSendAssetFormModal" data-dir="send">
+            Send
           </button>
-          <button class="wallet-action-button" id="openReceiveModal">
-            <span class="action-icon"></span>
-            <span class="action-label">Receive</span>
+          <button class="btn btn--secondary btn--pill wallet-primary-action" id="openReceiveModal" data-dir="receive">
+            Receive
           </button>
-          <button class="wallet-action-button" id="openHistoryModal">
-            <span class="action-icon"></span>
-            <span class="action-label">History</span>
-          </button>
-          <div class="wallet-actions-break"></div>
-          <button class="wallet-action-button" id="openBuyButton">
-            <span class="action-icon"></span>
-            <span class="action-label">Buy</span>
-          </button>
-          <button class="wallet-action-button" id="openSellButton">
-            <span class="action-icon"></span>
-            <span class="action-label">Sell</span>
-          </button>
-          <button class="wallet-action-button" id="openFaucetBridgeButton">
-            <span class="action-icon"></span>
-            <span class="action-label">Faucet</span>
-          </button>
+        </div>
+        <div class="wallet-secondary-actions">
+          <button class="wallet-link" id="openHistoryModal"><span class="action-label">History</span></button>
+          <button class="wallet-link" id="openBuyButton"><span class="action-label">Buy</span><span class="wallet-link-external" aria-label="Opens a website"></span></button>
+          <button class="wallet-link" id="openSellButton"><span class="action-label">Sell</span><span class="wallet-link-external" aria-label="Opens a website"></span></button>
+          <button class="wallet-link" id="openFaucetBridgeButton"><span class="action-label">Faucet</span></button>
+          <button class="wallet-link wallet-link--icon" id="refreshBalance" aria-label="Refresh balance"></button>
         </div>
         <div class="wallet-assets">
           <div class="section-title">Assets</div>
@@ -222,11 +239,14 @@
       </div>
 
       <footer class="footer" id="footer">
-        <div class="nav-buttons">
-          <button class="nav-button" id="switchToChats">Chats</button>
-          <button class="nav-button" id="switchToContacts">Contacts</button>
-          <button class="nav-button" id="switchToWallet">Wallet</button>
-        </div>
+        <!-- data-icon rather than an id-scoped CSS rule per tab, matching
+             .menu-item[data-icon] elsewhere. aria-current is set by
+             Footer.switchView alongside the .active class. -->
+        <nav class="nav-buttons" aria-label="Main">
+          <button class="nav-button" id="switchToChats" data-icon="chat">Chats</button>
+          <button class="nav-button" id="switchToContacts" data-icon="contacts">Contacts</button>
+          <button class="nav-button" id="switchToWallet" data-icon="wallet">Wallet</button>
+        </nav>
         <!-- set focus on last-item in the footer -->
         <a class="last-item" href="#"> </a>
       </footer>
@@ -235,41 +255,80 @@
       <div class="modal fixed-header" id="newChatModal">
         <div class="modal-header">
           <button class="back-button" id="closeNewChatModal"></button>
-          <div class="modal-title">New Chat</div>
+          <div class="modal-title">New chat</div>
         </div>
+        <!--
+          This screen had no contact list. It was "New Chat", in an app with a
+          Contacts tab, and the only way to start one was to type a username from
+          memory — while the group-invite flow next door already had the right
+          control (renderPicker in groupUI.js): a search over your contacts with
+          an "Add username" row when nothing matches.
+
+          The three "Or …" blocks are gone. Each was a sentence explaining a
+          button whose label already said it, above three identical grey pills
+          for three things that are not alike. They are ui-nav rows now, which is
+          what "go somewhere" looks like in this app.
+        -->
         <div class="modal-content">
-          <div class="form-container">
-            <form id="newChatForm" class="form--narrow">
-              <div class="form-group">
-                <label for="recipient"
-                  >Recipient <span id="chatRecipientError" style="color: #dc3545; display: none"></span
-                ></label>
-                <div style="display: flex; align-items: center; gap: 0.5rem">
-                  <input
-                    type="text"
-                    id="chatRecipient"
-                    class="form-control"
-                    placeholder="Enter username"
-                    required
-                    pattern="[a-zA-Z0-9]*"
-                    inputmode="text"
-                    style="flex: 1"
-                  />
-                  <span class="input-append-icons">
-                    <button type="button" id="newChatUploadQRButton" class="icon-button" title="Upload QR image"></button>
-                    <button type="button" id="newChatScanQRButton" class="icon-button" title="Scan QR"></button>
-                  </span>
-                  <input type="file" id="newChatQRFileInput" accept="image/*" style="display: none" />
-                </div>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full">Continue</button>
-              </div>
-              <div class="form-group form-group--divider">
-                <p>Or invite contacts from your other apps.</p>
-                <button type="button" id="newChatInviteButton" class="btn btn--secondary btn--pill btn--full">Invite</button>
-              </div>
-            </form>
+          <div class="new-chat-search">
+            <div class="search-bar">
+              <span class="search-icon"></span>
+              <input
+                type="text"
+                id="chatRecipient"
+                class="search-input"
+                placeholder="Search or type a username"
+                autocomplete="off"
+                pattern="[a-zA-Z0-9]*"
+                inputmode="text"
+              />
+              <!-- Inside the field, not beside it: these act on what the field
+                   holds, so they belong to it. -->
+              <button
+                type="button"
+                id="newChatUploadQRButton"
+                class="search-bar-action"
+                data-icon="file-image"
+                title="Upload a QR image"
+                aria-label="Upload a QR image"
+              ></button>
+              <button
+                type="button"
+                id="newChatScanQRButton"
+                class="search-bar-action"
+                data-icon="camera"
+                title="Scan a QR code"
+                aria-label="Scan a QR code"
+              ></button>
+              <input type="file" id="newChatQRFileInput" accept="image/*" hidden />
+            </div>
+            <span id="chatRecipientError" class="field-status"></span>
+          </div>
+
+          <nav class="ui-nav new-chat-nav" id="newChatActions">
+            <button type="button" class="ui-nav-row" id="newChatGroupButton" data-icon="contacts">
+              <span class="ui-nav-key">New group</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="newChatJoinGroupButton" data-icon="launch">
+              <span class="ui-nav-key">Join a group</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="newChatInviteButton" data-icon="mail">
+              <span class="ui-nav-key">Invite someone</span>
+            </button>
+            <!--
+              Shown in place of the two group rows on a network whose nodes do
+              not handle group transactions. Saying so beats hiding them without
+              explanation — "where did New group go" is a question this screen
+              can answer itself.
+            -->
+            <p class="ui-nav-note" id="newChatGroupUnsupported" hidden>
+              Group chat is not available on this network.
+            </p>
+          </nav>
+
+          <div class="ui-nav-title new-chat-heading" id="newChatListTitle">Contacts</div>
+          <div class="new-chat-list">
+            <ul class="ui-list" id="newChatPicker"></ul>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -282,22 +341,64 @@
           <div class="modal-title">Menu</div>
           <button class="sign-out-header-button" id="signOutMenuHeader" data-icon="log-out" title="Sign Out"></button>
         </div>
+        <!--
+          Grouped, not flat. Thirteen rows at one weight mixed four audiences —
+          everyday, DeFi, node operator and diagnostics — so nothing said that
+          Invite is the row almost everyone wants and Logs is the row almost
+          nobody does. Nothing moved to another screen: every id and handler is
+          where it was.
+
+          Sign Out is no longer a row. It was on this screen twice at once, as
+          the red header icon and a red row at the bottom.
+        -->
         <div class="modal-content">
-          <ul class="menu-list">
-            <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
-            <li class="menu-item" id="openAssets" data-icon="assets">EVM Assets</li>
-            <li class="menu-item" id="openFarm" data-icon="trending-up">Farm</li>
-            <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
-            <li class="menu-item" id="openDao" data-icon="dao" style="display: none;">DAO</li>
-            <li class="menu-item" id="openBridge" data-icon="arrow-right-arrow-left">Bridge</li>
-            <li class="menu-item" id="openExplorer" data-icon="search">Explorer</li>
-            <li class="menu-item" id="openMonitor" data-icon="globe">Network</li>
-            <li class="menu-item" id="openLogs" data-icon="file-text">Logs</li>
-            <li class="menu-item" id="openHelp" data-icon="github">Help</li>
-            <li class="menu-item" id="openUpdate" data-icon="smartphone" style="display: none;">Update</li>
-            <li class="menu-item" id="openAbout" data-icon="info">About</li>
-            <li class="menu-item sign-out" id="handleSignOut" data-icon="log-out">Sign Out</li>
-          </ul>
+          <nav class="ui-nav" id="menuNav">
+            <button type="button" class="ui-nav-row" id="openInvite" data-icon="mail">
+              <span class="ui-nav-key">Invite someone</span>
+            </button>
+
+            <div class="ui-nav-title">Assets</div>
+            <button type="button" class="ui-nav-row" id="openAssets" data-icon="assets">
+              <span class="ui-nav-key">EVM Assets</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openFarm" data-icon="trending-up">
+              <span class="ui-nav-key">Farm</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openBridge" data-icon="arrow-right-arrow-left">
+              <span class="ui-nav-key">Bridge</span>
+            </button>
+
+            <div class="ui-nav-title">Network</div>
+            <button type="button" class="ui-nav-row" id="openValidator" data-icon="shield">
+              <span class="ui-nav-key">Validator</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openDao" data-icon="dao" hidden>
+              <span class="ui-nav-key">DAO</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openExplorer" data-icon="search">
+              <span class="ui-nav-key">Explorer</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openMonitor" data-icon="globe">
+              <span class="ui-nav-key">Network status</span>
+            </button>
+
+            <div class="ui-nav-title">About</div>
+            <button type="button" class="ui-nav-row" id="openHelp" data-icon="github">
+              <span class="ui-nav-key">Help</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openAbout" data-icon="info">
+              <span class="ui-nav-key">About Liberdus</span>
+              <span class="ui-nav-value" id="menuVersionValue"></span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openUpdate" data-icon="smartphone" hidden>
+              <span class="ui-nav-key">Update</span>
+            </button>
+            <!-- §1.3: diagnostics are not features. Named for what it is, and
+                 last, so it reads as an escape hatch. -->
+            <button type="button" class="ui-nav-row" id="openLogs" data-icon="file-text">
+              <span class="ui-nav-key">Diagnostic logs</span>
+            </button>
+          </nav>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -658,20 +759,62 @@
           <div class="modal-title">Settings</div>
           <button class="sign-out-header-button" id="signOutSettingsHeader" data-icon="log-out" title="Sign Out"></button>
         </div>
+        <!--
+          Three groups: how the app behaves, your account, and the keys. Rows
+          that hold a setting now show it, so the screen answers "what is my
+          avatar style / is the lock on" without opening each row in turn.
+
+          "Remove" destroyed an account while styled exactly like "Calls", flush
+          under Backup. It is now last, in danger weight, behind a gap.
+          "Secret" was the private key, which is not something a label should
+          make you guess at.
+        -->
         <div class="modal-content">
-          <ul class="menu-list">
-            <li class="menu-item" id="openCallsModal" data-icon="call">Calls</li>
-            <li class="menu-item" id="openAccountForm" data-icon="user">Profile</li>
-            <li class="menu-item" id="openManageContactsModal" data-icon="contacts">Contacts</li>
-            <li class="menu-item" id="openChatSettingsModal" data-icon="chat">Chat</li>
-            <li class="menu-item" id="openToll" data-icon="dollar-sign">Toll</li>
-            <li class="menu-item" id="openLockModal" data-icon="lock">Lock</li>
-            <li class="menu-item" id="openSecretModal" data-icon="key">Secret</li>
-            <li class="menu-item" id="openBackupForm" data-icon="download">Backup</li>
-            <li class="menu-item" id="openRemoveAccount" data-icon="trash-2">Remove</li>
-            <li class="menu-item" id="openLaunchUrl" data-icon="launch" style="display: none;">Launch</li>
-            <li class="menu-item sign-out" id="handleSignOutSettings" data-icon="log-out">Sign Out</li>
-          </ul>
+          <nav class="ui-nav" id="settingsNav">
+            <button type="button" class="ui-nav-row" id="openAppearanceModal" data-icon="eye">
+              <span class="ui-nav-key">Appearance</span>
+              <span class="ui-nav-value" id="settingsAppearanceValue"></span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openChatSettingsModal" data-icon="chat">
+              <span class="ui-nav-key">Chat</span>
+              <span class="ui-nav-value" id="settingsChatValue"></span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openCallsModal" data-icon="call">
+              <span class="ui-nav-key">Calls</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openManageContactsModal" data-icon="contacts">
+              <span class="ui-nav-key">Contacts</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openLaunchUrl" data-icon="launch" hidden>
+              <span class="ui-nav-key">Launch</span>
+            </button>
+
+            <div class="ui-nav-title">Your account</div>
+            <button type="button" class="ui-nav-row" id="openAccountForm" data-icon="user">
+              <span class="ui-nav-key">Profile</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openToll" data-icon="dollar-sign">
+              <span class="ui-nav-key">Toll</span>
+            </button>
+
+            <div class="ui-nav-title">Keys and recovery</div>
+            <button type="button" class="ui-nav-row" id="openLockModal" data-icon="lock">
+              <span class="ui-nav-key">App lock</span>
+              <span class="ui-nav-value" id="settingsLockValue"></span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openBackupForm" data-icon="download">
+              <span class="ui-nav-key">Backup account</span>
+            </button>
+            <button type="button" class="ui-nav-row" id="openSecretModal" data-icon="key">
+              <span class="ui-nav-key">Show private key</span>
+            </button>
+
+            <div class="ui-nav-gap"></div>
+            <button type="button" class="ui-nav-row ui-nav-row--danger ui-nav-row--flat"
+                    id="openRemoveAccount" data-icon="trash-2">
+              <span class="ui-nav-key">Delete this account</span>
+            </button>
+          </nav>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -715,6 +858,60 @@
               <div class="form-actions chat-settings-actions">
                 <button type="button" id="saveChatSettingsButton" class="btn btn--primary btn--pill btn--full">Save Changes</button>
               </div>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Appearance Modal -->
+      <div class="modal fixed-header" id="appearanceModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAppearanceModal"></button>
+          <div class="modal-title">Appearance</div>
+        </div>
+        <div class="modal-content">
+          <div class="form--narrow">
+            <div class="ui-section-title">Avatar style</div>
+            <!--
+              Applies to anyone without an uploaded photo, and to groups. A
+              display preference only: it changes what this device shows and is
+              never published, so it lives in localStorage beside the chat font
+              size rather than on the account.
+            -->
+            <ul class="ui-list" id="avatarStyleOptions">
+              <li class="ui-list-row ui-list-pick">
+                <label>
+                  <input type="radio" name="avatarStyle" value="gradient" />
+                  <span class="ui-list-avatar" id="avatarStyleSwatchGradient"></span>
+                  <span class="ui-list-name">
+                    Gradient
+                    <span class="ui-list-note">A colour derived from each address</span>
+                  </span>
+                  <span class="ui-list-check" aria-hidden="true"></span>
+                </label>
+              </li>
+              <li class="ui-list-row ui-list-pick">
+                <label>
+                  <input type="radio" name="avatarStyle" value="identicon" />
+                  <span class="ui-list-avatar" id="avatarStyleSwatchIdenticon"></span>
+                  <span class="ui-list-name">
+                    Identicon
+                    <span class="ui-list-note">A pattern derived from each address</span>
+                  </span>
+                  <span class="ui-list-check" aria-hidden="true"></span>
+                </label>
+              </li>
+            </ul>
+            <p class="form-hint">
+              Only changes what you see. People who have set their own picture always show it.
+            </p>
+
+            <!-- Real contacts, so the choice is judged on actual addresses
+                 rather than on two invented swatches. -->
+            <div class="ui-block">
+              <div class="ui-section-title">Preview</div>
+              <ul class="ui-list" id="avatarStylePreview"></ul>
             </div>
           </div>
         </div>
@@ -958,7 +1155,7 @@
       <div class="modal fixed-header" id="signInModal">
         <div class="modal-header">
           <button class="back-button" id="closeSignInModal"></button>
-          <div class="modal-title">Sign In</div>
+          <div class="modal-title">Sign in</div>
           <button
             class="sign-in-account-reset"
             id="resetSignInRecentUsernames"
@@ -993,84 +1190,101 @@
       <div class="modal fixed-header" id="createAccountModal">
         <div class="modal-header">
           <button class="back-button" id="closeCreateAccountModal"></button>
-          <div class="modal-title">Create Account</div>
+          <div class="modal-title">Create account</div>
         </div>
-        <div class="modal-content">
-          <div class="form-container">
-            <form id="createAccountForm" class="form--narrow">
-              <div class="form-group">
-                <label for="newUsername">
-                  Username
-                  <span id="newUsernameAvailable" style="color: #28a745; display: none"> available </span>
+        <!--
+          The commit action is pinned, not placed after the form. It used to sit
+          BETWEEN the username field and the rest of the form, so the form
+          carried on past its own submit — and with Advanced expanding below it,
+          the button moved down the screen between deciding to tap and tapping.
+        -->
+        <form id="createAccountForm" class="create-account-form">
+          <div class="create-account-body">
+            <label class="form-label create-account-label" for="newUsername">
+              Username
+              <span id="newUsernameAvailable" class="create-account-available">available</span>
+              <span id="createAccountError" class="form-error"></span>
+            </label>
+            <input
+              type="text"
+              id="newUsername"
+              class="form-control"
+              placeholder="Choose a username"
+              required
+              pattern="[a-zA-Z0-9]*"
+              inputmode="text"
+              maxlength="20"
+              autocomplete="off"
+            />
+            <p class="form-hint">
+              This is how people find you, and it is permanent — a name cannot be changed once it
+              is taken.
+            </p>
+
+            <!--
+              A disclosure, not a checkbox. A checkbox means "this will be true",
+              which is what the two options inside it mean; using one to mean
+              "show me more" made it indistinguishable from them.
+            -->
+            <details class="ui-disclosure create-account-advanced" id="moreOptionsSection">
+              <summary class="ui-row">
+                <span class="ui-row-key">Advanced</span>
+                <span class="ui-row-value" aria-hidden="true">›</span>
+              </summary>
+              <div class="ui-disclosure-body">
+                <label class="ui-option">
+                  <input type="checkbox" id="togglePrivateAccount" />
+                  <span class="ui-option-text">
+                    <b>
+                      Private account
+                      <!-- The full explanation is five points long and includes
+                           advice on choosing and sharing the name, so it keeps
+                           its help sheet; the line below is only the summary. -->
+                      <button
+                        type="button"
+                        class="toll-info-icon private-account-help"
+                        data-icon="info"
+                        id="privateAccountHelpButton"
+                        aria-label="About private accounts"
+                      ></button>
+                    </b>
+                    <span>Can only message and pay other private accounts. Cannot be changed later.</span>
+                  </span>
+                  <span class="ui-list-check" aria-hidden="true"></span>
                 </label>
-                <div style="position: relative">
-                  <input
-                    type="text"
-                    id="newUsername"
-                    class="form-control"
-                    placeholder="Select a username"
-                    required
-                    pattern="[a-zA-Z0-9]*"
-                    inputmode="text"
-                    maxlength="20"
-                  />
-                </div>
-              </div>
-              <div id="privateKeySection" style="display: none">
-                <div class="form-group">
-                  <label for="newPrivateKey"
-                    >Private Key <span id="newPrivateKeyError" style="color: #dc3545; display: none"></span
-                  ></label>
-                  <div style="position: relative">
+                <label class="ui-option">
+                  <input type="checkbox" id="togglePrivateKeyInput" />
+                  <span class="ui-option-text">
+                    <b>Use my own private key</b>
+                    <span>Otherwise one is generated for you.</span>
+                  </span>
+                  <span class="ui-list-check" aria-hidden="true"></span>
+                </label>
+
+                <div id="privateKeySection" hidden>
+                  <label class="form-label" for="newPrivateKey">
+                    Private key
+                    <span id="newPrivateKeyError" class="form-error"></span>
+                  </label>
+                  <div class="create-account-key">
                     <input
                       type="password"
                       id="newPrivateKey"
                       class="form-control"
-                      placeholder="Optional private key in hex format"
+                      placeholder="Your key, in hex"
+                      autocomplete="off"
                     />
                     <button type="button" id="togglePrivateKeyVisibility" class="password-toggle-btn"></button>
                   </div>
-                  <small>
-                    If you want to use an existing private key enter it here. Otherwise you can leave this empty to have a
-                    private key automatically generated.
-                  </small>
                 </div>
               </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Create Account</button>
-              </div>
-              
-              <div class="form-group u-mt-20">
-                <input type="checkbox" id="toggleMoreOptions" />
-                <label for="toggleMoreOptions" style="display: inline; margin-left: 5px">More Options</label>
-              </div>
-              
-              <div id="moreOptionsSection" style="display: none;">
-                <div class="form-group form-group--checkbox">
-                  <input type="checkbox" id="togglePrivateAccount" />
-                  <label for="togglePrivateAccount">
-                    Make this a private account
-                    <span class="toll-info-icon private-account-help" data-icon="info" id="privateAccountHelpButton"></span>
-                  </label>
-                </div>
-                <div class="form-group form-group--checkbox">
-                  <input type="checkbox" id="togglePrivateKeyInput" />
-                  <label for="togglePrivateKeyInput">
-                    Use my own private key (Advanced)
-                  </label>
-                </div>
-              </div>
-            </form>
-            <div class="form-group" id="migrateAccountsSection" style="display: none; margin-top: 50px; padding: 0 16px">
-              <label for="migrateAccountsButton">Check if you have accounts that can be migrated to this network</label>
-              <div class="form-actions">
-                <button type="button" id="migrateAccountsButton" class="btn btn--secondary btn--pill btn--full">
-                  Migrate Accounts
-                </button>
-              </div>
-            </div>
+            </details>
           </div>
-        </div>
+
+          <div class="create-account-actions">
+            <button type="submit" class="btn btn--primary btn--pill" disabled>Create account</button>
+          </div>
+        </form>
         <a class="last-item" href="#"> </a>
       </div>
 
@@ -1139,64 +1353,56 @@
       <div class="modal fixed-header" id="myInfoModal">
         <div class="modal-header">
           <button class="back-button" id="closeMyInfoModal"></button>
-          <div class="modal-title">My Info</div>
+          <div class="modal-title">You</div>
         </div>
+        <!--
+          This screen and "My Profile" were one concept as two screens with two
+          names and three ways in (the header avatar, Settings > Profile, and a
+          pencil on the Name row). This is now the single destination; the form
+          is its editor, reached by tapping a field.
+
+          The card is gone. It was a tinted rectangle drawn around content that
+          is already the whole screen — the wallet's boxed-balance problem. The
+          username was also the biggest text with the display name a small field
+          beneath it, which is inverted: the display name is what people see.
+        -->
         <div class="modal-content">
-          <div class="form-container">
-            <div class="contact-info-list">
-              <div class="contact-avatar-section">
-                <div class="avatar" id="myInfoAvatar"></div>
-                <div class="name" id="myInfoDisplayName"></div>
-                <div id="myInfoQR" class="myinfo-qr"></div>
-                <div class="myinfo-address-row">
-                  <div
-                    id="myInfoDisplayUsername"
-                    class="form-control address-display myinfo-address-display"
-                    role="button"
-                    tabindex="0"
-                    aria-label="My address"
-                  ></div>
-                  <button
-                    id="myInfoCopyAddress"
-                    class="icon-button address-copy-button"
-                    aria-label="Copy address"
-                  ></button>
-                </div>
-              </div>
-              <!-- My info fields -->
-              <div class="contact-info-item" style="display: flex">
-                <div class="contact-info-label">Name</div>
-                <div class="contact-info-value-container">
-                  <div class="contact-info-value" id="myInfoName"></div>
-                  <button class="icon-button edit-icon" id="myInfoEditButton" aria-label="Edit profile"></button>
-                </div>
-              </div>
-              <!-- Email and Phone fields hidden - may want to restore later
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Email</div>
-                <div class="contact-info-value">
-                  <a href="#" id="myInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Phone</div>
-                <div class="contact-info-value" id="myInfoPhone"></div>
-              </div>
-              -->
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">LinkedIn</div>
-                <div class="contact-info-value">
-                  <a href="#" id="myInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">X-Twitter</div>
-                <div class="contact-info-value">
-                  <a href="#" id="myInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
+          <div class="ui-identity">
+            <div class="ui-identity-avatar avatar" id="myInfoAvatar"></div>
+            <div class="ui-identity-name" id="myInfoDisplayName"></div>
+            <div class="ui-identity-handle" id="myInfoUsername"></div>
+            <!--
+              Was a .form-control with role="button" — an input's clothes on a
+              read-only value — centred and wrapped over two lines with the copy
+              button beside the second one. One line, truncated in the middle,
+              with the full address on the clipboard.
+            -->
+            <div class="ui-identity-address">
+              <code id="myInfoDisplayUsername" role="button" tabindex="0" aria-label="Copy your address"></code>
+              <button
+                id="myInfoCopyAddress"
+                class="icon-button address-copy-button"
+                aria-label="Copy address"
+              ></button>
             </div>
+            <div id="myInfoQR" class="ui-identity-qr"></div>
           </div>
+
+          <nav class="ui-nav" id="myInfoFields">
+            <div class="ui-nav-title">Shared with your connections</div>
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="myInfoNameRow">
+              <span class="ui-nav-key">Name</span>
+              <span class="ui-nav-value" id="myInfoName"></span>
+            </button>
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="myInfoLinkedinRow">
+              <span class="ui-nav-key">LinkedIn</span>
+              <span class="ui-nav-value" id="myInfoLinkedin"></span>
+            </button>
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="myInfoXRow">
+              <span class="ui-nav-key">X</span>
+              <span class="ui-nav-value" id="myInfoX"></span>
+            </button>
+          </nav>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -1205,11 +1411,10 @@
       <div class="modal fixed-header" id="accountModal">
         <div class="modal-header">
           <button class="back-button" id="closeAccountForm"></button>
-          <div class="modal-title">My Profile</div>
+          <div class="modal-title">Edit profile</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <div class="profile-sharing-note">This information is shared with your connections</div>
             <form id="accountForm" class="form--narrow">
               <div class="form-group">
                 <label for="name">Name</label>
@@ -1246,87 +1451,110 @@
       <div class="modal fixed-header" id="importModal">
         <div class="modal-header">
           <button class="back-button" id="closeImportForm"></button>
-          <div class="modal-title">Restore Account</div>
+          <div class="modal-title">Restore account</div>
         </div>
+        <!--
+          "Developer Options" was a checkbox in the normal restore flow revealing
+          "Old String" / "New String" fields. It is not a debugging tool: the
+          dropdowns are populated with network ids, and it rewrites one netid to
+          another throughout the file. That is "this backup came from a different
+          network", so it says that now — and it sits behind a <details>, not a
+          checkbox that looks like the destructive one above it.
+        -->
         <div class="modal-content">
-          <div class="form-container">
+          <div class="form-container form--quiet">
             <form id="importForm" class="form--narrow">
               <div class="form-group">
-                <label for="restoreSourceLocation">Source Location</label>
+                <label for="restoreSourceLocation">Source</label>
                 <select id="restoreSourceLocation" class="form-control">
-                  <option value="local" selected>Local</option>
+                  <option value="local" selected>This device</option>
                   <option value="google-drive">Google Drive</option>
                 </select>
               </div>
               <div class="form-group" id="localFileGroup">
-                <label for="importFile">Select File</label>
+                <label for="importFile">Backup file</label>
                 <input type="file" id="importFile" class="form-control" accept=".json,application/json" />
               </div>
-              <div class="form-group" id="googleDriveFileGroup" style="display: none;">
-                <label>Google Drive File</label>
-                <button type="button" id="pickGoogleDriveFile" class="btn btn--secondary btn--pill btn--full">Pick File from Google Drive</button>
-                <div id="selectedGoogleDriveFile" class="u-mt-5" style="display: none;">
+              <div class="form-group" id="googleDriveFileGroup" hidden>
+                <label>Google Drive file</label>
+                <button type="button" id="pickGoogleDriveFile" class="btn btn--secondary btn--pill btn--full">Choose a file</button>
+                <div id="selectedGoogleDriveFile" class="u-mt-5" hidden>
                   <span class="selected-file-name"></span>
                   <button type="button" id="clearGoogleDriveFile" class="btn btn--text">Clear</button>
                 </div>
               </div>
               <div class="form-group">
-                <label for="importPassword">
-                  File Password
-                  <span id="importPasswordRequired" style="color: var(--danger-color); display: none;">required</span>
-                </label>
+                <label for="importPassword">File password</label>
                 <input
                   type="password"
                   id="importPassword"
                   class="form-control"
-                  placeholder="Enter password for encrypted files"
+                  placeholder="If the file was saved with one"
                 />
-              </div>
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="overwriteAccountsCheckbox"> 
-                  Overwrite existing accounts from backup file
-                </label>
+                <span id="importPasswordRequired" class="field-status"></span>
               </div>
 
-              <div class="form-group" id="backupAccountLockGroup" style="display: none;">
-                <label for="backupAccountLock">Backup Account Password</label>
+              <!--
+                A different password from the one above: this one unlocks the
+                accounts stored INSIDE the file, and only appears when the file
+                carries a lock this device does not already know.
+              -->
+              <div class="form-group" id="backupAccountLockGroup" hidden>
+                <label for="backupAccountLock">App lock password</label>
                 <input
                   type="password"
                   id="backupAccountLock"
                   class="form-control"
-                  placeholder="Enter password used to lock accounts in backup"
+                  placeholder="The password that locked these accounts"
                 />
               </div>
+
+              <!--
+                The destructive option on this screen. It replaces accounts you
+                already have, so it is not a plain checkbox among plain
+                checkboxes any more.
+              -->
+              <label class="restore-overwrite" for="overwriteAccountsCheckbox">
+                <input type="checkbox" id="overwriteAccountsCheckbox" />
+                <span class="restore-overwrite-tick" aria-hidden="true"></span>
+                <span class="restore-overwrite-text">
+                  <b>Replace accounts that already exist here</b>
+                  <span>Any account in the file with the same username on the same network overwrites the one on this device.</span>
+                </span>
+              </label>
+
               <div class="form-actions">
-                <button type="submit" id="restoreSubmitButton" class="btn btn--primary btn--pill btn--full" disabled>Load Account</button>
+                <button type="submit" id="restoreSubmitButton" class="btn btn--primary btn--pill btn--full" disabled>Restore</button>
               </div>
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" id="developerOptionsToggle"> 
-                  Developer Options
-                </label>
-              </div>
-              <!-- Developer options section (initially hidden) -->
-              <div id="developerOptionsSection" class="developer-options" style="display: none;">
-                <div class="form-group">
-                  <label for="oldStringSelect">Old String</label>
-                  <select id="oldStringSelect" class="form-control">
-                    <option value="">Select or enter custom...</option>
-                  </select>
-                  <input type="text" id="oldStringCustom" class="form-control u-mt-5" 
-                        placeholder="Enter custom old string">
+
+              <details class="restore-advanced">
+                <summary>
+                  <span class="restore-advanced-summary">Backup is from a different network</span>
+                </summary>
+                <p class="restore-advanced-note">
+                  Rewrites the network id throughout the file so the accounts land on the network
+                  selected below. Leave this alone unless you know the backup came from elsewhere.
+                </p>
+                <div id="developerOptionsSection" class="developer-options">
+                  <div class="form-group">
+                    <label for="oldStringSelect">Network in the file</label>
+                    <select id="oldStringSelect" class="form-control">
+                      <option value="">Select or enter custom...</option>
+                    </select>
+                    <input type="text" id="oldStringCustom" class="form-control u-mt-5"
+                          placeholder="Or type the network id" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="newStringSelect">Network to restore onto</label>
+                    <select id="newStringSelect" class="form-control">
+                      <option value="">Select or enter custom...</option>
+                    </select>
+                    <input type="text" id="newStringCustom" class="form-control u-mt-5"
+                          placeholder="Or type the network id" />
+                  </div>
                 </div>
-                
-                <div class="form-group">
-                  <label for="newStringSelect">New String</label>
-                  <select id="newStringSelect" class="form-control">
-                    <option value="">Select or enter custom...</option>
-                  </select>
-                  <input type="text" id="newStringCustom" class="form-control u-mt-5" 
-                        placeholder="Enter custom new string">
-                </div>
-              </div>
+              </details>
             </form>
           </div>
         </div>
@@ -1447,7 +1675,12 @@
           <button class="back-button" id="closeChatModal"></button>
           <div class="chat-user-info">
             <div class="modal-avatar"></div>
-            <div class="modal-title"></div>
+            <div>
+              <div class="modal-title"></div>
+              <!-- The username, when the title above is a nickname you set.
+                   Otherwise empty, and :empty hides it. -->
+              <div class="chat-subtitle" id="chatSubtitle"></div>
+            </div>
           </div>
           <!-- Add header actions container -->
           <div class="header-actions">
@@ -1715,6 +1948,31 @@
       </div>
 
       <!-- Message Context Menu -->
+      <!--
+        Group chat's per-message menu. Deliberately separate from
+        #messageContextMenu: that one is configured per message by ChatModal
+        across a dozen option branches, and sharing it would mean two modals
+        writing the same element's visibility. Reply is the only entry for now;
+        reactions will join it here.
+      -->
+      <div class="message-context-menu" id="groupMessageMenu" style="display: none;">
+        <!-- Same classes as 1:1's quick-reaction row, so it inherits the
+             styling rather than needing its own. No "+" picker yet: the full
+             emoji picker is wired into ChatModal, and reaching it from here is
+             a separate piece of work. -->
+        <div class="message-context-reactions" id="groupMessageReactions" aria-label="Quick reactions">
+          <button class="message-context-reaction-button" type="button" data-emoji="👍" aria-label="React with thumbs up">👍</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="❤️" aria-label="React with heart">❤️</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="😂" aria-label="React with tears of joy">😂</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="😮" aria-label="React with surprised face">😮</button>
+          <button class="message-context-reaction-button" type="button" data-emoji="👎" aria-label="React with thumbs down">👎</button>
+        </div>
+        <div class="context-menu-option" data-action="reply" data-icon="reply">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Reply</span>
+        </div>
+      </div>
+
       <div class="message-context-menu" id="messageContextMenu" style="display: none;">
         <div class="message-context-reactions" id="messageContextReactions" aria-label="Quick reactions">
           <button class="message-context-reaction-button" type="button" data-emoji="👍" data-default-emoji="👍" data-default-aria-label="React with thumbs up" aria-label="React with thumbs up">👍</button>
@@ -2023,93 +2281,481 @@
         <a class="last-item" href="#"> </a>
       </div>
       
+      <!-- ===================== MLS Group Chat ===================== -->
+
+      <!-- Create Group Modal -->
+      <div class="modal fixed-header" id="createGroupModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeCreateGroupModal"></button>
+          <div class="modal-title">New group</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="createGroupForm" class="form--narrow">
+              <!--
+                Only the name is required, so only the name looks required.
+                See DESIGN.md §1.7 — everything below is optional and collapses.
+              -->
+              <div class="form-group">
+                <label class="form-label" for="groupNameInput">Group name</label>
+                <input
+                  type="text"
+                  id="groupNameInput"
+                  class="form-control"
+                  placeholder="e.g. Weekend hikers"
+                  maxlength="48"
+                  autocomplete="off"
+                  required
+                />
+                <div class="form-error" id="createGroupError"></div>
+              </div>
+
+              <!--
+                One field does both jobs: it filters the contact list as you
+                type, and when nothing matches it offers to resolve what you
+                typed as a username. Contacts alone would be a dead end for a
+                new account, which has none.
+              -->
+              <div class="form-group">
+                <div class="ui-section-title">
+                  Add people <span class="ui-section-title-note">optional</span>
+                </div>
+                <div class="ui-picker">
+                  <input
+                    type="text"
+                    id="createGroupInviteInput"
+                    class="form-control"
+                    placeholder="Search contacts, or type a username"
+                    autocomplete="off"
+                  />
+                  <div class="ui-inline-error" id="createGroupInviteError"></div>
+                  <ul class="ui-chips" id="createGroupStaged"></ul>
+                  <ul class="ui-list" id="groupMemberPicker"></ul>
+                </div>
+                <p class="form-hint">People can't read messages sent before they join.</p>
+              </div>
+
+              <div class="form-group">
+                <details class="ui-disclosure" id="createGroupFee">
+                  <summary class="ui-row">
+                    <span class="ui-row-key" id="createGroupFeeSummary">Free to join</span>
+                    <span class="ui-row-value" id="createGroupFeeToggle">Change</span>
+                  </summary>
+                  <div class="ui-disclosure-body">
+                    <div class="ui-amount">
+                      <input
+                        type="number"
+                        id="createGroupJoinFee"
+                        class="form-control"
+                        placeholder="0"
+                        min="0"
+                        step="any"
+                      />
+                      <span class="ui-amount-unit">LIB</span>
+                    </div>
+                    <p class="form-hint">
+                      Held from whoever asks to join, and paid to you when you approve them.
+                      Returned in full if they withdraw, or if you remove them soon after.
+                    </p>
+                  </div>
+                </details>
+              </div>
+
+              <div class="form-actions">
+                <button
+                  type="submit"
+                  class="btn btn--primary btn--pill btn--full"
+                  id="createGroupSubmit"
+                  disabled
+                >
+                  Create group
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Group Chat Modal -->
+      <div class="modal fixed-header" id="groupChatModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeGroupChatModal"></button>
+          <div class="chat-user-info" id="groupChatHeaderInfo">
+            <div class="modal-avatar" id="groupChatAvatar"></div>
+            <div>
+              <div class="modal-title" id="groupChatTitle"></div>
+              <!--
+                Member count only. Epoch is protocol state and never appears in
+                the product — see DESIGN.md §1.1.
+              -->
+              <div class="group-subtitle" id="groupChatSubtitle"></div>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="icon-button menu-icon" id="groupChatInfoButton" aria-label="Group info"></button>
+          </div>
+        </div>
+        <!--
+          Anything wrong with this device's view of the group is stated here,
+          above the transcript and next to the action that fixes it. It used to
+          be a system message appended to the message list, where it scrolled
+          away from its own remedy. A healthy group shows nothing at all.
+        -->
+        <div class="ui-banner" id="groupStatusBanner" hidden>
+          <span class="ui-banner-icon" id="groupStatusIcon" aria-hidden="true"></span>
+          <div class="ui-banner-text">
+            <span id="groupStatusTitle"></span>
+            <span class="ui-banner-sub" id="groupStatusSub"></span>
+          </div>
+          <button type="button" class="ui-banner-action" id="groupStatusAction" hidden></button>
+        </div>
+        <div class="messages-container">
+          <div class="messages-list" id="groupMessagesList"></div>
+        </div>
+        <!-- Shown while our own join request is waiting for an admin. -->
+        <div class="group-invite-bar" id="groupPendingBar" hidden>
+          <div class="group-invite-text" id="groupPendingText"></div>
+          <div class="group-invite-actions">
+            <button class="btn btn--secondary btn--pill" id="groupPendingWithdraw">Withdraw request</button>
+          </div>
+        </div>
+        <!--
+          Shown instead of the composer when we have been added but have not
+          agreed to join. Accepting is the only thing that spends anything:
+          joining burns one of our KeyPackages and obliges us to pay for a path
+          update, so it must never happen without an explicit action here.
+        -->
+        <div class="group-invite-bar" id="groupInviteBar" hidden>
+          <div class="group-invite-text" id="groupInviteText"></div>
+          <div class="group-invite-sub" id="groupInviteSub"></div>
+          <div class="group-invite-actions">
+            <button class="btn btn--secondary btn--pill" id="groupInviteDecline">Decline</button>
+            <button class="btn btn--primary btn--pill" id="groupInviteAccept">Join</button>
+          </div>
+        </div>
+        <div class="message-input-container" id="groupComposer">
+          <div class="message-byte-counter" id="groupByteCounter"></div>
+          <!-- Same markup and classes as 1:1's reply preview, so it inherits
+               every rule under .reply-preview rather than needing its own. -->
+          <div class="reply-preview" id="groupReplyPreview" style="display: none;">
+            <div class="reply-preview-content">
+              <div class="reply-preview-label">Replying to:</div>
+              <div class="reply-preview-text" id="groupReplyPreviewText"></div>
+            </div>
+            <button class="reply-preview-close" id="groupReplyPreviewClose" aria-label="Cancel reply" type="button"></button>
+          </div>
+          <div class="message-input-row">
+            <div class="message-input-wrapper">
+              <textarea class="message-input" id="groupMessageInput" placeholder="Type a message..."></textarea>
+              <!-- .send-button is absolutely positioned inside the wrapper and
+                   hidden by default; groups always show it, as there is no
+                   voice/attachment button to swap with. -->
+              <button class="send-button send-button--always" id="groupSendButton" aria-label="Send">
+                <svg viewBox="0 0 24 24">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Join Group Modal -->
+      <div class="modal fixed-header" id="joinGroupModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeJoinGroupModal"></button>
+          <div class="modal-title">Join group</div>
+        </div>
+        <div class="modal-content">
+          <!-- form--narrow is the app's standard padded body for modal forms. -->
+          <div class="form--narrow">
+            <div class="form-group">
+              <label class="form-label" for="joinGroupLinkInput">Invite link</label>
+              <input
+                type="text"
+                id="joinGroupLinkInput"
+                class="form-control"
+                placeholder="Paste the link, or a group id"
+                autocomplete="off"
+              />
+              <div class="form-error" id="joinGroupError"></div>
+            </div>
+            <button type="button" class="btn btn--primary btn--pill btn--full" id="joinGroupLookup">
+              Look up group
+            </button>
+
+            <!--
+              What a non-member can actually be shown. The group's name and avatar
+              are encrypted under the MLS exporter secret, so the network genuinely
+              cannot reveal them to someone outside the group — this is the whole
+              truth that is available, not a placeholder. The hint below says so,
+              because "Encrypted group" on its own reads like a loading state.
+            -->
+            <div class="group-join-preview" id="joinGroupPreview" hidden>
+              <!-- Same identity block as group info: it centres its own avatar,
+                   which text-align cannot do to a flex element. -->
+              <div class="group-info-summary">
+                <div class="modal-avatar" id="joinGroupAvatar"></div>
+                <div class="group-info-name">Encrypted group</div>
+                <div class="group-info-meta" id="joinGroupMeta"></div>
+              </div>
+              <p class="form-hint">
+                A group's name and picture are encrypted, so only its members can see them.
+              </p>
+              <div class="form-group">
+                <label class="form-label" for="joinGroupMessage">
+                  Message to the admins <span class="ui-label-note">optional</span>
+                </label>
+                <input
+                  type="text"
+                  id="joinGroupMessage"
+                  class="form-control"
+                  maxlength="200"
+                  placeholder="Who you are, why you want in"
+                />
+              </div>
+              <button type="button" class="btn btn--primary btn--pill btn--full" id="joinGroupRequest">
+                Request to join
+              </button>
+              <p class="form-hint" id="joinGroupNote"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group Info Modal -->
+      <div class="modal fixed-header" id="groupInfoModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeGroupInfoModal"></button>
+          <div class="modal-title">Group info</div>
+        </div>
+        <div class="modal-content">
+          <div class="form--narrow">
+            <div class="group-info-summary">
+              <div class="modal-avatar" id="groupInfoAvatar"></div>
+              <div class="group-info-name" id="groupInfoName"></div>
+              <div class="group-info-meta" id="groupInfoMeta"></div>
+            </div>
+
+            <!--
+              The same health state the chat page shows, repeated here only when
+              it needs attention, so someone who reached this screen looking for
+              a fix finds it without opening the drawer.
+            -->
+            <div class="ui-banner ui-banner--attention" id="groupInfoAlert" hidden>
+              <span class="ui-banner-icon" aria-hidden="true">&#9651;</span>
+              <div class="ui-banner-text">
+                <span id="groupInfoAlertTitle"></span>
+                <span class="ui-banner-sub" id="groupInfoAlertSub"></span>
+              </div>
+              <button type="button" class="ui-banner-action" id="groupInfoAlertAction"></button>
+            </div>
+
+            <!--
+              Members, requests to join and "add people" are one thought and one
+              list — DESIGN.md §1.5. Requests sort to the top because they are
+              the rows carrying a decision.
+            -->
+            <div class="ui-block">
+              <div class="ui-section-title">
+                People
+                <span class="ui-section-title-note" id="groupInfoMemberCount"></span>
+                <span class="ui-badge ui-badge--attention" id="groupInfoRequestBadge" hidden></span>
+              </div>
+              <ul class="ui-list" id="groupInfoPeople"></ul>
+              <div class="ui-pending-hint" id="groupInfoPendingHint" hidden></div>
+            </div>
+
+            <!-- Revealed by the "Add people" row in the list above. -->
+            <div class="ui-block" id="groupInfoAddPanel" hidden>
+              <div class="ui-section-title">Add people</div>
+              <div class="ui-picker">
+                <input
+                  type="text"
+                  id="groupInfoInviteInput"
+                  class="form-control"
+                  placeholder="Search contacts, or type a username"
+                  autocomplete="off"
+                />
+                <div class="ui-inline-error" id="groupInfoInviteError"></div>
+                <ul class="ui-chips" id="groupInfoStaged"></ul>
+                <ul class="ui-list" id="groupInfoPicker"></ul>
+              </div>
+              <div class="ui-block-actions">
+                <button type="button" class="btn btn--text" id="groupInfoAddCancel">Cancel</button>
+                <button type="button" class="btn btn--primary btn--pill" id="groupInfoAddButton">Add</button>
+              </div>
+            </div>
+
+            <!--
+              Economics and exit. One line each: a heading, a note and a
+              full-width button would imply more substance than there is.
+            -->
+            <div class="ui-rows">
+              <!--
+                A switch, not a link: the state IS the control, so it reads and
+                changes in one place. Local to this device.
+              -->
+              <button
+                type="button"
+                class="ui-row ui-row--switch"
+                id="groupMuteRow"
+                role="switch"
+                aria-checked="false"
+              >
+                <span class="ui-row-key">
+                  Notification sound
+                  <span class="ui-row-sub">Plays when someone sends a message</span>
+                </span>
+                <span class="ui-row-value" id="groupMuteState">On</span>
+              </button>
+
+              <div class="ui-row" id="groupInviteLinkRow">
+                <span class="ui-row-key">
+                  Invite link
+                  <span class="ui-row-sub">Anyone with it can ask to join</span>
+                </span>
+                <button type="button" class="ui-row-value" id="groupInviteLinkCopy">Copy</button>
+              </div>
+              <!-- Revealed only when the clipboard is refused, so the link is
+                   still recoverable by hand. -->
+              <input type="text" id="groupInviteLinkInput" class="form-control ui-fallback-input" readonly hidden />
+
+              <div class="ui-row" id="groupFeesRow" hidden>
+                <span class="ui-row-key">
+                  Join fees
+                  <span class="ui-row-sub" id="groupFeesSummary"></span>
+                </span>
+                <button type="button" class="btn btn--text" id="groupFeesClaim">Collect</button>
+              </div>
+
+              <!--
+                What the group has left to pay for its own upkeep. Renewing the
+                group's keys after someone leaves costs a transaction fee, and
+                the group covers it so the member who happens to do the work
+                does not. When this runs out, that member pays instead.
+
+                Only ever shown when it is running low, and never in a group of
+                one, where no renewal can be needed at all.
+              -->
+              <div class="ui-row" id="groupMaintenanceRow" hidden>
+                <span class="ui-row-key">
+                  <span class="ui-row-key-with-help">
+                    Upkeep
+                    <button
+                      type="button"
+                      class="toll-info-icon"
+                      data-icon="info"
+                      id="groupMaintenanceHelp"
+                      title="When someone leaves, the group's encryption keys are renewed for everyone still in it, and that costs a small network fee. This balance pays it, so the cost doesn't land on whichever member happens to do the work. Anyone can add to it, and it can't be spent on anything else."
+                      aria-label="About group upkeep"></button>
+                  </span>
+                  <span class="ui-row-sub" id="groupMaintenanceSummary"></span>
+                </span>
+                <button type="button" class="btn btn--text" id="groupMaintenanceTopUp">Top up</button>
+              </div>
+
+              <button type="button" class="ui-row ui-row--danger" id="groupLeaveButton">
+                <span class="ui-row-key" id="groupLeaveLabel">Leave group</span>
+              </button>
+            </div>
+
+            <!--
+              Where protocol state and the recovery tools live when nothing is
+              wrong — DESIGN.md §1.1 and §1.3. Nobody opens this on a healthy
+              group; when the group is unhealthy the banner above carries the
+              action, so nobody has to find it.
+            -->
+            <details class="ui-drawer" id="groupTechDrawer">
+              <summary class="ui-drawer-summary">Technical details</summary>
+              <div class="ui-drawer-body">
+                <dl class="ui-kv" id="groupTechDetails"></dl>
+                <button type="button" class="btn btn--secondary btn--pill btn--full" id="groupCatchUpButton">
+                  Check for updates
+                </button>
+                <button type="button" class="btn btn--danger-quiet btn--pill btn--full" id="groupResetButton">
+                  Reset on this device
+                </button>
+                <p class="form-hint">
+                  Resetting clears this device's keys for the group and keeps the messages already on
+                  screen. Another member then has to add you back.
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
       <!-- Contact Info Modal -->
       <div class="modal fixed-header" id="contactInfoModal">
         <div class="modal-header">
           <button class="back-button" id="closeContactInfoModal"></button>
-          <div class="modal-title">Contact Info</div>
-          <!-- Add header actions container -->
-          <div class="header-actions">
-            <button class="icon-button chat-icon" id="contactInfoChatButton" aria-label="Open chat"></button>
-            <button class="icon-button send-money-icon" id="contactInfoSendButton" aria-label="Send money"></button>
-            <button
-              class="icon-button add-friend-icon"
-              id="addFriendButtonContactInfo"
-              aria-label="Add friend"
-            ></button>
-          </div>
+          <div class="modal-title">Contact</div>
         </div>
+        <!--
+          The three header icons are gone. Two of them were this screen's real
+          actions — message, send money — as a speech bubble and a bare "$" in
+          the corner where a modal usually keeps one overflow control. They are
+          labelled buttons now.
+
+          The third said "Add friend" and opened a modal titled Contact Status,
+          where you pick Connection / Tolled / Blocked. That status is the most
+          consequential fact on this screen — it decides whether someone can
+          reach you and whether it costs them — and it was legible only as the
+          colour of a 24px person glyph. It is a row with a word in it now.
+        -->
         <div class="modal-content">
-          <div class="form-container">
-            <div class="contact-info-list">
-              <div class="contact-avatar-section">
-                <div class="avatar" id="contactInfoAvatar"></div>
-                <div class="name"></div>
-                <div class="address-container">
-                  <div id="contactInfoDisplayAddress" class="subtitle"></div>
-                  <button
-                    id="contactInfoCopyAddress"
-                    class="icon-button address-copy-button"
-                    aria-label="Copy address"
-                  ></button>
-                </div>
-              </div>
-              <!-- Template for contact info items -->
-              <template id="contactInfoItemTemplate">
-                <div class="contact-info-item">
-                  <div class="contact-info-label"></div>
-                  <div class="contact-info-value"></div>
-                </div>
-              </template>
-              <!-- Contact info fields -->
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Username</div>
-                <div class="contact-info-value" id="contactInfoUsername"></div>
-              </div>
-              <div class="contact-info-item">
-                <div class="contact-info-label">Name</div>
-                <div class="contact-info-value-container">
-                  <div class="contact-info-value" id="contactInfoName"></div>
-                  <button class="icon-button edit-icon" id="nameEditButton" aria-label="Edit name"></button>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Provided Name</div>
-                <div class="contact-info-value" id="contactInfoProvidedName"></div>
-              </div>
-              <!-- Email and Phone fields hidden - may want to restore later
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Email</div>
-                <div class="contact-info-value">
-                  <a href="#" id="contactInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Phone</div>
-                <div class="contact-info-value" id="contactInfoPhone"></div>
-              </div>
-              -->
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">LinkedIn</div>
-                <div class="contact-info-value">
-                  <a href="#" id="contactInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">X-Twitter</div>
-                <div class="contact-info-value">
-                  <a href="#" id="contactInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item">
-                <div class="contact-info-label">Notes</div>
-                <div class="contact-info-value-container">
-                  <div class="contact-info-value" id="contactInfoNotes"></div>
-                  <button class="icon-button edit-icon" id="notesEditButton" aria-label="Edit notes"></button>
-                </div>
-              </div>
+          <div class="ui-identity">
+            <div class="ui-identity-avatar avatar" id="contactInfoAvatar"></div>
+            <div class="ui-identity-name" id="contactInfoName"></div>
+            <div class="ui-identity-handle" id="contactInfoHandle"></div>
+            <div class="ui-identity-address">
+              <code id="contactInfoDisplayAddress" role="button" tabindex="0" aria-label="Copy address"></code>
+              <button
+                id="contactInfoCopyAddress"
+                class="icon-button address-copy-button"
+                aria-label="Copy address"
+              ></button>
             </div>
           </div>
+
+          <div class="contact-actions">
+            <button type="button" id="contactInfoChatButton" class="btn btn--primary btn--pill">Message</button>
+            <button type="button" id="contactInfoSendButton" class="btn btn--secondary btn--pill">Send</button>
+          </div>
+
+          <nav class="ui-nav contact-rows">
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="addFriendButtonContactInfo">
+              <span class="ui-nav-key">Status</span>
+              <span class="ui-nav-value contact-status" id="contactInfoStatus"></span>
+            </button>
+            <button type="button" class="ui-nav-row ui-nav-row--plain" id="nameEditButton">
+              <span class="ui-nav-key">Name</span>
+              <span class="ui-nav-value" id="contactInfoNameValue"></span>
+            </button>
+            <a class="ui-nav-row ui-nav-row--plain" id="contactInfoLinkedinRow" href="#" target="_blank" rel="noopener noreferrer" hidden>
+              <span class="ui-nav-key">LinkedIn</span>
+              <span class="ui-nav-value" id="contactInfoLinkedin"></span>
+            </a>
+            <a class="ui-nav-row ui-nav-row--plain" id="contactInfoXRow" href="#" target="_blank" rel="noopener noreferrer" hidden>
+              <span class="ui-nav-key">X</span>
+              <span class="ui-nav-value" id="contactInfoX"></span>
+            </a>
+          </nav>
+
+          <!--
+            Notes runs to 1000 characters, so it is a paragraph and gets the full
+            width rather than a right-aligned value slot that truncates after
+            four words. The chevron sits on the label line, in the same place and
+            at the same size as on every row above — without it the block is a
+            button that reads as static text.
+          -->
+          <button type="button" class="contact-notes" id="notesEditButton">
+            <span class="contact-notes-head"><span class="contact-notes-key">Notes</span></span>
+            <span class="contact-notes-text" id="contactInfoNotes"></span>
+          </button>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -2167,7 +2813,7 @@
           <div class="modal-title">Receive</div>
         </div>
         <div class="modal-content">
-          <div class="form-container">
+          <div class="form-container form--quiet">
             <div class="form-group connected-wallet-only" id="receiveNetworkGroup" hidden>
               <label for="receiveNetwork">Network</label>
               <select id="receiveNetwork" class="form-control wallet-network-select">
@@ -2180,17 +2826,25 @@
             </div>
             <div class="form-group">
               <label>Your Address</label>
-              <div class="address-container">
-                <div
-                  id="displayAddress"
-                  class="form-control address-display"
-                ></div>
+              <!--
+                Was a .form-control: an input's clothes on a value you cannot
+                type into, wrapped over two lines by word-break: break-all.
+              -->
+              <div class="address-readout">
+                <code id="displayAddress" role="button" tabindex="0" aria-label="Copy your address"></code>
                 <button
                   id="copyAddress"
                   class="icon-button address-copy-button"
+                  aria-label="Copy address"
                 ></button>
               </div>
               <div id="qrcode"></div>
+              <!--
+                The code re-encodes as you type an amount below, debounced, and
+                nothing on screen said so — the field you changed sits under the
+                code it changed.
+              -->
+              <div id="qrCaption" class="qr-caption">Scan to send to this account</div>
 
               <!-- QR Code Preview (Moved here) -->
               <div id="qrDataPreview" class="form-control qr-data-preview" style="display: none">
@@ -2217,7 +2871,7 @@
                   step="any"
                   min="0"
                 />
-                <button id="toggleReceiveBalance" class="toggle-balance">
+                <button type="button" id="toggleReceiveBalance" class="toggle-balance">
                   <span id="receiveBalanceSymbol">LIB</span>
                 </button>
               </div>
@@ -2240,22 +2894,32 @@
       <div class="modal fixed-header" id="historyModal">
         <div class="modal-header">
           <button class="back-button" id="closeHistoryModal"></button>
-          <div class="modal-title">Transaction History</div>
+          <div class="modal-title">History</div>
         </div>
+        <!--
+          Rows are the shape of a chat row now: avatar, who, amount. The
+          direction rides the avatar as a badge, so who and which-way are one
+          object rather than two lines saying "↑ Sent" and "To: ana".
+
+          Red is reserved for failed. `.transaction-type.send` used to be
+          --danger-color, so every successful outgoing payment was painted in
+          the error colour — on a list where failed rows were also red.
+        -->
         <div class="modal-content">
-          <div class="form-container">
+          <!-- Only shown when there is more than one asset to choose between. -->
+          <div class="form-container history-asset" id="historyAssetGroup" hidden>
             <div class="form-group">
               <label for="historyAsset">Asset</label>
               <select id="historyAsset" class="form-control"></select>
             </div>
-            <div class="transaction-list" id="transactionList">
-              <div class="empty-state">
-                <div></div>
-                <div>No Transactions</div>
-                <div>Your transaction history will appear here</div>
-              </div>
-              <!-- Transactions will be populated here -->
+          </div>
+          <div class="tx-list" id="transactionList">
+            <div class="empty-state">
+              <div></div>
+              <div>No Transactions</div>
+              <div>Your transaction history will appear here</div>
             </div>
+            <!-- Transactions will be populated here -->
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -2269,7 +2933,7 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <form id="sendForm" class="form--narrow">
+            <form id="sendForm" class="form--narrow form--quiet">
               <div class="form-group connected-wallet-only" id="sendNetworkGroup" hidden>
                 <label for="sendNetwork">Network</label>
                 <select id="sendNetwork" class="form-control wallet-network-select" required>
@@ -2285,10 +2949,8 @@
                 <select id="sendAsset" class="form-control" required></select>
               </div>
               <div class="form-group">
-                <label for="sendToAddress"
-                  >Recipient <span id="sendToAddressError" style="color: #dc3545; display: none"></span
-                ></label>
-                <div style="display: flex; align-items: center; gap: 0.5rem">
+                <label for="sendToAddress">Recipient</label>
+                <div class="amount-container">
                   <input
                     type="text"
                     id="sendToAddress"
@@ -2297,66 +2959,75 @@
                     required
                     pattern="[a-zA-Z0-9]*"
                     inputmode="text"
-                    style="flex: 1"
                   />
+                  <!--
+                    Were two hand-rolled inline SVGs filled #007bff, a blue that
+                    appears nowhere else in this app. Same buttons, same place,
+                    drawn from the shared icon set.
+                  -->
                   <button
                     type="button"
                     id="uploadQRButton"
-                    class="icon-button"
-                    title="Upload QR Code"
-                    style="flex-shrink: 0"
-                  >
-                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
-                      <path
-                        d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
-                      />
-                    </svg>
-                  </button>
-                  <button type="button" id="scanQRButton" class="icon-button" title="Scan QR Code" style="flex-shrink: 0">
-                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
-                      <path
-                        d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
-                      />
-                    </svg>
-                  </button>
+                    class="field-icon-button"
+                    data-icon="file-image"
+                    title="Upload a QR code"
+                    aria-label="Upload a QR code"
+                  ></button>
+                  <button
+                    type="button"
+                    id="scanQRButton"
+                    class="field-icon-button"
+                    data-icon="camera"
+                    title="Scan a QR code"
+                    aria-label="Scan a QR code"
+                  ></button>
                   <!-- File input for QR code upload -->
                   <input
                     type="file"
                     id="qrFileInput"
                     accept="image/*"
-                    style="display: none; position: absolute; width: 1px; height: 1px; overflow: hidden"
+                    hidden
                     aria-hidden="true"
                   />
                 </div>
+                <!-- .field-error is revealed by :empty; setting the text is the
+                     only thing the JS has to get right. -->
+                <span id="sendToAddressError" class="field-status"></span>
               </div>
               <div class="form-group">
-                <label for="sendAmount">
-                  Amount <span id="balanceWarning" class="balance-warning"></span>
-                </label>
+                <label for="sendAmount">Amount</label>
                 <div class="amount-container">
                   <input
-                    inputmode="decimal" 
+                    inputmode="decimal"
                     type="text"
                     id="sendAmount"
                     class="form-control"
+                    placeholder="0.00"
                     required
                   />
                   <!-- add button to toggle between LIB and USD -->
-                  <button id="toggleBalance" class="toggle-balance">
+                  <button type="button" id="toggleBalance" class="toggle-balance">
                     <span id="balanceSymbol">LIB</span>
                   </button>
                 </div>
+                <span id="balanceWarning" class="field-status"></span>
                 <div id="availableBalance" class="available-balance">
-                  <div class="balance-info">
-                    <span>Available: <span id="balanceAmount">0.00 LIB</span></span>
-                    <span class="fee-info">Fee: <span id="transactionFee">0.00 LIB</span></span>
+                  <div class="balance-line">
+                    <span class="balance-available"
+                      >Available <span class="balance-figure" id="balanceAmount">0.00 LIB</span
+                      ><!--
+                        Filling the maximum was already bound to this whole line,
+                        with no cursor and no label. Same behaviour, aimable.
+                      --><button type="button" id="sendMaxButton" class="balance-max">Max</button>
+                    </span>
+                    <span class="balance-fee">Fee <span id="transactionFee">0.00 LIB</span></span>
                   </div>
                 </div>
               </div>
               <div class="form-group" id="sendMemoGroup">
                 <label for="sendMemo">
                   Memo (Optional)
-                  <span class="memo-byte-counter" style="font-size: 12px; margin-left: 8px; font-weight: normal; display: none;"></span>
+                  <span class="memo-byte-counter"></span>
                 </label>
                 <textarea id="sendMemo" class="form-control"></textarea>
                 <div class="toll-container" id="memoTollContainer">
@@ -2369,17 +3040,13 @@
               </div>
             </form>
 
-            <!-- QR Scan Container -->
-            <div id="qrScannerContainer" class="qr-scanner-container" style="display: none">
-              <video id="qrVideo" playsinline autoplay></video>
-              <div class="scanner-overlay">
-                <div class="scanner-guide"></div>
-              </div>
-              <div class="scanner-controls">
-                <button id="closeScanner" class="scanner-button">Cancel</button>
-                <button id="switchCamera" class="scanner-button">Switch Camera</button>
-              </div>
-            </div>
+            <!--
+              Removed: an inline QR scanner — a <video>, an overlay and Cancel /
+              Switch Camera buttons — that nothing referenced. #scanQRButton
+              opens qrScanModal, a separate modal; this was left behind by an
+              earlier implementation. No JS in the app touches qrScannerContainer,
+              qrVideo, closeScanner or switchCamera.
+            -->
           </div>
         </div>
         <a class="last-item" href="#"> </a>
@@ -2391,30 +3058,52 @@
           <button class="back-button" id="closeSendAssetConfirmModal"></button>
           <div class="modal-title">Confirm Transaction</div>
         </div>
+        <!--
+          Same rows, same order, one frame. Every value used to sit in a bordered
+          white box inside a purple tinted card — a rectangle inside a rectangle,
+          once per value, and read-only data wearing input clothes.
+
+          Network fee and Total are new rows of the kind already here: without
+          them the number you confirm is not the number that leaves. The Asset
+          row is gone; it read "Liberdus (LIB)" directly beneath an amount that
+          now carries its own unit.
+        -->
         <div class="modal-content">
           <div class="form-container">
-            <div class="confirmation-details">
-              <div class="form-group">
-                <label>Recipient</label>
-                <div id="confirmRecipient" class="confirm-value"></div>
-              </div>
-              <div class="form-group">
-                <label>Amount</label>
-                <div id="confirmAmount" class="confirm-value"></div>
-                <div id="confirmAmountUSD" class="confirm-value-secondary usd-equivalent"></div>
-              </div>
-              <div class="form-group">
-                <label>Asset</label>
-                <div id="confirmAsset" class="confirm-value"></div>
-              </div>
-              <div class="form-group" id="confirmMemoGroup" style="display: none">
-                <label>Memo</label>
-                <div id="confirmMemo" class="confirm-value"></div>
+            <div class="confirmation-details form--narrow">
+              <div class="confirm-list">
+                <div class="confirm-row">
+                  <span class="confirm-row-key">Recipient</span>
+                  <div id="confirmRecipient" class="confirm-row-value"></div>
+                </div>
+                <div class="confirm-row">
+                  <span class="confirm-row-key">Amount</span>
+                  <div id="confirmAmount" class="confirm-row-value"></div>
+                  <div id="confirmAmountUSD" class="confirm-row-sub"></div>
+                </div>
+                <div class="confirm-row" id="confirmMemoGroup" hidden>
+                  <span class="confirm-row-key">Memo</span>
+                  <div id="confirmMemo" class="confirm-row-value"></div>
+                </div>
+                <div class="confirm-row" id="confirmFeeGroup" hidden>
+                  <span class="confirm-row-key">Network fee</span>
+                  <div id="confirmFee" class="confirm-row-value"></div>
+                </div>
+                <div class="confirm-row confirm-row--total" id="confirmTotalGroup" hidden>
+                  <span class="confirm-row-key">Total</span>
+                  <div id="confirmTotal" class="confirm-row-value"></div>
+                </div>
               </div>
             </div>
             <div class="form-actions">
               <button id="confirmSendButton" class="btn btn--primary btn--pill btn--full">Confirm Send</button>
-              <button id="cancelSendButton" class="btn btn--danger btn--pill btn--full">Cancel</button>
+              <!--
+                Was btn--danger. Red marks the irreversible action everywhere
+                else in this app — it is on Delete this account and nothing
+                else. Cancel is the safe one, on the last screen before money
+                moves.
+              -->
+              <button id="cancelSendButton" class="btn btn--secondary btn--pill btn--full">Cancel</button>
             </div>
           </div>
         </div>
@@ -2512,61 +3201,77 @@
       <div class="modal fixed-header" id="backupModal">
         <div class="modal-header">
           <button class="back-button" id="closeBackupForm"></button>
-          <div class="modal-title">Backup Account</div>
+          <div class="modal-title">Back up account</div>
         </div>
+        <!--
+          Encryption is a choice you make here, not one you fall into.
+
+          Before, an empty password produced a valid backup and it was not
+          encrypted — so the shortest path through this screen (open it, press
+          the only button) wrote the account's private keys to a file in the
+          clear. The only warning was grey placeholder text that vanished the
+          moment you typed.
+        -->
         <div class="modal-content">
-          <div class="form-container">
-            <!-- have description of what this is -->
-            <p>
-              This will save a file that contains your account data. You can use this file to restore your account on another device.
-            </p>
-            <p>
-              If you are signed in you can choose to backup all accounts or just the signed in account. If you are not signed in, this will save all accounts.
+          <div class="form-container form--quiet">
+            <p class="modal-summary">
+              A backup file is the only way back into this account if you lose this device.
             </p>
             <form id="backupForm" class="form--narrow">
-              <div class="form-group" id="backupAllAccountsGroup" style="display: none;">
+              <div class="form-group" id="backupAllAccountsGroup" hidden>
                 <label class="checkbox-label">
                   <input type="checkbox" id="backupAllAccounts" />
                   <span class="checkmark"></span>
-                  Backup all accounts
+                  Include every account on this device
                 </label>
               </div>
               <div class="form-group">
-                <label for="backupStorageLocation">Storage Location</label>
+                <label for="backupStorageLocation">Storage</label>
                 <select id="backupStorageLocation" class="form-control">
-                  <option value="local" selected>Local</option>
+                  <option value="local" selected>This device</option>
                   <option value="google-drive">Google Drive</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label for="backupPassword">
-                  File Password
-                  <span id="backupPasswordWarning" style="color: #dc3545; display: none">too short</span>
-                  <span id="backupPasswordRequired" style="color: #dc3545; display: none">required</span>
+
+              <div class="backup-encryption" id="backupEncryptionGroup" role="radiogroup"
+                   aria-label="Backup file protection">
+                <label class="backup-enc-option">
+                  <input type="radio" name="backupEncryption" value="password" checked />
+                  <span class="backup-enc-tick" aria-hidden="true"></span>
+                  <span class="backup-enc-text">
+                    <b>Protect with a password</b>
+                    <span>You will need it to restore the file. Required for Google Drive.</span>
+                  </span>
                 </label>
-                <input
-                  type="password"
-                  id="backupPassword"
-                  class="form-control"
-                  placeholder="Leave empty for unencrypted backup"
-                />
+                <label class="backup-enc-option">
+                  <input type="radio" name="backupEncryption" value="none" />
+                  <span class="backup-enc-tick" aria-hidden="true"></span>
+                  <span class="backup-enc-text">
+                    <b>No password</b>
+                    <span class="backup-enc-warn">
+                      Anyone who opens the file gets this account. Keep it off shared drives and cloud folders.
+                    </span>
+                  </span>
+                </label>
               </div>
-              <div class="form-group">
-                <label for="backupPasswordConfirm">
-                  Confirm File Password
-                  <span id="backupPasswordConfirmWarning" style="color: #dc3545; display: none">passwords don't match</span>
-                </label>
-                <input
-                  type="password"
-                  id="backupPasswordConfirm"
-                  class="form-control"
-                  placeholder="Confirm your file password"
-                />
+
+              <!-- Only present once you have chosen to use one. -->
+              <div id="backupPasswordFields">
+                <div class="form-group">
+                  <label for="backupPassword">Password</label>
+                  <input type="password" id="backupPassword" class="form-control" autocomplete="new-password" />
+                  <span id="backupPasswordWarning" class="field-status"></span>
+                </div>
+                <div class="form-group">
+                  <label for="backupPasswordConfirm">Confirm password</label>
+                  <input type="password" id="backupPasswordConfirm" class="form-control" autocomplete="new-password" />
+                  <span id="backupPasswordConfirmWarning" class="field-status"></span>
+                </div>
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn btn--primary btn--pill btn--full backup-submit-button">
                   <span class="backup-submit-spinner" aria-hidden="true"></span>
-                  <span>Save Data</span>
+                  <span>Save backup file</span>
                 </button>
               </div>
             </form>
@@ -2668,7 +3373,7 @@
                   </div>
                 </div>
               </div>
-              <div class="contact-info-item" id="editContactProvidedNameContainer" style="display: none">
+              <div class="contact-info-item" id="editContactProvidedNameContainer" hidden>
                 <div class="contact-info-label">Provided Name</div>
                 <div class="contact-info-value" id="editContactProvidedName"></div>
               </div>
@@ -2746,7 +3451,11 @@
                 </div>
                 <div class="avatar-option" data-value="identicon" id="avatarOptionIdenticon">
                   <div class="avatar-thumb" id="avatarThumbIdenticon"></div>
-                  <div class="avatar-option-label">Identicon</div>
+                  <!-- Not "Identicon": this option means "do not use a photo
+                       for this contact", and the generated avatar it falls back
+                       to is drawn in whichever style Settings > Appearance is
+                       set to. Naming a style here would be wrong half the time. -->
+                  <div class="avatar-option-label">No photo</div>
                 </div>
               </div>
             </div>
@@ -3015,6 +3724,43 @@
       </div>
 
       <!-- Failed Transaction Modal -->
+      <!--
+        One confirmation dialog for the whole app.
+
+        It replaces ten native alert() / confirm() / prompt() calls. This app
+        runs inside a React Native WebView, and Android's WebView does not
+        implement those dialogs unless the host wires them up — so the guard on
+        every destructive action was either silently cancelling or silently
+        being skipped, depending on the shell. This one is the app's own, so it
+        is present and identical on every platform.
+
+        Built on .modal-dialog, the same overlay the failed-transaction sheet
+        uses, rather than a second dialog system.
+      -->
+      <div class="modal modal-dialog ui-confirm" id="uiConfirmDialog">
+        <div
+          class="dialog-box-content ui-confirm-box"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="uiConfirmTitle"
+          aria-describedby="uiConfirmBody"
+        >
+          <h2 class="ui-confirm-title" id="uiConfirmTitle"></h2>
+          <div class="ui-confirm-body" id="uiConfirmBody"></div>
+          <!-- Shown only for the irreversible cases: you have to type the words. -->
+          <div class="ui-confirm-type" id="uiConfirmTypeGroup" hidden>
+            <label for="uiConfirmTypeInput" id="uiConfirmTypeLabel"></label>
+            <input type="text" id="uiConfirmTypeInput" class="form-control" autocomplete="off"
+                   autocapitalize="characters" spellcheck="false" />
+          </div>
+          <div class="ui-confirm-actions">
+            <button type="button" class="btn btn--primary btn--pill" id="uiConfirmAccept">OK</button>
+            <button type="button" class="btn btn--secondary btn--pill" id="uiConfirmCancel">Cancel</button>
+          </div>
+        </div>
+        <a class="last-item" href="#"></a>
+      </div>
+
       <div class="modal modal-dialog" id="failedTransactionModal">
         <div class="dialog-box-content">
           <div class="modal-header">

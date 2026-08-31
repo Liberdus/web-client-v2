@@ -2066,6 +2066,13 @@ class EvmAssetsController {
   }
   getConnectionText() { return this.discovery.getConnectionText(); }
   formatTokenAmount(value) { return formatConnectedTokenAmount(value); }
+  /*
+   * Exposed for the Liberdus side of the app too. Money was being printed with
+   * toFixed(6) in a dozen places — "0.050000 USD" beside "≈ $0.08" on the same
+   * screen — while this file already had one formatter that trims to at most
+   * six fraction digits and no minimum. One implementation, not two.
+   */
+  formatUsd(value) { return formatConnectedUsd(value); }
 }
 
 export const evmAssets = new EvmAssetsController();

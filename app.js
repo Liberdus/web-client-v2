@@ -28,7 +28,9 @@ async function checkVersion() {
   //console.log('myVersion < newVersion then reload', myVersion, newVersion)
   console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(/\D/g, '')));
   if (parseInt(myVersion.replace(/\D/g, '')) != parseInt(newVersion.replace(/\D/g, ''))) {
-    alert('Updating to new version: ' + newVersion + ' ' + version);
+    // `version` is a one-letter internal build tag; it means nothing to the
+    // person reading this, so it stays out of the sentence.
+    await uiAlert('Updating Liberdus', `Version ${newVersion}. The app will reload.`);
     localStorage.setItem(versionKey, newVersion); // Save new version with network-specific key
     const newUrl = window.location.href.split('?')[0];
 
@@ -141,6 +143,11 @@ import {
   normalizeLinkedinUsername,
   normalizeXTwitterUsername,
   generateIdenticon,
+  generateAvatar,
+  addressAvatar,
+  setAvatarStyle,
+  getAvatarStyle,
+  AVATAR_STYLES,
   formatTime,
   isValidEthereumAddress,
   normalizeAddress,
@@ -165,6 +172,7 @@ import {
   normalizeUnsignedFloat,
   getVerifiedUsername,
   EthNum,
+  insertSorted,
 } from './lib.js';
 
 import {
@@ -174,6 +182,27 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
+
+// MLS group chat. All cryptography lives in mlsEngine.js / mlsStore.js; this
+// module only orchestrates transactions and sync. The helpers it needs
+// (queryNetwork, signObj, injectTx, ...) are module-scoped here, so they are
+// handed over explicitly through initGroupManager rather than imported.
+import * as groups from './groupManager.js';
+import {
+  applyIncomingReaction,
+  areReactionSnapshotsEqual,
+  copyReactionSnapshot,
+  getContactReactionsForTarget,
+  getEffectiveReactionForSenderTarget,
+  getLatestReactionStateForSenderTarget,
+  purgeContactReactionsForTarget,
+  purgeReactionStackForSenderTarget,
+  recordReactionRemovalActivity,
+  removeReactionByReactionTxId,
+  setVisibleReaction,
+} from './reactions.js';
+import { initGroupUI, createGroupModal, groupChatModal, groupInfoModal, joinGroupModal, parseGroupInvite, refreshOpenGroup } from './groupUI.js';
+import { buildMessageBubble, buildReactionChips } from './chatRender.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -707,10 +736,15 @@ function isPrivateAccount() {
  * Lock rapid menu clicks to prevent multiple clicks from triggering multiple actions
  * @param {Element} menuList - The menu list element
  */
+// `.menu-item` is still the welcome menu's row; `.ui-nav-row` is the converted
+// one. Both list kinds funnel through here, so it matches either.
+const MENU_ROW_SELECTOR = '.menu-item, .ui-nav-row';
+
 function lockRapidMenuClicks(menuList) {
+  if (!menuList) return;
   let locked = false;
   menuList.addEventListener('click', (event) => {
-    if (!event.target.closest('.menu-item')) return;
+    if (!event.target.closest(MENU_ROW_SELECTOR)) return;
     if (locked) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -850,6 +884,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Settings Modal
   settingsModal.load();
 
+  // Appearance Modal. Loaded before anything renders a list: its load() applies
+  // the saved avatar style, and doing it later would draw every avatar once in
+  // the default style and then again in the chosen one.
+  appearanceModal.load();
+
   // Chat Settings Modal
   chatSettingsModal.load();
 
@@ -891,6 +930,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Contact Avatar Cache
   contactAvatarCache.load();
+
+  /*
+   * Any avatar image that fails to load falls back to the generated one, so a
+   * broken or undecodable blob never leaves an empty circle.
+   *
+   * Capture phase, on document: `error` does not bubble, so a listener on the
+   * document only sees it going down. One listener covers every avatar in the
+   * app, including rows rendered long after this runs.
+   */
+  document.addEventListener(
+    'error',
+    (event) => {
+      const img = event.target;
+      if (!(img instanceof HTMLImageElement)) return;
+      if (!img.hasAttribute('data-avatar-fallback')) return;
+      const address = img.getAttribute('data-avatar-fallback');
+      const size = Number(img.getAttribute('data-avatar-size')) || 50;
+      // Swap rather than hide: the row still needs something in the slot.
+      img.outerHTML = addressAvatar(address, size);
+    },
+    true,
+  );
 
   // Thumbnail Cache
   thumbnailCache.load();
@@ -1110,7 +1171,13 @@ class WelcomeScreen {
     
     
     this.versionDisplay.textContent = myVersion + ' ' + version;
-    this.networkNameDisplay.textContent = network.name;
+    /*
+     * The network badge is a warning, so it says nothing on mainnet. A warning
+     * that is always present is decoration, and the one time it matters — a
+     * testnet with real money in it — is the time it has to be unmissable.
+     * :empty removes the badge entirely rather than leaving a blank pill.
+     */
+    this.networkNameDisplay.textContent = network?.name === 'Mainnet' ? '' : (network?.name || '');
 
     if (reactNativeApp?.appVersion) {
       this.updateAppVersionDisplay(reactNativeApp.appVersion);
@@ -1420,9 +1487,8 @@ class Header {
 
   load() {
     this.header = document.getElementById('header');
-    this.text = this.header.querySelector('.app-name');
-    this.avatarContainer = this.header.querySelector('.app-name-avatar');
-    this.nameContainer = this.header.querySelector('.app-name-container');
+    this.title = document.getElementById('headerTitle');
+    this.avatarButton = document.getElementById('openMyInfo');
     this.logoLink = this.header.querySelector('.logo-link');
     this.menuButton = document.getElementById('toggleMenu');
     this.settingsButton = document.getElementById('toggleSettings');
@@ -1435,8 +1501,7 @@ class Header {
     this.upcomingCallsBtn.addEventListener('click', () => callsModal.open());
     this.daoNotificationsButton.addEventListener('click', () => daoModal.open());
     
-    // Add click event for whole name container
-    this.nameContainer.addEventListener('click', () => {
+    this.avatarButton.addEventListener('click', () => {
       if (myData && myData.account) {
         myInfoModal.open();
       }
@@ -1455,13 +1520,28 @@ class Header {
     return this.header.classList.contains('active');
   }
 
-  setText(newText) {
-    this.text.textContent = newText;
+  /** Clears the header back to its signed-out state. */
+  reset() {
+    this.setTitle(null);
+    if (this.avatarButton) {
+      this.avatarButton.innerHTML = '';
+      this.avatarButton.classList.remove('is-private');
+      this.avatarButton.setAttribute('aria-label', 'Your profile');
+    }
   }
 
   /**
    * Updates the header avatar for the current user
    */
+  /**
+   * The screen you are on. The tab bar says the same thing at the other end of
+   * the app; the header should not be the one place that cannot tell you.
+   */
+  setTitle(view) {
+    const titles = { chats: 'Chats', contacts: 'Contacts', wallet: 'Wallet' };
+    if (this.title) this.title.textContent = titles[view] || '';
+  }
+
   async updateAvatar() {
     try {
       const avatarHtml = await getContactAvatarHtml(
@@ -1472,7 +1552,19 @@ class Header {
         },
         28 // Small size for header
       );
-      this.avatarContainer.innerHTML = avatarHtml;
+      this.avatarButton.innerHTML = avatarHtml;
+      /*
+       * A private account was previously signalled by turning the username red.
+       * The username is gone from the header, so the ring carries it — and so
+       * does the label, because a colour is not something a screen reader can
+       * report.
+       */
+      const isPrivate = isPrivateAccount();
+      this.avatarButton.classList.toggle('is-private', isPrivate);
+      this.avatarButton.setAttribute(
+        'aria-label',
+        isPrivate ? 'Your profile (private account)' : 'Your profile',
+      );
     } catch (e) {
       console.warn('Failed to update header avatar:', e);
     }
@@ -1566,42 +1658,41 @@ class Footer {
       contactsScreen.close();
       walletScreen.close();
   
-      // Update nav buttons - remove active class from all
-      this.chatButton.classList.remove('active');
-      this.contactsButton.classList.remove('active');
-      this.walletButton.classList.remove('active');
-  
-      // Add active class to selected button and add active or use .open() for relevant screen
+      /*
+       * Update nav buttons. aria-current rides along with .active: the tab you
+       * are on is otherwise conveyed by colour and weight alone, which a screen
+       * reader cannot see.
+       */
+      const setTab = (button, isCurrent) => {
+        button.classList.toggle('active', isCurrent);
+        if (isCurrent) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+      };
+
+      setTab(this.chatButton, view === 'chats');
+      setTab(this.contactsButton, view === 'contacts');
+      setTab(this.walletButton, view === 'wallet');
+      header.setTitle(view);
+
       if (view === 'chats') {
         chatsScreen.open();
-        this.chatButton.classList.add('active');
       } else if (view === 'contacts') {
         contactsScreen.open();
-        this.contactsButton.classList.add('active');
       } else if (view === 'wallet') {
         walletScreen.open();
-        this.walletButton.classList.add('active');
       }
   
       // Show header and footer
       header.open();
       footer.open();
   
-      // Update header with username if signed in
-      const appName = document.querySelector('.app-name');
+      // The header shows your avatar once signed in; the username it used to
+      // print alongside is now on the profile screen the avatar opens.
       if (myAccount && myAccount.username) {
-        const accountIsPrivate = isPrivateAccount();
-        appName.textContent = `${myAccount.username}`;
-        appName.classList.toggle('is-private', accountIsPrivate);
-        // Update avatar
         await header.updateAvatar();
-      } else {
-        appName.textContent = '';
-        appName.classList.remove('is-private');
-        // Clear avatar when not signed in
-        if (header.avatarContainer) {
-          header.avatarContainer.innerHTML = '';
-        }
+      } else if (header.avatarButton) {
+        header.avatarButton.innerHTML = '';
+        header.avatarButton.classList.remove('is-private');
       }
   
       // Show/hide new chat button
@@ -1648,22 +1739,25 @@ class Footer {
           previousScreenElement.classList.add('active');
         }
   
-        // Remove active class from all buttons with direct references
-        this.chatButton.classList.remove('active');
-        this.contactsButton.classList.remove('active');
-        this.walletButton.classList.remove('active');
-  
-        // Add active to the correct button based on previousView
-        if (previousView === 'chats') {
-          this.chatButton.classList.add('active');
-        } else if (previousView === 'contacts') {
-          this.contactsButton.classList.add('active');
-        } else if (previousView === 'wallet') {
-          this.walletButton.classList.add('active');
-        } else {
-          // Fallback if previousButton is available
-          previousButton.classList.add('active');
-        }
+        /*
+         * Restore the tab. Goes through the same setTab as the success path so
+         * .active and aria-current cannot drift apart — a rollback that put the
+         * class back but not the attribute would leave the bar telling sighted
+         * and non-sighted users two different things.
+         */
+        const restore = (button, isCurrent) => {
+          button.classList.toggle('active', isCurrent);
+          if (isCurrent) button.setAttribute('aria-current', 'page');
+          else button.removeAttribute('aria-current');
+        };
+        const known = ['chats', 'contacts', 'wallet'].includes(previousView);
+        header.setTitle(previousView);
+        restore(this.chatButton, previousView === 'chats');
+        restore(this.contactsButton, previousView === 'contacts');
+        restore(this.walletButton, previousView === 'wallet');
+        // previousView was something else entirely; fall back to the element
+        // that was actually marked active before this attempt.
+        if (!known) restore(previousButton, true);
   
         // Display error toast to user
         showToast(`Failed to switch to ${view} view`, 0, 'error');
@@ -1733,6 +1827,7 @@ class ChatsScreen {
       } catch (error) {
         console.error('Error updating chat list:', error);
       }
+
     }
     return gotChats;
   }
@@ -1759,11 +1854,19 @@ class ChatsScreen {
     if (emptyStateEl) emptyStateEl.style.display = 'none';
 
     const chatItems = [];
+    // Group conversations live in the same list as DMs but carry no contact, so
+    // they are split out here and rendered separately below.
+    const groupChats = [];
     for (const chat of chats) {
+      if (chat.kind === 'group') {
+        const view = myData.groups?.[chat.groupId];
+        if (view) groupChats.push(view);
+        continue;
+      }
       if (isFaucetAddress(chat.address)) {
         continue;
       }
-      
+
       const contact = contacts[chat.address];
       if (!contact) continue;
       // In chat list don't show people that are blocked
@@ -1777,10 +1880,14 @@ class ChatsScreen {
     }
 
     // If everything was filtered out (e.g. all chats are blocked), show empty state
-    if (chatItems.length === 0) {
+    if (chatItems.length === 0 && groupChats.length === 0) {
       if (emptyStateEl) emptyStateEl.style.display = 'block';
       return;
     }
+
+    // Both kinds are collected with a sort key so they can be interleaved by
+    // recency rather than appended in two blocks.
+    const rendered = [];
 
     const avatarHtmlList = await Promise.all(
       chatItems.map(({ contact }) => getContactAvatarHtml(contact))
@@ -1805,7 +1912,7 @@ class ChatsScreen {
         previewHTML = truncateMessage(escapeHtml(reactionText), 50);
       } else if (typeof latestActivity.amount === 'bigint') {
         // Latest item is a payment/transfer
-        const amountStr = parseFloat(big2str(latestActivity.amount, 18)).toFixed(6);
+        const amountStr = evmAssets.formatTokenAmount(parseFloat(big2str(latestActivity.amount, 18)));
         const amountDisplay = `${amountStr} ${latestActivity.symbol || 'LIB'}`;
         const directionText = latestActivity.my ? '-' : '+';
         // Create payment preview text
@@ -1851,7 +1958,13 @@ class ChatsScreen {
 
       let displayPreview = previewHTML;
       const isOutgoingPreview = isShowingReactionPreview ? reactionPreview.my : latestActivity.my;
-      let displayPrefix = isOutgoingPreview ? '< ' : '> ';
+      /*
+       * Direction is carried by the status marker built below, not by a word:
+       * "You: " on every outgoing row spends five characters of a preview that
+       * has none to spare, and repeats down the whole list. Drafts keep a word
+       * because they are a different statement, not a direction.
+       */
+      let displayPrefix = '';
       let hasDraftAttachment = false;
 
       // Check for draft attachments
@@ -1862,7 +1975,7 @@ class ChatsScreen {
       // If there's draft text, show that (prioritize draft text over reply preview)
       if (contact.draft && contact.draft.trim() !== '') {
         displayPreview = truncateMessage(escapeHtml(contact.draft), 50);
-        displayPrefix = '< ';
+        displayPrefix = 'Draft: ';
       } else if (contact.draftReplyTxid) {
         // If there's only reply content (no text), show "Replying to: [message]"
         const replyMessage = contact.draftReplyMessage || '';
@@ -1880,11 +1993,12 @@ class ChatsScreen {
         displayPreview = attachmentCount === 1 
           ? '📎 Attachment' 
           : `📎 ${attachmentCount} attachments`;
-        displayPrefix = '< ';
+        displayPrefix = 'Draft: ';
       }
-      const failedIndicatorHTML = isFailedOutgoingActivity
-        ? '<span class="chat-failed-indicator" title="Not sent" aria-label="Not sent">!</span>'
-        : '';
+      const statusMarkerHTML = chatStatusMarker(
+        isFailedOutgoingActivity ? 'failed' : latestActivity.status,
+        isOutgoingPreview,
+      );
       // Create the list item element
       const li = document.createElement('li');
       li.classList.add('chat-item');
@@ -1897,17 +2011,69 @@ class ChatsScreen {
                   <div class="chat-time">${timeDisplay}</div>
               </div>
               <div class="chat-message">
-                ${failedIndicatorHTML}${unreadCount ? `<span class="chat-unread">${unreadCount}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
-                ${displayPrefix}${displayPreview}
+                <span class="chat-preview">${statusMarkerHTML}${displayPrefix}${displayPreview}</span>
+                ${unreadCount ? `<span class="chat-unread">${unreadCount}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
               </div>
           </div>
       `;
       // Set click handler to open chat modal
       li.onclick = () => chatModal.open(chat.address);
 
-      chatList.appendChild(li);
+      rendered.push({ ts: latestItemTimestamp || 0, li });
     });
-    
+
+    // --- group rows ---------------------------------------------------------
+    for (const view of groupChats) {
+      const latest = (view.messages || []).reduce(
+        (newest, m) => (!newest || m.timestamp > newest.timestamp ? m : newest),
+        null,
+      );
+      const ts = latest ? latest.timestamp : view.lastActivity || 0;
+
+      let preview = '<span><i>No messages yet</i></span>';
+      let prefix = '';
+      if (view.removed) {
+        preview = '<span><i>You were removed</i></span>';
+      } else if (latest) {
+        // "You: " rather than "< ". The arrows were shorthand for direction that
+        // only made sense if you already knew the convention — DESIGN.md §2.
+        prefix = chatStatusMarker(latest.status, latest.mine);
+        preview = truncateMessage(escapeHtml(latest.message || ''), 50);
+      }
+
+      /*
+       * People waiting to be let in, for admins only -- nobody else can act on
+       * a request. Its own marker rather than folded into the unread bubble:
+       * unread messages are something to read, a join request is something to
+       * decide, and a group can have both at once.
+       */
+      const me = normalizeAddress(myAccount?.keys?.address || '');
+      const iAmAdmin = (view.admins || []).some((a) => normalizeAddress(a) === me);
+      const waiting = iAmAdmin && !view.removed ? view.pendingJoinCount || 0 : 0;
+
+      const li = document.createElement('li');
+      li.classList.add('chat-item', 'chat-item--group');
+      li.innerHTML = `
+          <div class="chat-avatar">${addressAvatar(view.groupId, 40)}</div>
+          <div class="chat-content">
+              <div class="chat-header">
+                  <div class="chat-name">${escapeHtml(view.name || 'Group')}</div>
+                  <div class="chat-time">${ts ? formatTime(ts, false) : ''}</div>
+              </div>
+              <div class="chat-message">
+                <span class="chat-preview">${prefix}${preview}</span>
+                ${waiting ? `<span class="chat-join-badge" title="${waiting} waiting to join">${waiting} waiting</span>` : ''}
+                ${view.unread ? `<span class="chat-unread">${view.unread}</span>` : ''}
+              </div>
+          </div>
+      `;
+      li.onclick = () => groupChatModal.open(view.groupId);
+      rendered.push({ ts, li });
+    }
+
+    rendered.sort((a, b) => b.ts - a.ts);
+    for (const { li } of rendered) chatList.appendChild(li);
+
     // Restore scroll position after DOM manipulation to preserve user's scroll position
     if (scrollContainer && savedScrollTop > 0) {
       // Use requestAnimationFrame to ensure DOM has been updated
@@ -2007,6 +2173,14 @@ class ContactsScreen {
       const incompleteIndicator = isContactIncomplete(contact) 
         ? '<span class="contact-incomplete" title="Incomplete contact"></span>' 
         : '';
+      /*
+       * Whichever identifier they have. Monospace is for machine values only,
+       * so the address fallback gets it and an email or phone number does not —
+       * setting those in mono made them harder to read, not more precise.
+       */
+      const identifier = contact.email || contact.x || contact.phone;
+      const infoText = identifier || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`;
+      const infoClass = identifier ? 'contact-list-info' : 'contact-list-info contact-list-info--address';
       return `
             <li class="${itemClass}">
                 <div class="chat-avatar">${avatarHtml}</div>
@@ -2014,8 +2188,8 @@ class ContactsScreen {
                     <div class="chat-header">
                         <div class="chat-name">${incompleteIndicator}${contactName}</div>
                     </div>
-                    <div class="contact-list-info">
-                        ${contact.email || contact.x || contact.phone || `${contact.address.slice(0, 8)}…${contact.address.slice(-6)}`}
+                    <div class="${infoClass}">
+                        ${infoText}
                     </div>
                 </div>
             </li>
@@ -2028,7 +2202,8 @@ class ContactsScreen {
     for (const { key, label, itemClass } of groupMeta) {
       const group = statusGroups[key];
       if (group.length > 0) {
-        html += `<div class="contact-section-header">${label}</div>`;
+        // <li>, not <div>: these sit directly inside <ul id="contactsList">.
+        html += `<li class="contact-section-header" role="presentation">${label}</li>`;
         const items = await Promise.all(group.map((contact) => renderContactItem(contact, itemClass)));
         html += items.join('');
         allContacts = allContacts.concat(group);
@@ -2063,6 +2238,7 @@ class WalletScreen {
     this.refreshBalanceButton = document.getElementById('refreshBalance');
     // assets list
     this.assetsList = document.getElementById('assetsList');
+    this.nativeBalance = document.getElementById('walletNativeBalance');
     // action buttons
     this.openSendAssetFormModalButton = document.getElementById('openSendAssetFormModal');
     this.openReceiveModalButton = document.getElementById('openReceiveModal');
@@ -2088,12 +2264,9 @@ class WalletScreen {
     if (faucetBridgeLabel) {
       faucetBridgeLabel.textContent = isMainnet ? 'Bridge' : 'Faucet';
     }
-    // Update icon: add/remove bridge-mode class
-    if (isMainnet) {
-      this.openFaucetBridgeButton.classList.add('bridge-mode');
-    } else {
-      this.openFaucetBridgeButton.classList.remove('bridge-mode');
-    }
+    // The label is the whole signal now. There is no icon on this control since
+    // it moved into the secondary row, so the bridge-mode class it used to
+    // toggle had nothing left to style.
 
     this.openBuyButton.addEventListener('click', () => {
       window.open('https://liberdus.com/buy', '_blank');
@@ -2191,6 +2364,23 @@ class WalletScreen {
     walletData.networth = walletUsdValue ?? 0.0;
     this.totalBalance.textContent = walletUsdValue === null ? 'N/A' : walletUsdValue.toFixed(2);
 
+    /*
+     * How much of it there is, under what it is worth. A wallet gets asked both
+     * questions and this screen only ever answered the second. Shown only for a
+     * single-asset wallet: with several, no one native figure is "the" amount,
+     * and the asset list below already breaks them out.
+     */
+    if (this.nativeBalance) {
+      const assets = Array.isArray(walletData.assets) ? walletData.assets : [];
+      if (assets.length === 1) {
+        const only = assets[0];
+        const amount = Number(only.balance) / Number(wei);
+        this.nativeBalance.textContent = `${evmAssets.formatTokenAmount(amount)} ${only.symbol || 'LIB'}`;
+      } else {
+        this.nativeBalance.textContent = '';
+      }
+    }
+
     if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
       this.assetsList.querySelector('.empty-state').style.display = 'block';
       return;
@@ -2200,16 +2390,22 @@ class WalletScreen {
       .map((asset) => {
         const assetUsdPrice = getAssetUsdPrice(asset);
         const assetNetworth = calculateAssetUsdValue(asset);
-        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)} / ${asset.symbol}`;
-        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
+        const assetPriceText = assetUsdPrice === null ? 'N/A' : `${evmAssets.formatUsd(assetUsdPrice)} / ${asset.symbol}`;
+        const assetNetworthText = assetNetworth === null ? 'N/A' : evmAssets.formatUsd(assetNetworth);
         return `
               <div class="asset-item">
-                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
+                  <!-- The wrapper is the 40px circle; the image just fills it.
+                       Both carried class="asset-logo", so the image was also
+                       being given the circle's size, radius and background. -->
+                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" alt=""></div>
                   <div class="asset-info">
                       <div class="asset-name">${asset.name}</div>
-                      <div class="asset-symbol">${assetPriceText}</div>
+                      <div class="asset-symbol ui-num">${assetPriceText}</div>
                   </div>
-                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">${assetNetworthText}</span></div>
+                  <div class="asset-balance">
+                      <span>${evmAssets.formatTokenAmount(Number(asset.balance) / Number(wei))}</span>
+                      <span class="asset-symbol ui-num">${assetNetworthText}</span>
+                  </div>
               </div>
           `;
       })
@@ -2359,13 +2555,13 @@ class MenuModal {
 
   load() {
     this.modal = document.getElementById('menuModal');
-    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
+    lockRapidMenuClicks(this.modal.querySelector('.ui-nav'));
     this.closeButton = document.getElementById('closeMenu');
     this.closeButton.addEventListener('click', () => this.close());
     this.validatorButton = document.getElementById('openValidator');
     this.validatorButton.addEventListener('click', () => validatorModal.open());
     this.daoButton = document.getElementById('openDao');
-    this.daoButton.style.display = 'flex';
+    this.daoButton.hidden = false;
     this.daoButton.addEventListener('click', () => daoModal.open());
     this.inviteButton = document.getElementById('openInvite');
     this.inviteButton.addEventListener('click', () => inviteModal.open());
@@ -2377,10 +2573,10 @@ class MenuModal {
     this.helpButton.addEventListener('click', () => helpModal.open());
     this.aboutButton = document.getElementById('openAbout');
     this.aboutButton.addEventListener('click', () => aboutModal.open());
-    this.signOutButton = document.getElementById('handleSignOut');
+    // Sign Out is the header button only. It used to be both this and a row at
+    // the bottom of the list — the same action offered twice on one screen.
     this.signOutHeaderButton = document.getElementById('signOutMenuHeader');
-    const menuWrappedSignOut = withButtonCooldown([this.signOutButton, this.signOutHeaderButton], BUTTON_COOLDOWN_MS, null, async () => await this.handleSignOut());
-    this.signOutButton.addEventListener('click', menuWrappedSignOut);
+    const menuWrappedSignOut = withButtonCooldown([this.signOutHeaderButton], BUTTON_COOLDOWN_MS, null, async () => await this.handleSignOut());
     this.signOutHeaderButton.addEventListener('click', menuWrappedSignOut);
     this.bridgeButton = document.getElementById('openBridge');
     this.bridgeButton.addEventListener('click', () => bridgeModal.open());
@@ -2394,16 +2590,21 @@ class MenuModal {
     if (window?.ReactNativeWebView) {
       this.launchButton = document.getElementById('openLaunchUrl');
       this.launchButton.addEventListener('click', () => launchModal.open());
-      this.launchButton.style.display = 'block';
+      this.launchButton.hidden = false;
 
       this.updateButton = document.getElementById('openUpdate');
       this.updateButton.addEventListener('click', () => updateWarningModal.open());
-      this.updateButton.style.display = 'flex';
+      this.updateButton.hidden = false;
     }
   }
 
   open() {
+    // `myVersion` is this client's build. The About row carries it so the most
+    // common support question is answered without opening About.
+    const versionEl = document.getElementById('menuVersionValue');
+    if (versionEl) versionEl.textContent = myVersion || '';
     openModal(this.modal);
+    this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
 
@@ -2479,12 +2680,7 @@ class MenuModal {
     footer.close();
     footer.closeNewChatButton();
 
-    // Reset header text
-    header.setText('Liberdus');
-    // Clear avatar on sign out
-    if (header.avatarContainer) {
-      header.avatarContainer.innerHTML = '';
-    }
+    header.reset();
 
     // Hide all app screens
     document.querySelectorAll('.app-screen').forEach((screen) => {
@@ -6286,7 +6482,12 @@ class ProposalInfoModal {
     }
 
     const decision = this.formatCommitteeChoice(this.committeeChoice);
-    if (!window.confirm(`Submit review decision: ${decision}?`)) return;
+    const reviewConfirmed = await uiConfirm({
+      title: `Submit "${decision}"?`,
+      body: 'Your review decision is recorded on the network and cannot be changed.',
+      confirmLabel: 'Submit',
+    });
+    if (!reviewConfirmed) return;
 
     this.setSubmitting(true);
     const loadingToastId = showToast('Submitting committee review...', 0, 'loading');
@@ -6470,7 +6671,12 @@ class ProposalInfoModal {
     }
 
     const confirmedSpendWei = submission.spendWei;
-    if (!window.confirm(`Submit this vote and spend ${EthNum.toStr(confirmedSpendWei)} LIB?`)) return;
+    const voteConfirmed = await uiConfirm({
+      title: 'Submit this vote?',
+      body: `It spends ${EthNum.toStr(confirmedSpendWei)} LIB, which is not returned.`,
+      confirmLabel: 'Submit vote',
+    });
+    if (!voteConfirmed) return;
 
     submission = this.getVoteSubmission(proposal);
     if (!submission.ok) {
@@ -6541,12 +6747,128 @@ class ProposalInfoModal {
 
 const proposalInfoModal = new ProposalInfoModal();
 
+/**
+ * Appearance: how address-derived avatars are drawn.
+ *
+ * Applies instantly rather than behind a Save button. The choice is a display
+ * preference, it is reversible in one tap, and the preview list below the
+ * options is the confirmation — a Save step would only add a way to lose the
+ * change you just made.
+ */
+/**
+ * What happened to the reader's own last message, as a marker for a chat-list
+ * row. Empty when the last message was not theirs: there is nothing of theirs
+ * to track, and a marker on every row would distinguish nothing.
+ *
+ * A single check and never a double. The app's message vocabulary is
+ * 'pending' | 'sent' | 'failed' with no delivered or read state, so a second
+ * check would assert something no part of the system actually knows.
+ */
+function chatStatusMarker(status, mine) {
+  if (!mine) return '';
+  const state = status === 'failed' || status === 'pending' ? status : 'sent';
+  const label = { sent: 'Sent', pending: 'Sending', failed: 'Not sent' }[state];
+  return `<span class="chat-status" data-state="${state}" title="${label}" aria-label="${label}">${
+    state === 'failed' ? '!' : ''
+  }</span>`;
+}
+
+class AppearanceModal {
+  constructor() {
+    this.storageKey = 'avatar_style';
+  }
+
+  load() {
+    this.modal = document.getElementById('appearanceModal');
+    if (!this.modal) return;
+    this.options = document.getElementById('avatarStyleOptions');
+    this.preview = document.getElementById('avatarStylePreview');
+
+    document.getElementById('closeAppearanceModal').addEventListener('click', () => this.close());
+    this.options.addEventListener('change', (e) => {
+      const input = e.target.closest('input[name="avatarStyle"]');
+      if (input) this.select(input.value);
+    });
+
+    // Applied at boot, before any list renders, so nothing has to be redrawn.
+    setAvatarStyle(localStorage.getItem(this.storageKey) || 'gradient');
+  }
+
+  open() {
+    const current = getAvatarStyle();
+    for (const input of this.options.querySelectorAll('input[name="avatarStyle"]')) {
+      input.checked = input.value === current;
+    }
+    // Each swatch shows its OWN style, not the selected one — they are what the
+    // choice is between, so they must not both change when one is picked.
+    document.getElementById('avatarStyleSwatchGradient').innerHTML = generateAvatar(this.sampleAddress(), 28);
+    document.getElementById('avatarStyleSwatchIdenticon').innerHTML = generateIdenticon(this.sampleAddress(), 28);
+    this.renderPreview();
+    this.modal.classList.add('active');
+  }
+
+  close() {
+    this.modal.classList.remove('active');
+  }
+
+  /** The user's own address, falling back to a fixed sample before sign-in. */
+  sampleAddress() {
+    try {
+      if (myAccount?.keys?.address) return normalizeAddress(myAccount.keys.address);
+    } catch (e) {
+      // Not signed in, or a malformed address; the sample below still renders.
+    }
+    return '18ed49a5c07b3f61d2904ae8b5731cf0a629d4e7';
+  }
+
+  select(style) {
+    setAvatarStyle(style);
+    localStorage.setItem(this.storageKey, getAvatarStyle());
+    this.renderPreview();
+    this.refreshApp();
+  }
+
+  /**
+   * A few real contacts, so the choice is judged on actual addresses rather
+   * than on one invented swatch.
+   */
+  renderPreview() {
+    if (!this.preview) return;
+    const me = this.sampleAddress();
+    const others = Object.keys(myData?.contacts || {}).slice(0, 3);
+    const rows = [...new Set([me, ...others])].slice(0, 4);
+    this.preview.innerHTML = rows
+      .map((address) => {
+        const contact = myData?.contacts?.[address];
+        const name = contact?.username || contact?.name || (address === me ? 'You' : `${address.slice(0, 8)}…`);
+        return `
+        <li class="ui-list-row">
+          <span class="ui-list-avatar">${addressAvatar(address, 28)}</span>
+          <span class="ui-list-name">${escapeHtml(name)}</span>
+        </li>`;
+      })
+      .join('');
+  }
+
+  /** Redraw anything already on screen; avatars are generated at render time. */
+  refreshApp() {
+    try {
+      chatsScreen.updateChatList();
+      contactsScreen.updateContactsList();
+    } catch (e) {
+      console.warn('Could not refresh lists after an avatar style change:', e);
+    }
+  }
+}
+
+const appearanceModal = new AppearanceModal();
+
 class SettingsModal {
   constructor() { }
 
   load() {
     this.modal = document.getElementById('settingsModal');
-    lockRapidMenuClicks(this.modal.querySelector('.menu-list'));
+    lockRapidMenuClicks(this.modal.querySelector('.ui-nav'));
     this.closeButton = document.getElementById('closeSettings');
     this.closeButton.addEventListener('click', () => this.close());
     
@@ -6556,11 +6878,17 @@ class SettingsModal {
     this.contactsButton = document.getElementById('openManageContactsModal');
     this.contactsButton.addEventListener('click', () => manageContactsModal.open());
     
+    this.appearanceButton = document.getElementById('openAppearanceModal');
+    this.appearanceButton.addEventListener('click', () => appearanceModal.open());
+
     this.chatSettingsButton = document.getElementById('openChatSettingsModal');
     this.chatSettingsButton.addEventListener('click', () => chatSettingsModal.open());
 
+    // Settings > Profile and the header avatar are the same destination now.
+    // This used to open the form directly, which is how one concept ended up
+    // with two screens and two names.
     this.profileButton = document.getElementById('openAccountForm');
-    this.profileButton.addEventListener('click', () => accountModal.open());
+    this.profileButton.addEventListener('click', () => myInfoModal.open());
     
     this.tollButton = document.getElementById('openToll');
     this.tollButton.addEventListener('click', () => tollModal.open());
@@ -6577,15 +6905,42 @@ class SettingsModal {
     this.secretButton = document.getElementById('openSecretModal');
     this.secretButton.addEventListener('click', () => secretModal.open());
     
-    this.signOutButton = document.getElementById('handleSignOutSettings');
+    // Header button only — see the note in MenuModal.load().
     this.signOutHeaderButton = document.getElementById('signOutSettingsHeader');
-    const settingsWrappedSignOut = withButtonCooldown([this.signOutButton, this.signOutHeaderButton], BUTTON_COOLDOWN_MS, null, async () => await menuModal.handleSignOut());
-    this.signOutButton.addEventListener('click', settingsWrappedSignOut);
+    const settingsWrappedSignOut = withButtonCooldown([this.signOutHeaderButton], BUTTON_COOLDOWN_MS, null, async () => await menuModal.handleSignOut());
     this.signOutHeaderButton.addEventListener('click', settingsWrappedSignOut);
+
+    this.appearanceValue = document.getElementById('settingsAppearanceValue');
+    this.chatValue = document.getElementById('settingsChatValue');
+    this.lockValue = document.getElementById('settingsLockValue');
+  }
+
+  /*
+   * The current setting, shown in its row. Only values that are local and
+   * synchronous live here — avatar style, chat font size and lock state are all
+   * read straight off localStorage, so they cannot be stale or half-loaded when
+   * the modal opens. The toll is deliberately NOT shown: it needs the network's
+   * stability factor to render as anything meaningful, and a number that is
+   * sometimes wrong is worse in a row than no number at all.
+   */
+  refreshValues() {
+    if (this.appearanceValue) {
+      const style = getAvatarStyle();
+      this.appearanceValue.textContent = style === 'identicon' ? 'Identicon' : 'Gradient';
+    }
+    if (this.chatValue) {
+      const px = Number(localStorage.getItem('chat_font_size_px')) || 16;
+      this.chatValue.textContent = px <= 14 ? 'Small' : px >= 20 ? 'Large' : 'Medium';
+    }
+    if (this.lockValue) {
+      this.lockValue.textContent = localStorage?.lock ? 'On' : 'Off';
+    }
   }
 
   open() {
+    this.refreshValues();
     openModal(this.modal);
+    this.enableSignOutButtonWithDelay();
     enterFullscreen();
   }
 
@@ -6919,8 +7274,9 @@ class SecretModal {
       const dataUrl = 'data:image/gif;base64,' + base64;
       const img = document.createElement('img');
       img.src = dataUrl;
-      img.width = 200;
-      img.height = 200;
+      // No forced size: encodeQR emits whole pixels per module, and rescaling
+      // off that grid is how a code stops scanning. Same reason as #qrcode.
+
       img.alt = 'Secret key QR code';
       this.qrContainer.appendChild(img);
     } catch (e) {
@@ -7606,7 +7962,7 @@ class SignInModal {
    * Reset the active network sign-in username order back to registry order.
    * @returns {void}
    */
-  handleResetRecentSignInUsernames() {
+  async handleResetRecentSignInUsernames() {
     const { netid } = network;
     const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     const netidAccounts = accounts.netids[netid];
@@ -7616,7 +7972,11 @@ class SignInModal {
       return;
     }
 
-    const confirmed = confirm('Reset sign-in account order?');
+    const confirmed = await uiConfirm({
+      title: 'Reset sign-in order?',
+      body: 'Accounts go back to their original order on this device.',
+      confirmLabel: 'Reset',
+    });
     if (!confirmed) {
       return;
     }
@@ -7671,15 +8031,32 @@ class SignInModal {
 
     const renderListItem = (username) => {
       const isPrivateAccount = isPrivateMap[username];
-      const displayName = isPrivateAccount ? `- ${username}` : username;
       const privateClass = isPrivateAccount ? ' is-private' : '';
       const notificationBadge = notifiedUsernameSet.has(username)
         ? '<span class="sign-in-account-badge" aria-label="Has notifications">🔔</span>'
         : '';
+      /*
+       * The avatar every other list in the app shows for this identity. Sign-in
+       * was a column of bare names, which is the hardest thing to scan and the
+       * one screen where you are picking between identities.
+       *
+       * Derived from the ACCOUNT ADDRESS, not from the username: an avatar
+       * that did not match the one shown after signing in would be worse than
+       * no avatar at all. Omitted entirely if the address is unknown, rather
+       * than drawn from something that would not match.
+       *
+       * The name is plain: it used to be prefixed "- " for a private account,
+       * an unexplained mark directly under a heading that already says
+       * "Private accounts". The heading says it; the hyphen said it again in
+       * a way nobody could read.
+       */
+      const address = netidAccounts.usernames[username]?.address;
+      const avatar = address ? addressAvatar(normalizeAddress(address), 40) : '';
       return `
         <li class="sign-in-account-item${privateClass}" data-username="${username}">
           <div class="sign-in-account-card">
-            <span class="sign-in-account-name">${escapeHtml(displayName)}</span>
+            <span class="sign-in-account-avatar">${avatar}</span>
+            <span class="sign-in-account-name">${escapeHtml(username)}</span>
             ${notificationBadge}
           </div>
         </li>
@@ -7807,6 +8184,8 @@ class SignInModal {
       reactNativeApp.sendClearNotifications(addressToClear);
     }
 
+    setupGroupChat();
+
     /* requestNotificationPermission(); */
     if (useLongPolling) {
       setTimeout(longPoll, 10);
@@ -7832,6 +8211,9 @@ class SignInModal {
     // Close modal and proceed to app
     this.forceClose();
     welcomeScreen.close();
+
+    // Now that the sign-in screens are down, an invite link can surface.
+    openPendingGroupInvite();
     
     // Log storage information after successful sign-in
     try {
@@ -7953,14 +8335,13 @@ class MyInfoModal {
   load() {
     this.modal = document.getElementById('myInfoModal');
     this.backButton = document.getElementById('closeMyInfoModal');
-    this.editButton = document.getElementById('myInfoEditButton');
-    this.avatarSection = this.modal.querySelector('.contact-avatar-section');
-    this.avatarDiv = this.avatarSection.querySelector('.avatar');
-    this.nameDiv = this.avatarSection.querySelector('.name');
+    this.avatarDiv = document.getElementById('myInfoAvatar');
+    this.nameDiv = document.getElementById('myInfoDisplayName');
+    this.handleDiv = document.getElementById('myInfoUsername');
     this.addressDiv = document.getElementById('myInfoDisplayUsername');
     this.copyButton = document.getElementById('myInfoCopyAddress');
-    this.qrContainer = this.modal.querySelector('#myInfoQR');
-    this.fullAddress = null; // Store full address for copying
+    this.qrContainer = document.getElementById('myInfoQR');
+    this.fullAddress = null; // the untruncated address, for copying
 
     // Create avatar edit button
     this.avatarEditButton = document.createElement('button');
@@ -7968,25 +8349,25 @@ class MyInfoModal {
     this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
 
     this.backButton.addEventListener('click', () => this.close());
-    this.editButton.addEventListener('click', () => accountModal.open());
 
-    // Copy address functionality
+    // Every profile field opens the same editor. There is no separate pencil:
+    // the row you tapped is the thing you meant to change.
+    for (const id of ['myInfoNameRow', 'myInfoLinkedinRow', 'myInfoXRow']) {
+      document.getElementById(id)?.addEventListener('click', () => accountModal.open());
+    }
+
     this.copyButton.addEventListener('click', () => this.copyAddress());
     this.addressDiv.addEventListener('click', () => this.copyAddress());
 
-    // Avatar edit button click
     this.avatarEditButton.addEventListener('click', (e) => {
       e.stopPropagation();
       this.openAvatarEdit();
     });
-
-    // Make the avatar itself clickable
     this.avatarDiv.addEventListener('click', (e) => {
       e.stopPropagation();
       this.openAvatarEdit();
     });
 
-    // Attach edit button to the avatar div
     if (!this.avatarDiv.contains(this.avatarEditButton)) {
       this.avatarDiv.appendChild(this.avatarEditButton);
     }
@@ -7998,10 +8379,16 @@ class MyInfoModal {
     avatarEditModal.open(myAccount.keys.address, true); // true = isOwnAvatar
   }
 
+  /* An address is 42 characters of hex nobody reads end to end, but the head and
+     tail are what you check against another screen. The middle is the part that
+     can go. */
+  static shortAddress(address) {
+    return address.length > 20 ? `${address.slice(0, 10)}…${address.slice(-8)}` : address;
+  }
+
   async updateMyInfo() {
     if (!myAccount) return;
 
-    // Use getContactAvatarHtml for consistent avatar rendering
     // Include account avatar fields so user preference (`useAvatar`) is respected
     const avatarHtml = await getContactAvatarHtml(
       {
@@ -8009,69 +8396,42 @@ class MyInfoModal {
         hasAvatar: myData?.account?.hasAvatar,
         avatarId: myData?.account?.avatarId,
       },
-      96
+      88
     );
     this.avatarDiv.innerHTML = avatarHtml;
-
-    // Re-append the avatar edit button after setting the avatar content
     if (!this.avatarDiv.contains(this.avatarEditButton)) {
       this.avatarDiv.appendChild(this.avatarEditButton);
     }
 
-    this.nameDiv.textContent = myAccount.username;
+    const { account = {} } = myData ?? {};
+
+    // Display name leads; the username is the handle under it. Fall back to the
+    // username when no display name is set, so the large slot is never empty.
+    this.nameDiv.textContent = account.name || myAccount.username;
+    this.handleDiv.textContent = `@${myAccount.username}`;
+
     const address = myAccount.keys.address;
     const addressWithPrefix = address.startsWith('0x') ? address : `0x${address}`;
-    
-    // Store full address for copying
     this.fullAddress = addressWithPrefix;
-    
-    // Display full address (address is always shown, so no need to check display)
-    this.addressDiv.textContent = addressWithPrefix;
+    this.addressDiv.textContent = MyInfoModal.shortAddress(addressWithPrefix);
 
-    const { account = {} } = myData ?? {};
-    const fields = {
-      name:      { id: 'myInfoName',      label: 'Name' },
-      // Email and Phone fields hidden - may want to restore later
-      // email:     { id: 'myInfoEmail',     label: 'Email',    href: v => `mailto:${v}` },
-      // phone:     { id: 'myInfoPhone',     label: 'Phone' },
-      linkedin:  { id: 'myInfoLinkedin',  label: 'LinkedIn', href: v => `https://linkedin.com/in/${v}` },
-      x:         { id: 'myInfoX',         label: 'X',        href: v => `https://x.com/${v}` },
-    };
-
-    // Cache DOM elements once
-    const elements = Object.fromEntries(
-      Object.values(fields).map(({ id }) => [id, document.getElementById(id)])
-    );
-
-    // Iterate through each profile field to populate or hide it based on whether data exists
-    // For fields with values: display the container, set the text content, and set href if applicable
-    // For fields without values: hide the container
-    for (const [fieldKey, fieldConfig] of Object.entries(fields)) {
-      const element = elements[fieldConfig.id];
-      if (!element) continue; // skip if element not found in DOM
-      
-      // For clickable links (email, linkedin, x), the element is nested deeper in the DOM
-      const container =
-        fieldKey === 'email' || fieldKey === 'linkedin' || fieldKey === 'x'
-          ? element.parentElement.parentElement // label + anchor live two levels up
-          : element.parentElement;
-
-      const value = account[fieldKey] ?? '';
+    /* Every field is always shown, including the empty ones. A row that
+       disappears when unset cannot tell you the field exists — and these three
+       are the whole of what your connections see, so "LinkedIn — Add" is the
+       useful state, not a row to hide. */
+    const fields = [
+      ['myInfoName', account.name],
+      ['myInfoLinkedin', account.linkedin],
+      ['myInfoX', account.x],
+    ];
+    for (const [id, value] of fields) {
+      const el = document.getElementById(id);
+      if (!el) continue;
       const isEmpty = !value;
-
-      // Always show the Name field, hide others when empty
-      container.style.display = (fieldKey === 'name' || !isEmpty) ? 'flex' : 'none';
-      if (isEmpty && fieldKey !== 'name') continue;
-
-      // Populate the field with data
-      if (fieldKey === 'name') {
-        element.textContent = isEmpty ? 'Not Entered' : value;
-        element.classList.toggle('contact-info-value--empty', isEmpty);
-      } else {
-        element.textContent = value;
-        if (fieldConfig.href) element.href = fieldConfig.href(value);
-      }
+      el.textContent = isEmpty ? 'Add' : value;
+      el.classList.toggle('ui-nav-value--empty', isEmpty);
     }
+
     this.renderUsernameQR();
   }
 
@@ -8108,8 +8468,6 @@ class MyInfoModal {
       const dataUrl = 'data:image/gif;base64,' + base64;
       const img = document.createElement('img');
       img.src = dataUrl;
-      img.width = 160;
-      img.height = 160;
       img.alt = 'Username QR code';
       this.qrContainer.appendChild(img);
     } catch (e) {
@@ -8158,12 +8516,13 @@ class ContactInfoModal {
     this.chatButton = document.getElementById('contactInfoChatButton');
     this.sendButton = document.getElementById('contactInfoSendButton');
     this.addFriendButton = document.getElementById('addFriendButtonContactInfo');
-    this.avatarSection = this.modal.querySelector('.contact-avatar-section');
-    this.avatarDiv = this.avatarSection.querySelector('.avatar');
-    this.nameDiv = this.avatarSection.querySelector('.name');
+    this.avatarDiv = document.getElementById('contactInfoAvatar');
+    this.nameDiv = document.getElementById('contactInfoName');
+    this.handleDiv = document.getElementById('contactInfoHandle');
     this.subtitleDiv = document.getElementById('contactInfoDisplayAddress');
+    this.statusValue = document.getElementById('contactInfoStatus');
+    this.nameValue = document.getElementById('contactInfoNameValue');
     this.copyButton = document.getElementById('contactInfoCopyAddress');
-    this.usernameDiv = document.getElementById('contactInfoUsername');
     this.avatarEditButton = document.createElement('button');
     this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button avatar-edit-button-outside';
     this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
@@ -8187,11 +8546,19 @@ class ContactInfoModal {
 
     // Add send money button handler
     this.sendButton.addEventListener('click', () => {
-      sendAssetFormModal.username = this.usernameDiv.textContent;
+      /*
+       * From the contact record, not from a div. This read #contactInfoUsername's
+       * textContent — a row that has been removed as redundant, and which
+       * rendered "@name" with the prefix included, so the value handed to Send
+       * carried a stray "@" even while it existed.
+       */
+      sendAssetFormModal.username =
+        myData.contacts?.[this.currentContactAddress]?.username || '';
       sendAssetFormModal.open();
     });
 
-    // Add add friend button handler
+    // Opens Contact Status (Connection / Tolled / Blocked). It was labelled
+    // "Add friend", which is neither what it does nor where it goes.
     this.addFriendButton.addEventListener('click', () => {
       if (!this.currentContactAddress) return;
       friendModal.open();
@@ -8203,11 +8570,8 @@ class ContactInfoModal {
       this.openAvatarEdit();
     });
 
-    // Notes edit button
-    this.notesEditButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-      editContactModal.open('notes');
-    });
+    // The whole notes block is the button.
+    this.notesEditButton.addEventListener('click', () => editContactModal.open('notes'));
 
     // Make the avatar itself clickable
     this.avatarDiv.addEventListener('click', (e) => {
@@ -8225,91 +8589,95 @@ class ContactInfoModal {
     this.subtitleDiv.addEventListener('click', () => this.copyAddress());
   }
 
+  /**
+   * Contact status, as a word in a colour rather than the tint of a 24px glyph.
+   * @param {object|undefined} contact
+   * @returns {void}
+   */
+  setStatus(contact) {
+    if (!this.statusValue) return;
+    // 3 is a legacy value treated as a connection, the same way the contacts
+    // list groups it.
+    const friend = contact?.friend;
+    const [label, mod] =
+      friend === 0 ? ['Blocked', 'blocked']
+      : friend === 2 || friend === 3 ? ['Connection', 'connection']
+      : ['Tolled', 'tolled'];
+    this.statusValue.textContent = label;
+    this.statusValue.className = `ui-nav-value contact-status contact-status--${mod}`;
+  }
+
   // Update contact info values
   async updateContactInfo(displayInfo) {
-    const avatarHtml = await getContactAvatarHtml(displayInfo, 96);
-
-    // Update the avatar section
+    const avatarHtml = await getContactAvatarHtml(displayInfo, 88);
     this.avatarDiv.innerHTML = avatarHtml;
 
     // Re-append the avatar edit button after setting the avatar content
     if (!this.avatarDiv.contains(this.avatarEditButton)) {
       this.avatarDiv.appendChild(this.avatarEditButton);
     }
-    this.nameDiv.textContent = displayInfo.name !== 'Not Entered' ? displayInfo.name : displayInfo.username;
-    
-    // Store and display address
-    const addressWithPrefix = displayInfo.address?.startsWith('0x') ? displayInfo.address : `0x${displayInfo.address || ''}`;
+
+    const contact = displayInfo.address ? myData.contacts?.[displayInfo.address] : null;
+    const hasName = displayInfo.name && displayInfo.name !== 'Not Entered';
+
+    // The display name leads and the username is the handle beneath it — the
+    // same order as the You screen. Falls back to the username when no name is
+    // set, so the large slot is never empty.
+    this.nameDiv.textContent = hasName ? displayInfo.name : displayInfo.username || 'Unknown';
+    /*
+     * The handle only earns its line when the name above it is a nickname.
+     * Otherwise the name IS the username and this printed it a second time.
+     */
+    this.handleDiv.textContent = hasName && displayInfo.username ? `@${displayInfo.username}` : '';
+
+    const addressWithPrefix = displayInfo.address?.startsWith('0x')
+      ? displayInfo.address
+      : `0x${displayInfo.address || ''}`;
     this.fullAddress = addressWithPrefix;
-    this.subtitleDiv.textContent = addressWithPrefix;
+    // Truncated in the middle; copy still yields the whole thing.
+    this.subtitleDiv.textContent = MyInfoModal.shortAddress(addressWithPrefix);
 
-    const fields = {
-      Username: 'contactInfoUsername',
-      Name: 'contactInfoName',
-      ProvidedName: 'contactInfoProvidedName',
-      // Email and Phone fields hidden - may want to restore later
-      // Email: 'contactInfoEmail',
-      // Phone: 'contactInfoPhone',
-      LinkedIn: 'contactInfoLinkedin',
-      X: 'contactInfoX',
-    };
+    /*
+     * Name is always shown — it is the one you can set from here, and a row
+     * that vanishes when unset cannot tell you the field exists. Username and
+     * the links only appear when there is something in them.
+     */
+    if (this.nameValue) {
+      this.nameValue.textContent = hasName ? displayInfo.name : 'Add';
+      this.nameValue.classList.toggle('ui-nav-value--empty', !hasName);
+    }
 
-    Object.entries(fields).forEach(([field, elementId]) => {
-      const element = document.getElementById(elementId);
-      if (!element) return;
+    /*
+     * No Username row. The hero already carries it — as the name when there is
+     * no nickname, and as the handle when there is — so a third copy on the
+     * same screen said "bridgeeth" three times.
+     */
+    const optional = [
+      ['contactInfoLinkedinRow', 'contactInfoLinkedin', displayInfo.linkedin, (v) => `https://linkedin.com/in/${encodeURIComponent(v)}`],
+      ['contactInfoXRow', 'contactInfoX', displayInfo.x, (v) => `https://x.com/${encodeURIComponent(v)}`],
+    ];
+    for (const [rowId, valueId, raw, href] of optional) {
+      const row = document.getElementById(rowId);
+      const value = document.getElementById(valueId);
+      if (!row || !value) continue;
+      const text = raw === null || raw === undefined || raw === '' || raw === 'Not provided' ? '' : String(raw);
+      row.hidden = !text;
+      if (!text) continue;
+      value.textContent = text;
+      if (href) row.href = href(text);
+    }
 
-      const rawValue = displayInfo[field.toLowerCase()];
-      const value = (rawValue === null || rawValue === undefined || rawValue === '') ? 'Not provided' : rawValue;
-      const isEmpty = value === 'Not provided' || value === '';
-      
-      // Get the container to show/hide (contact-info-item div)
-      const container = field === 'Email' || field === 'LinkedIn' || field === 'X' 
-        ? element.parentElement.parentElement 
-        : element.parentElement;
+    // Empty string, not "Not Entered": `.contact-notes-text:empty` is what
+    // renders the "Add a note" prompt.
+    const notesRaw = displayInfo.notes ?? contact?.notes;
+    this.notesElement.textContent = notesRaw || '';
 
-      if (isEmpty) {
-        // Hide the entire field container (including label)
-        container.style.display = 'none';
-        return;
-      }
-
-      // Show the container and set the value (use flex to maintain side-by-side layout)
-      container.style.display = 'flex';
-      
-      if (field === 'Email') {
-        element.textContent = value;
-        element.href = `mailto:${value}`;
-      } else if (field === 'LinkedIn') {
-        element.textContent = value;
-        element.href = `https://linkedin.com/in/${value}`;
-      } else if (field === 'X') {
-        element.textContent = value;
-        element.href = `https://x.com/${value}`;
-      } else {
-        element.textContent = value;
-        // Add empty class only if the stored value is actually empty
-        if (field === 'Name') {
-          const storedName = displayInfo.address && myData.contacts?.[displayInfo.address]?.name;
-          element.classList.toggle('contact-info-value--empty', value === 'Not Entered' && !storedName);
-        } else {
-          element.classList.toggle('contact-info-value--empty', value === 'Not Entered');
-        }
-      }
-    });
-
-    // Notes
-    const notesRaw = displayInfo.notes ?? (displayInfo.address && myData.contacts?.[displayInfo.address]?.notes);
-    this.notesElement.textContent = notesRaw || 'Not Entered';
-    this.notesElement.classList.toggle('contact-info-value--empty', !notesRaw);
+    this.setStatus(contact);
   }
 
   // Set up chat button functionality
   setupChatButton(displayInfo) {
-    if (displayInfo.address) {
-      this.chatButton.style.display = 'block';
-    } else {
-      this.chatButton.style.display = 'none';
-    }
+    this.chatButton.hidden = !displayInfo.address;
   }
 
   async copyAddress() {
@@ -8335,11 +8703,9 @@ class ContactInfoModal {
     await this.updateContactInfo(displayInfo);
     this.setupChatButton(displayInfo);
 
-    // Update friend button status
-    const contact = myData.contacts[displayInfo.address];
-    if (contact) {
-      friendModal.updateFriendButton(contact, 'addFriendButtonContactInfo');
-    }
+    // The status row is filled by updateContactInfo above. It used to be
+    // friendModal.updateFriendButton painting a status-N class onto a person
+    // glyph in the header, which is where the colour was the only signal.
 
     openModal(this.modal);
   }
@@ -8862,7 +9228,18 @@ class FriendModal {
    * @returns {Promise<void>}
    */
   updateFriendButton(contact, buttonId) {
+    /*
+     * On Contact, the status is no longer a tinted glyph — it is a row with a
+     * word in it. Routing through here rather than patching the three call
+     * sites keeps every existing "the status changed, repaint it" path working,
+     * including any added later.
+     */
+    if (buttonId === 'addFriendButtonContactInfo') {
+      contactInfoModal.setStatus(contact);
+      return;
+    }
     const button = document.getElementById(buttonId);
+    if (!button) return;
     // Remove all status classes
     button.classList.remove('status-0', 'status-1', 'status-2');
     // Add the current status class
@@ -8983,56 +9360,58 @@ class EditContactModal {
   }
 
   open(focusField = 'name') {
-    // Get the avatar section elements
-    const nameDiv = this.avatarSection.querySelector('.name');
-    const subtitleDiv = this.avatarSection.querySelector('.subtitle');
-
-    // Update the avatar section
-    this.avatarDiv.innerHTML = document.getElementById('contactInfoAvatar').innerHTML;
-    // update the name and subtitle
-    nameDiv.textContent = contactInfoModal.usernameDiv.textContent;
-    subtitleDiv.textContent = contactInfoModal.subtitleDiv.textContent;
-
-    // update the provided name
-    const providedNameDiv = this.providedNameContainer.querySelector('.contact-info-value');
-
-    // if the textContent is 'Not provided', set it to an empty string
-    const providedName = document.getElementById('contactInfoProvidedName').textContent;
-    if (providedName === 'Not provided' || !providedName || providedName.trim() === '') {
-      this.providedNameContainer.style.display = 'none';
-    } else {
-      providedNameDiv.textContent = providedName;
-      this.providedNameContainer.style.display = 'flex';
-    }
-
-    // Get the original name from the contact info display
-    const contactNameDisplay = document.getElementById('contactInfoName');
-    let originalName = contactNameDisplay.textContent;
-    if (originalName === 'Not Entered') {
-      originalName = '';
-    }
-
-    // Set up the input field with the original name
-    this.nameInput.value = originalName;
-
-
-    // Get the current contact info from the contact info modal
+    /*
+     * Reads myData, not the Contact screen's DOM.
+     *
+     * This used to scrape four values out of #contactInfoModal — the avatar's
+     * innerHTML, the username div, the address subtitle and a hidden
+     * #contactInfoProvidedName. Every one of those was an assumption about
+     * another screen's markup, and rebuilding that screen broke all four at
+     * once: the username div gained an "@", the address became truncated, and
+     * the provided-name element stopped existing, which made this throw.
+     *
+     * The contact record is the actual source and it is already to hand.
+     */
     this.currentContactAddress = contactInfoModal.currentContactAddress;
-    if (!this.currentContactAddress || !myData.contacts[this.currentContactAddress]) {
+    const contact = this.currentContactAddress && myData.contacts?.[this.currentContactAddress];
+    if (!contact) {
       console.error('No current contact found');
       return;
     }
 
+    const addressWithPrefix = this.currentContactAddress.startsWith('0x')
+      ? this.currentContactAddress
+      : `0x${this.currentContactAddress}`;
+
+    this.avatarDiv.innerHTML = document.getElementById('contactInfoAvatar').innerHTML;
+    const nameDiv = this.avatarSection.querySelector('.name');
+    const subtitleDiv = this.avatarSection.querySelector('.subtitle');
+    if (nameDiv) nameDiv.textContent = contact.username ? `@${contact.username}` : '';
+    if (subtitleDiv) subtitleDiv.textContent = MyInfoModal.shortAddress(addressWithPrefix);
+
+    // The name the other side published, as distinct from the one you set.
+    const providedName = contact.senderInfo?.name || '';
+    const providedNameDiv = this.providedNameContainer.querySelector('.contact-info-value');
+    if (providedName.trim()) {
+      if (providedNameDiv) providedNameDiv.textContent = providedName;
+      this.providedNameContainer.hidden = false;
+    } else {
+      this.providedNameContainer.hidden = true;
+    }
+
+    // The name YOU set for this contact, which is what this field edits.
+    this.nameInput.value = contact.name || '';
+
     // Populate notes field
-    const contactNotes = myData.contacts[this.currentContactAddress]?.notes || '';
-    this.notesInput.value = contactNotes;
+    this.notesInput.value = contact.notes || '';
 
     // Show the edit contact modal
     openModal(this.modal);
-    // Delay focus to ensure transition completes (modal transition is 300ms)
+    // Delay focus to ensure transition completes (modal transition is 300ms).
+    // preventScroll: a plain focus() scrolls the modal container sideways.
     setTimeout(() => {
       const inputToFocus = focusField === 'notes' ? this.notesInput : this.nameInput;
-      inputToFocus.focus();
+      inputToFocus.focus({ preventScroll: true });
       // Set cursor position to the end of the input content
       inputToFocus.setSelectionRange(inputToFocus.value.length, inputToFocus.value.length);
     }, 325);
@@ -9156,9 +9535,11 @@ class HistoryModal {
     this.assetSelect = document.getElementById('historyAsset');
     this.transactionList = document.getElementById('transactionList');
     this.closeButton = document.getElementById('closeHistoryModal');
+    this.assetGroup = document.getElementById('historyAssetGroup');
 
-    // Cache the form container for scrollToTop
-    this.formContainer = this.modal.querySelector('.form-container');
+    // The scroll container is .modal-content: the list is no longer nested in
+    // a .form-container, which only ever wrapped it because it began as a form.
+    this.formContainer = this.modal.querySelector('.modal-content');
 
     // Setup event listeners
     this.closeButton.addEventListener('click', () => this.close());
@@ -9186,118 +9567,187 @@ class HistoryModal {
 
   populateAssets() {
     const walletData = myData.wallet;
-    
-    if (!walletData.assets || walletData.assets.length === 0) {
+    const assets = walletData.assets || [];
+
+    if (assets.length === 0) {
       this.assetSelect.innerHTML = '<option value="">No assets available</option>';
+      if (this.assetGroup) this.assetGroup.hidden = true;
       return;
     }
-    
-    this.assetSelect.innerHTML = walletData.assets
+
+    this.assetSelect.innerHTML = assets
       .map((asset, index) => `<option value="${index}">${asset.name} (${asset.symbol})</option>`)
       .join('');
+
+    // A select with one option is not a choice. Same rule as the wallet's
+    // single-asset case.
+    if (this.assetGroup) this.assetGroup.hidden = assets.length < 2;
+  }
+
+  /**
+   * The day a timestamp falls on, as a heading. Stated once per day rather than
+   * a full date on every row.
+   * @param {number} ts
+   * @returns {string}
+   */
+  static dayHeading(ts) {
+    const d = new Date(ts);
+    const today = new Date();
+    const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const days = Math.round((startOf(today) - startOf(d)) / 86400000);
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    return d.toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'long',
+      ...(d.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' }),
+    });
+  }
+
+  /**
+   * An amount with its trailing zeros trimmed.
+   *
+   * Every row used to be toFixed(6), which made "0.010000" and "120.500000"
+   * nearly the same length — so the column could not be scanned for size, which
+   * is the one thing a history list is for. Six decimals are kept when they
+   * carry information and dropped when they do not.
+   *
+   * @param {bigint|number|string} raw - amount in wei
+   * @returns {string}
+   */
+  static formatAmount(raw) {
+    const n = Math.abs(Number(raw) / Number(wei));
+    if (!Number.isFinite(n)) return '0';
+    /*
+     * One money formatter for the whole app. It trims to at most six fraction
+     * digits with no minimum, and falls back to exponential below a millionth —
+     * where rounding to "0" would say the transaction moved no money, which is
+     * the one thing it definitely did.
+     */
+    return evmAssets.formatTokenAmount(n);
   }
 
   updateTransactionHistory() {
     const walletData = myData.wallet;
     const assetIndex = this.assetSelect.value;
-    
+
     if (!walletData.history || walletData.history.length === 0) {
       this.showEmptyState();
       return;
     }
-    
+
     const asset = walletData.assets[assetIndex];
     const contacts = myData.contacts;
-    
-    this.transactionList.innerHTML = walletData.history
-      .map((tx) => {
-        const txidAttr = tx?.txid ? `data-txid="${tx.txid}"` : '';
-        const statusAttr = tx?.status ? `data-status="${tx.status}"` : '';
-        
-        // Check if transaction was deleted
-        if (isDeleted(tx)) {
-          return `
-            <div class="transaction-item deleted-transaction" ${txidAttr} ${statusAttr}>
-              <div class="transaction-info">
-                <div class="transaction-type deleted">
-                  <span class="delete-icon"></span>
-                  Deleted
-                </div>
-                <div class="transaction-amount">-- --</div>
-              </div>
-              <div class="transaction-memo">${escapeHtml(getDeletedPlaceholderText(tx))}</div>
-            </div>
-          `;
-        }
-        
-        // Handle stake transactions differently
-        if (tx.type === 'deposit_stake' || tx.type === 'withdraw_stake') {
-          const isStake = tx.type === 'deposit_stake';
-          const isUnstake = tx.type === 'withdraw_stake';
-          const stakeType = isStake ? 'stake' : 'unstake';
-          
-          // Determine unstake color based on amount (positive = blue, negative = red)
-          let unstakeTypeClass = '';
-          if (isUnstake) {
-            const amount = Number(tx.amount);
-            unstakeTypeClass = amount >= 0 ? 'unstake-positive' : 'unstake-negative';
+
+    /*
+     * Rendered from a token, because the avatars are async: a slow render for
+     * one asset must not land on top of a newer one for another.
+     */
+    const token = (this.renderToken = Symbol('history'));
+
+    const rows = walletData.history.map((tx) => {
+      if (isDeleted(tx)) {
+        return {
+          kind: 'deleted',
+          tx,
+          who: 'Deleted',
+          sub: getDeletedPlaceholderText(tx),
+          amount: '',
+        };
+      }
+
+      const isStake = tx.type === 'deposit_stake';
+      const isUnstake = tx.type === 'withdraw_stake';
+
+      if (isStake || isUnstake) {
+        // An unstake can come back negative, in which case it is money leaving.
+        const outgoing = isStake || Number(tx.amount) < 0;
+        return {
+          kind: 'stake',
+          tx,
+          who: tx.nominee || 'Unknown validator',
+          sub: isStake ? 'Staked' : 'Unstaked',
+          amount: `${outgoing ? '\u2212' : '+'}${HistoryModal.formatAmount(tx.amount)}`,
+          outgoing,
+        };
+      }
+
+      const outgoing = tx.sign === -1;
+      return {
+        kind: 'transfer',
+        tx,
+        address: tx.address,
+        who: tx.nominee || getContactDisplayName(contacts[tx.address]),
+        // The memo if there is one; otherwise the direction, which used to be
+        // stated twice — once as "↑ Sent" and again as "To:".
+        sub: tx.memo ? linkifyUrls(tx.memo) : outgoing ? 'Sent' : 'Received',
+        amount: `${outgoing ? '\u2212' : '+'}${HistoryModal.formatAmount(tx.amount)}`,
+        outgoing,
+      };
+    });
+
+    Promise.all(
+      rows.map((r) =>
+        r.kind === 'deleted' || !r.address
+          ? getContactAvatarHtml(r.tx?.nominee || r.tx?.address || '0'.repeat(64), 38).catch(() => '')
+          : getContactAvatarHtml(contacts[r.address] || r.address, 38).catch(() => '')
+      )
+    ).then((avatars) => {
+      if (token !== this.renderToken) return;
+
+      let lastDay = null;
+      const html = rows
+        .map((r, idx) => {
+          const day = HistoryModal.dayHeading(r.tx.timestamp);
+          const heading = day === lastDay ? '' : `<div class="tx-day">${escapeHtml(day)}</div>`;
+          lastDay = day;
+
+          if (r.kind === 'deleted') {
+            return `${heading}
+              <div class="tx tx--deleted" data-kind="deleted"${r.tx?.txid ? ` data-txid="${escapeHtml(r.tx.txid)}"` : ''}>
+                <span class="tx-av"><span class="tx-av-img"></span></span>
+                <span class="tx-main">
+                  <span class="tx-who">Deleted</span>
+                  <span class="tx-sub">${escapeHtml(r.sub)}</span>
+                </span>
+                <span class="tx-right"><span class="tx-time">${escapeHtml(formatTime(r.tx.timestamp))}</span></span>
+              </div>`;
           }
-          
-          // Add data attribute for negative unstake transactions to help with CSS styling
-          const amountNegativeAttr = (isUnstake && Number(tx.amount) < 0) ? 'data-amount-negative="true"' : '';
-          
-          return `
-            <div class="transaction-item" data-memo="${stakeType}" ${txidAttr} ${statusAttr} ${amountNegativeAttr}>
-              <div class="transaction-info">
-                <div class="transaction-type ${isStake ? 'stake' : unstakeTypeClass}">
-                  ${isStake ? '↑ Staked' : '↓ Unstaked'}
-                </div>
-                <div class="transaction-amount">
-                  ${isStake ? '-' : (Number(tx.amount) >= 0 ? '+' : '-')} ${Math.abs(Number(tx.amount) / Number(wei)).toFixed(6)} ${asset.symbol}
-                </div>
-              </div>
-              <div class="transaction-details">
-                <div class="transaction-address">
-                  ${isStake ? 'To:' : 'From:'} ${tx.nominee || 'Unknown Validator'}
-                </div>
-                <div class="transaction-time">${formatTime(tx.timestamp)}</div>
-              </div>
-              <div class="transaction-memo">${stakeType}</div>
-            </div>
-          `;
-        }
-        
-        // Render normal transaction
-        const contactName = getContactDisplayName(contacts[tx.address]);
-        
-        return `
-          <div class="transaction-item" data-address="${tx.address}" ${txidAttr} ${statusAttr}>
-            <div class="transaction-info">
-              <div class="transaction-type ${tx.sign === -1 ? 'send' : 'receive'}">
-                ${tx.sign === -1 ? '↑ Sent' : '↓ Received'}
-              </div>
-              <div class="transaction-amount">
-                ${tx.sign === -1 ? '-' : '+'} ${(Number(tx.amount) / Number(wei)).toFixed(6)} ${asset.symbol}
-              </div>
-            </div>
-            <div class="transaction-details">
-              <div class="transaction-address">
-                ${tx.sign === -1 ? 'To:' : 'From:'} ${tx.nominee || contactName}
-              </div>
-              <div class="transaction-time">${formatTime(tx.timestamp)}</div>
-            </div>
-            ${tx.memo ? `<div class="transaction-memo">${linkifyUrls(tx.memo)}</div>` : ''}
-          </div>
-        `;
-      })
-      .join('');
-    
-    // Scroll the form container to top after rendering
-    requestAnimationFrame(() => (this.formContainer.scrollTop = 0));
+
+          const failed = r.tx?.status === 'failed';
+          const classes = [
+            'tx',
+            !r.outgoing ? 'tx--in' : '',
+            failed ? 'tx--failed' : '',
+          ].filter(Boolean).join(' ');
+
+          return `${heading}
+            <button type="button" class="${classes}" data-kind="${r.kind}"${
+              r.address ? ` data-address="${escapeHtml(r.address)}"` : ''
+            }${r.tx?.txid ? ` data-txid="${escapeHtml(r.tx.txid)}"` : ''}${
+              r.tx?.status ? ` data-status="${escapeHtml(r.tx.status)}"` : ''
+            }${r.tx?.memo ? ` data-memo="${escapeHtml(r.tx.memo)}"` : ''}>
+              <span class="tx-av"><span class="tx-av-img">${avatars[idx]}</span><span class="tx-dir"></span></span>
+              <span class="tx-main">
+                <span class="tx-who">${escapeHtml(r.who)}</span>
+                <span class="tx-sub">${failed ? 'Failed' : r.sub}</span>
+              </span>
+              <span class="tx-right">
+                <span class="tx-amt">${escapeHtml(r.amount)} ${escapeHtml(asset.symbol)}</span>
+                <span class="tx-time">${escapeHtml(formatTime(r.tx.timestamp))}</span>
+              </span>
+            </button>`;
+        })
+        .join('');
+
+      this.transactionList.innerHTML = html;
+      requestAnimationFrame(() => (this.formContainer.scrollTop = 0));
+    });
   }
 
   showEmptyState() {
-    this.transactionList.querySelector('.empty-state').style.display = 'block';
+    const empty = this.transactionList.querySelector('.empty-state');
+    if (empty) empty.hidden = false;
   }
 
   handleAssetChange() {
@@ -9305,29 +9755,28 @@ class HistoryModal {
   }
 
   handleItemClick(event) {
-    const item = event.target.closest('.transaction-item');
-    
-    if (!item) return;
-    
-    // Prevent clicking on deleted transactions
-    if (item.classList.contains('deleted-transaction')) {
-      return;
-    }
-    
-    if (item.dataset.status === 'failed') {
+    const item = event.target.closest('.tx');
 
-      if (event.target.closest('.transaction-item')) {
-        failedTransactionModal.open(item.dataset.txid, item);
-      }
+    if (!item) return;
+
+    if (item.dataset.kind === 'deleted') return;
+
+    if (item.dataset.status === 'failed') {
+      failedTransactionModal.open(item.dataset.txid, item);
       return;
     }
-    
-    const type = item.querySelector('.transaction-type')?.textContent;
-    if (type.includes('stake')) {
+
+    /*
+     * Keyed off data-kind, not the row's displayed text. This used to read
+     * `.transaction-type`'s textContent and test `.includes('stake')`, so what
+     * the screen DID depended on what it happened to SAY — renaming "↑ Staked"
+     * would have silently stopped it opening the validator screen.
+     */
+    if (item.dataset.kind === 'stake') {
       validatorModal.open();
       return;
     }
-    
+
     const address = item.dataset.address;
     // Don't open chat modal for faucet address
     if (address && isFaucetAddress(address)) {
@@ -9629,7 +10078,7 @@ class CallsModal {
         
         // Generate avatars for all participants
         const participantAvatars = callGroup.participants.map(p => 
-          `<div class="participant-avatar" title="${escapeHtml(p.calling)}">${generateIdenticon(p.address)}</div>`
+          `<div class="participant-avatar" title="${escapeHtml(p.calling)}">${addressAvatar(p.address)}</div>`
         ).join('');
         
         // Create participant names list
@@ -9646,7 +10095,7 @@ class CallsModal {
         li = template.content.cloneNode(true).querySelector('li');
         
         const participant = callGroup.participants[0];
-        const identicon = generateIdenticon(participant.address);
+        const identicon = addressAvatar(participant.address);
         
         // Populate template
         li.setAttribute('data-index', String(i));
@@ -9795,7 +10244,7 @@ class GroupCallParticipantsModal {
           const avatar = participantEl.querySelector('.participant-avatar');
           const name = participantEl.querySelector('.participant-name');
           
-          if (avatar) avatar.innerHTML = generateIdenticon(participantAddress);
+          if (avatar) avatar.innerHTML = addressAvatar(participantAddress);
           if (name) name.textContent = participant.calling || participantAddress;
           
           this.participantsList.appendChild(participantEl);
@@ -9931,8 +10380,18 @@ async function queryNetwork(url, abortSignal = null) {
 //      showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
     }
     const response = await fetch(`${selectedGateway.web}${url}`, { signal: abortSignal });
-    const data = parse(await response.text());
-    return data;
+    const body = await response.text();
+    /*
+     * A route this network does not have answers with an HTML error page, and
+     * parsing that threw a SyntaxError which was logged as if the request had
+     * failed. It had not: the gateway answered, it just does not know the
+     * route. Report it as the 404 it is and let callers decide.
+     */
+    if (!response.ok) {
+      console.warn(`queryNetwork ${response.status} ${url}`);
+      return null;
+    }
+    return parse(body);
   } catch (error) {
     // Check if error is due to abort
     if (error.name === 'AbortError') {
@@ -9946,6 +10405,148 @@ async function queryNetwork(url, abortSignal = null) {
   //    showToast(`queryNetwork: error: ${error} ${url} ${now}`, 0, 'error')
     }
     return null;
+  }
+}
+
+/**
+ * Wires up MLS group chat for the signed-in account.
+ *
+ * groupManager keeps no reference to app.js, so the helpers it needs are passed
+ * in here. Safe to call on every sign-in; it only re-binds the dependencies.
+ */
+let groupChatReady = false;
+/** Group id from an invite link, held until the main screen is up. */
+let pendingGroupInvite = null;
+
+/**
+ * Opens the join dialog for a link the app was launched from.
+ *
+ * Deliberately never auto-requests: the link is an invitation to ask, and asking
+ * costs a transaction, so it stays an explicit action by the user.
+ */
+function openPendingGroupInvite() {
+  if (!pendingGroupInvite) return;
+  const groupId = pendingGroupInvite;
+  pendingGroupInvite = null;
+  joinGroupModal.open(groupId);
+}
+
+
+function setupGroupChat() {
+  groups.initGroupManager({
+    queryNetwork,
+    signObj,
+    injectTx,
+    getTransactionTimestamp,
+    getTransactionFeeWei,
+    getMyAccount: () => myAccount,
+    getMyData: () => myData,
+    getNetworkId: () => network.netid,
+    saveState,
+    /*
+     * Mirrors 1:1: a sound only when the message is not already on screen, or
+     * the app is in the background. Muting is per group, checked here rather
+     * than in groupManager so the sync path stays free of UI policy.
+     */
+    onGroupMessages: (groupId) => {
+      if (groups.isGroupMuted(groupId)) return;
+      const watchingThisGroup =
+        groupChatModal.isActive() && groupChatModal.groupId === groupId;
+      if (!watchingThisGroup || document.visibilityState === 'hidden') {
+        playChatSound();
+      }
+    },
+    onGroupUpdated: (groupId) => {
+      // Cheap: the chat list re-reads myData.groups on its next render.
+      if (typeof chatsScreen !== 'undefined' && chatsScreen.updateChatList) {
+        chatsScreen.updateChatList();
+      }
+      if (groupId) refreshOpenGroup(groupId);
+    },
+    /*
+     * Someone asked to join. Only admins hear it: nobody else can act on a
+     * request, so for them it would be noise about someone else's decision.
+     *
+     * Shares the group's mute switch rather than adding a second one. It is the
+     * same group making the same kind of interruption, and two separate mutes
+     * for that is a worse setting than one.
+     */
+    onGroupJoinRequest: (groupId) => {
+      if (groups.isGroupMuted(groupId)) return;
+      const view = myData?.groups?.[groupId];
+      const me = normalizeAddress(myAccount?.keys?.address || '');
+      const isAdmin = (view?.admins || []).some((a) => normalizeAddress(a) === me);
+      if (!isAdmin) return;
+      playChatSound();
+    },
+  });
+
+  initGroupUI({
+    queryNetwork,
+    getMyAccount: () => myAccount,
+    getMyData: () => myData,
+    showToast,
+    // The in-app dialog, so group screens confirming a spend look like the rest
+    // of the app rather than reaching for window.confirm.
+    uiConfirm,
+    onChatListChanged: () => chatsScreen.updateChatList(),
+    /*
+     * Reused rather than reimplemented: this already handles the visual
+     * viewport, the on-screen keyboard and clamping to the scroller, none of
+     * which is worth writing twice.
+     */
+    positionMenu: (menu, el) => chatModal.positionContextMenu(menu, el),
+  });
+  groupChatReady = true;
+
+  // Restore the view model for groups this device already holds MLS state for,
+  // then make sure we have KeyPackages published so others can add us.
+  /*
+   * The capability probe runs FIRST, and on its own.
+   *
+   * It is two plain GETs and has no dependency on MLS — whereas restoreGroups()
+   * awaits the MLS store, which on a network without group support is the least
+   * likely thing to come up. Putting the probe behind it meant the one network
+   * the probe exists for was the one where it never ran.
+   *
+   * On an unsupported network there is then nothing else to do: no restore, no
+   * key packages, no rejected transaction to explain away.
+   */
+  groups
+    .detectGroupSupport()
+    .then((supported) => {
+      newChatModal.refreshGroupAvailability();
+      if (supported === false) return null;
+      return groups.restoreGroups().then(() => groups.ensureKeyPackages());
+    })
+    .catch((e) => console.warn('group chat setup:', e));
+
+  /*
+   * Launched from an invite link (#group=<id>).
+   *
+   * Only RECORDED here. setupGroupChat runs partway through sign-in, before
+   * `this.forceClose()` and `welcomeScreen.close()` tear the sign-in UI down —
+   * opening a modal at this point leaves it active but buried behind the screen
+   * that is about to close, which is exactly the "active but invisible" state
+   * the back-button handler then trips over. openPendingGroupInvite() is called
+   * once the app is actually on its main screen.
+   *
+   * The fragment is cleared now so a refresh does not reopen the dialog.
+   */
+  pendingGroupInvite = parseGroupInvite(window.location.hash);
+  if (pendingGroupInvite) {
+    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+  }
+}
+
+/** Pulls new commits and messages for every group. Driven by the chat poll. */
+async function updateGroupData() {
+  if (!groupChatReady || !myAccount?.keys) return 0;
+  try {
+    return await groups.syncAllGroups();
+  } catch (e) {
+    console.error('group sync failed', e);
+    return 0;
   }
 }
 
@@ -9978,7 +10579,9 @@ async function getChats(keys, retry = 1) {
   if (senders && senders.chats && chatCount) {
     await processChats(senders.chats, keys);
   } else {
-    console.error('getChats: no senders found')
+    // An empty chats map is an ordinary state, not a failure: a brand-new
+    // account has none, and a member removed from their only group has none
+    // again. Logging it as an error made the console unusable on every poll.
     myAccount.chatTimestamp = timestamp;
   }
   if (chatModal.address) {
@@ -10075,201 +10678,6 @@ async function ensureContactKeys(address) {
  *   visibleResult: ReactionSnapshot & { emoji: '' }
  * })} PendingReactionMutation
  */
-
-/**
- * Returns the newest effective reaction for a specific sender and target message.
- * @param {Object} contact
- * @param {string} targetTxid
- * @param {string} sender
- * @returns {Object|null}
- */
-function getEffectiveReactionForSenderTarget(contact, targetTxid, sender) {
-  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-  const normalizedSender = normalizeAddress(sender);
-
-  for (const reaction of reactions) {
-    if (!reaction.emoji) {
-      continue;
-    }
-    if (reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender) {
-      return reaction;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Returns the newest reaction state, including empty-emoji removal markers.
- * @param {Object} contact
- * @param {string} targetTxid
- * @param {string} sender
- * @returns {Object|null}
- */
-function getLatestReactionStateForSenderTarget(contact, targetTxid, sender) {
-  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-  const normalizedSender = normalizeAddress(sender);
-
-  for (const reaction of reactions) {
-    if (reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender) {
-      return reaction;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Returns the effective reactions for a specific target message.
- * @param {Object} contact
- * @param {string} targetTxid
- * @returns {Array<Object>}
- */
-function getContactReactionsForTarget(contact, targetTxid) {
-  const reactions = Array.isArray(contact.reactions) ? contact.reactions : [];
-  const seen = new Set();
-  const effectiveReactions = [];
-
-  for (const reaction of reactions) {
-    if (!reaction.emoji) {
-      continue;
-    }
-    if (reaction.targetTxid !== targetTxid) {
-      continue;
-    }
-
-    const senderKey = normalizeAddress(reaction.sender);
-    if (seen.has(senderKey)) {
-      continue;
-    }
-
-    seen.add(senderKey);
-    effectiveReactions.push(reaction);
-  }
-
-  return effectiveReactions;
-}
-
-/**
- * Removes every raw reaction entry for a given sender and target.
- * @param {Object} contact
- * @param {string} targetTxid
- * @param {string} sender
- * @returns {boolean}
- */
-function purgeReactionStackForSenderTarget(contact, targetTxid, sender) {
-  if (!Array.isArray(contact.reactions)) {
-    return false;
-  }
-
-  const normalizedSender = normalizeAddress(sender);
-  const initialLength = contact.reactions.length;
-  contact.reactions = contact.reactions.filter((reaction) => {
-    return !(reaction.targetTxid === targetTxid && normalizeAddress(reaction.sender) === normalizedSender);
-  });
-  return contact.reactions.length !== initialLength;
-}
-
-/**
- * Removes a raw reaction entry by the txid of the reaction-control transaction that created it.
- * @param {Object} contact
- * @param {string} reactionTxId
- * @returns {boolean}
- */
-function removeReactionByReactionTxId(contact, reactionTxId) {
-  if (!Array.isArray(contact.reactions) || !reactionTxId) {
-    return false;
-  }
-
-  const index = contact.reactions.findIndex((reaction) => reaction.reactionTxId === reactionTxId);
-  if (index === -1) {
-    return false;
-  }
-
-  contact.reactions.splice(index, 1);
-  return true;
-}
-
-/**
- * Records a reaction removal as chat-list activity without creating a visible chip.
- * @param {Object} contact
- * @param {Extract<ReactionUpdate, { action: 'remove' }>} reaction
- * @returns {void}
- */
-function recordReactionRemovalActivity(contact, reaction) {
-  insertSorted(contact.reactions, {
-    sender: normalizeAddress(reaction.sender),
-    targetTxid: reaction.reactId,
-    emoji: '',
-    timestamp: reaction.timestamp,
-    reactionTxId: reaction.reactionTxId
-  }, 'timestamp');
-}
-
-/**
- * Returns a normalized copy of a reaction snapshot or null.
- * @param {ReactionSnapshot | null} reaction
- * @returns {ReactionSnapshot | null}
- */
-function copyReactionSnapshot(reaction) {
-  if (!reaction) {
-    return null;
-  }
-
-  return {
-    sender: normalizeAddress(reaction.sender),
-    targetTxid: reaction.targetTxid,
-    emoji: reaction.emoji,
-    timestamp: Number(reaction.timestamp),
-    reactionTxId: reaction.reactionTxId
-  };
-}
-
-/**
- * Returns whether two reaction snapshots describe the same visible reaction.
- * @param {ReactionSnapshot | null} left
- * @param {ReactionSnapshot | null} right
- * @returns {boolean}
- */
-function areReactionSnapshotsEqual(left, right) {
-  if (!left && !right) {
-    return true;
-  }
-  if (!left || !right) {
-    return false;
-  }
-
-  return normalizeAddress(left.sender) === normalizeAddress(right.sender) &&
-    left.targetTxid === right.targetTxid &&
-    left.emoji === right.emoji &&
-    Number(left.timestamp) === Number(right.timestamp) &&
-    left.reactionTxId === right.reactionTxId;
-}
-
-/**
- * Replaces the visible reaction for one sender+target pair with the provided snapshot.
- * @param {Object} contact
- * @param {string} targetTxid
- * @param {string} sender
- * @param {ReactionSnapshot | null} reaction
- * @returns {void}
- */
-function setVisibleReaction(contact, targetTxid, sender, reaction) {
-  contact.reactions ??= [];
-  purgeReactionStackForSenderTarget(contact, targetTxid, sender);
-
-  if (!reaction) {
-    return;
-  }
-
-  insertSorted(contact.reactions, {
-    sender: normalizeAddress(reaction.sender),
-    targetTxid: reaction.targetTxid,
-    emoji: reaction.emoji,
-    timestamp: Number(reaction.timestamp),
-    reactionTxId: reaction.reactionTxId
-  }, 'timestamp');
-}
 
 /**
  * Returns the pending reaction chain entries for one contact+target pair.
@@ -10376,22 +10784,6 @@ function cleanupResolvedReactionChain(contactAddress, targetTxid) {
 }
 
 /**
- * Removes all active reactions that target a specific message.
- * @param {Object} contact
- * @param {string} targetTxid
- * @returns {boolean}
- */
-function purgeContactReactionsForTarget(contact, targetTxid) {
-  if (!Array.isArray(contact.reactions)) {
-    return false;
-  }
-
-  const initialLength = contact.reactions.length;
-  contact.reactions = contact.reactions.filter((reaction) => reaction.targetTxid !== targetTxid);
-  return contact.reactions.length !== initialLength;
-}
-
-/**
  * Removes pending reaction transactions that would rematerialize chips for a deleted message.
  * @param {string} contactAddress
  * @param {string} targetTxid
@@ -10413,85 +10805,6 @@ function purgePendingReactionsForTarget(contactAddress, targetTxid) {
     }
     return pendingTx.reactionInjectPending === true;
   });
-}
-
-/**
- * Applies a reaction control message to the contact-level active reaction state.
- * @param {Object} contact
- * @param {ReactionUpdate} reaction
- * @returns {boolean}
- */
-function applyIncomingReaction(contact, reaction) {
-  const targetMessage = contact.messages.find((message) => message.txid === reaction.reactId);
-  if (!targetMessage || isDeleted(targetMessage)) {
-    console.warn('Reaction target not found locally', reaction);
-    return false;
-  }
-
-  if (!Array.isArray(contact.reactions)) {
-    if (reaction.action === 'remove') {
-      return false;
-    }
-    contact.reactions = [];
-  }
-
-  const sender = normalizeAddress(reaction.sender);
-  const latestReactionState = getLatestReactionStateForSenderTarget(contact, reaction.reactId, sender);
-  const isIncomingOlderThanCurrent = !!latestReactionState && latestReactionState.timestamp > reaction.timestamp;
-
-  switch (reaction.action) {
-    case 'remove': {
-      if (reaction.targetReactionTxId) {
-        const targetReaction = contact.reactions.find((entry) => {
-          return entry.targetTxid === reaction.reactId &&
-            normalizeAddress(entry.sender) === sender &&
-            entry.reactionTxId === reaction.targetReactionTxId;
-        });
-        if (!targetReaction) {
-          return false;
-        }
-        removeReactionByReactionTxId(contact, targetReaction.reactionTxId);
-        recordReactionRemovalActivity(contact, reaction);
-        return true;
-      }
-      if (isIncomingOlderThanCurrent) {
-        return false;
-      }
-      if (!purgeReactionStackForSenderTarget(contact, reaction.reactId, sender)) {
-        return false;
-      }
-      recordReactionRemovalActivity(contact, reaction);
-      return true;
-    }
-
-    case 'set': {
-      const emoji = reaction.emoji.trim();
-      const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
-      // don't allow duplicate reactions
-      if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
-        return false;
-      }
-      if (isIncomingOlderThanCurrent) {
-        return false;
-      }
-      if (currentReaction && currentReaction.emoji === emoji) {
-        return false;
-      }
-      purgeReactionStackForSenderTarget(contact, reaction.reactId, sender);
-
-      insertSorted(contact.reactions, {
-        sender,
-        targetTxid: reaction.reactId,
-        emoji,
-        timestamp: reaction.timestamp,
-        reactionTxId: reaction.reactionTxId
-      }, 'timestamp');
-      return true;
-    }
-
-    default:
-      throw new Error(`Unknown reaction action: ${reaction.action}`);
-  }
 }
 
 /**
@@ -11054,8 +11367,45 @@ function syncChatTabNotificationBubble() {
 }
 
 // Actually payments also appear in the chats, so we can add these to
+/*
+ * Transactions the sync could not commit yet, by txid, with an attempt count.
+ *
+ * A tx is skipped for reasons that are usually transient -- the sender's public
+ * key is not cached yet, an alias lookup did not answer, a decrypt failed. The
+ * watermark must not move past a skipped tx or it can never be fetched again,
+ * but retrying one forever would wedge every later message in that chat behind
+ * it. So retries are bounded: after MAX_TX_SYNC_RETRIES the tx is given up on
+ * loudly and the watermark is allowed past.
+ */
+const txSyncFailures = new Map();
+const MAX_TX_SYNC_RETRIES = 5;
+
+/** @returns {boolean} true to hold the watermark back and retry, false to give up. */
+function noteTxSyncFailure(txidHex, reason) {
+  const attempts = (txSyncFailures.get(txidHex) || 0) + 1;
+  if (attempts > MAX_TX_SYNC_RETRIES) {
+    console.error(`[sync] giving up on ${txidHex} after ${MAX_TX_SYNC_RETRIES} attempts: ${reason}`);
+    txSyncFailures.delete(txidHex);
+    return false;
+  }
+  txSyncFailures.set(txidHex, attempts);
+  console.warn(`[sync] deferring ${txidHex} (attempt ${attempts}): ${reason}`);
+  return true;
+}
+
+function noteTxSyncSuccess(txidHex) {
+  if (txSyncFailures.size) txSyncFailures.delete(txidHex);
+}
+
 async function processChats(chats, keys) {
   let newTimestamp = 0;
+  /*
+   * The oldest tx this pass could not commit. newTimestamp is the newest tx
+   * SEEN, which is not the same thing: a skipped tx sits below it, and moving
+   * the watermark to newTimestamp would put that tx permanently out of reach of
+   * the next /messages query. The watermark is clamped below this at the end.
+   */
+  let earliestUnresolved = Infinity;
   const timestamp = myAccount.chatTimestamp || 0;
   const messageQueryTimestamp = Math.max(0, timestamp+1);
   let hasAnyTransfer = false;
@@ -11063,10 +11413,33 @@ async function processChats(chats, keys) {
   const currentUserAddress = normalizeAddress(keys.address);
 
   for (let sender in chats) {
+    /*
+     * Group conversations share this map, because group_create/group_commit
+     * write a pointer into the member's account so the existing long-poll and
+     * discovery keep working. Those entries are keyed by groupId — a hash, not
+     * an address — so normalizeAddress below would throw on them.
+     *
+     * A group pointer is exactly the entry whose key equals its chatId
+     * (chats[groupId] = { chatId: groupId }). A 1:1 entry never matches, since
+     * its chatId is hash(from, to), which differs from the sender address.
+     * Group messages are fetched separately by groupManager.syncAllGroups().
+     */
+    if (sender === chats[sender]) continue;
+
+    // One malformed entry must not abort the whole sync: the chats map is
+    // shared, and throwing here would stop 1:1 messages updating too.
+    let senderAddress;
+    try {
+      senderAddress = normalizeAddress(sender);
+    } catch (e) {
+      console.warn('processChats: skipping unrecognized chat key', sender, e.message);
+      continue;
+    }
+
     // Fetch messages using the adjusted timestamp
     const res = await queryNetwork(`/messages/${chats[sender]}/${messageQueryTimestamp}`);
     if (res && res.messages) {
-      const from = normalizeAddress(sender);
+      const from = senderAddress;
       if (!myData.contacts[from]) {
         // New inbound chat (not previously in contacts): create as tolled + allow one-time tolled deposit toast
         createNewContact(from, undefined, 1, false);
@@ -11194,7 +11567,9 @@ async function processChats(chats, keys) {
           else if (payload.encrypted) {
             await ensureContactKeys(from);
             if (!myData.contacts[from]?.public) {
-              console.warn(`no public key found for sender ${sender}`);
+              if (noteTxSyncFailure(txidHex, `no public key for sender ${sender}`)) {
+                earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+              }
               continue;
             }
             payload.public = myData.contacts[from].public;
@@ -11214,7 +11589,21 @@ async function processChats(chats, keys) {
             }
           }
           //console.log("payload", payload)
-          decryptMessage(payload, keys, mine); // modifies the payload object
+          /*
+           * Not fatal to the pass. This throws on a malformed or
+           * undecryptable payload, and being outside a catch meant one such tx
+           * aborted processChats for EVERY chat -- and aborted it before the
+           * watermark update at the end, so the same tx threw again on every
+           * poll and nothing after it ever synced.
+           */
+          try {
+            decryptMessage(payload, keys, mine); // modifies the payload object
+          } catch (e) {
+            if (noteTxSyncFailure(txidHex, `decrypt failed: ${e?.message || e}`)) {
+              earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+            }
+            continue;
+          }
           
           // Process new message format if it's JSON, otherwise keep old format
           if (typeof payload.message === 'string') {
@@ -11341,6 +11730,18 @@ async function processChats(chats, keys) {
                         if ( editTs < originalTs || (editTs - originalTs) >= CLIENT_EDIT_ACCEPT_MS) {
                           console.warn('Ignoring edit outside allowed time window', { originalTs, editTs, txid: txidToEdit });
                           continue; // too old or invalid edit; skip processing this control message
+                        }
+                        /*
+                         * An edit already applied is a no-op, not a repeat. The
+                         * text assignments below are idempotent but
+                         * editIncrements is not, so re-processing this control
+                         * message inflated contact.unread every time.
+                         */
+                        if (
+                          messageToEdit.edited === 1 &&
+                          Number(messageToEdit.edited_timestamp || 0) === Number(tx.timestamp || 0)
+                        ) {
+                          continue;
                         }
                         // Update chat message memo/text
                         messageToEdit.message = newText;
@@ -11535,12 +11936,17 @@ async function processChats(chats, keys) {
             } else if (contact.senderInfo.username) {
               const verifiedUsername = await getVerifiedUsername(contact.senderInfo.username, tx.from, getUsernameAddress);
               if (!verifiedUsername) {
-                console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
+                // username doesn't match address so skipping this message
+                if (noteTxSyncFailure(txidHex, `username ${contact.senderInfo.username} does not match ${tx.from}`)) {
+                  earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+                }
                 continue;
               }
               contact.username = verifiedUsername;
             } else {
-              console.error(`Username not provided in senderInfo.`)
+              if (noteTxSyncFailure(txidHex, 'no username in senderInfo')) {
+                earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+              }
               continue
             }
           }
@@ -11593,7 +11999,23 @@ async function processChats(chats, keys) {
             delete payload.attachments;
           }
           
+          /*
+           * Idempotent, because a deferred tx now holds the watermark back and
+           * the next poll re-fetches everything after it -- including messages
+           * this pass already stored. Without this check that re-fetch would
+           * insert each of them a second time.
+           */
+          const alreadyStored = contact.messages.some((m) =>
+            m.txid
+              ? m.txid === txidHex
+              : m.sent_timestamp === payload.sent_timestamp && !!m.my === !!payload.my
+          );
+          if (alreadyStored) {
+            noteTxSyncSuccess(txidHex);
+            continue;
+          }
           insertSorted(contact.messages, payload, 'timestamp');
+          noteTxSyncSuccess(txidHex);
           if (payload.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) {
             needsUpcomingCallsUiRefresh = true;
           }
@@ -11625,13 +12047,29 @@ async function processChats(chats, keys) {
           else if (payload.encrypted) {
             await ensureContactKeys(from);
             if (!myData.contacts[from]?.public) {
-              console.warn(`no public key found for sender ${sender}`);
+              if (noteTxSyncFailure(txidHex, `no public key for sender ${sender}`)) {
+                earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+              }
               continue;
             }
             payload.public = myData.contacts[from].public;
           }
           //console.log("payload", payload)
-          decryptMessage(payload, keys, mine); // modifies the payload object
+          /*
+           * Not fatal to the pass. This throws on a malformed or
+           * undecryptable payload, and being outside a catch meant one such tx
+           * aborted processChats for EVERY chat -- and aborted it before the
+           * watermark update at the end, so the same tx threw again on every
+           * poll and nothing after it ever synced.
+           */
+          try {
+            decryptMessage(payload, keys, mine); // modifies the payload object
+          } catch (e) {
+            if (noteTxSyncFailure(txidHex, `decrypt failed: ${e?.message || e}`)) {
+              earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+            }
+            continue;
+          }
 
           // Process new message format if it's JSON, otherwise keep old format
           if (typeof payload.message === 'string') {
@@ -11682,12 +12120,17 @@ async function processChats(chats, keys) {
             } else if (contact.senderInfo.username) {
               const verifiedUsername = await getVerifiedUsername(contact.senderInfo.username, tx.from, getUsernameAddress);
               if (!verifiedUsername) {
-                console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
+                // username doesn't match address so skipping this message
+                if (noteTxSyncFailure(txidHex, `username ${contact.senderInfo.username} does not match ${tx.from}`)) {
+                  earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+                }
                 continue;
               }
               contact.username = verifiedUsername;
             } else {
-              console.error(`Username not provided in senderInfo.`)
+              if (noteTxSyncFailure(txidHex, 'no username in senderInfo')) {
+                earliestUnresolved = Math.min(earliestUnresolved, tx.timestamp);
+              }
               continue
             }
           }
@@ -11717,6 +12160,7 @@ async function processChats(chats, keys) {
             memo: payload.message,
           };
           insertSorted(history, newPayment, 'timestamp');
+          noteTxSyncSuccess(txidHex);
           // TODO: redundant but keep for now
           //  sort history array based on timestamp field in descending order
           //history.sort((a, b) => b.timestamp - a.timestamp);
@@ -11783,7 +12227,7 @@ async function processChats(chats, keys) {
           ) {
             continue;
           }
-          if (applyIncomingReaction(contact, pendingReaction)) {
+          if (applyIncomingReaction(contact, pendingReaction, { isDeleted })) {
             didApplyPendingReaction = true;
             syncChatLatestActivityTimestamp(from, contact);
             didChangeReactionPreview = true;
@@ -11901,8 +12345,17 @@ async function processChats(chats, keys) {
 
   // Update the global timestamp AFTER processing all senders
   if (newTimestamp > 0) {
-    // Update the timestamp
-    myAccount.chatTimestamp = newTimestamp;
+    /*
+     * Never past a tx still owed, or the next /messages query -- which asks for
+     * timestamp+1 -- skips it for good. Deferred txs are retried on the next
+     * poll and the watermark catches up once they land.
+     */
+    if (earliestUnresolved !== Infinity) {
+      newTimestamp = Math.min(newTimestamp, earliestUnresolved - 1);
+    }
+    if (newTimestamp > (myAccount.chatTimestamp || 0)) {
+      myAccount.chatTimestamp = newTimestamp;
+    }
   }
 }
 
@@ -12339,8 +12792,14 @@ async function injectTx(tx, txid) {
       const failureReason = normalizedReason;
       const feeMismatchStatus = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
       const userFailureReason = getUserFacingTxFailureReason(failureReason, feeMismatchStatus);
+      /*
+       * The server echoes the whole transaction in its reason — key packages
+       * run to kilobytes of base64 — and putting that in a toast covered the
+       * entire screen with it. The full text still goes to the console and the
+       * logs modal, which is where anyone debugging will look.
+       */
       let toastMessage = userFailureReason === failureReason
-        ? 'Error injecting transaction: ' + failureReason
+        ? 'Error injecting transaction: ' + truncateForToast(failureReason)
         : userFailureReason;
       console.error('Error injecting transaction:', failureReason);
       logsModal.log('Error injecting transaction:', failureReason);
@@ -12361,9 +12820,9 @@ async function injectTx(tx, txid) {
   } catch (error) {
     // if error is a string and contains 'timestamp out of range' 
     if (typeof error === 'string' && error.includes('timestamp out of range')) {
-      showToast('Error injecting transaction (Please try again): ' + error, 0, 'error');
+      showToast('Error injecting transaction (Please try again): ' + truncateForToast(error), 0, 'error');
     } else {
-      showToast('Error injecting transaction: ' + error, 0, 'error');
+      showToast('Error injecting transaction: ' + truncateForToast(error), 0, 'error');
     }
     console.error('Error injecting transaction:', error);
     const errorReason = typeof error === 'string' ? error : (error?.message || String(error) || 'inject_failed');
@@ -12563,7 +13022,7 @@ class SearchMessagesModal {
                       <div class="chat-time">${formatTime(result.timestamp)}</div>
                   </div>
                   <div class="chat-message">
-                      ${messagePreview}
+                      <span class="chat-preview">${messagePreview}</span>
                   </div>
               </div>
           `;
@@ -12839,7 +13298,7 @@ class SearchContactsModal {
                       <span class="chat-name">${displayedName}</span>
                   </div>
                   <div class="chat-message">
-                      <span class="match-label">${matchPreview}</span>
+                      <span class="chat-preview"><span class="match-label">${matchPreview}</span></span>
                   </div>
               </div>
           `;
@@ -13172,7 +13631,7 @@ class AvatarEditModal {
       uploadedThumb.innerHTML = '';
     }
 
-    identiconThumb.innerHTML = generateIdenticon(address, 64);
+    identiconThumb.innerHTML = addressAvatar(address, 64);
 
     // hide option entries that don't have an image (don't show empty options)
     if (this.avatarOptionContact) this.avatarOptionContact.style.display = contactUrl ? '' : 'none';
@@ -13205,7 +13664,7 @@ class AvatarEditModal {
             // Replace the <img> with the identicon SVG
             const sizeAttr = parseInt(imgEl.getAttribute('width')) || 40;
             const wrapper = document.createElement('span');
-            wrapper.innerHTML = generateIdenticon(address, sizeAttr);
+            wrapper.innerHTML = addressAvatar(address, sizeAttr);
             imgEl.replaceWith(wrapper.firstChild);
           }
         }
@@ -13349,7 +13808,7 @@ class AvatarEditModal {
       }
 
       // No user-uploaded avatar -> show identicon (never show contact avatar here)
-      const avatarHtml = generateIdenticon(this.currentAddress, 218);
+      const avatarHtml = addressAvatar(this.currentAddress, 218);
       this.previewContainer.innerHTML = avatarHtml;
       this.enableTransform = false;
       this.updateZoomUI();
@@ -13977,6 +14436,169 @@ function buildUserListToastHtml(title, usernames) {
 }
 
 // Add this function before the ContactInfoModal class
+/*
+ * The app's own confirmation dialog, replacing native alert/confirm/prompt.
+ *
+ * Those ten calls were the guard on every destructive action in the app —
+ * removing an account, removing all accounts, restoring over your data,
+ * unstaking, voting. This app runs inside a React Native WebView, and Android's
+ * WebView does not implement them unless the host explicitly wires them up. So
+ * depending on the shell, the guard either returned null and cancelled the
+ * action forever, or was auto-answered and skipped. Neither is a confirmation.
+ *
+ * Deliberately self-contained: it reads the DOM on each call rather than
+ * caching elements in a load() step, because checkVersion() needs it during
+ * bootstrap, before the modal classes have loaded.
+ *
+ * @param {object} opts
+ * @param {string} opts.title           - what is about to happen
+ * @param {string} [opts.body]          - the consequence, plain text
+ * @param {string} [opts.confirmLabel]  - defaults to "Confirm"
+ * @param {string} [opts.cancelLabel]   - defaults to "Cancel"
+ * @param {boolean} [opts.danger]       - paint the accept button as destructive
+ * @param {string} [opts.typeToConfirm] - require this exact text before accepting
+ * @param {boolean} [opts.alert]        - one button, always resolves true
+ * @returns {Promise<boolean>}
+ */
+function uiConfirm({ title, body = '', confirmLabel, cancelLabel = 'Cancel', danger = false, typeToConfirm = '', input = null, alert: isAlert = false } = {}) {
+  const modal = document.getElementById('uiConfirmDialog');
+  // No dialog in the DOM: fall back rather than silently doing nothing. An
+  // un-guarded destructive action is worse than an ugly one.
+  if (!modal) return Promise.resolve(isAlert ? true : window.confirm(`${title}\n\n${body}`));
+
+  const titleEl = document.getElementById('uiConfirmTitle');
+  const bodyEl = document.getElementById('uiConfirmBody');
+  const typeGroup = document.getElementById('uiConfirmTypeGroup');
+  const typeLabel = document.getElementById('uiConfirmTypeLabel');
+  const typeInput = document.getElementById('uiConfirmTypeInput');
+  const accept = document.getElementById('uiConfirmAccept');
+  const cancel = document.getElementById('uiConfirmCancel');
+
+  titleEl.textContent = title || '';
+  bodyEl.textContent = body || '';
+  accept.textContent = confirmLabel || (isAlert ? 'OK' : 'Confirm');
+  cancel.textContent = cancelLabel;
+  accept.className = `btn btn--pill ${danger ? 'btn--danger' : 'btn--primary'}`;
+  modal.classList.toggle('ui-confirm--alert', isAlert);
+
+  /*
+   * The one input row serves two jobs: typing a phrase to unlock a destructive
+   * action, and entering a value the caller wants back. They are mutually
+   * exclusive, and `input` resolves to the entered string rather than to true,
+   * so a caller in this mode checks for null to mean cancelled.
+   */
+  typeGroup.hidden = !typeToConfirm && !input;
+  typeInput.value = '';
+  typeInput.type = input?.type || 'text';
+  typeInput.inputMode = input?.inputMode || '';
+  typeInput.placeholder = input?.placeholder || '';
+  typeInput.setAttribute('autocapitalize', input ? 'off' : 'characters');
+  if (typeToConfirm) {
+    typeLabel.textContent = `Type ${typeToConfirm} to confirm`;
+    accept.disabled = true;
+  } else if (input) {
+    typeLabel.textContent = input.label || '';
+    typeInput.value = input.value ?? '';
+    accept.disabled = !inputIsValid(typeInput.value);
+  } else {
+    accept.disabled = false;
+  }
+
+  function inputIsValid(raw) {
+    if (!input) return true;
+    return typeof input.validate === 'function' ? !!input.validate(String(raw).trim()) : String(raw).trim() !== '';
+  }
+
+  const previouslyFocused = document.activeElement;
+
+  return new Promise((resolve) => {
+    let done = false;
+
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      modal.classList.remove('active');
+      accept.removeEventListener('click', onAccept);
+      cancel.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      typeInput.removeEventListener('input', onType);
+      typeInput.removeEventListener('keydown', onTypeKey);
+      document.removeEventListener('keydown', onKey, true);
+      // Never leave the typed phrase behind for the next caller to inherit.
+      typeInput.value = '';
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        previouslyFocused.focus({ preventScroll: true });
+      }
+      resolve(result);
+    };
+
+    // In input mode the caller wants the value, and null distinguishes a
+    // cancel from an empty string.
+    const accepted = () => (input ? typeInput.value.trim() : true);
+    const refused = () => (input ? null : isAlert ? true : false);
+
+    const onAccept = () => { if (!accept.disabled) finish(accepted()); };
+    const onCancel = () => finish(input ? null : false);
+    // Only the backdrop itself, not a click that started inside the box.
+    const onBackdrop = (e) => { if (e.target === modal) finish(refused()); };
+    const onType = () => {
+      accept.disabled = input ? !inputIsValid(typeInput.value) : typeInput.value.trim() !== typeToConfirm;
+    };
+    const onTypeKey = (e) => { if (e.key === 'Enter' && !accept.disabled) { e.preventDefault(); finish(accepted()); } };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); finish(refused()); }
+    };
+
+    accept.addEventListener('click', onAccept);
+    cancel.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+    typeInput.addEventListener('input', onType);
+    typeInput.addEventListener('keydown', onTypeKey);
+    document.addEventListener('keydown', onKey, true);
+
+    modal.classList.add('active');
+    /*
+     * Focus the typing field when there is one; otherwise Cancel, not the
+     * accept button — on a destructive dialog the safe action is the one that
+     * should be under a stray Enter.
+     */
+    setTimeout(() => {
+      const target = typeToConfirm || input ? typeInput : isAlert ? accept : cancel;
+      target.focus({ preventScroll: true });
+      // An amount arrives prefilled with a suggestion; selecting it means
+      // typing a different one replaces it instead of appending to it.
+      if (input && typeInput.value) typeInput.select?.();
+    }, 50);
+  });
+}
+
+/**
+ * A message with a single acknowledgement. Replaces alert().
+ * @param {string} title
+ * @param {string} [body]
+ * @returns {Promise<boolean>}
+ */
+function uiAlert(title, body = '') {
+  return uiConfirm({ title, body, alert: true, confirmLabel: 'OK' });
+}
+
+/**
+ * Caps a server message before it goes into a toast.
+ *
+ * Failure reasons echo the transaction that failed, and a key-package publish
+ * is kilobytes of base64 — enough to cover the whole screen in a red panel with
+ * no way to read past it. Callers keep logging the full text.
+ *
+ * @param {*} reason
+ * @param {number} [max]
+ * @returns {string}
+ */
+function truncateForToast(reason, max = 160) {
+  const text = typeof reason === 'string' ? reason : (reason?.message || String(reason ?? ''));
+  const oneLine = text.replace(/\s+/g, ' ').trim();
+  return oneLine.length > max ? `${oneLine.slice(0, max)}…` : oneLine;
+}
+
 function showToast(message, duration = 2000, type = 'default', isHTML = false, options = {}) {
   const toastContainer = document.getElementById('toastContainer');
   
@@ -14094,6 +14716,16 @@ async function handleConnectivityChange() {
         if (gotChats > 0) {
           chatsScreen.updateChatList();
         }
+        /*
+         * Groups too, and separately: their sync is not driven by the 1:1 chat
+         * poll (see longPollResult), so coming back online has to catch them up
+         * explicitly rather than waiting for the next tick.
+         */
+        const gotGroups = await updateGroupData();
+        if (gotGroups > 0) {
+          saveState();
+          chatsScreen.updateChatList();
+        }
 
         // Update contacts with reconnection handling
         await contactsScreen.updateContactsList();
@@ -14137,7 +14769,16 @@ function markConnectivityDependentElements() {
     // Chat related
     '#handleSendMessage',
     '#voiceRecordButton',
-    '#newChatForm button[type="submit"]',
+    /*
+     * Not '#chatRecipient'. That field used to be a username you looked up over
+     * the network; it now filters your local contacts, so disabling it offline
+     * would lock you out of your own contact list. The one thing on that screen
+     * that does need the network — resolving a username you have never chatted
+     * with — reports its own failure through the status line.
+     *
+     * Also dropped: '#newChatForm button[type="submit"]', which no longer
+     * exists.
+     */
 
     // Wallet related
     '#refreshBalance',
@@ -14145,7 +14786,6 @@ function markConnectivityDependentElements() {
     '#sendForm button[type="submit"]',
 
     // Send asset related
-    '#sendAssetForm button[type="submit"]',
     '#sendToAddress',
     '#toggleBalance',
 
@@ -14154,7 +14794,6 @@ function markConnectivityDependentElements() {
     '#friendForm input[name="friendStatus"]',
 
     // Contact related
-    '#chatRecipient',
     '#chatAddFriendButton',
     '#addFriendButton',
 
@@ -14163,7 +14802,6 @@ function markConnectivityDependentElements() {
     '#importForm button[type="submit"]',
     '#newUsername',
     '#newPrivateKey',
-    '#migrateAccountsButton',
 
     // stakeModal
     '#submitStake',
@@ -14363,8 +15001,12 @@ async function checkConnectivity() {
 
         // Wait a moment for the user to see the toast
         setTimeout(() => {
-            // Sign out the user
-            handleSignOut();
+            // Sign out the user.
+            // Was a bare `handleSignOut()`, which is not a function anywhere in
+            // this file — it only ever resolved because the <li id="handleSignOut">
+            // menu row leaked onto `window`, and calling an element throws too.
+            // So this path has always thrown; it just did it out of sight.
+            menuModal.handleSignOut();
         }, 5000);
     } else {
         console.log('Username verified successfully on reconnect');
@@ -14451,30 +15093,6 @@ function getGatewayForRequest() {
 
   // Otherwise use random selection
   return myData.network.gateways[Math.floor(Math.random() * myData.network.gateways.length)];
-}
-
-/**
- * Inserts an item into an array while maintaining descending order based on a timestamp field.
- * Assumes the array is already sorted in descending order.
- *
- * @param {Array<Object>} array - The array to insert into (e.g., myData.chats, contact.messages, myData.wallet.history).
- * @param {Object} item - The item to insert (e.g., chatUpdate, newMessage, newPayment).
- * @param {string} [timestampField='timestamp'] - The name of the field containing the timestamp to sort by.
- */
-function insertSorted(array, item, timestampField = 'timestamp') {
-  // Find the index where the new item should be inserted.
-  // We are looking for the first element with a timestamp LESS THAN the new item's timestamp.
-  // This is because the array is sorted descending (newest first).
-  const index = array.findIndex((existingItem) => existingItem[timestampField] < item[timestampField]);
-
-  if (index === -1) {
-    // If no such element is found, the new item is the oldest (or the array is empty),
-    // so add it to the end.
-    array.push(item);
-  } else {
-    // Otherwise, insert the new item at the found index.
-    array.splice(index, 0, item);
-  }
 }
 
 /**
@@ -14625,7 +15243,7 @@ class RemoveAccountModal {
     window.location.reload();
   }
 
-  removeAccount(username = null) {
+  async removeAccount(username = null) {
     // Username must be provided explicitly - when called from sign-in modal, myAccount is not yet available
     if (!username) {
       // if myAccount is available and removeAccountModal is open, use myAccount.username
@@ -14636,7 +15254,12 @@ class RemoveAccountModal {
         return;
       }
     }
-    const confirmed = confirm(`Are you sure you want to remove the account "${username}" from this device?`);
+    const confirmed = await uiConfirm({
+      title: `Remove ${username} from this device?`,
+      body: 'The account stays on the network. Without a backup file you will not be able to sign in to it again on this device.',
+      confirmLabel: 'Remove account',
+      danger: true,
+    });
     if (!confirmed) return;
     
     const { netid } = network;
@@ -14875,11 +15498,17 @@ class RemoveAccountsModal {
     }, { once: true }); // attach once, inside we attach nested listeners via event bubbling
   }
 
-  handleSubmit() {
+  async handleSubmit() {
     const checked = this.listContainer.querySelectorAll('input[type="checkbox"]:checked');
     if (checked.length === 0) return;
-    const confirmText = confirm(`Remove ${checked.length} selected account(s) from this device?`);
-    if (!confirmText) return;
+    const n = checked.length;
+    const confirmed = await uiConfirm({
+      title: n === 1 ? 'Remove 1 account from this device?' : `Remove ${n} accounts from this device?`,
+      body: 'They stay on the network. Without a backup file you will not be able to sign in to them again on this device.',
+      confirmLabel: n === 1 ? 'Remove account' : `Remove ${n} accounts`,
+      danger: true,
+    });
+    if (!confirmed) return;
     const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
     checked.forEach(cb => {
       const username = cb.dataset.username;
@@ -14897,9 +15526,22 @@ class RemoveAccountsModal {
     this.close();
   }
 
-  handleRemoveAllAccounts() {
-    const confirmText = prompt(`WARNING: All accounts and data will be permanently removed from this device.\n\nType "REMOVE ALL" to confirm:`);
-    if (confirmText !== "REMOVE ALL") {
+  async handleRemoveAllAccounts() {
+    /*
+     * Keeps the typed confirmation — this is the one action in the app that
+     * cannot be undone from inside the app — but it is now the app's own
+     * dialog. As a native prompt() it was returning null and cancelling
+     * forever on any shell that does not implement it.
+     */
+    const confirmed = await uiConfirm({
+      title: 'Remove all accounts from this device?',
+      body: 'This deletes every account here and everything stored with them — chats, contacts and history. They stay on the network, but without a backup file you cannot get back in.',
+      confirmLabel: 'Remove all accounts',
+      cancelLabel: 'Cancel',
+      danger: true,
+      typeToConfirm: 'REMOVE ALL',
+    });
+    if (!confirmed) {
       showToast('Remove all cancelled', 2000, 'warning');
       return;
     }
@@ -14930,9 +15572,10 @@ class BackupAccountModal {
     this.modal = document.getElementById('backupModal');
     this.passwordInput = document.getElementById('backupPassword');
     this.passwordWarning = document.getElementById('backupPasswordWarning');
-    this.passwordRequired = document.getElementById('backupPasswordRequired');
     this.passwordConfirmInput = document.getElementById('backupPasswordConfirm');
     this.passwordConfirmWarning = document.getElementById('backupPasswordConfirmWarning');
+    this.passwordFields = document.getElementById('backupPasswordFields');
+    this.encryptionInputs = [...document.querySelectorAll('input[name="backupEncryption"]')];
     this.submitButton = document.getElementById('backupForm').querySelector('button[type="submit"]');
     this.backupAllAccountsCheckbox = document.getElementById('backupAllAccounts');
     this.backupAllAccountsGroup = document.getElementById('backupAllAccountsGroup');
@@ -14949,6 +15592,9 @@ class BackupAccountModal {
     this.passwordInput.addEventListener('input', () => this.updateButtonState());
     this.passwordConfirmInput.addEventListener('input', () => this.updateButtonState());
     this.storageLocationSelect.addEventListener('change', () => this.handleStorageLocationChange());
+    for (const input of this.encryptionInputs) {
+      input.addEventListener('change', () => this.handleEncryptionChange());
+    }
 
     // Handle legacy OAuth callback (in case someone lands on page with OAuth hash)
     this.handleGoogleOAuthCallback();
@@ -14961,15 +15607,18 @@ class BackupAccountModal {
     // Show/hide checkbox based on login status
     if (myData) {
       // User is signed in - show checkbox
-      this.backupAllAccountsGroup.style.display = 'block';
+      this.backupAllAccountsGroup.hidden = false;
       this.backupAllAccountsCheckbox.checked = false; // Default to current account
     } else {
       // User is not signed in - hide checkbox but default to all accounts
-      this.backupAllAccountsGroup.style.display = 'none';
+      this.backupAllAccountsGroup.hidden = true;
       this.backupAllAccountsCheckbox.checked = true; // Default to all accounts
     }
-    
-    this.updateButtonState();
+
+    // Always reopen on the protected option, never on whatever was left over.
+    const withPassword = this.encryptionInputs.find((i) => i.value === 'password');
+    if (withPassword) withPassword.checked = true;
+    this.handleStorageLocationChange();
   }
 
   close() {
@@ -14984,6 +15633,8 @@ class BackupAccountModal {
     // Clear passwords for security
     this.passwordInput.value = '';
     this.passwordConfirmInput.value = '';
+    this.passwordWarning.textContent = '';
+    this.passwordConfirmWarning.textContent = '';
     // Reset checkbox
     this.backupAllAccountsCheckbox.checked = false;
     // Reset storage location to default
@@ -15756,42 +16407,72 @@ class BackupAccountModal {
     return myLocalStore;
   }
 
+  /**
+   * Which protection the user chose. Google Drive has no unencrypted option —
+   * the file leaves the device — so it is forced regardless of the radio.
+   * @returns {boolean}
+   */
+  wantsPassword() {
+    if (this.storageLocationSelect.value === 'google-drive') return true;
+    return this.encryptionInputs.find((i) => i.checked)?.value !== 'none';
+  }
+
+  /**
+   * Shows or hides the password fields, and keeps them empty when unused.
+   *
+   * Clearing matters: a value left behind after switching to "No password"
+   * would encrypt a file the user has just been told is unencrypted, and they
+   * would have no idea what the password was.
+   * @returns {void}
+   */
+  handleEncryptionChange() {
+    const wants = this.wantsPassword();
+    this.passwordFields.hidden = !wants;
+    if (!wants) {
+      this.passwordInput.value = '';
+      this.passwordConfirmInput.value = '';
+      this.passwordWarning.textContent = '';
+      this.passwordConfirmWarning.textContent = '';
+    }
+    this.updateButtonState();
+  }
+
   updateButtonState() {
     const password = this.passwordInput.value;
     const confirmPassword = this.passwordConfirmInput.value;
-    const isGoogleDrive = this.storageLocationSelect.value === 'google-drive';
-    
-    // Password is required for Google Drive, optional for local
+    const wantsPassword = this.wantsPassword();
+
     let isValid = true;
-    
-    // Check if password is required (Google Drive)
-    if (isGoogleDrive && password.length === 0) {
-      isValid = false;
-      this.passwordRequired.style.display = 'inline';
-      this.passwordWarning.style.display = 'none';
-    } else if (password.length > 0 && password.length < 4) {
-      // Validate password length
-      isValid = false;
-      this.passwordWarning.style.display = 'inline';
-      this.passwordRequired.style.display = 'none';
+
+    /*
+     * With "No password" chosen there is nothing to validate — that is the
+     * point of making it an explicit choice rather than an empty field. With a
+     * password chosen it is genuinely required, so an empty one is an error
+     * rather than a silent fall-through to an unencrypted file.
+     */
+    if (!wantsPassword) {
+      this.passwordWarning.textContent = '';
+      this.passwordConfirmWarning.textContent = '';
     } else {
-      this.passwordWarning.style.display = 'none';
-      this.passwordRequired.style.display = 'none';
-    }
-    
-    // Validate password confirmation
-    // If password has been entered, confirmation is required and must match
-    if (password.length > 0) {
-      if (confirmPassword.length === 0) {
+      if (password.length === 0) {
         isValid = false;
+        this.passwordWarning.textContent = '';
+      } else if (password.length < 4) {
+        isValid = false;
+        this.passwordWarning.textContent = 'At least 4 characters.';
+      } else {
+        this.passwordWarning.textContent = '';
+      }
+
+      if (password.length === 0 || confirmPassword.length === 0) {
+        isValid = false;
+        this.passwordConfirmWarning.textContent = '';
       } else if (confirmPassword !== password) {
         isValid = false;
-        this.passwordConfirmWarning.style.display = 'inline';
+        this.passwordConfirmWarning.textContent = "Passwords don't match.";
       } else {
-        this.passwordConfirmWarning.style.display = 'none';
+        this.passwordConfirmWarning.textContent = '';
       }
-    } else {
-      this.passwordConfirmWarning.style.display = 'none';
     }
     
     // Update button state
@@ -15800,16 +16481,22 @@ class BackupAccountModal {
 
   handleStorageLocationChange() {
     const isGoogleDrive = this.storageLocationSelect.value === 'google-drive';
-    
-    // Update placeholder text based on storage location
-    if (isGoogleDrive) {
-      this.passwordInput.placeholder = 'Password required for Google Drive';
-    } else {
-      this.passwordInput.placeholder = 'Leave empty for unencrypted backup';
+
+    /*
+     * Google Drive means the file leaves the device, so there is no
+     * unencrypted option — the choice is forced and the alternative is
+     * disabled rather than silently ignored, so the screen never shows a
+     * selection it is not honouring.
+     */
+    const none = this.encryptionInputs.find((i) => i.value === 'none');
+    const withPassword = this.encryptionInputs.find((i) => i.value === 'password');
+    if (none) {
+      none.disabled = isGoogleDrive;
+      none.closest('.backup-enc-option')?.classList.toggle('is-disabled', isGoogleDrive);
     }
-    
-    // Re-validate form
-    this.updateButtonState();
+    if (isGoogleDrive && withPassword) withPassword.checked = true;
+
+    this.handleEncryptionChange();
   }
 }
 const backupModal = new BackupAccountModal();
@@ -15825,7 +16512,6 @@ class RestoreAccountModal {
   load() {
     // called when the DOM is loaded; can setup event handlers here
     this.modal = document.getElementById('importModal');
-    this.developerOptionsToggle = document.getElementById('developerOptionsToggle');
     this.oldStringSelect = document.getElementById('oldStringSelect');
     this.oldStringCustom = document.getElementById('oldStringCustom');
     this.newStringSelect = document.getElementById('newStringSelect');
@@ -15865,7 +16551,8 @@ class RestoreAccountModal {
     ));
 
     // Add new event listeners for developer options
-    this.developerOptionsToggle.addEventListener('change', () => this.toggleDeveloperOptions());
+    this.advancedDetails = document.querySelector('#importModal .restore-advanced');
+    this.advancedDetails?.addEventListener('toggle', () => this.toggleDeveloperOptions());
     // setup mutual exclusion for the developer options
     this.setupMutualExclusion(this.oldStringSelect, this.oldStringCustom);
     this.setupMutualExclusion(this.newStringSelect, this.newStringCustom);
@@ -15925,9 +16612,13 @@ class RestoreAccountModal {
   }
 
   // toggle the developer options section
+  /*
+   * Enabled by the disclosure being open, not by a hidden checkbox. The section
+   * is always in the DOM inside <details>, which handles the showing; what this
+   * tracks is whether the substitution should apply at all.
+   */
   toggleDeveloperOptions() {
-    this.developerOptionsEnabled = !!this.developerOptionsToggle?.checked;
-    this.developerOptionsSection.style.display = this.developerOptionsEnabled ? 'block' : 'none';
+    this.developerOptionsEnabled = Boolean(this.advancedDetails?.open);
   }
 
   // Handle source location change (Local vs Google Drive)
@@ -15935,8 +16626,8 @@ class RestoreAccountModal {
     const isGoogleDrive = this.sourceLocationSelect.value === 'google-drive';
     
     // Toggle visibility of file selection groups
-    this.localFileGroup.style.display = isGoogleDrive ? 'none' : 'block';
-    this.googleDriveFileGroup.style.display = isGoogleDrive ? 'block' : 'none';
+    this.localFileGroup.hidden = isGoogleDrive;
+    this.googleDriveFileGroup.hidden = !isGoogleDrive;
     
     // Clear selections when switching
     if (isGoogleDrive) {
@@ -15947,7 +16638,7 @@ class RestoreAccountModal {
     
     // Update password required indicator
     if (this.passwordRequired) {
-      this.passwordRequired.style.display = isGoogleDrive ? 'inline' : 'none';
+      this.passwordRequired.textContent = isGoogleDrive ? 'Required for Google Drive files.' : '';
     }
     
     this.updateButtonState();
@@ -16117,7 +16808,7 @@ class RestoreAccountModal {
       this.googleDriveFileContent = fileContent;
       
       // Update UI
-      this.selectedGoogleDriveFileDisplay.style.display = 'flex';
+      this.selectedGoogleDriveFileDisplay.hidden = false;
       this.selectedGoogleDriveFileDisplay.querySelector('.selected-file-name').textContent = file.name;
       
       // Close picker and update button state
@@ -16174,7 +16865,7 @@ class RestoreAccountModal {
       // Check if backup requires password
       const requiresBackupPassword = data.lock && !(localStorage.lock && data.lock === localStorage.lock);
       if (requiresBackupPassword) {
-        this.backupAccountLockGroup.style.display = 'block';
+        this.backupAccountLockGroup.hidden = false;
       } else {
         this.resetBackupLockPrompt();
       }
@@ -16216,7 +16907,7 @@ class RestoreAccountModal {
   clearSelectedGoogleDriveFile() {
     this.selectedGoogleDriveFile = null;
     this.googleDriveFileContent = null;
-    this.selectedGoogleDriveFileDisplay.style.display = 'none';
+    this.selectedGoogleDriveFileDisplay.hidden = true;
     this.selectedGoogleDriveFileDisplay.querySelector('.selected-file-name').textContent = '';
     this.removeFileInjectedNetids();
     this.resetBackupLockPrompt();
@@ -16264,14 +16955,19 @@ class RestoreAccountModal {
   performStringSubstitution(fileContent, substitution) {
     if (!substitution) return fileContent;
 
-    // Count occurrences before replacement
-    const regex = new RegExp(substitution.oldString, 'g');
-    
-    // Global string replacement (like sed -i 's/old/new/g')
-    const modifiedContent = fileContent.replace(regex, substitution.newString);
-
-    
-    return modifiedContent;
+    /*
+     * A LITERAL replacement, not a regex.
+     *
+     * This was `new RegExp(oldString, 'g')` over a string the user typed, run
+     * across the file that holds their keys. A netid is hex so it survives,
+     * but anything typed into the custom field was compiled as a pattern: a
+     * "." matched every character and replaced the whole file with repetitions
+     * of the new string. On a recovery screen, silently corrupting the file
+     * being recovered is the worst thing this code could do.
+     *
+     * split/join replaces every occurrence with no pattern semantics at all.
+     */
+    return fileContent.split(substitution.oldString).join(substitution.newString);
   }
 
   /**
@@ -16437,9 +17133,20 @@ class RestoreAccountModal {
       // We first parse to jsonData so that if the parse does not work we don't destroy myData
       let backupData = parse(fileContent);
 
-      // Instead of clearing localStorage, we'll merge accounts from backup into localStorage
-      // Ask for confirmation (previous behavior warned about clearing; keep a similar warning)
-      const confirmed = confirm('⚠️ WARNING: This will import all accounts from the backup file.\n\nExisting local accounts will not be removed. If "Overwrite existing accounts" is checked, accounts with the same username and netid will be replaced.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
+      /*
+       * The wording follows the checkbox rather than describing both branches
+       * at once. The native version was four paragraphs covering every case,
+       * which is how a warning stops being read.
+       */
+      const overwriting = this.overwriteAccountsCheckbox?.checked;
+      const confirmed = await uiConfirm({
+        title: 'Restore accounts from this file?',
+        body: overwriting
+          ? 'Accounts in the file replace any account here with the same username on the same network. That cannot be undone from inside the app.'
+          : 'Accounts in the file are added alongside what is already on this device. Nothing here is removed.',
+        confirmLabel: 'Restore',
+        danger: Boolean(overwriting),
+      });
 
       if (!confirmed) {
         showToast('Restore cancelled by user', 2000, 'info');
@@ -16493,7 +17200,8 @@ class RestoreAccountModal {
   clearForm() {
     this.fileInput.value = '';
     this.passwordInput.value = '';
-    this.developerOptionsToggle.checked = false;
+    // Close the disclosure, which is what enables the substitution now.
+    if (this.advancedDetails) this.advancedDetails.open = false;
     this.oldStringCustom.value = '';
     this.newStringCustom.value = '';
     this.oldStringSelect.value = '';
@@ -16515,7 +17223,7 @@ class RestoreAccountModal {
 
   resetBackupLockPrompt() {
     if (this.backupAccountLockGroup) {
-      this.backupAccountLockGroup.style.display = 'none';
+      this.backupAccountLockGroup.hidden = true;
     }
     if (this.backupAccountLock) {
       this.backupAccountLock.value = '';
@@ -16727,7 +17435,7 @@ class TollModal {
     // Check if the toll is non-zero but less than minimum
     if (newToll > 0n) {
       if (this.currentCurrency === 'LIB' && newToll < this.minToll) {
-        showToast(`Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`, 0, 'error');
+        showToast(`Toll must be at least ${evmAssets.formatTokenAmount(parseFloat(big2str(this.minToll, 18)))} LIB, or 0`, 0, 'error');
         return;
       }
       if (this.currentCurrency === 'USD') {
@@ -16794,8 +17502,8 @@ class TollModal {
       tollValueLIB = (usdFloat / stabilityFactor).toString();
     }
 
-    const usdDisplay = parseFloat(tollValueUSD).toFixed(6);
-    const libDisplay = stabilityFactor > 0 ? parseFloat(tollValueLIB).toFixed(6) : 'N/A';
+    const usdDisplay = evmAssets.formatTokenAmount(parseFloat(tollValueUSD));
+    const libDisplay = stabilityFactor > 0 ? evmAssets.formatTokenAmount(parseFloat(tollValueLIB)) : 'N/A';
 
     // USD-only UI
     document.getElementById('tollAmountUSD').textContent = `${usdDisplay} USD (≈ ${libDisplay} LIB)`;
@@ -16824,7 +17532,7 @@ class TollModal {
     }
     const lib = usd / factor;
     this.equivalentLibDisplay.style.display = 'block';
-    this.equivalentLibDisplay.textContent = `≈ ${lib.toFixed(6)} LIB`;
+    this.equivalentLibDisplay.textContent = `≈ ${evmAssets.formatTokenAmount(lib)} LIB`;
   }
 
   /**
@@ -16900,7 +17608,7 @@ class TollModal {
     // Check minimum toll requirements
     if (this.currentCurrency === 'LIB') {
       if (newToll < this.minToll) {
-        return `Toll must be at least ${parseFloat(big2str(this.minToll, 18)).toFixed(6)} LIB or 0 LIB`;
+        return `Toll must be at least ${evmAssets.formatTokenAmount(parseFloat(big2str(this.minToll, 18)))} LIB, or 0`;
       }
     } else {
       const stabilityFactor = getStabilityFactor();
@@ -17483,7 +18191,8 @@ class MyProfileModal {
 
     showToast('Profile updated successfully', 2000, 'success');
 
-    // if myInfo modal is open update the info
+    // The You screen is normally the screen behind this one, so it has to
+    // re-render before the editor closes over it.
     if (myInfoModal && myInfoModal.isActive()) {
       myInfoModal.updateMyInfo();
     }
@@ -17708,7 +18417,7 @@ class ValidatorStakingModal {
       const displayNetworkStakeLib =
         stakeAmountLibBaseUnits !== null ? big2str(stakeAmountLibBaseUnits, 18).slice(0, 7) : 'N/A';
       const displayStabilityFactor = stabilityFactor ? stabilityFactor.toFixed(6) : 'N/A';
-      const displayLibUsdPrice = libUsdPrice ? '$' + libUsdPrice.toFixed(6) : 'N/A';
+      const displayLibUsdPrice = libUsdPrice ? evmAssets.formatUsd(libUsdPrice) : 'N/A';
       // stabilityStakeUsdBaseUnits is a BigInt object or null. Pass its string representation.
       const displayStabilityStakeUsd =
         stabilityStakeUsdBaseUnits !== null ? '$' + big2str(stabilityStakeUsdBaseUnits, 18).slice(0, 6) : 'N/A';
@@ -17738,7 +18447,7 @@ class ValidatorStakingModal {
         
         // userStakedBaseUnits is a BigInt object or null/undefined. Pass its string representation.
         const displayUserStakedLib = userStakedBaseUnits != null ? big2str(userStakedBaseUnits, 18).slice(0, 6) : 'N/A';
-        const displayUserStakedUsd = userStakedUsd != null ? '$' + userStakedUsd.toFixed(6) : 'N/A';
+        const displayUserStakedUsd = userStakedUsd != null ? evmAssets.formatUsd(userStakedUsd) : 'N/A';
 
         this.nomineeLabelElement.textContent = 'Nominated Validator:';
         this.nomineeValueElement.textContent = nominee;
@@ -17883,8 +18592,12 @@ class ValidatorStakingModal {
     }
 
     // Confirmation dialog
-    const confirmationMessage = `Are you sure you want to unstake from validator: ${nominee}?`;
-    if (window.confirm(confirmationMessage)) {
+    const confirmed = await uiConfirm({
+      title: 'Unstake from this validator?',
+      body: `Your stake with ${nominee} is returned to your balance.`,
+      confirmLabel: 'Unstake',
+    });
+    if (confirmed) {
       await this.submitUnstakeTransaction(nominee);
     }
   }
@@ -18835,7 +19548,7 @@ class ChatModal {
     );
   }
 
-  handleResetRecentReactionEmojis() {
+  async handleResetRecentReactionEmojis() {
     if (!myData?.account) {
       return;
     }
@@ -18845,7 +19558,11 @@ class ChatModal {
       return;
     }
 
-    const confirmed = confirm('Reset recent emojis to the default set?');
+    const confirmed = await uiConfirm({
+      title: 'Reset recent emojis?',
+      body: 'Your recently used emojis go back to the default set.',
+      confirmLabel: 'Reset',
+    });
     if (!confirmed) {
       return;
     }
@@ -19033,6 +19750,7 @@ class ChatModal {
     this.cancelEditButton = document.getElementById('cancelEditButton');
     this.modalAvatar = this.modal.querySelector('.modal-avatar');
     this.modalTitle = this.modal.querySelector('.modal-title');
+    this.chatSubtitle = document.getElementById('chatSubtitle');
     this.headerMenuButton = document.getElementById('chatHeaderMenuButton');
     this.headerContextMenu = document.getElementById('chatHeaderContextMenu');
     this.retryOfTxId = document.getElementById('retryOfTxId');
@@ -19602,6 +20320,23 @@ class ChatModal {
 
     this.chatRenderedOldestIndex = nextOldestIndex;
     list.insertAdjacentHTML('afterbegin', range.html);
+
+    /*
+     * Reconcile the seam. The batch just prepended and the messages already on
+     * screen can be the same speaker across the join, and the existing element
+     * cannot know that — it was rendered when it was the oldest thing in the
+     * list and correctly started a run. Without this, scrolling up puts a
+     * visible break in the middle of one person's turn.
+     */
+    const seamPrev = oldFirstMessage?.previousElementSibling;
+    if (
+      oldFirstMessage?.classList.contains('message') &&
+      seamPrev?.classList.contains('message')
+    ) {
+      const sameSpeaker =
+        seamPrev.classList.contains('sent') === oldFirstMessage.classList.contains('sent');
+      oldFirstMessage.classList.toggle('message--continues', sameSpeaker);
+    }
     const prependedThumbnailRows = [];
     for (let messageEl = list.firstElementChild; messageEl && messageEl !== oldFirstMessage; messageEl = messageEl.nextElementSibling) {
       prependedThumbnailRows.push(
@@ -19727,6 +20462,17 @@ class ChatModal {
     friendModal.updateFriendButton(contact, 'addFriendButtonChat');
     // Set user info
     this.modalTitle.textContent = getContactDisplayName(contact);
+    /*
+     * The username, under the name. getContactDisplayName prefers a nickname
+     * you set over the username, so with a nickname in the title the identity
+     * people actually share was nowhere on the screen. Left empty when the
+     * title already IS the username — :empty then hides the line rather than
+     * printing the same thing twice.
+     */
+    if (this.chatSubtitle) {
+      const showsNickname = !!contact?.name && !!contact?.username && contact.name !== contact.username;
+      this.chatSubtitle.textContent = showsNickname ? `@${contact.username}` : '';
+    }
 
     walletScreen.updateWalletBalances();
 
@@ -20105,7 +20851,11 @@ class ChatModal {
 
     const contact = myData.contacts[contactAddress];
     assert(contact, `Missing contact for reclaim prompt: ${contactAddress}`);
-    const confirmed = window.confirm(`Reclaim toll from ${getContactDisplayName(contact)}?`);
+    const confirmed = await uiConfirm({
+      title: `Reclaim toll from ${getContactDisplayName(contact)}?`,
+      body: 'The toll they paid to message you is returned to your balance.',
+      confirmLabel: 'Reclaim',
+    });
     if (!confirmed) {
       return;
     }
@@ -21190,7 +21940,7 @@ class ChatModal {
     return `https://maps.google.com/?q=${query}`;
   }
 
-  renderChatMessageHTML(item, { contact, lastReadTs }) {
+  renderChatMessageHTML(item, { contact, lastReadTs, continuesRun = false }) {
     const timeString = formatTime(item.timestamp);
     // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
     const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
@@ -21213,16 +21963,36 @@ class ChatModal {
       // Format amount correctly using big2str
       const amountStr = big2str(item.amount, 18);
       const amountNum = parseFloat(amountStr);
-      const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
-      const directionText = item.my ? '-' : '+';
-      const messageClass = item.my ? 'sent' : 'received';
+      const symbol = item.symbol || 'LIB';
+      // Trailing zeros dropped: one coin used to render "1.000000 LIB".
+      const amountDisplay = `${evmAssets.formatTokenAmount(amountNum)} ${symbol}`;
+
+      /*
+       * The dollar value alongside the coin amount. The toll bar sits directly
+       * under these bubbles quoted in USD while the bubbles were quoted in LIB,
+       * so one screen showed money in two units and converted neither.
+       *
+       * Only for LIB, and only when the network has actually given us a
+       * stability factor: getStabilityFactor() is parseFloat(undefined) => NaN
+       * before parameters load, and "≈ $NaN" is worse than no line at all.
+       */
+      const factor = getStabilityFactor();
+      const usdDisplay =
+        symbol === 'LIB' && Number.isFinite(factor) && factor > 0
+          ? `≈ $${(amountNum * factor).toFixed(2)}`
+          : '';
+
+      const messageClass = `${item.my ? 'sent' : 'received'}${continuesRun ? ' message--continues' : ''}`;
       const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
       // --- Render Payment Transaction ---
       return `
           <div class="message ${messageClass} payment-info" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-            <div class="payment-header">
-              <span class="payment-direction">${directionText}</span>
-              <span class="payment-amount">${amountDisplay}</span>
+            <div class="payment-row">
+              <span class="payment-dir" aria-hidden="true"></span>
+              <span class="payment-figures">
+                <span class="payment-amount">${amountDisplay}</span>
+                ${usdDisplay ? `<span class="payment-usd">${usdDisplay}</span>` : ''}
+              </span>
             </div>
             ${item.message ? `<div class="payment-memo">${linkifyUrls(item.message)}</div>` : ''}
             <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
@@ -21231,7 +22001,8 @@ class ChatModal {
     }
 
     // --- Render Chat Message ---
-    const messageClass = item.my ? 'sent' : 'received';
+    const runClass = continuesRun ? ' message--continues' : '';
+    const messageClass = `${item.my ? 'sent' : 'received'}${runClass}`;
     // Check if message was deleted
     if (isDeleted(item)) {
       // Render deleted message with special styling
@@ -21283,9 +22054,24 @@ class ChatModal {
         const isVideo = att.type && att.type.startsWith('video/');
         const hasThumbnail = isImage || isVideo;
         const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
-        const paddingStyle = hasThumbnail ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
+        /*
+         * Two shapes, not one.
+         *
+         * A picture you can already see needs no filename and no file size:
+         * "IMG_0717.jpeg / JPEG · 277.6 KB" was two lines of metadata nobody
+         * asked for, in a card nested inside the bubble. The media variant runs
+         * the thumbnail to the bubble's own edges instead — one edge rather
+         * than two — and lets the caption below it do the talking.
+         *
+         * A file you CANNOT see is the case where the name and size are the
+         * whole point, so that variant keeps them.
+         *
+         * The styling is in the stylesheet now. This used to carry inline
+         * background:#f5f5f7, color:#222 and color:#888 — hardcoded colour that
+         * no rule in styles.css could reach and that beat every one of them.
+         */
         return `
-                <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
+                <div class="attachment-row ${hasThumbnail ? 'attachment-row--media' : 'attachment-row--file'}"
                   data-url="${fileUrl}"
                   data-p-url="${att.pUrl || ''}"
                   data-name="${encodeURIComponent(fileName)}"
@@ -21293,16 +22079,17 @@ class ChatModal {
                   ${isImage ? 'data-image-attachment="true"' : ''}
                   ${isVideo ? 'data-video-attachment="true"' : ''}
                 >
-                  <div class="attachment-icon-container" style="${hasThumbnail ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
+                  <div class="attachment-icon-container">
                     <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
-                    ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
                   </div>
-                  <div style="min-width:0;">
-                    <span class="attachment-label" style="font-weight:500;color:#222;display:block;word-wrap:break-word;">
-                      ${fileName}
-                    </span><br>
-                    <span class="attachment-meta" style="color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
-                  </div>
+                  ${
+                    hasThumbnail
+                      ? ''
+                      : `<div class="attachment-details">
+                    <span class="attachment-label">${fileName}</span>
+                    <span class="attachment-meta">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                  </div>`
+                  }
                 </div>
               `;
       }).join('');
@@ -21406,14 +22193,18 @@ class ChatModal {
 
     const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
     const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
-    return `
-            <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
-              ${replyHTML}
-              ${attachmentsHTML}
-              ${messageTextHTML}
-              <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
-            </div>
-          `;
+    // Shared with group chat so the two do not drift apart visually.
+    // No senderLabel here: a 1:1 chat has only one other participant.
+    return buildMessageBubble({
+      mine: item.my,
+      timestamp: item.timestamp,
+      txid: item?.txid,
+      status: item?.status,
+      extraAttrs: callTimeAttribute,
+      beforeContent: `${replyHTML}\n${attachmentsHTML}`,
+      contentHTML: messageTextHTML,
+      timeSuffix: `${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}`,
+    });
   }
 
   buildChatMessageRangeHTML(messages, contact, oldestIndex, newestIndex) {
@@ -21424,9 +22215,24 @@ class ChatModal {
 
     // Iterate backwards through messages (oldest to newest for rendering order)
     // messages are already sorted descending (newest first) in myData
+    /*
+     * Who spoke last, so a run of messages from one person is drawn as one
+     * block rather than as several separate arrivals — the same treatment
+     * group chat gets in renderTextConversation. There are no sender labels
+     * here, so a run only tightens the spacing and squares the shared corner.
+     *
+     * Reset by anything that is not an ordinary bubble: a toll divider or a
+     * date break ends the run, and the speaker starts a new one after it.
+     */
+    let lastSpeaker = null;
+
     for (let i = oldestIndex; i >= newestIndex; i--) {
       const item = messages[i];
-      renderedMessages.push(this.renderChatMessageHTML(item, { contact, lastReadTs }));
+      const speaker = item.type === 'update_toll_required' ? null : (item.my ? 'me' : 'them');
+      const continuesRun = speaker !== null && speaker === lastSpeaker;
+      lastSpeaker = speaker;
+
+      renderedMessages.push(this.renderChatMessageHTML(item, { contact, lastReadTs, continuesRun }));
       if (item.txid) renderedTxids.push(item.txid);
     }
 
@@ -23236,43 +24042,15 @@ class ChatModal {
 
   /**
    * Builds reaction chip markup for a specific target message.
+   *
+   * The markup itself lives in chatRender.js so group chat renders chips
+   * identically; this keeps the call site and supplies the viewer address.
+   *
    * @param {Array<Object>} reactionsForTarget
    * @returns {string}
    */
   buildReactionChipsHTML(reactionsForTarget) {
-    if (reactionsForTarget.length === 0) {
-      return '';
-    }
-
-    const currentUserAddress = normalizeAddress(myAccount.keys.address);
-    const contactAddress = normalizeAddress(this.address);
-    const contactChips = [];
-    const myChips = [];
-    const otherChips = [];
-
-    for (const reaction of reactionsForTarget) {
-      const sender = reaction.sender;
-      const emoji = reaction.emoji;
-
-      const chipClass = sender === currentUserAddress ? 'message-reaction-chip my-reaction' : 'message-reaction-chip';
-      const chipHtml = `<span class="${chipClass}">${escapeHtml(emoji)}</span>`;
-      if (sender === contactAddress) {
-        contactChips.push(chipHtml);
-      } else if (sender === currentUserAddress) {
-        myChips.push(chipHtml);
-      } else {
-        otherChips.push(chipHtml);
-      }
-    }
-
-    const chips = [...contactChips, ...myChips, ...otherChips];
-    if (chips.length === 0) return '';
-
-    return `
-      <div class="message-reactions" aria-label="Reactions">
-        ${chips.join('')}
-      </div>
-    `;
+    return buildReactionChips(reactionsForTarget, normalizeAddress(myAccount.keys.address));
   }
 
   /**
@@ -24725,7 +25503,14 @@ class ChatModal {
     const isPayment = messageEl.classList.contains('payment-info');
     const paymentMemoEl = messageEl.querySelector('.payment-memo');
     if (isPayment && !paymentMemoEl) {
-      const dir = (messageEl.querySelector('.payment-direction')?.textContent || '').trim();
+      /*
+       * The direction comes from the bubble, not from a glyph inside it. This
+       * read `.payment-direction`'s textContent — an element that no longer
+       * exists, and one that was only ever a rendering of `item.my`. With it
+       * gone `dir` was '' and the preview fell through to the bubble's entire
+       * textContent, timestamp included.
+       */
+      const dir = messageEl.classList.contains('sent') ? '\u2212' : '+';
       const amount = (messageEl.querySelector('.payment-amount')?.textContent || '').trim();
       const ts = parseInt(messageEl.dataset.messageTimestamp || '', 10);
       const dateStr = Number.isFinite(ts) ? new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -24972,10 +25757,17 @@ class ChatModal {
    * Deletes a message locally (and potentially from network if it's a sent message)
    * @param {HTMLElement} messageEl - The message element to delete
    */
-  deleteMessage(messageEl) {
+  async deleteMessage(messageEl) {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
     
-    if (!timestamp || !confirm('Delete this message?')) return;
+    if (!timestamp) return;
+    const confirmed = await uiConfirm({
+      title: 'Delete this message?',
+      body: 'It is removed from this device only. Other people keep their copy.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) return;
     
     try {
       const contact = myData.contacts[this.address];
@@ -25077,7 +25869,13 @@ class ChatModal {
 
       if (this.hasRecentDeleteForAllForTarget(targetTxid)) return;
 
-      if (!confirm('Delete this message for all participants?')) return;
+      const confirmedForAll = await uiConfirm({
+        title: 'Delete for everyone?',
+        body: 'The message is removed for every participant. This cannot be undone.',
+        confirmLabel: 'Delete for everyone',
+        danger: true,
+      });
+      if (!confirmedForAll) return;
       const deleteForAllGuard = this.markRecentDeleteForAllForTarget(targetTxid);
 
       // Create and send a "delete" message
@@ -25179,13 +25977,17 @@ class ChatModal {
     const usdValue = tollUnit === 'USD' ? tollFloat : (factorValid ? tollFloat * factor : NaN);
     const libValue = factorValid ? (usdValue / factor) : NaN;
 
+    /*
+     * Trimmed, like every other amount in the app. This bar sits directly under
+     * the payment bubbles, which read "≈ $0.08" — while this read
+     * "0.050000 USD". Same screen, same money, two formats.
+     */
     let text;
     if (isNaN(usdValue) || isNaN(libValue)) {
-      text = `${tollFloat.toFixed(6)} USD`;
+      text = `${evmAssets.formatUsd(tollFloat)}`;
     } else {
-      // text = `${usdValue.toFixed(6)} USD (≈ ${libValue.toFixed(6)} LIB)`;
-      // Only show USD in display; LIB calculations kept for potential future use
-      text = `${usdValue.toFixed(6)} USD`;
+      // LIB value still computed above; only USD is shown.
+      text = `${evmAssets.formatUsd(usdValue)}`;
     }
 
     // Calculate libWei using BigInt arithmetic to preserve precision
@@ -25227,34 +26029,33 @@ class ChatModal {
       return;
     }
 
-    // Format toll display
-    const { text: usdString, libWei } = this.formatTollDisplay(
-      contact.toll,
-      contact.tollUnit
-    );
+    // Only libWei is needed now: the free case no longer quotes an amount.
+    const { libWei } = this.formatTollDisplay(contact.toll, contact.tollUnit);
     const effectiveTollLibWei = getEffectiveTollLibWei(libWei);
     const { text: effectiveUsdString } = this.formatTollDisplay(effectiveTollLibWei, 'LIB');
 
+    /*
+     * One label, and the value carries the state. The label used to change
+     * with it, which produced two readings that contradict themselves:
+     * "Toll free: 0.050000 USD" — free, followed by a price — and
+     * "Toll cost: 0.000000 USD" in green when the effective toll came to zero.
+     *
+     * An amount only appears when there is one to pay. Free is free: a
+     * connection has waived the toll, and quoting the number they waived tells
+     * you nothing you can act on.
+     */
+    tollLabel.textContent = 'Toll:';
+
     let display;
-    if (contact.tollRequiredToSend == 1) {
-      // Toll is required - show as "Toll cost:" with amount in red
-      tollLabel.textContent = 'Toll cost:';
-      display = effectiveUsdString;
-      // if the effective toll is 0, use toll-free class instead
-      if (effectiveTollLibWei == 0n) {
-        tollValue.classList.add('toll-free');
-      } else {
-        tollValue.classList.add('toll-cost');
-      }
-    } else if (contact.tollRequiredToSend == 2) {
-      // User is blocked - show as "Toll cost:" with "blocked" in red
-      tollLabel.textContent = 'Toll cost:';
+    if (contact.tollRequiredToSend == 2) {
       display = 'blocked';
       tollValue.classList.add('toll-cost');
+    } else if (contact.tollRequiredToSend == 1 && effectiveTollLibWei != 0n) {
+      display = effectiveUsdString;
+      tollValue.classList.add('toll-cost');
     } else {
-      // Toll is free - show as "Toll free:" with amount in green
-      tollLabel.textContent = 'Toll free:';
-      display = usdString;
+      // Either they have waived it, or what would be charged rounds to nothing.
+      display = 'free';
       tollValue.classList.add('toll-free');
     }
     tollValue.textContent = display;
@@ -27231,7 +28032,7 @@ class ShareContactsModal {
    */
   async getContactAvatarHtmlForShare(contact, size = 40) {
     const address = contact?.address;
-    if (!address) return generateIdenticon('', size);
+    if (!address) return addressAvatar('', size);
 
     const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
 
@@ -27252,7 +28053,7 @@ class ShareContactsModal {
     }
 
     // Priority 3: Identicon fallback
-    return generateIdenticon(address, size);
+    return addressAvatar(address, size);
   }
 
   /**
@@ -28009,7 +28810,7 @@ class ImportContactsModal {
     }
 
     // Fallback to identicon
-    return generateIdenticon(contact.address || '', size);
+    return addressAvatar(contact.address || '', size);
   }
 
   /**
@@ -29607,28 +30408,39 @@ class NewChatModal {
   load() {
     this.modal = document.getElementById('newChatModal');
     this.closeNewChatModalButton = document.getElementById('closeNewChatModal');
-    this.newChatForm = document.getElementById('newChatForm');
     this.usernameAvailable = document.getElementById('chatRecipientError');
     this.recipientInput = document.getElementById('chatRecipient');
-    this.submitButton = document.querySelector('#newChatForm button[type="submit"]');
+    this.picker = document.getElementById('newChatPicker');
+    this.listTitle = document.getElementById('newChatListTitle');
 
     this.closeNewChatModalButton.addEventListener('click', this.close.bind(this));
-    this.newChatForm.addEventListener('submit', withButtonCooldown(
-      this.submitButton,
-      BUTTON_COOLDOWN_MS,
-      () => {
-        if (!this.isActive()) return;
-        // Re-run username validation so submit button disabled state is refreshed from current recipient.
-        this.recipientInput.dispatchEvent(new Event('input', { bubbles: true }));
-      },
-      (event) => this.handleNewChat(event)
-    ));
-    // Disable submit and clear status immediately so there is no 300ms window where the button stays enabled after input change
+
+    /*
+     * No submit button. You tap the person, which is how every other list in
+     * this app works — the old screen made you type a username from memory and
+     * press Continue, in an app that has your contacts one tab away.
+     */
     this.recipientInput.addEventListener('input', () => {
-      this.submitButton.disabled = true;
-      this.usernameAvailable.style.display = 'none';
+      this.setRecipientStatus('');
+      this.renderPicker();
     });
-    this.recipientInput.addEventListener('input', debounce(this.handleUsernameInput.bind(this), 300));
+    this.recipientInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      const query = this.recipientInput.value.trim();
+      if (query) this.startChatWithUsername(query);
+    });
+
+    // Delegated: the rows are rebuilt on every keystroke.
+    this.picker.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-address]');
+      if (row) {
+        this.openChat(row.dataset.address);
+        return;
+      }
+      const resolve = event.target.closest('[data-resolve]');
+      if (resolve) this.startChatWithUsername(this.recipientInput.value.trim());
+    });
 
     this.scanButton = document.getElementById('newChatScanQRButton');
     this.uploadButton = document.getElementById('newChatUploadQRButton');
@@ -29639,6 +30451,258 @@ class NewChatModal {
     this.uploadButton.addEventListener('click', () => this.hiddenFileInput.click());
     this.hiddenFileInput.addEventListener('change', (e) => this.handleQRImageUpload(e.target.files?.[0] || null));
     this.inviteButton.addEventListener('click', () => this.handleInviteClick());
+
+    /*
+     * close(), not classList.remove('active').
+     *
+     * openNewChatModal() hides the "+" button; close() is what puts it back.
+     * Dismissing this modal by stripping the class instead skipped that, so
+     * leaving here for New group or Join a group left the "+" hidden until
+     * something else restored it — switchView() does, which is why changing
+     * tabs made it reappear.
+     */
+    this.groupButton = document.getElementById('newChatGroupButton');
+    this.groupUnsupportedNote = document.getElementById('newChatGroupUnsupported');
+    if (this.groupButton) {
+      this.groupButton.addEventListener('click', () => {
+        this.close();
+        createGroupModal.open();
+      });
+    }
+    this.joinGroupButton = document.getElementById('newChatJoinGroupButton');
+    if (this.joinGroupButton) {
+      this.joinGroupButton.addEventListener('click', () => {
+        this.close();
+        joinGroupModal.open();
+      });
+    }
+  }
+
+  /**
+   * Shows or hides the group entry points to match what the network supports.
+   *
+   * On a network without group transactions, creating or joining a group dies
+   * at the first commit. Offering the buttons anyway and failing halfway is
+   * worse than saying so — and saying so is also more useful than hiding them
+   * without explanation, since "where did New group go" is a question the
+   * screen can answer itself.
+   *
+   * @returns {void}
+   */
+  refreshGroupAvailability() {
+    const supported = groups.isGroupSupported();
+    // null means not probed yet; leave the buttons as they are rather than
+    // flickering them off and back on.
+    if (supported === null) return;
+    if (this.groupButton) this.groupButton.hidden = !supported;
+    if (this.joinGroupButton) this.joinGroupButton.hidden = !supported;
+    if (this.groupUnsupportedNote) this.groupUnsupportedNote.hidden = supported;
+  }
+
+  /**
+   * Sets the status line under the search field. `''` clears it; the hiding is
+   * `.field-status:empty`, so setting the text is the only thing to get right.
+   * @param {string} text
+   * @returns {void}
+   */
+  setRecipientStatus(text) {
+    if (this.usernameAvailable) this.usernameAvailable.textContent = text || '';
+  }
+
+  /**
+   * Contacts you can start a chat with. Blocked contacts and the faucet are
+   * excluded — the faucet is not a person, and offering to message someone you
+   * blocked is not a shortcut anyone wants.
+   * @returns {Array<object>}
+   */
+  chatCandidates() {
+    return Object.values(myData?.contacts || {})
+      .filter((contact) => contact?.address)
+      .filter((contact) => contact.friend !== 0)
+      .filter((contact) => !isFaucetAddress(contact.address))
+      .sort((a, b) => getContactDisplayName(a).localeCompare(getContactDisplayName(b)));
+  }
+
+  /**
+   * Renders the contact list, filtered by whatever is in the search field.
+   * @returns {Promise<void>}
+   */
+  async renderPicker() {
+    if (!this.picker) return;
+    const query = this.recipientInput.value.trim().toLowerCase();
+    const matches = this.chatCandidates().filter((contact) => {
+      if (!query) return true;
+      const name = getContactDisplayName(contact).toLowerCase();
+      return name.includes(query) || String(contact.username || '').toLowerCase().includes(query);
+    });
+
+    if (this.listTitle) {
+      this.listTitle.textContent = query ? 'Matches' : 'Contacts';
+      // Restored here; the no-contacts branch below hides it again.
+      this.listTitle.hidden = false;
+    }
+
+    /*
+     * A render token, because this is async (avatars) and fires on every
+     * keystroke: without it a slow render for "an" can land after "ana" and
+     * repaint the list with the wrong query's results.
+     */
+    const token = (this.renderToken = Symbol('render'));
+    const rows = await Promise.all(
+      matches.map(async (contact) => {
+        const avatar = await getContactAvatarHtml(contact, 34);
+        const display = getContactDisplayName(contact);
+        const name = escapeHtml(display);
+        /*
+         * Only when it says something the name does not. getContactDisplayName
+         * falls back to the username, so without this a contact with no
+         * nickname rendered "bridgeeth" over "@bridgeeth" — the same string
+         * twice. Same rule as the 1:1 chat header.
+         */
+        const handle =
+          contact.username && contact.username !== display
+            ? `<span class="ui-list-note">@${escapeHtml(contact.username)}</span>`
+            : '';
+        return `<li class="ui-list-row" data-address="${escapeHtml(normalizeAddress(contact.address))}">
+            <span class="ui-list-avatar">${avatar}</span>
+            <span class="ui-list-name">${name}${handle}</span>
+          </li>`;
+      })
+    );
+    if (token !== this.renderToken) return;
+
+    if (rows.length) {
+      this.picker.innerHTML = rows.join('');
+      return;
+    }
+
+    /*
+     * Nothing matched locally. Offer the username route rather than a dead end
+     * — the same fallback the group invite picker uses — and say whether that
+     * username actually exists before the tap rather than after it.
+     */
+    const raw = this.recipientInput.value.trim();
+    if (!raw) {
+      /*
+       * Nothing typed and no contacts: the whole section goes, heading and all.
+       * The search field directly above already says to type a username, so a
+       * row repeating that is a line of text standing in for a list — and a
+       * heading over an empty list is a promise of content that is not there.
+       */
+      this.picker.innerHTML = '';
+      if (this.listTitle) this.listTitle.hidden = true;
+      return;
+    }
+    if (raw.length < 3 && !isValidEthereumAddress(raw)) {
+      this.renderResolveRow(raw, 'short');
+      return;
+    }
+    this.renderResolveRow(raw, 'checking');
+    this.scheduleLookup(raw);
+  }
+
+  /**
+   * The one row you get when no contact matches: the username route, with what
+   * we currently know about that username.
+   * @param {string} raw - exactly what was typed
+   * @param {'short'|'checking'|'found'|'missing'|'error'} state
+   * @returns {void}
+   */
+  renderResolveRow(raw, state) {
+    const name = escapeHtml(raw);
+    if (state === 'short') {
+      this.picker.innerHTML = '<li class="ui-list-empty">Usernames are at least 3 characters.</li>';
+      return;
+    }
+    if (state === 'missing') {
+      this.picker.innerHTML =
+        `<li class="ui-list-empty ui-list-empty--error">No account called &ldquo;${name}&rdquo;.</li>`;
+      return;
+    }
+    const note =
+      state === 'checking' ? 'Checking…'
+      : state === 'error' ? 'Could not check — tap to try anyway'
+      : state === 'found' ? 'Account found'
+      : '';
+    /*
+     * `unknown` carries no note at all. It is the state where we have not asked
+     * — because there is nothing to ask with — and claiming either outcome
+     * would be a guess. Whether the device is online is the header's job, not
+     * this row's.
+     */
+    const noteHtml = note
+      ? `<span class="ui-list-note${state === 'found' ? ' ui-list-note--ok' : ''}">${note}</span>`
+      : '';
+    /*
+     * Tappable in every one of these states: the lookup on tap is the one that
+     * decides, and refusing the tap because a background probe has not answered
+     * yet would make a slow network feel like a broken screen.
+     */
+    this.picker.innerHTML = `<li><button type="button" class="ui-list-action" data-resolve="1">
+         <span class="ui-list-plus" aria-hidden="true">+</span>
+         <span class="ui-list-name">Start a chat with &ldquo;${name}&rdquo;${noteHtml}</span>
+       </button></li>`;
+  }
+
+  /**
+   * Checks whether a typed username exists, debounced.
+   *
+   * This is what the old `handleUsernameInput` did, kept because it answers the
+   * question before you commit — but it now feeds the row you are about to tap
+   * instead of enabling a Continue button, and it only runs for the queries the
+   * local contact list could not already answer.
+   *
+   * @param {string} raw
+   * @returns {void}
+   */
+  scheduleLookup(raw) {
+    clearTimeout(this.usernameInputCheckTimeout);
+    if (isValidEthereumAddress(raw)) {
+      this.renderResolveRow(raw, 'found');
+      return;
+    }
+    /*
+     * Offline, checkUsernameAvailability consults only THIS DEVICE'S accounts
+     * and returns 'available' for everyone else — so a stranger's username
+     * would come back as "no such account" when the truth is that nobody
+     * looked. Skip the probe and leave the row unannotated: this screen does
+     * not report connectivity (the header does), but it must not state a
+     * verdict it has not got.
+     */
+    if (!isOnline) {
+      this.renderResolveRow(raw, 'unknown');
+      return;
+    }
+    const username = normalizeUsername(raw);
+    this.usernameInputCheckTimeout = setTimeout(async () => {
+      let state;
+      try {
+        const taken = await checkUsernameAvailability(username, myAccount?.keys?.address);
+        // 'taken' means someone holds it, which is exactly what we want here.
+        // 'mine' is your own account; 'available' means nobody has it.
+        state = taken === 'taken' ? 'found' : taken === 'mine' ? 'self' : taken === 'available' ? 'missing' : 'error';
+      } catch (error) {
+        console.error('Error checking username:', error);
+        state = 'error';
+      }
+      // The field may have moved on while the network was thinking.
+      if (this.recipientInput.value.trim() !== raw) return;
+      if (state === 'self') {
+        this.picker.innerHTML = '<li class="ui-list-empty">That is your own account.</li>';
+        return;
+      }
+      this.renderResolveRow(raw, state);
+    }, 500);
+  }
+
+  /**
+   * Opens a chat with someone already in your contacts.
+   * @param {string} address
+   * @returns {void}
+   */
+  openChat(address) {
+    this.close();
+    chatModal.open(normalizeAddress(address));
   }
 
   /**
@@ -29648,13 +30712,16 @@ class NewChatModal {
    */
   openNewChatModal() {
     openModal(this.modal);
+    this.refreshGroupAvailability();
     footer.closeNewChatButton();
-    this.usernameAvailable.style.display = 'none';
-    this.submitButton.disabled = true;
+    this.recipientInput.value = '';
+    this.setRecipientStatus('');
+    this.renderPicker();
     walletScreen.updateWalletBalances();
-    // Delay focus to ensure transition completes (modal transition is 300ms)
+    // Delay focus to ensure transition completes (modal transition is 300ms).
+    // preventScroll: a plain focus() scrolls the modal container sideways.
     setTimeout(() => {
-      this.recipientInput.focus();
+      this.recipientInput.focus({ preventScroll: true });
     }, 325);
   }
 
@@ -29665,7 +30732,9 @@ class NewChatModal {
    */
   close() {
     this.modal.classList.remove('active');
-    this.newChatForm.reset();
+    clearTimeout(this.usernameInputCheckTimeout);
+    this.recipientInput.value = '';
+    this.setRecipientStatus('');
     if (chatsScreen.isActive()) {
       footer.openNewChatButton();
     }
@@ -29684,13 +30753,13 @@ class NewChatModal {
    * @param {Event} event - The event object
    * @returns {void}
    */
-  async handleNewChat(event) {
-    event.preventDefault();
-    const input = this.recipientInput.value.trim();
+  async startChatWithUsername(rawInput) {
+    const input = String(rawInput || '').trim();
+    if (!input) return;
     let recipientAddress;
     let username;
 
-    this.hideRecipientError();
+    this.setRecipientStatus('');
 
     // Treat as an address only when the full input is a valid Ethereum address.
     if (isValidEthereumAddress(input)) {
@@ -29698,7 +30767,7 @@ class NewChatModal {
       recipientAddress = normalizeAddress(input);
     } else {
       if (input.length < 3) {
-        this.showRecipientError('Username too short');
+        this.setRecipientStatus('Username too short');
         return;
       }
       username = normalizeUsername(input);
@@ -29708,14 +30777,14 @@ class NewChatModal {
       try {
         const data = await queryNetwork(`/address/${usernameHash}`);
         if (!data || !data.address) {
-          this.showRecipientError('Username not found');
+          this.setRecipientStatus('Username not found');
           return;
         }
         // Normalize address from API if it has 0x prefix or trailing zeros
         recipientAddress = normalizeAddress(data.address);
       } catch (error) {
         console.error('Error looking up username:', error);
-        this.showRecipientError('Error looking up username');
+        this.setRecipientStatus('Error looking up username');
         return;
       }
     }
@@ -29745,24 +30814,21 @@ class NewChatModal {
     // Get or create chat data
     const chatsData = myData;
 
-    // Check if contact exists
+    /*
+     * Starting a chat does not change anyone's status.
+     *
+     * This used to inject a toll_update transaction setting the contact to
+     * Connection (friend = 2) before the chat could open — so merely messaging
+     * someone silently waived their toll, and produced a "You changed X's
+     * status to Connection" divider in a conversation the user had not had yet.
+     * It also gated opening the chat on that transaction succeeding, so a
+     * network hiccup meant no chat at all.
+     *
+     * createNewContact defaults to friend = 1, Tolled, which is the status
+     * someone gets until you deliberately change it in Contact Status.
+     */
     if (!chatsData.contacts[recipientAddress]) {
-      // Default to 2 (Acquaintance) so recipient does not need to pay toll.
-      // Only create the local contact if the network inject succeeds.
-      try {
-        const res = await friendModal.postUpdateTollRequired(recipientAddress, 2);
-        if (res?.result?.success !== true) {
-          return;
-        }
-      } catch (error) {
-        console.error('Error updating toll in create when creating new contact:', error);
-        return;
-      }
-
-      createNewContact(recipientAddress, username, 2);
-      // If the backend ultimately rejects this tx, the pending-tx failure handler
-      // reverts `friend` back to `friendOld` so initializing fieldOld to toll required (1).
-      chatsData.contacts[recipientAddress].friendOld = 1;
+      createNewContact(recipientAddress, username);
     }
     chatsData.contacts[recipientAddress].username = username;
 
@@ -29854,72 +30920,14 @@ class NewChatModal {
     }
   }
 
-  /**
-   * Hide error message in the new chat form
-   * @returns {void}
+  /*
+   * handleUsernameInput is gone, but what it TOLD you is not: see
+   * scheduleLookup. The old version asked the network on every keystroke, about
+   * contacts that were sitting in local storage, purely to enable a Continue
+   * button. The list answers the local case instantly and offline now, and the
+   * lookup runs only for a username no contact matched — feeding the row you
+   * are about to tap rather than a status line beside a button.
    */
-  hideRecipientError() {
-    this.usernameAvailable.style.display = 'none';
-  }
-
-  /**
-   * Show error message in the new chat form
-   * @param {string} message - The error message to show
-   * @returns {void}
-   */
-  showRecipientError(message) {
-    this.usernameAvailable.textContent = message;
-    this.usernameAvailable.style.color = '#dc3545'; // Always red for errors
-    this.usernameAvailable.style.display = 'inline';
-  }
-
-  /**
-   * Invoked when the user types in the username input
-   * It will check if the username is too short, available, or not available
-   * @param {Event} e - The event object
-   * @returns {void}
-   */
-  handleUsernameInput(e) {
-    this.usernameAvailable.style.display = 'none';
-    this.submitButton.disabled = true;
-
-    const username = normalizeUsername(e.target.value);
-    e.target.value = username;
-
-    // Clear previous timeout
-    if (this.usernameInputCheckTimeout) {
-      clearTimeout(this.usernameInputCheckTimeout);
-    }
-
-    // Check if username is too short
-    if (username.length < 3) {
-      this.usernameAvailable.textContent = 'too short';
-      this.usernameAvailable.style.color = '#dc3545';
-      this.usernameAvailable.style.display = 'inline';
-      return;
-    }
-
-    // Check username availability
-    this.usernameInputCheckTimeout = setTimeout(async () => {
-      const taken = await checkUsernameAvailability(username, myAccount.keys.address);
-      if (taken == 'taken') {
-        this.usernameAvailable.textContent = 'found';
-        this.usernameAvailable.style.color = '#28a745';
-        this.usernameAvailable.style.display = 'inline';
-        this.submitButton.disabled = false;
-      } else if (taken == 'mine' || taken == 'available') {
-        this.usernameAvailable.textContent = 'not found';
-        this.usernameAvailable.style.color = '#dc3545';
-        this.usernameAvailable.style.display = 'inline';
-        this.submitButton.disabled = true;
-      } else {
-        this.usernameAvailable.textContent = 'network error';
-        this.usernameAvailable.style.color = '#dc3545';
-        this.usernameAvailable.style.display = 'inline';
-        this.submitButton.disabled = true;
-      }
-    }, 1000);
-  }
 
   /**
    * Invoked when the user clicks the Invite button
@@ -29953,9 +30961,6 @@ class CreateAccountModal {
     this.usernameAvailable = document.getElementById('newUsernameAvailable');
     this.privateKeyError = document.getElementById('newPrivateKeyError');
     this.togglePrivateKeyVisibility = document.getElementById('togglePrivateKeyVisibility');
-    this.migrateAccountsSection = document.getElementById('migrateAccountsSection');
-    this.migrateAccountsButton = document.getElementById('migrateAccountsButton');
-    this.toggleMoreOptions = document.getElementById('toggleMoreOptions');
     this.moreOptionsSection = document.getElementById('moreOptionsSection');
     this.privateAccountCheckbox = document.getElementById('togglePrivateAccount');
     this.privateAccountHelpButton = document.getElementById('privateAccountHelpButton');
@@ -29966,7 +30971,7 @@ class CreateAccountModal {
     this.form.addEventListener('submit', (event) => this.handleSubmit(event));
     this.usernameInput.addEventListener('input', (e) => this.handleUsernameInput(e));
     this.toggleButton.addEventListener('change', () => this.handleTogglePrivateKeyInput());
-    this.toggleMoreOptions.addEventListener('change', () => this.handleToggleMoreOptions());
+    this.moreOptionsSection.addEventListener('toggle', () => this.handleToggleMoreOptions());
     this.backButton.addEventListener('click', () => this.closeWithReload());
 
     // Add listener for the password visibility toggle
@@ -29986,17 +30991,10 @@ class CreateAccountModal {
       showToast(message, 0, 'info', true);
     });
 
-    this.migrateAccountsButton.addEventListener('click', () => migrateAccountsModal.open());
   }
 
   open() {
     if (this.isCreatingAccount) return;
-
-    if (migrateAccountsModal.hasMigratableAccounts()) {
-      this.migrateAccountsSection.style.display = 'block';
-    } else {
-      this.migrateAccountsSection.style.display = 'none';
-    }
 
     openModal(this.modal);
     enterFullscreen();
@@ -30036,10 +31034,9 @@ class CreateAccountModal {
     this.refreshSubmitButton();
     
     // Reset More Options section
-    this.toggleMoreOptions.checked = false;
-    this.moreOptionsSection.style.display = 'none';
+    this.moreOptionsSection.open = false;
     this.toggleButton.checked = false;
-    this.privateKeySection.style.display = 'none';
+    this.privateKeySection.hidden = true;
     this.privateAccountCheckbox.checked = false;
     
     // Open the modal
@@ -30071,10 +31068,7 @@ class CreateAccountModal {
   refreshControlStates() {
     this.controls.forEach((control) => {
       const requiresConnection = control.hasAttribute('data-requires-connection');
-      const isMigrationBusy =
-        control === this.migrateAccountsButton &&
-        (migrateAccountsModal.isOpening || migrateAccountsModal.isMigrating);
-      control.disabled = this.isCreatingAccount || isMigrationBusy || (requiresConnection && !isOnline);
+      control.disabled = this.isCreatingAccount || (requiresConnection && !isOnline);
     });
     this.refreshSubmitButton();
   }
@@ -30137,7 +31131,7 @@ class CreateAccountModal {
 
   handleTogglePrivateKeyInput() {
     const isChecked = this.toggleButton.checked;
-    this.privateKeySection.style.display = isChecked ? 'block' : 'none';
+    this.privateKeySection.hidden = !isChecked;
     this.privateKeyInput.value = '';
     
     if (!isChecked) {
@@ -30145,18 +31139,14 @@ class CreateAccountModal {
     }
   }
   
+  /* Collapsing Advanced discards what was set inside it, so a hidden option
+     can never be in force without being visible. */
   handleToggleMoreOptions() {
-    const isChecked = this.toggleMoreOptions.checked;
-    this.moreOptionsSection.style.display = isChecked ? 'block' : 'none';
-    
-    if (!isChecked) {
-      // Reset private key options when more options is unchecked
-      this.toggleButton.checked = false;
-      // Hide private key section if More Options is unchecked
-      this.privateKeySection.style.display = 'none';
-      this.privateKeyInput.value = '';
-      this.privateKeyError.style.display = 'none';
-    }
+    if (this.moreOptionsSection.open) return;
+    this.toggleButton.checked = false;
+    this.privateKeySection.hidden = true;
+    this.privateKeyInput.value = '';
+    this.privateKeyError.style.display = 'none';
   }
 
   validatePrivateKey(key) {
@@ -30441,6 +31431,7 @@ class SendAssetFormModal {
     this.memoGroup = document.getElementById('sendMemoGroup');
     this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
     this.usernameAvailable = document.getElementById('sendToAddressError');
+    this.maxButton = document.getElementById('sendMaxButton');
     this.submitButton = document.querySelector('#sendForm button[type="submit"]');
     this.networkSelect = document.getElementById('sendNetwork');
     this.networkGroup = document.getElementById('sendNetworkGroup');
@@ -30470,7 +31461,13 @@ class SendAssetFormModal {
       this.handleSendToAddressInput(e);
     });
 
-    this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
+    /*
+     * Filling the maximum was bound to the entire Available/Fee line, with no
+     * cursor, no label and nothing on screen saying it existed. Same handler,
+     * moved onto a Max button you can see and aim at — a line of text that
+     * silently rewrites the amount when brushed is worse than no shortcut.
+     */
+    this.maxButton.addEventListener('click', this.fillAmount.bind(this));
     this.networkSelect.addEventListener('change', () => this.handleNetworkChange());
     this.assetSelectDropdown.addEventListener('change', () => this.handleAssetChange());
     // amount input listener for normalizing
@@ -30525,7 +31522,7 @@ class SendAssetFormModal {
     this.tollMemoSpan.textContent = '';
     this.foundAddressObject.address = null;
 
-    this.usernameAvailable.style.display = 'none';
+    this.setRecipientStatus('');
     this.submitButton.disabled = true;
     qrScanModal.fillFunction = this.fillFromQR.bind(this); // set function to handle filling the payment form from QR data
 
@@ -30593,7 +31590,7 @@ class SendAssetFormModal {
     if (resetRecipient) {
       this.usernameInput.value = '';
       this.foundAddressObject.address = null;
-      this.usernameAvailable.style.display = 'none';
+      this.setRecipientStatus('');
     }
     this.amountInput.value = '';
     this.balanceWarning.textContent = '';
@@ -30651,9 +31648,7 @@ class SendAssetFormModal {
       this.clearFormInfo();
       const isValidAddress = isValidEthereumAddress(rawInput);
       this.foundAddressObject.address = isValidAddress ? rawInput : null;
-      this.usernameAvailable.textContent = isValidAddress ? 'valid address' : 'enter a valid 0x address';
-      this.usernameAvailable.style.color = isValidAddress ? '#28a745' : '#dc3545';
-      this.usernameAvailable.style.display = rawInput ? 'inline' : 'none';
+      this.setRecipientStatus(rawInput ? (isValidAddress ? 'valid address' : 'enter a valid 0x address') : '', isValidAddress);
       await this.refreshSendButtonDisabledState();
       return;
     }
@@ -30661,9 +31656,7 @@ class SendAssetFormModal {
     if (isValidEthereumAddress(rawInput)) {
       this.clearFormInfo();
       this.foundAddressObject.address = null;
-      this.usernameAvailable.textContent = 'address not supported';
-      this.usernameAvailable.style.color = '#dc3545';
-      this.usernameAvailable.style.display = 'inline';
+      this.setRecipientStatus('address not supported');
       await this.refreshSendButtonDisabledState();
       return;
     }
@@ -30678,9 +31671,7 @@ class SendAssetFormModal {
 
     // Check if username is too short
     if (username.length < 3) {
-      usernameAvailable.textContent = 'too short';
-      usernameAvailable.style.color = '#dc3545';
-      usernameAvailable.style.display = 'inline';
+      this.setRecipientStatus('too short');
       await this.refreshSendButtonDisabledState();
       return;
     }
@@ -30689,21 +31680,13 @@ class SendAssetFormModal {
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
       const taken = await checkUsernameAvailability(username, myAccount.keys.address, this.foundAddressObject);
       if (taken == 'taken') {
-        usernameAvailable.textContent = 'found';
-        usernameAvailable.style.color = '#28a745';
-        usernameAvailable.style.display = 'inline';
+        this.setRecipientStatus('found', true);
       } else if (taken == 'mine') {
-        usernameAvailable.textContent = 'mine';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
+        this.setRecipientStatus('mine');
       } else if (taken == 'available') {
-        usernameAvailable.textContent = 'not found';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
+        this.setRecipientStatus('not found');
       } else {
-        usernameAvailable.textContent = 'network error';
-        usernameAvailable.style.color = '#dc3545';
-        usernameAvailable.style.display = 'inline';
+        this.setRecipientStatus('network error');
       }
       // check if found
       if (this.foundAddressObject.address) {
@@ -30794,20 +31777,21 @@ class SendAssetFormModal {
     const tollInLibWei = normalizeTollToLibWei(toll, this.tollInfo.tollUnit);
     const effectiveTollLibWei = getEffectiveTollLibWei(tollInLibWei);
     const effectiveTollUsd = parseFloat(big2str(effectiveTollLibWei, 18)) * factor;
-    const usdString = `${effectiveTollUsd.toFixed(6)} USD (≈ ${parseFloat(big2str(effectiveTollLibWei, 18)).toFixed(6)} LIB)`;
+    const usdString = `${evmAssets.formatUsd(effectiveTollUsd)} (≈ ${evmAssets.formatTokenAmount(parseFloat(big2str(effectiveTollLibWei, 18)))} LIB)`;
+    /*
+     * Same rule as the chat toll readout: an amount only appears when there is
+     * one to pay. This said "free; 0.050000 USD (≈ 0.050000 LIB)" — the price
+     * of the thing it had just called free.
+     */
     let display;
-    if (this.tollInfo.required == 1) {
-      display = `${usdString}`;
-      if (this.memoInput.value.trim() == '') {
-        display = '';
-      }
-    } else if (this.tollInfo.required == 2) {
+    if (this.tollInfo.required == 2) {
       this.tollMemoSpan.style.color = 'red';
-      display = `blocked`;
+      display = 'blocked';
+    } else if (this.tollInfo.required == 1 && effectiveTollLibWei != 0n) {
+      display = this.memoInput.value.trim() === '' ? '' : usdString;
     } else {
-      // light green used to show success
       this.tollMemoSpan.style.color = '#28a745';
-      display = `free; ${usdString}`;
+      display = 'free';
     }
     //display the container
     if (display != '') {
@@ -30853,7 +31837,17 @@ class SendAssetFormModal {
     }
 
     // Get form values
-    const assetSymbol = this.assetSelectDropdown.options[this.assetSelectDropdown.selectedIndex].text;
+    /*
+     * The <option>'s TEXT is "Liberdus (LIB)" — the asset's full label, built as
+     * `${asset.name} (${asset.symbol})`. That was fine when the confirm screen
+     * had a separate "Asset" row, but the amount now carries its own unit, so
+     * it needs the ticker: "10 LIB", not "10 Liberdus (LIB)". Keeping the label
+     * here also silently defeated the `=== 'LIB'` guard on the fee and total
+     * rows, so neither ever appeared.
+     */
+    const selectedForSymbol = this.getSelectedAsset();
+    const assetSymbol =
+      selectedForSymbol?.tokenSymbol || selectedForSymbol?.walletAsset?.symbol || 'LIB';
     const amount = this.amountInput.value;
     const memo = this.memoInput.value;
     const confirmButton = sendAssetConfirmModal.confirmSendButton;
@@ -30900,24 +31894,63 @@ class SendAssetFormModal {
       libAmount = amount;
     }
 
-    // Update confirmation modal with values
-    sendAssetConfirmModal.confirmAmountUSD.textContent = `≈ $${parseFloat(usdAmount).toFixed(6)} USD`;
+    // Update confirmation modal with values.
+    // The amount carries its own unit now — it used to read a bare "25" with a
+    // separate Asset row underneath saying "Liberdus (LIB)", so neither line
+    // was a complete statement on its own.
+    sendAssetConfirmModal.confirmAmountUSD.textContent = `≈ $${parseFloat(usdAmount).toFixed(2)}`;
     sendAssetConfirmModal.confirmRecipient.textContent = this.usernameInput.value;
-    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount}`;
-    sendAssetConfirmModal.confirmAsset.textContent = assetSymbol;
+    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount} ${assetSymbol}`;
 
     // Show/hide memo if present
     const memoGroup = sendAssetConfirmModal.confirmMemoGroup;
     if (memo) {
       sendAssetConfirmModal.confirmMemo.textContent = memo;
-      memoGroup.style.display = 'block';
+      memoGroup.hidden = false;
     } else {
-      memoGroup.style.display = 'none';
+      memoGroup.hidden = true;
+    }
+
+    /*
+     * Fee and total. Without them the number you confirm is not the number that
+     * leaves the account — the fee was stated on the form behind this screen
+     * and then never again.
+     *
+     * Liberdus only: an EVM transfer's gas is not known here, and a fee line
+     * that is sometimes a guess is worse than no fee line on a confirmation.
+     */
+    const feeGroup = sendAssetConfirmModal.confirmFeeGroup;
+    const totalGroup = sendAssetConfirmModal.confirmTotalGroup;
+    const feeWei = this.isLiberdusSelected() ? getTransactionFeeWei({ allowNull: true }) : null;
+    if (feeWei !== null && assetSymbol === 'LIB') {
+      const feeStr = big2str(feeWei, 18).slice(0, -16);
+      sendAssetConfirmModal.confirmFee.textContent = `${feeStr} ${assetSymbol}`;
+      const total = evmAssets.formatTokenAmount(parseFloat(libAmount) + parseFloat(feeStr));
+      sendAssetConfirmModal.confirmTotal.textContent = `${total} ${assetSymbol}`;
+      feeGroup.hidden = false;
+      totalGroup.hidden = false;
+    } else {
+      feeGroup.hidden = true;
+      totalGroup.hidden = true;
     }
 
     confirmButton.disabled = false;
     cancelButton.disabled = false;
     sendAssetConfirmModal.open();
+  }
+
+  /**
+   * Sets the recipient field's status line. Replaces `style.color` + a
+   * `style.display` toggle repeated across a dozen call sites, in literal hex.
+   * `''` clears it, and `.field-status:empty` does the hiding.
+   * @param {string} text
+   * @param {boolean} ok - true for a good outcome ("found", "valid address")
+   * @returns {void}
+   */
+  setRecipientStatus(text, ok = false) {
+    this.usernameAvailable.textContent = text || '';
+    this.usernameAvailable.classList.toggle('field-status--ok', Boolean(text) && ok);
+    this.usernameInput.classList.toggle('is-invalid', Boolean(text) && !ok);
   }
 
   /**
@@ -31042,7 +32075,7 @@ class SendAssetFormModal {
 
     // Address is valid if its error/status message is visible and set to 'found'.
     const isAddressConsideredValid =
-      this.usernameAvailable.style.display === 'inline' && this.usernameAvailable.textContent === 'found';
+      this.usernameAvailable.textContent === 'found';
 
     const amount = this.amountInput.value.trim();
 
@@ -31171,12 +32204,18 @@ class SendAssetFormModal {
    * @param {number} stabilityFactor - The factor to convert between LIB and USD
    */
   updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isUSD, stabilityFactor) {
+    /*
+     * Both through the same formatter. The callers hand these in pre-formatted
+     * at different precisions, so the line read "Available 48.750000 LIB"
+     * beside "Fee 1.25 LIB" — two number formats on one line, which makes them
+     * look like different kinds of quantity.
+     */
     if (isUSD) {
-      this.balanceAmount.textContent = '$' + (parseFloat(balanceInLIB) * stabilityFactor).toPrecision(6);
-      this.transactionFee.textContent = '$' + (parseFloat(feeInLIB) * stabilityFactor).toPrecision(2);
+      this.balanceAmount.textContent = evmAssets.formatUsd(parseFloat(balanceInLIB) * stabilityFactor);
+      this.transactionFee.textContent = evmAssets.formatUsd(parseFloat(feeInLIB) * stabilityFactor);
     } else {
-      this.balanceAmount.textContent = balanceInLIB + ' LIB';
-      this.transactionFee.textContent = feeInLIB + ' LIB';
+      this.balanceAmount.textContent = evmAssets.formatTokenAmount(parseFloat(balanceInLIB)) + ' LIB';
+      this.transactionFee.textContent = evmAssets.formatTokenAmount(parseFloat(feeInLIB)) + ' LIB';
     }
   }
 
@@ -31373,13 +32412,16 @@ class SendAssetConfirmModal {
     this.modal = document.getElementById('sendAssetConfirmModal');
     this.confirmAmount = document.getElementById('confirmAmount');
     this.confirmAmountUSD = document.getElementById('confirmAmountUSD');
-    this.confirmAsset = document.getElementById('confirmAsset');
     this.confirmMemo = document.getElementById('confirmMemo');
     this.confirmRecipient = document.getElementById('confirmRecipient');
     this.confirmSendButton = document.getElementById('confirmSendButton');
     this.closeButton = document.getElementById('closeSendAssetConfirmModal');
     this.cancelButton = document.getElementById('cancelSendButton');
     this.confirmMemoGroup = document.getElementById('confirmMemoGroup');
+    this.confirmFee = document.getElementById('confirmFee');
+    this.confirmFeeGroup = document.getElementById('confirmFeeGroup');
+    this.confirmTotal = document.getElementById('confirmTotal');
+    this.confirmTotalGroup = document.getElementById('confirmTotalGroup');
 
     // Add event listeners for send asset confirmation modal
     this.closeButton.addEventListener('click', this.close.bind(this));
@@ -31599,7 +32641,7 @@ class SendAssetConfirmModal {
       }
 
       /* if (!response || !response.result || !response.result.success) {
-              alert('Transaction failed: ' + response.result.reason);
+              await uiAlert('Transaction failed', String(response.result.reason || ''));
               return;
           } */
 
@@ -31679,7 +32721,7 @@ class SendAssetConfirmModal {
       sendAssetFormModal.usernameInput.value = '';
       sendAssetFormModal.amountInput.value = '';
       sendAssetFormModal.memoInput.value = '';
-      sendAssetFormModal.usernameAvailable.style.display = 'none';
+      sendAssetFormModal.setRecipientStatus('');
 
       // Show history modal after successful transaction
       historyModal.open();
@@ -31713,6 +32755,7 @@ class ReceiveModal {
     this.memoInput = document.getElementById('receiveMemo');
     this.memoGroup = document.getElementById('receiveMemoGroup');
     this.displayAddress = document.getElementById('displayAddress');
+    this.qrCaption = document.getElementById('qrCaption');
     this.qrcodeContainer = document.getElementById('qrcode');
     this.previewElement = document.getElementById('qrDataPreview');
     this.copyButton = document.getElementById('copyAddress');
@@ -31828,9 +32871,10 @@ class ReceiveModal {
     
     // Store full address for copying
     this.fullAddress = addressWithPrefix;
-    
-    // Display full address
-    this.displayAddress.textContent = addressWithPrefix;
+
+    // Shown truncated in the middle — the head and tail are the parts anyone
+    // checks against another screen. Copy still yields the whole thing.
+    this.displayAddress.textContent = MyInfoModal.shortAddress(addressWithPrefix);
 
     // Generate QR code with payment data
     try {
@@ -31885,6 +32929,21 @@ class ReceiveModal {
   }
 
   // Update QR code with current payment data
+  /*
+   * The code silently re-encodes on every keystroke in the amount and memo
+   * fields, which sit BELOW it — so the thing you changed and the thing that
+   * changed were never on screen together. This says what the code currently
+   * is.
+   */
+  updateQRCaption() {
+    if (!this.qrCaption) return;
+    const amount = this.amountInput.value.trim();
+    const unit = escapeHtml(String(this.receiveBalanceSymbol.textContent || 'LIB'));
+    this.qrCaption.innerHTML = amount
+      ? `This code requests <strong>${escapeHtml(amount)} ${unit}</strong>`
+      : 'Scan to send to this account';
+  }
+
   updateQRCode() {
     this.qrcodeContainer.innerHTML = '';
     this.previewElement.style.display = 'none'; // Hide preview/error area initially
@@ -31908,11 +32967,16 @@ class ReceiveModal {
       // Create an image element and set its source to the data URL
       const img = document.createElement('img');
       img.src = dataUrl;
-      img.width = 200;
-      img.height = 200;
-      // Add the image to the container
+      img.alt = 'Payment QR code';
+      /*
+       * No width/height. encodeQR emits 4px per module, so a 45-module code is
+       * 180px; forcing 200 put module edges on fractions (4.44px each) and the
+       * module count moves with the payload, so it was wrong at most memo
+       * lengths. CSS adds image-rendering: pixelated for the same reason.
+       */
       this.qrcodeContainer.appendChild(img);
 
+      this.updateQRCaption();
       return qrText;
     } catch (error) {
       console.error('Error in updateQRCode:', error);
@@ -31934,10 +32998,17 @@ class ReceiveModal {
         // Create an image element and set its source to the data URL
         const img = document.createElement('img');
         img.src = dataUrl;
-        img.width = 200;
-        img.height = 200;
-        // Add the image to the container
+        img.alt = 'Account QR code';
+        // No forced size — see the note on the main path.
         this.qrcodeContainer.appendChild(img);
+
+        /*
+         * This fallback encodes the username ONLY, with no amount or memo. The
+         * caption has to say so: leaving "This code requests 25.00 LIB" over a
+         * code that requests nothing of the sort is worse than the failure it
+         * is recovering from.
+         */
+        if (this.qrCaption) this.qrCaption.textContent = 'Scan to send to this account';
 
         console.error('Error generating full QR', error);
 
@@ -32068,8 +33139,17 @@ class FailedTransactionModal {
   open(txid, element) {  
     // Get the address and memo from the original failed transfer element
     const address = element?.dataset?.address || chatModal.address;
+    /*
+     * data-memo first. This used to read `.transaction-memo` out of the row,
+     * which meant retrying a failed payment depended on the memo being on
+     * screen — and a failed row now says "Failed" in that slot, so the memo
+     * would have been lost. The row carries the raw value regardless of what it
+     * displays; the .payment-memo fallback is the chat-bubble case.
+     */
     const memo =
-      element?.querySelector('.transaction-memo')?.textContent || element?.querySelector('.payment-memo')?.textContent;
+      element?.dataset?.memo ||
+      element?.querySelector('.payment-memo')?.textContent ||
+      '';
     //const assetID = element?.dataset?.assetID || ''; // TODO: need to add assetID to `myData.wallet.history` for when we have multiple assets
   
     // Store the address and memo in properties of open
@@ -33330,7 +34410,7 @@ class ReactNativeApp {
     if (this.isReactNativeWebView) {
       this.captureInitialViewportHeight();
 
-      window.addEventListener('message', (event) => {
+      window.addEventListener('message', async (event) => {
         try {
           const data = JSON.parse(event.data);
 
@@ -33414,7 +34494,12 @@ class ReactNativeApp {
               // console.log('🔔 You are signed in to the account that received the message');
             } else {
               // We're signed in to a different account, ask user what to do
-              const shouldSignOut = confirm('You received a message for a different account. Would you like to sign out to switch to that account?');
+              const shouldSignOut = await uiConfirm({
+                title: 'Message for another account',
+                body: 'It arrived for a different account on this device. Sign out to switch to it?',
+                confirmLabel: 'Sign out and switch',
+                cancelLabel: 'Stay signed in',
+              });
               this.saveNotificationAddress(normalizedToAddress);
               if (shouldSignOut) {
                 // Sign out and save the notification address for priority
@@ -34749,6 +35834,30 @@ async function longPollResult(data) {
       console.error('Chat polling error:', error);
     }
   }
+
+  /*
+   * Group sync runs on EVERY tick, not only when the 1:1 poll reports a change.
+   *
+   * Group messages and commits are written to the group's own accounts and never
+   * to a member's UserAccount, so `chatTimestamp` does not move for group-only
+   * activity and the collector correctly answers "no change". Gating group sync
+   * on data.success therefore meant an account with no 1:1 traffic never synced
+   * its groups at all: it silently fell behind the epoch, could not decrypt
+   * anything sent after it, and kept sending messages nobody else could read.
+   *
+   * Deliberately outside the block above and separately guarded: group sync is
+   * idempotent and self-healing, and neither half should be able to stop the
+   * other from running.
+   */
+  try {
+    const gotGroups = await updateGroupData();
+    if (gotGroups > 0) {
+      saveState();
+      chatsScreen.updateChatList();
+    }
+  } catch (error) {
+    console.error('Group polling error:', error);
+  }
 }
 longPollResult.timestamp = 0
 
@@ -35837,8 +36946,15 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
     ? normalizeAddress(contactOrAddress)
     : normalizeAddress(contactOrAddress?.address);
 
-  // Helper to return img HTML when blobUrl available
-  const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
+  /*
+   * An uploaded avatar. The fallback attributes matter: a stored blob can fail
+   * to decode — an empty or truncated record still yields a valid object URL —
+   * and without them the image simply fails and leaves an empty circle with no
+   * clue why. See the capture-phase handler installed in initApp.
+   */
+  const makeImg = (url) =>
+    `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt=""` +
+    ` data-avatar-fallback="${address || ''}" data-avatar-size="${size}">`;
   
   const contactObj = typeof contactOrAddress === 'object' && contactOrAddress !== null
     ? contactOrAddress
@@ -35857,7 +36973,7 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
     } catch (e) {
       console.warn('Failed to load account avatar, falling back to identicon:', e);
     }
-    return generateIdenticon(address, size);
+    return addressAvatar(address, size);
   }
 
   // useAvatar preference: 'contact' | 'mine' | 'identicon'
@@ -35865,7 +36981,7 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
 
   if (address) {
     try {
-      if (usePref === 'identicon') return generateIdenticon(address, size);
+      if (usePref === 'identicon') return addressAvatar(address, size);
 
       // Determine available avatar ids from contact or account
       const contact = typeof contactOrAddress === 'object' && contactOrAddress !== null
@@ -35908,10 +37024,10 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
       console.warn('Failed to load avatar, falling back to identicon:', err);
     }
 
-    return generateIdenticon(address, size);
+    return addressAvatar(address, size);
   }
 
-  return generateIdenticon('', size);
+  return addressAvatar('', size);
 }
 
 /**
@@ -36072,6 +37188,9 @@ const modalCloseHandlers = new Map([
     chatSettingsModal, qrScanModal, backupModal, importModal,
     accountModal, validatorModal, stakeModal, messageSearchModal, contactSearchModal,
     importContactsModal, shareContactsModal,
+    // Group chat modals. Without these the hardware/browser back button logs
+    // "Unknown modal" and refuses to close them.
+    createGroupModal, groupChatModal, groupInfoModal, joinGroupModal,
   }),
   // Structural exceptions require an id or a controller-specific close method.
   ['assetsModal', () => evmAssets.close('assetsModal')],

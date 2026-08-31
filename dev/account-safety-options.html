@@ -1,0 +1,205 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Account safety</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin:0; background:#ececed; font-family:'Inter',sans-serif; }
+      .page { max-width:1240px; margin:0 auto; padding:26px 20px 90px; }
+      h2 { font-size:15px; margin:34px 0 4px; letter-spacing:-.01em }
+      .why { font-size:12.5px; line-height:1.6; color:#65676b; margin:0 0 14px; max-width:78ch }
+      .why code { background:#e2e2e8; padding:1px 4px; border-radius:3px; font-size:.9em }
+      .why b { color:#3a3c48 }
+      .pair { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start }
+      .col { width:340px }
+      .lbl { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#797c8c; margin-bottom:6px }
+      .lbl b.now { color:#8a2018 } .lbl b.rec { color:#1f6b2a }
+      .stage { background:#fff; border:1px solid #dcdce4; border-radius:12px; height:640px;
+               display:flex; flex-direction:column; overflow:hidden; position:relative }
+      .stage .modal-header { flex:none }
+      .body { flex:1; overflow-y:auto; min-height:0 }
+
+      /* a mock of the browser's own prompt, to show what it replaces */
+      .native { position:absolute; inset:0; background:rgba(0,0,0,.35); display:flex;
+                align-items:flex-start; justify-content:center; padding-top:40px }
+      .native-box { width:300px; background:#f6f6f6; border-radius:12px; overflow:hidden;
+                    font-family:-apple-system,'Helvetica Neue',sans-serif; box-shadow:0 8px 30px rgba(0,0,0,.3) }
+      .native-head { padding:14px 16px 10px; font-size:12px; color:#333; text-align:center }
+      .native-head b { display:block; font-size:13px; margin-bottom:5px }
+      .native-input { margin:0 16px 12px; height:26px; background:#fff; border:1px solid #bbb;
+                      border-radius:4px }
+      .native-btns { display:flex; border-top:1px solid #ccc }
+      .native-btns span { flex:1; text-align:center; padding:10px; font-size:14px; color:#0a6cff }
+      .native-btns span+span { border-left:1px solid #ccc; font-weight:600 }
+
+      /* proposed in-app confirm */
+      .cf { position:absolute; inset:0; background:rgba(20,20,40,.45); display:flex;
+            align-items:center; justify-content:center; padding:20px }
+      .cf-box { width:100%; background:var(--background-color); border-radius:16px; padding:20px 18px 16px;
+                box-shadow:0 12px 40px rgba(20,20,40,.28) }
+      .cf-title { font-size:17px; font-weight:600; letter-spacing:-.01em; text-align:left }
+      .cf-body { margin-top:8px; font-size:13.5px; line-height:1.5; color:var(--secondary-text-color);
+                 text-align:left }
+      .cf-body strong { color:var(--danger-color); font-weight:600 }
+      .cf-type { margin-top:14px }
+      .cf-type label { display:block; font-size:12.5px; font-weight:600;
+                       color:var(--secondary-text-color); margin-bottom:5px; text-align:left }
+      .cf-type .form-control { height:44px }
+      .cf-actions { display:flex; flex-direction:column; gap:8px; margin-top:16px }
+      .cf-actions .btn { width:100%; height:46px; margin:0; border-radius:23px }
+
+      /* proposed backup encryption choice */
+      .enc { margin:4px 0 18px }
+      .enc-opt { display:flex; align-items:flex-start; gap:12px; padding:12px 2px; cursor:pointer;
+                 text-align:left }
+      .enc-opt .t { flex:1; min-width:0 }
+      .enc-opt .t b { display:block; font-size:14px; font-weight:500 }
+      .enc-opt .t span { display:block; font-size:12px; color:var(--secondary-text-color);
+                         margin-top:1px; line-height:1.4 }
+      .enc-opt .t span.warn { color:var(--danger-color) }
+      .enc-tick { flex:none; width:20px; height:20px; margin-top:1px; border:1.5px solid var(--border-color);
+                  border-radius:50%; background:var(--background-color) }
+      .enc-opt.on .enc-tick { border-color:var(--primary-color); border-width:6px }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+    <script type="module">
+      const page = document.getElementById('page');
+      const header = (t) => `<div class="modal-header"><button class="back-button"></button>
+        <div class="modal-title">${t}</div></div>`;
+
+      // ---------- remove accounts ----------
+      const removeNow = `
+        ${header('Remove Accounts')}
+        <div class="body"><div class="form-container">
+          <p class="modal-summary">Select accounts to remove from this device.</p>
+          <div class="account-list" style="padding:0 16px">
+            <label style="display:flex;gap:10px;padding:10px 0"><input type="checkbox"> uitest9222</label>
+            <label style="display:flex;gap:10px;padding:10px 0"><input type="checkbox"> olduser</label>
+          </div>
+          <button class="btn btn--primary btn--pill btn--full">Remove Selected</button>
+          <button class="btn btn--danger btn--pill btn--full">Remove All Accounts</button>
+        </div></div>
+        <div class="native"><div class="native-box">
+          <div class="native-head"><b>localhost:8129 says</b>
+            WARNING: All accounts and data will be permanently removed from this device.<br><br>
+            Type "REMOVE ALL" to confirm:</div>
+          <div class="native-input"></div>
+          <div class="native-btns"><span>Cancel</span><span>OK</span></div>
+        </div></div>`;
+
+      const removeNew = `
+        ${header('Remove accounts')}
+        <div class="body"><div class="form-container">
+          <p class="modal-summary">Removing an account here deletes it from this device only. It stays on the network, and a backup file restores it.</p>
+          <div class="account-list" style="padding:0 16px">
+            <label style="display:flex;gap:10px;padding:10px 0"><input type="checkbox" checked> uitest9222</label>
+            <label style="display:flex;gap:10px;padding:10px 0"><input type="checkbox"> olduser</label>
+          </div>
+          <div style="padding:0 16px">
+            <button class="btn btn--danger-quiet btn--pill btn--full" style="margin:8px 0">Remove 1 account</button>
+            <button class="btn btn--text" style="width:100%">Remove all accounts</button>
+          </div>
+        </div></div>
+        <div class="cf"><div class="cf-box">
+          <div class="cf-title">Remove all accounts from this device?</div>
+          <div class="cf-body">This deletes <strong>2 accounts</strong> and everything stored with them —
+            chats, contacts and history. They stay on the network, but without a backup file you cannot get
+            back in.</div>
+          <div class="cf-type"><label>Type REMOVE ALL to confirm</label>
+            <input class="form-control" value="REMOVE ALL"></div>
+          <div class="cf-actions">
+            <button class="btn btn--danger btn--pill">Remove all accounts</button>
+            <button class="btn btn--secondary btn--pill">Cancel</button>
+          </div>
+        </div></div>`;
+
+      // ---------- backup ----------
+      const backupNow = `
+        ${header('Backup Account')}
+        <div class="body"><div class="form-container">
+          <p>This will save a file that contains your account data. You can use this file to restore your account on another device.</p>
+          <p>If you are signed in you can choose to backup all accounts or just the signed in account. If you are not signed in, this will save all accounts.</p>
+          <div class="form--narrow">
+            <div class="form-group"><label class="checkbox-label"><input type="checkbox"> Backup all accounts</label></div>
+            <div class="form-group"><label>Storage Location</label>
+              <select class="form-control"><option>Local</option></select></div>
+            <div class="form-group"><label>File Password</label>
+              <input type="password" class="form-control" placeholder="Leave empty for unencrypted backup"></div>
+            <div class="form-group"><label>Confirm File Password</label>
+              <input type="password" class="form-control" placeholder="Confirm your file password"></div>
+            <div class="form-actions"><button class="btn btn--primary btn--pill btn--full">Save Data</button></div>
+          </div>
+        </div></div>`;
+
+      const backupNew = (encrypted) => `
+        ${header('Back up account')}
+        <div class="body"><div class="form-container form--quiet">
+          <p class="modal-summary">A backup file is the only way back into this account if you lose this device.</p>
+          <div class="form--narrow">
+            <div class="form-group"><label>Storage</label>
+              <select class="form-control"><option>This device</option><option>Google Drive</option></select></div>
+            <div class="enc">
+              <div class="enc-opt ${encrypted ? 'on' : ''}"><span class="enc-tick"></span>
+                <span class="t"><b>Protect with a password</b>
+                  <span>Needed to restore the file. Required for Google Drive.</span></span></div>
+              <div class="enc-opt ${encrypted ? '' : 'on'}"><span class="enc-tick"></span>
+                <span class="t"><b>No password</b>
+                  <span class="warn">Anyone who opens the file gets your account. Keep it off shared drives.</span></span></div>
+            </div>
+            ${encrypted ? `
+              <div class="form-group"><label>Password</label>
+                <input type="password" class="form-control"></div>
+              <div class="form-group"><label>Confirm password</label>
+                <input type="password" class="form-control"></div>` : ''}
+            <div class="form-actions"><button class="btn btn--primary btn--pill btn--full">Save backup file</button></div>
+          </div>
+        </div></div>`;
+
+      page.innerHTML = `
+        <h2>The destructive actions are guarded by dialogs the app may not have</h2>
+        <p class="why">Removing one account, removing selected accounts, removing <b>all</b> accounts and
+        restoring from a file are each gated by a native <code>confirm()</code> or <code>prompt()</code> —
+        ten such calls across the app. <b>This app runs inside a React Native WebView</b> (33 references to
+        <code>window.ReactNativeWebView</code>), and Android's WebView does not implement those dialogs
+        unless the host wires them up. Whatever the host does, the outcome is bad in one of two ways: the
+        call returns null and the action silently cancels — "Remove all cancelled", forever — or a wrapper
+        auto-answers and <b>the confirmation is skipped entirely</b>.</p>
+        <p class="why">The app already has the right shape for this: <code>.modal.modal-dialog</code>, used
+        by the failed-transaction sheet. The proposal is one <code>ui-confirm</code> built on it, with a
+        typed-confirmation variant for the irreversible case — so the guard is the app's own, styled, and
+        present on every platform.</p>
+        <p class="why">Two more things on this screen: <b>both buttons are destructive but only one is
+        marked</b> — "Remove Selected" is <code>btn--primary</code>, the same indigo as Save and Send — and
+        the button says "Remove Selected" without saying how many.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div><div class="stage">${removeNow}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Proposed</b></div><div class="stage">${removeNew}</div></div>
+        </div>
+
+        <h2>Backup — an unencrypted copy of your keys is the default</h2>
+        <p class="why"><b>Leaving both password fields empty produces a valid backup, and it is not
+        encrypted.</b> I read the gate: with local storage selected, an empty password leaves
+        <code>isValid</code> true. So the shortest path through this screen — open it, press the only
+        button — writes your account's private keys to a file in the clear. The only warning is grey
+        placeholder text, <i>"Leave empty for unencrypted backup"</i>, which disappears the moment you type
+        and which nobody reads as "this file is your account".</p>
+        <p class="why">The proposal makes that a choice you make rather than one you fall into: two options,
+        the safe one selected, and the consequence of the other stated in the app's danger colour rather
+        than implied by an empty field. The password fields only appear once you have chosen to use one.</p>
+        <p class="why">Also: <b>two paragraphs of preamble</b>, the second explaining a checkbox that is
+        hidden unless you are signed in; <b>three error spans</b> carrying inline
+        <code>color:#dc3545; display:none</code>, the same pattern already replaced by
+        <code>.field-status</code> on Send and New Chat; and <b>"Save Data"</b>, which does not say that a
+        file is about to leave the app.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div><div class="stage">${backupNow}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Proposed — password</b></div><div class="stage">${backupNew(true)}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Proposed — no password</b></div><div class="stage">${backupNew(false)}</div></div>
+        </div>`;
+    </script>
+  </body>
+</html>

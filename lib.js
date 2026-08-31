@@ -184,6 +184,95 @@ export function generateIdenticon(address, size = 50) {
     return generateIdenticonSvg(address, size);
 }
 
+/**
+ * Gradient avatar: a solid two-tone disc derived from the address.
+ *
+ * Deliberately alongside generateIdenticon rather than replacing it — that one
+ * stays as the fallback and is still exported.
+ *
+ * The identicon paints a small pattern on #f0f0f0, which on a white page reads
+ * as a floating square: the circular container it sits in is invisible because
+ * its background is nearly the page colour. This fills the frame edge to edge,
+ * so the avatar reads as a circle and a row of them scans as a column.
+ *
+ * Colours come from the same getColorFromHash the identicon uses, at different
+ * offsets, so an address keeps a recognisable identity across both.
+ */
+let avatarSeq = 0;
+
+export function generateAvatarSvg(hash, size = 50) {
+    const clean = String(hash || '').replace(/^0x/, '').toLowerCase() || '0'.repeat(64);
+    const from = getColorFromHash(clean, 0);
+    const to = getColorFromHash(clean, 6);
+    /*
+     * The gradient id must be unique per RENDERED AVATAR, not per address.
+     *
+     * SVG ids are global to the document and `url(#id)` resolves to the first
+     * match in document order. Deriving the id from the address meant the same
+     * contact rendered twice at the same size produced two identical ids — and
+     * the app does exactly that, because a person can appear in the chat list
+     * and the contacts list at once. Both screens are in the DOM together and
+     * only one is visible, so the visible avatar resolved its gradient to the
+     * copy inside a `display: none` screen and painted nothing at all.
+     *
+     * A counter is the only thing that actually guarantees uniqueness here.
+     * The avatar is still deterministic in colour; only the internal id varies.
+     */
+    const id = `lav${(avatarSeq += 1).toString(36)}`;
+    return `
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="${from}"/>
+                    <stop offset="100%" stop-color="${to}"/>
+                </linearGradient>
+            </defs>
+            <rect width="${size}" height="${size}" fill="url(#${id})"/>
+        </svg>
+    `;
+}
+
+/** Gradient avatar from an address. Drop-in shape-compatible with generateIdenticon. */
+export function generateAvatar(address, size = 50) {
+    return generateAvatarSvg(address, size);
+}
+
+/**
+ * Which style address-derived avatars are drawn in: 'gradient' or 'identicon'.
+ *
+ * A display preference, not account state — it changes only what this person
+ * sees, never what anyone else sees, so it lives in localStorage beside the
+ * chat font size rather than on chain.
+ *
+ * Held here rather than read from storage per call because avatars are
+ * generated once per row of every list in the app.
+ */
+export const AVATAR_STYLES = ['gradient', 'identicon'];
+let avatarStyle = 'gradient';
+
+export function setAvatarStyle(style) {
+    avatarStyle = AVATAR_STYLES.includes(style) ? style : 'gradient';
+    return avatarStyle;
+}
+
+export function getAvatarStyle() {
+    return avatarStyle;
+}
+
+/**
+ * The avatar for an address, in whichever style the user chose.
+ *
+ * Every fallback in the app goes through here, so the preference is honoured
+ * everywhere at once and no call site has to know the setting exists. Use this
+ * rather than generateAvatar or generateIdenticon directly, unless a specific
+ * style is genuinely required regardless of preference.
+ */
+export function addressAvatar(address, size = 50) {
+    return avatarStyle === 'identicon'
+        ? generateIdenticonSvg(address, size)
+        : generateAvatarSvg(address, size);
+}
+
 // Format timestamp to relative time
 export function formatTime(timestamp, includeTimeForOld = true) {
     if (!timestamp || timestamp == 0){ return ''}
@@ -895,5 +984,27 @@ export class EthNum {
     const wei2 = EthNum.toWei(str2);
     const quotientWei = (wei1 * BigInt(1e18)) / wei2;
     return EthNum.toStr(quotientWei);
+  }
+}
+
+/**
+ * Inserts an item into an array while keeping it in descending timestamp order.
+ * Assumes the array is already sorted that way.
+ *
+ * Moved here from app.js so reactions.js can use it without importing the
+ * application module -- it is a generic array helper with no app state in it.
+ *
+ * @param {Array<Object>} array
+ * @param {Object} item
+ * @param {string} [timestampField='timestamp']
+ */
+export function insertSorted(array, item, timestampField = 'timestamp') {
+  // The first element OLDER than the new item is where it belongs, because the
+  // array runs newest first.
+  const index = array.findIndex((existingItem) => existingItem[timestampField] < item[timestampField]);
+  if (index === -1) {
+    array.push(item);
+  } else {
+    array.splice(index, 0, item);
   }
 }
