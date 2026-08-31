@@ -8079,11 +8079,8 @@ class SignInModal {
     assert(accountData?.account?.keys?.secret, `Missing private key for ${username}`);
     const privateKey = accountData.account.keys.secret;
 
-    createAccountModal.usernameInput.value = username;
-    createAccountModal.privateKeyInput.value = privateKey;
     this.forceClose();
-    createAccountModal.open();
-    createAccountModal.usernameInput.dispatchEvent(new Event('input'));
+    createAccountModal.openWithPrivateKey(username, privateKey);
   }
 
   /**
@@ -30648,8 +30645,8 @@ class CreateAccountModal {
     this.togglePrivateKeyVisibility = document.getElementById('togglePrivateKeyVisibility');
     this.migrateAccountsSection = document.getElementById('migrateAccountsSection');
     this.migrateAccountsButton = document.getElementById('migrateAccountsButton');
-    this.toggleMoreOptions = document.getElementById('toggleMoreOptions');
-    this.moreOptionsSection = document.getElementById('moreOptionsSection');
+    this.advancedSection = document.getElementById('advancedOptions');
+    this.advancedSummary = document.getElementById('advancedOptionsSummary');
     this.privateAccountCheckbox = document.getElementById('togglePrivateAccount');
     this.privateAccountHelpButton = document.getElementById('privateAccountHelpButton');
     this.privateAccountTemplate = document.getElementById('privateAccountHelpMessageTemplate');
@@ -30659,16 +30656,15 @@ class CreateAccountModal {
     this.form.addEventListener('submit', (event) => this.handleSubmit(event));
     this.usernameInput.addEventListener('input', (e) => this.handleUsernameInput(e));
     this.toggleButton.addEventListener('change', () => this.handleTogglePrivateKeyInput());
-    this.toggleMoreOptions.addEventListener('change', () => this.handleToggleMoreOptions());
+    this.advancedSection.addEventListener('toggle', () => this.handleAdvancedToggle());
+    this.advancedSummary.addEventListener('click', (event) => {
+      if (this.isCreatingAccount) event.preventDefault();
+    });
     this.backButton.addEventListener('click', () => this.closeWithReload());
 
     // Add listener for the password visibility toggle
     this.togglePrivateKeyVisibility.addEventListener('click', () => {
-      // Toggle the type attribute
-      const type = this.privateKeyInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      this.privateKeyInput.setAttribute('type', type);
-      // Toggle the visual state class on the button
-      this.togglePrivateKeyVisibility.classList.toggle('toggled-visible');
+      this.setPrivateKeyVisibility(this.privateKeyInput.type === 'password');
     });
 
     // Add listener for the private account help button
@@ -30722,21 +30718,33 @@ class CreateAccountModal {
 
     // Clear form fields
     this.usernameInput.value = '';
-    this.privateKeyInput.value = '';
     this.usernameAvailable.style.display = 'none';
-    this.privateKeyError.style.display = 'none';
     this.isUsernameAvailable = false;
     this.refreshSubmitButton();
     
-    // Reset More Options section
-    this.toggleMoreOptions.checked = false;
-    this.moreOptionsSection.style.display = 'none';
-    this.toggleButton.checked = false;
-    this.privateKeySection.style.display = 'none';
-    this.privateAccountCheckbox.checked = false;
+    this.advancedSection.open = false;
+    this.resetAdvancedOptions();
     
     // Open the modal
     this.open();
+  }
+
+  /**
+   * Open the recreate flow with the saved username and private key exposed.
+   * @param {string} username
+   * @param {string} privateKey
+   */
+  openWithPrivateKey(username, privateKey) {
+    if (this.isCreatingAccount) return;
+
+    this.resetAdvancedOptions();
+    this.usernameInput.value = username;
+    this.advancedSection.open = true;
+    this.toggleButton.checked = true;
+    this.privateKeySection.hidden = false;
+    this.privateKeyInput.value = privateKey;
+    this.open();
+    this.usernameInput.dispatchEvent(new Event('input'));
   }
 
   /**
@@ -30769,6 +30777,8 @@ class CreateAccountModal {
         (migrateAccountsModal.isOpening || migrateAccountsModal.isMigrating);
       control.disabled = this.isCreatingAccount || isMigrationBusy || (requiresConnection && !isOnline);
     });
+    this.advancedSummary.setAttribute('aria-disabled', String(this.isCreatingAccount));
+    this.advancedSection.classList.toggle('is-disabled', this.isCreatingAccount);
     this.refreshSubmitButton();
   }
 
@@ -30829,27 +30839,37 @@ class CreateAccountModal {
   }
 
   handleTogglePrivateKeyInput() {
-    const isChecked = this.toggleButton.checked;
-    this.privateKeySection.style.display = isChecked ? 'block' : 'none';
-    this.privateKeyInput.value = '';
-    
-    if (!isChecked) {
-      this.privateKeyError.style.display = 'none';
+    if (this.toggleButton.checked) {
+      this.privateKeySection.hidden = false;
+      return;
     }
+
+    this.resetPrivateKeyOption();
   }
-  
-  handleToggleMoreOptions() {
-    const isChecked = this.toggleMoreOptions.checked;
-    this.moreOptionsSection.style.display = isChecked ? 'block' : 'none';
-    
-    if (!isChecked) {
-      // Reset private key options when more options is unchecked
-      this.toggleButton.checked = false;
-      // Hide private key section if More Options is unchecked
-      this.privateKeySection.style.display = 'none';
-      this.privateKeyInput.value = '';
-      this.privateKeyError.style.display = 'none';
-    }
+
+  handleAdvancedToggle() {
+    if (this.advancedSection.open) return;
+    this.resetAdvancedOptions();
+  }
+
+  resetAdvancedOptions() {
+    this.privateAccountCheckbox.checked = false;
+    this.resetPrivateKeyOption();
+  }
+
+  resetPrivateKeyOption() {
+    this.toggleButton.checked = false;
+    this.privateKeySection.hidden = true;
+    this.privateKeyInput.value = '';
+    this.privateKeyError.style.display = 'none';
+    this.setPrivateKeyVisibility(false);
+  }
+
+  setPrivateKeyVisibility(isVisible) {
+    this.privateKeyInput.type = isVisible ? 'text' : 'password';
+    this.togglePrivateKeyVisibility.classList.toggle('toggled-visible', isVisible);
+    this.togglePrivateKeyVisibility.setAttribute('aria-label', isVisible ? 'Hide private key' : 'Show private key');
+    this.togglePrivateKeyVisibility.setAttribute('aria-pressed', String(isVisible));
   }
 
   validatePrivateKey(key) {

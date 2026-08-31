@@ -1080,68 +1080,95 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <form id="createAccountForm" class="form--narrow">
+            <form id="createAccountForm" class="form--narrow create-account-form">
               <div class="form-group">
                 <label for="newUsername">
                   Username
-                  <span id="newUsernameAvailable" style="color: #28a745; display: none"> available </span>
+                  <span id="newUsernameAvailable" class="create-account-status"> available </span>
                 </label>
-                <div style="position: relative">
-                  <input
-                    type="text"
-                    id="newUsername"
-                    class="form-control"
-                    placeholder="Select a username"
-                    required
-                    pattern="[a-zA-Z0-9]*"
-                    inputmode="text"
-                    maxlength="20"
-                  />
-                </div>
+                <input
+                  type="text"
+                  id="newUsername"
+                  class="form-control"
+                  placeholder="Choose a username"
+                  required
+                  pattern="[a-zA-Z0-9]*"
+                  inputmode="text"
+                  maxlength="20"
+                  autocomplete="off"
+                />
+                <p class="create-account-help">
+                  This is how people find you, and it is permanent — a name cannot be changed once it is taken.
+                </p>
               </div>
-              <div id="privateKeySection" style="display: none">
-                <div class="form-group">
-                  <label for="newPrivateKey"
-                    >Private Key <span id="newPrivateKeyError" style="color: #dc3545; display: none"></span
-                  ></label>
-                  <div style="position: relative">
-                    <input
-                      type="password"
-                      id="newPrivateKey"
-                      class="form-control"
-                      placeholder="Optional private key in hex format"
-                    />
-                    <button type="button" id="togglePrivateKeyVisibility" class="password-toggle-btn"></button>
+
+              <details class="create-account-advanced" id="advancedOptions">
+                <summary id="advancedOptionsSummary">
+                  <span>Advanced</span>
+                  <span class="create-account-chevron" aria-hidden="true"></span>
+                </summary>
+                <div class="create-account-advanced-body">
+                  <div class="create-account-option">
+                    <div class="create-account-option-copy">
+                      <div class="create-account-option-heading">
+                        <label for="togglePrivateAccount">Private account</label>
+                        <button
+                          type="button"
+                          class="toll-info-icon private-account-help"
+                          data-icon="info"
+                          id="privateAccountHelpButton"
+                          aria-label="About private accounts"
+                        ></button>
+                      </div>
+                      <label class="create-account-option-help" for="togglePrivateAccount">
+                        Can only message and pay other private accounts. Cannot be changed later.
+                      </label>
+                    </div>
+                    <label class="create-account-option-toggle" for="togglePrivateAccount">
+                      <input type="checkbox" id="togglePrivateAccount" />
+                      <span class="create-account-check" aria-hidden="true"></span>
+                    </label>
                   </div>
-                  <small>
-                    If you want to use an existing private key enter it here. Otherwise you can leave this empty to have a
-                    private key automatically generated.
-                  </small>
+
+                  <div class="create-account-option">
+                    <div class="create-account-option-copy">
+                      <label class="create-account-option-title" for="togglePrivateKeyInput">Use my own private key</label>
+                      <label class="create-account-option-help" for="togglePrivateKeyInput">
+                        Otherwise one is generated for you.
+                      </label>
+                    </div>
+                    <label class="create-account-option-toggle" for="togglePrivateKeyInput">
+                      <input type="checkbox" id="togglePrivateKeyInput" />
+                      <span class="create-account-check" aria-hidden="true"></span>
+                    </label>
+                  </div>
+
+                  <div id="privateKeySection" hidden>
+                    <label class="create-account-private-key-label" for="newPrivateKey">
+                      Private key <span id="newPrivateKeyError" class="create-account-error"></span>
+                    </label>
+                    <div class="create-account-private-key">
+                      <input
+                        type="password"
+                        id="newPrivateKey"
+                        class="form-control"
+                        placeholder="Your key, in hex"
+                        autocomplete="off"
+                      />
+                      <button
+                        type="button"
+                        id="togglePrivateKeyVisibility"
+                        class="password-toggle-btn"
+                        aria-label="Show private key"
+                        aria-pressed="false"
+                      ></button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div class="form-actions">
+              </details>
+
+              <div class="form-actions create-account-actions">
                 <button type="submit" class="btn btn--primary btn--pill btn--full" disabled>Create Account</button>
-              </div>
-              
-              <div class="form-group u-mt-20">
-                <input type="checkbox" id="toggleMoreOptions" />
-                <label for="toggleMoreOptions" style="display: inline; margin-left: 5px">More Options</label>
-              </div>
-              
-              <div id="moreOptionsSection" style="display: none;">
-                <div class="form-group form-group--checkbox">
-                  <input type="checkbox" id="togglePrivateAccount" />
-                  <label for="togglePrivateAccount">
-                    Make this a private account
-                    <span class="toll-info-icon private-account-help" data-icon="info" id="privateAccountHelpButton"></span>
-                  </label>
-                </div>
-                <div class="form-group form-group--checkbox">
-                  <input type="checkbox" id="togglePrivateKeyInput" />
-                  <label for="togglePrivateKeyInput">
-                    Use my own private key (Advanced)
-                  </label>
-                </div>
               </div>
             </form>
             <div class="form-group" id="migrateAccountsSection" style="display: none; margin-top: 50px; padding: 0 16px">
