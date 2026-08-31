@@ -10459,6 +10459,9 @@ function setupGroupChat() {
     getMyAccount: () => myAccount,
     getMyData: () => myData,
     showToast,
+    // The in-app dialog, so group screens confirming a spend look like the rest
+    // of the app rather than reaching for window.confirm.
+    uiConfirm,
     onChatListChanged: () => chatsScreen.updateChatList(),
     /*
      * Reused rather than reimplemented: this already handles the visual

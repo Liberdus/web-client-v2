@@ -46,23 +46,43 @@ console.log('\n\x1b[1mGroup upkeep health\x1b[0m\n');
 
 withFee(FEE);
 
-// --- the threshold is one fee per member ------------------------------------
-let h = maintenanceHealth(view(FEE * 5n, 5));
-chk('exactly one fee per member is not low', h.low === false, `balance=${h.balance} needed=${h.needed}`);
+// --- the threshold is one fee per departure that can still cost -------------
+// N-2, not N. A departure only needs a renewal if two or more members are left
+// afterwards, so the last two departures from any group are free: the one that
+// leaves a single member (no copath, nothing to renew) and the one that cannot
+// happen at all, because the network refuses to let the last member leave.
+let h = maintenanceHealth(view(FEE * 3n, 5));
+chk('five members need three renewals, not five', h.needed === FEE * 3n, `needed=${h.needed}`);
+chk('  and exactly that much is not low', h.low === false);
 
-h = maintenanceHealth(view(FEE * 5n - 1n, 5));
+h = maintenanceHealth(view(FEE * 3n - 1n, 5));
 chk('one wei under is low', h.low === true);
 
 h = maintenanceHealth(view(FEE * 50n, 5));
 chk('a comfortable balance is not low', h.low === false);
 
-// --- empty is called out separately -----------------------------------------
-h = maintenanceHealth(view(0n, 5));
-chk('an empty balance is low', h.low === true);
-chk('  and reported as empty', h.empty === true);
+// The case that showed the old rule was wrong: three members with three
+// renewals banked was being told it was running low.
+h = maintenanceHealth(view(FEE * 3n, 3));
+chk('three members with three renewals banked is not low', h.low === false, `needed=${h.needed}`);
+chk('  because three members need only one', h.needed === FEE);
 
-h = maintenanceHealth(view(FEE * 2n, 5));
-chk('a partly funded balance is low but not empty', h.low === true && h.empty === false);
+h = maintenanceHealth(view(0n, 3));
+chk('three members with nothing IS low', h.low === true);
+
+// --- low and empty are different things -------------------------------------
+// "low" means the buffer is thinner than the worst case; "empty" means the very
+// next renewal cannot be paid for and will land on a member. The row says
+// different things for each, so they must not collapse into one flag.
+h = maintenanceHealth(view(FEE, 5));
+chk('one renewal banked against a need for three is low', h.low === true);
+chk('  but not empty, since the next one is still covered', h.empty === false);
+
+h = maintenanceHealth(view(0n, 5));
+chk('nothing banked is both low and empty', h.low === true && h.empty === true);
+
+h = maintenanceHealth(view(FEE - 1n, 5));
+chk('a part-fee cannot cover the next renewal, so it is empty', h.empty === true);
 
 // --- a group that cannot need a repair is never low --------------------------
 // No copath in a one-member group, so no renewal can ever be needed. Warning
@@ -72,8 +92,12 @@ h = maintenanceHealth(view(0n, 1));
 chk('a one-member group is never low, even at zero', h.low === false && h.empty === false);
 h = maintenanceHealth(view(0n, 0));
 chk('a memberless view is never low', h.low === false);
+// Two members can only shrink to one, which needs no renewal at all.
 h = maintenanceHealth(view(0n, 2));
-chk('  but two members with nothing IS low', h.low === true && h.empty === true);
+chk('  a two-member group is still never low', h.low === false && h.empty === false);
+chk('  and needs nothing', h.needed === 0n);
+h = maintenanceHealth(view(0n, 3));
+chk('  but three members with nothing IS low', h.low === true && h.empty === true);
 
 // --- covers is stated in renewals, not wei ----------------------------------
 chk('an empty balance covers nothing', maintenanceHealth(view(0n, 3)).covers === 0);
@@ -84,7 +108,7 @@ chk('a part-fee over does not round up', maintenanceHealth(view(FEE * 2n + FEE /
 // The same balance that was ample at one fee is not at a higher one; a figure
 // captured when the deposits were made would miss this entirely.
 withFee(FEE);
-const ample = view(FEE * 5n, 5);
+const ample = view(FEE * 3n, 5);
 chk('ample at the old fee', maintenanceHealth(ample).low === false);
 withFee(FEE * 2n);
 chk('the same balance is low once the fee doubles', maintenanceHealth(ample).low === true);

@@ -908,16 +908,27 @@ export function joinCountDelta(previous, next) {
  * out the fee falls back on that member, which is the situation this exists to
  * warn about before it happens rather than after.
  *
- * "Enough" is one fee per member, because any member leaving is one repair the
- * group will owe. Measured against the fee right now, never a figure captured
- * when the deposits were made -- the fee moves, and a balance that was ample
- * last month may not be today.
+ * "Enough" is one fee for every departure that can still cost something, which
+ * is N - 2 rather than N.
  *
- * A group with fewer than two members is never low, however empty it is. There
- * is no copath in a one-member group, so no repair can ever be needed -- the
- * same reason flushPathUpdate refuses to act below two. Warning about upkeep
- * there would be warning about work that cannot happen, and the deposits from
- * adding a second member arrive before it can.
+ * A departure only needs a renewal if at least two members are left afterwards:
+ * a one-member group has no copath, so nothing can be renewed and nothing needs
+ * to be -- the same reason flushPathUpdate refuses to act below two. Counting
+ * down from N, the departures that leave two or more behind run N to N-1 down
+ * to 3 to 2, and there are N - 2 of them. The last two departures are free: the
+ * one that leaves a single member, and the one that cannot happen at all
+ * because the network refuses to let the last member go.
+ *
+ * So a two-member group needs nothing, and a three-member group needs one.
+ * Charging for N was wrong in a way that showed: a group of three with three
+ * renewals banked was still being told it was running low.
+ *
+ * This is the worst case with no further adds. Every add pays a deposit in, so
+ * a group that keeps growing keeps topping itself up.
+ *
+ * Measured against the fee right now, never a figure captured when the deposits
+ * were made -- the fee moves, and a balance that was ample last month may not
+ * be today.
  *
  * @param {object} view a group view
  * @returns {{ balance: bigint, needed: bigint, covers: number, low: boolean, empty: boolean }}
@@ -936,14 +947,19 @@ export function maintenanceHealth(view) {
     balance = 0n;
   }
   const memberCount = view?.members?.length ?? 0;
-  const needed = fee * BigInt(memberCount);
-  // How many repairs the balance can actually pay for, which is the number
+  // Departures that can still cost a renewal: N-2, floored at zero.
+  const chargeable = BigInt(Math.max(0, memberCount - 2));
+  const needed = fee * chargeable;
+  // How many renewals the balance can actually pay for, which is the number
   // worth telling someone -- a wei figure is not.
   const covers = fee > 0n ? Number(balance / fee) : 0;
-  // With no fee figure there is nothing to compare against, and below two
-  // members there is nothing to repair. Either way, say nothing.
-  const applicable = fee > 0n && memberCount >= 2;
-  console.log("thant: debug ", balance, memberCount, covers, needed, balance < needed)
+  /*
+   * Nothing to say without a fee to compare against, and nothing to say when
+   * the group cannot owe a renewal at all. `chargeable` already covers the
+   * second case for `low` -- needed is zero, and no balance falls short of zero
+   * -- but `empty` compares against the fee directly, so it needs the guard.
+   */
+  const applicable = fee > 0n && chargeable > 0n;
   return {
     balance,
     needed,
