@@ -869,6 +869,38 @@ export async function removeMembers(groupId, addresses) {
  * not claim the departure is cryptographically complete.
  */
 /**
+ * What a move in the pending-join count means, for the two things that care.
+ *
+ * `changed` drives a re-render: an admin watching Group info should see a
+ * request appear when it arrives AND disappear when the requester withdraws it,
+ * so any movement counts.
+ *
+ * `increased` is the stricter one, for anything that interrupts -- a sound, a
+ * badge. A count going down is a request being approved or withdrawn, which is
+ * either something the admin just did themselves or something that no longer
+ * wants their attention.
+ *
+ * Both are false on a first observation. There is no previous count to compare
+ * against on a fresh load, and treating that as news would announce every
+ * request that has been sitting there for days, on every launch.
+ *
+ * Separated out because it is the part that is easy to get subtly wrong and
+ * cannot be tested inside syncGroup, which needs a live MLS store.
+ *
+ * @param {number|undefined} previous the count last seen, if any
+ * @param {number|undefined} next the count the network reports now
+ * @returns {{ known: boolean, changed: boolean, increased: boolean }}
+ */
+export function joinCountDelta(previous, next) {
+  const known = typeof previous === 'number' && typeof next === 'number';
+  return {
+    known,
+    changed: known && next !== previous,
+    increased: known && next > previous,
+  };
+}
+
+/**
  * Whether a group can still pay to repair its own tree.
  *
  * The network charges a repair commit to the group's maintenance balance
@@ -911,6 +943,7 @@ export function maintenanceHealth(view) {
   // With no fee figure there is nothing to compare against, and below two
   // members there is nothing to repair. Either way, say nothing.
   const applicable = fee > 0n && memberCount >= 2;
+  console.log("thant: debug ", balance, memberCount, covers, needed, balance < needed)
   return {
     balance,
     needed,
@@ -1433,6 +1466,32 @@ export async function syncGroup(groupId) {
     current.members = roster.map(norm);
     if (Array.isArray(info.group.admins)) current.admins = info.group.admins.map(norm);
     refreshMemberNames(groupId).catch(() => {});
+  }
+
+  /*
+   * Notice someone asking to join.
+   *
+   * The requests themselves are a separate, heavier read, but the network
+   * publishes the COUNT on this response -- which this function already
+   * fetches every tick -- so a change is free to detect. Firing onGroupUpdated
+   * is what makes an admin's open Group info page re-render and pick the new
+   * request up; without it the page only updated when closed and reopened.
+   *
+   * Announced here rather than folded into the `changed` flag below, because
+   * several legitimate paths return before reaching it and a request arriving
+   * should reach the screen regardless of what the MLS state is doing.
+   *
+   * The first observation is recorded silently. On a fresh load there is no
+   * previous count to compare against, and treating that as "something just
+   * happened" would announce requests that have been sitting there for days --
+   * which matters more once this drives a notification sound.
+   */
+  if (roster && typeof info.group.pendingJoinCount === 'number') {
+    const previous = current.pendingJoinCount;
+    const next = info.group.pendingJoinCount;
+    const delta = joinCountDelta(previous, next);
+    current.pendingJoinCount = next;
+    if (delta.changed && deps.onGroupUpdated) deps.onGroupUpdated(groupId);
   }
 
   if (!(await mls.hasGroupState(me, groupId))) {
