@@ -1365,6 +1365,32 @@ body {
   font-weight: var(--font-weight-semibold);
 }
 
+/*
+ * People waiting to be let into a group, shown to admins on the chat list.
+ *
+ * Deliberately not the unread bubble's solid fill: unread messages are
+ * something to read and a join request is something to decide, and a group can
+ * be showing both at once. An outline in the accent reads as "act on this"
+ * without competing with a count of messages sitting next to it.
+ */
+.chat-join-badge {
+  flex: none;
+  margin-left: auto;
+  padding: 0 8px;
+  border: 1px solid var(--primary-color);
+  border-radius: 12px;
+  background: none;
+  color: var(--primary-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+/* Two markers on one row: the unread count keeps the edge, this sits inside it. */
+.chat-join-badge + .chat-unread {
+  margin-left: 6px;
+}
+
 /* Orange draft indicator shown when there is a saved draft and no unread messages */
 /* Sits where the unread badge would, for the same reason: it is a marker for
    the row, not part of the preview text. */

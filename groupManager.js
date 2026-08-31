@@ -1508,6 +1508,15 @@ export async function syncGroup(groupId) {
     const delta = joinCountDelta(previous, next);
     current.pendingJoinCount = next;
     if (delta.changed && deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+    /*
+     * Announced separately from the re-render, and only on an increase.
+     *
+     * Whether this makes a sound is left to the caller, the same way
+     * onGroupMessages leaves the mute check there: who is an admin and what
+     * counts as worth interrupting someone for is UI policy, and the sync path
+     * stays free of it.
+     */
+    if (delta.increased && deps.onGroupJoinRequest) deps.onGroupJoinRequest(groupId);
   }
 
   if (!(await mls.hasGroupState(me, groupId))) {

@@ -24,6 +24,7 @@ import {
   formatTime,
   big2str,
   bigxnum2big,
+  EthNum,
 } from './lib.js';
 
 /** Wei per LIB, matching the rest of the app's amount handling. */
@@ -43,6 +44,25 @@ const WEI = 10n ** 18n;
  */
 function formatLib(wei) {
   return evmAssets.formatTokenAmount(big2str(BigInt(wei || 0n), 18));
+}
+
+/**
+ * A typed LIB amount -> wei, or 0n if it is not a usable number.
+ *
+ * EthNum.toWei is the app's parser and throws on anything it dislikes -- a
+ * stray letter, more than eighteen decimals, an empty string. Here that is not
+ * an error to surface but a reason to keep the confirm button disabled, so
+ * everything unusable collapses to zero and the caller checks for > 0.
+ */
+function parseLibToWei(raw) {
+  const text = String(raw ?? '').trim().replace(/,/g, '');
+  if (!/^\d*\.?\d*$/.test(text) || text === '' || text === '.') return 0n;
+  try {
+    const wei = EthNum.toWei(text.startsWith('.') ? `0${text}` : text);
+    return wei > 0n ? wei : 0n;
+  } catch {
+    return 0n;
+  }
 }
 import { hashBytes } from './crypto.js';
 // DESIGN.md: one money formatter, app-wide.
@@ -1376,23 +1396,35 @@ class GroupInfoModal {
      * computed rather than typed, which makes showing it before charging it
      * more important, not less.
      */
-    const ok = await confirmDialog({
+    const entered = await confirmDialog({
       title: 'Add to group upkeep?',
       body:
-        `${formatLib(suggested)} LIB will be moved from your balance into ${view?.name || 'this group'}, ` +
-        `on top of the usual transaction fee.\n\n` +
-        `It can only ever be spent renewing the group's keys after someone leaves, and cannot be withdrawn — ` +
-        `by you or anyone else.`,
-      confirmLabel: `Add ${formatLib(suggested)} LIB`,
+        `This moves LIB from your balance into ${view?.name || 'this group'}, on top of the usual ` +
+        `transaction fee. It can only ever be spent renewing the group's keys after someone leaves, ` +
+        `and cannot be withdrawn — by you or anyone else.\n\n` +
+        `${formatLib(suggested)} LIB clears the shortfall. Add more to cover the group for longer.`,
+      input: {
+        label: 'Amount in LIB',
+        // Prefilled with the shortfall, so the common case is one tap, and
+        // selected on focus so typing a different figure replaces it.
+        value: formatLib(suggested),
+        inputMode: 'decimal',
+        placeholder: '0',
+        validate: (raw) => parseLibToWei(raw) > 0n,
+      },
+      confirmLabel: 'Add to upkeep',
     });
-    if (!ok) return;
+    if (entered === null) return;
+
+    const amount = parseLibToWei(entered);
+    if (amount <= 0n) return;
 
     const button = $('groupMaintenanceTopUp');
     button.disabled = true;
     button.textContent = 'Adding…';
     try {
-      await groups.fundGroupMaintenance(this.groupId, suggested);
-      toast(`Added ${formatLib(suggested)} LIB for upkeep`, 3000, 'success');
+      await groups.fundGroupMaintenance(this.groupId, amount);
+      toast(`Added ${formatLib(amount)} LIB for upkeep`, 3000, 'success');
       this.render();
     } catch (e) {
       toast(e?.message || 'Could not add to upkeep', 4000, 'error');

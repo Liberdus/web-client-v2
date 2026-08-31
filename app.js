@@ -2041,6 +2041,16 @@ class ChatsScreen {
         preview = truncateMessage(escapeHtml(latest.message || ''), 50);
       }
 
+      /*
+       * People waiting to be let in, for admins only -- nobody else can act on
+       * a request. Its own marker rather than folded into the unread bubble:
+       * unread messages are something to read, a join request is something to
+       * decide, and a group can have both at once.
+       */
+      const me = normalizeAddress(myAccount?.keys?.address || '');
+      const iAmAdmin = (view.admins || []).some((a) => normalizeAddress(a) === me);
+      const waiting = iAmAdmin && !view.removed ? view.pendingJoinCount || 0 : 0;
+
       const li = document.createElement('li');
       li.classList.add('chat-item', 'chat-item--group');
       li.innerHTML = `
@@ -2052,6 +2062,7 @@ class ChatsScreen {
               </div>
               <div class="chat-message">
                 <span class="chat-preview">${prefix}${preview}</span>
+                ${waiting ? `<span class="chat-join-badge" title="${waiting} waiting to join">${waiting} waiting</span>` : ''}
                 ${view.unread ? `<span class="chat-unread">${view.unread}</span>` : ''}
               </div>
           </div>
@@ -10452,6 +10463,22 @@ function setupGroupChat() {
       }
       if (groupId) refreshOpenGroup(groupId);
     },
+    /*
+     * Someone asked to join. Only admins hear it: nobody else can act on a
+     * request, so for them it would be noise about someone else's decision.
+     *
+     * Shares the group's mute switch rather than adding a second one. It is the
+     * same group making the same kind of interruption, and two separate mutes
+     * for that is a worse setting than one.
+     */
+    onGroupJoinRequest: (groupId) => {
+      if (groups.isGroupMuted(groupId)) return;
+      const view = myData?.groups?.[groupId];
+      const me = normalizeAddress(myAccount?.keys?.address || '');
+      const isAdmin = (view?.admins || []).some((a) => normalizeAddress(a) === me);
+      if (!isAdmin) return;
+      playChatSound();
+    },
   });
 
   initGroupUI({
@@ -14433,7 +14460,7 @@ function buildUserListToastHtml(title, usernames) {
  * @param {boolean} [opts.alert]        - one button, always resolves true
  * @returns {Promise<boolean>}
  */
-function uiConfirm({ title, body = '', confirmLabel, cancelLabel = 'Cancel', danger = false, typeToConfirm = '', alert: isAlert = false } = {}) {
+function uiConfirm({ title, body = '', confirmLabel, cancelLabel = 'Cancel', danger = false, typeToConfirm = '', input = null, alert: isAlert = false } = {}) {
   const modal = document.getElementById('uiConfirmDialog');
   // No dialog in the DOM: fall back rather than silently doing nothing. An
   // un-guarded destructive action is worse than an ugly one.
@@ -14454,13 +14481,32 @@ function uiConfirm({ title, body = '', confirmLabel, cancelLabel = 'Cancel', dan
   accept.className = `btn btn--pill ${danger ? 'btn--danger' : 'btn--primary'}`;
   modal.classList.toggle('ui-confirm--alert', isAlert);
 
-  typeGroup.hidden = !typeToConfirm;
+  /*
+   * The one input row serves two jobs: typing a phrase to unlock a destructive
+   * action, and entering a value the caller wants back. They are mutually
+   * exclusive, and `input` resolves to the entered string rather than to true,
+   * so a caller in this mode checks for null to mean cancelled.
+   */
+  typeGroup.hidden = !typeToConfirm && !input;
   typeInput.value = '';
+  typeInput.type = input?.type || 'text';
+  typeInput.inputMode = input?.inputMode || '';
+  typeInput.placeholder = input?.placeholder || '';
+  typeInput.setAttribute('autocapitalize', input ? 'off' : 'characters');
   if (typeToConfirm) {
     typeLabel.textContent = `Type ${typeToConfirm} to confirm`;
     accept.disabled = true;
+  } else if (input) {
+    typeLabel.textContent = input.label || '';
+    typeInput.value = input.value ?? '';
+    accept.disabled = !inputIsValid(typeInput.value);
   } else {
     accept.disabled = false;
+  }
+
+  function inputIsValid(raw) {
+    if (!input) return true;
+    return typeof input.validate === 'function' ? !!input.validate(String(raw).trim()) : String(raw).trim() !== '';
   }
 
   const previouslyFocused = document.activeElement;
@@ -14486,14 +14532,21 @@ function uiConfirm({ title, body = '', confirmLabel, cancelLabel = 'Cancel', dan
       resolve(result);
     };
 
-    const onAccept = () => { if (!accept.disabled) finish(true); };
-    const onCancel = () => finish(false);
+    // In input mode the caller wants the value, and null distinguishes a
+    // cancel from an empty string.
+    const accepted = () => (input ? typeInput.value.trim() : true);
+    const refused = () => (input ? null : isAlert ? true : false);
+
+    const onAccept = () => { if (!accept.disabled) finish(accepted()); };
+    const onCancel = () => finish(input ? null : false);
     // Only the backdrop itself, not a click that started inside the box.
-    const onBackdrop = (e) => { if (e.target === modal) finish(isAlert ? true : false); };
-    const onType = () => { accept.disabled = typeInput.value.trim() !== typeToConfirm; };
-    const onTypeKey = (e) => { if (e.key === 'Enter' && !accept.disabled) { e.preventDefault(); finish(true); } };
+    const onBackdrop = (e) => { if (e.target === modal) finish(refused()); };
+    const onType = () => {
+      accept.disabled = input ? !inputIsValid(typeInput.value) : typeInput.value.trim() !== typeToConfirm;
+    };
+    const onTypeKey = (e) => { if (e.key === 'Enter' && !accept.disabled) { e.preventDefault(); finish(accepted()); } };
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); finish(isAlert ? true : false); }
+      if (e.key === 'Escape') { e.preventDefault(); finish(refused()); }
     };
 
     accept.addEventListener('click', onAccept);
@@ -14510,8 +14563,11 @@ function uiConfirm({ title, body = '', confirmLabel, cancelLabel = 'Cancel', dan
      * should be under a stray Enter.
      */
     setTimeout(() => {
-      const target = typeToConfirm ? typeInput : (isAlert ? accept : cancel);
+      const target = typeToConfirm || input ? typeInput : isAlert ? accept : cancel;
       target.focus({ preventScroll: true });
+      // An amount arrives prefilled with a suggestion; selecting it means
+      // typing a different one replaces it instead of appending to it.
+      if (input && typeInput.value) typeInput.select?.();
     }, 50);
   });
 }
