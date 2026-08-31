@@ -1814,13 +1814,15 @@ class GroupInfoModal {
   }
 
   async reset() {
-    if (
-      !window.confirm(
-        'Reset this group on this device?\n\n' +
-          'This clears the keys this device holds for the group. Messages already on screen ' +
-          'stay, and another member then has to add you back before you can take part again.',
-      )
-    ) {
+    const ok = await confirmDialog({
+      title: 'Reset this group on this device?',
+      body:
+        'This clears the keys this device holds for the group. Messages already on screen ' +
+        'stay, and another member then has to add you back before you can take part again.',
+      confirmLabel: 'Reset',
+      danger: true,
+    });
+    if (!ok) {
       this.render();
       return;
     }
@@ -1867,15 +1869,22 @@ class GroupInfoModal {
 
   async leave() {
     const wasRemoved = !!this.view()?.removed;
-    if (
-      !window.confirm(
-        wasRemoved
-          ? 'Delete this group from this device? The messages on screen will be lost.'
-          : 'Leave this group? You will stop receiving messages, and an admin has to add you back to rejoin.',
-      )
-    ) {
-      return;
-    }
+    const ok = await confirmDialog(
+      wasRemoved
+        ? {
+            title: 'Delete this group from this device?',
+            body: 'The messages on screen will be lost.',
+            confirmLabel: 'Delete',
+            danger: true,
+          }
+        : {
+            title: 'Leave this group?',
+            body: 'You will stop receiving messages, and an admin has to add you back to rejoin.',
+            confirmLabel: 'Leave',
+            danger: true,
+          },
+    );
+    if (!ok) return;
     try {
       await groups.leaveGroup(this.groupId);
       this.close();
