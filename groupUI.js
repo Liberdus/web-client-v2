@@ -29,12 +29,24 @@ import {
 /** Wei per LIB, matching the rest of the app's amount handling. */
 const WEI = 10n ** 18n;
 
-/** Wei -> a short decimal string for display, trailing zeros trimmed. */
+/**
+ * Wei -> a short decimal string for display.
+ *
+ * Trimming trailing zeros is not the same as being readable: a fee derived from
+ * a USD peg has eighteen significant decimals and no trailing zeros at all, so
+ * this used to render "0.769230769230769230 LIB" in a confirmation dialog.
+ *
+ * DESIGN.md: one money formatter, app-wide. evmAssets.formatTokenAmount is that
+ * formatter -- at most six fraction digits, no minimum, thousands separated,
+ * and exponential below a millionth rather than a rounded "0" that would claim
+ * nothing moved. The exact wei value is what gets signed; this is display only.
+ */
 function formatLib(wei) {
-  const s = big2str(BigInt(wei || 0n), 18);
-  return s.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+  return evmAssets.formatTokenAmount(big2str(BigInt(wei || 0n), 18));
 }
 import { hashBytes } from './crypto.js';
+// DESIGN.md: one money formatter, app-wide.
+import { evmAssets } from './evm-assets.js';
 
 let deps = null;
 
@@ -50,6 +62,14 @@ const $ = (id) => document.getElementById(id);
 const myData = () => deps.getMyData();
 const myAddr = () => longAddress(deps.getMyAccount().keys.address).toLowerCase();
 const toast = (msg, ms, kind) => deps.showToast && deps.showToast(msg, ms, kind);
+/**
+ * The app's in-app confirmation dialog.
+ *
+ * Falls back to refusing rather than to window.confirm: everything this guards
+ * spends money, and silently proceeding because a dialog was unavailable is the
+ * wrong direction to fail in.
+ */
+const confirmDialog = (opts) => (deps.uiConfirm ? deps.uiConfirm(opts) : Promise.resolve(false));
 
 /**
  * Best-effort display name for an address, falling back to a short form.
@@ -1343,8 +1363,30 @@ class GroupInfoModal {
     const view = this.view();
     const health = groups.maintenanceHealth(view);
     // Enough to clear the shortfall outright, so one top-up settles it rather
-    // than leaving the banner up.
+    // than leaving the row up afterwards.
     const suggested = health.needed > health.balance ? health.needed - health.balance : health.needed;
+    if (suggested <= 0n) return;
+
+    /*
+     * Confirm the amount before spending it.
+     *
+     * This moves real money out of the signed-in account and cannot be undone
+     * -- the balance is not withdrawable by anyone, by design -- so a single
+     * tap on a button labelled "Top up" is not enough consent. The figure is
+     * computed rather than typed, which makes showing it before charging it
+     * more important, not less.
+     */
+    const ok = await confirmDialog({
+      title: 'Add to group upkeep?',
+      body:
+        `${formatLib(suggested)} LIB will be moved from your balance into ${view?.name || 'this group'}, ` +
+        `on top of the usual transaction fee.\n\n` +
+        `It can only ever be spent renewing the group's keys after someone leaves, and cannot be withdrawn — ` +
+        `by you or anyone else.`,
+      confirmLabel: `Add ${formatLib(suggested)} LIB`,
+    });
+    if (!ok) return;
+
     const button = $('groupMaintenanceTopUp');
     button.disabled = true;
     button.textContent = 'Adding…';
@@ -1523,6 +1565,19 @@ class GroupInfoModal {
     if (typeof view.applyFailedAtEpoch === 'number') {
       rows.push(['Stuck at', `epoch ${view.applyFailedAtEpoch}`]);
     }
+    /*
+     * The upkeep balance, always -- unlike the Upkeep row above, which only
+     * appears when it is running low.
+     *
+     * A warning that is permanently on screen stops being a warning, but "how
+     * much is actually in there" is a fair question to be able to answer at any
+     * time, and this is where the rest of the group's plumbing already lives.
+     */
+    const health = groups.maintenanceHealth(view);
+    rows.push([
+      'Upkeep balance',
+      `${formatLib(health.balance)} LIB${health.covers > 0 ? ` · ${health.covers} renewal${health.covers === 1 ? '' : 's'}` : ''}`,
+    ]);
     $('groupTechDetails').innerHTML = rows
       .map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd></div>`)
       .join('');
