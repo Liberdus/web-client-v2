@@ -517,11 +517,11 @@ body {
   justify-content: flex-start;
   align-items: center;
   padding: 2rem;
-  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px) + 100px);
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  min-height: 100vh;
+  min-height: 0;
 }
 
 .welcome-screen .welcome-buttons {
@@ -561,6 +561,15 @@ body {
 
 .welcome-screen .welcome-buttons button:hover {
   opacity: 0.9;
+}
+
+.welcome-version {
+  flex: none;
+  margin-top: auto;
+  padding-top: 28px;
+  color: var(--muted-text-color);
+  font-size: 0.8rem;
+  text-align: center;
 }
 
 .header {

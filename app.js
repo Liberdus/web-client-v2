@@ -1,8 +1,17 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
-//   Versions should be YYYY.MM.DD.HH.mm like 2025.01.25.10.05
+//   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
 const version = 't'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 let myVersion = '0';
+
+function getComparableVersion(value) {
+  return Number(value.replace(/\D/g, ''));
+}
+
+function getWebVersionDisplay() {
+  return `${myVersion} ${version}`.trim();
+}
+
 async function checkVersion() {
   // Use network-specific version key to avoid false update alerts when switching networks
   const versionKey = network?.netid ? `version_${network.netid}` : 'version';
@@ -25,9 +34,10 @@ async function checkVersion() {
     }
     newVersion = myVersion; // Allow continuing with the old version
   }
-  //console.log('myVersion < newVersion then reload', myVersion, newVersion)
-  console.log(parseInt(myVersion.replace(/\D/g, '')), parseInt(newVersion.replace(/\D/g, '')));
-  if (parseInt(myVersion.replace(/\D/g, '')) != parseInt(newVersion.replace(/\D/g, ''))) {
+  const currentComparableVersion = getComparableVersion(myVersion);
+  const newComparableVersion = getComparableVersion(newVersion);
+  console.log(currentComparableVersion, newComparableVersion);
+  if (currentComparableVersion !== newComparableVersion) {
     alert('Updating to new version: ' + newVersion + ' ' + version);
     localStorage.setItem(versionKey, newVersion); // Save new version with network-specific key
     const newUrl = window.location.href.split('?')[0];
@@ -48,6 +58,10 @@ async function checkVersion() {
       'meet/index.html',
     ]);
     window.location.replace(newUrl);
+  } else if (myVersion !== newVersion) {
+    // Store the canonical format without reloading when only the separators changed.
+    myVersion = newVersion;
+    localStorage.setItem(versionKey, newVersion);
   }
   logsModal.log(`Started version: ${myVersion}`)
 }
@@ -1125,7 +1139,7 @@ class WelcomeScreen {
     this.appVersionText = document.getElementById('appVersionText');
     
     
-    this.versionDisplay.textContent = myVersion + ' ' + version;
+    this.versionDisplay.textContent = getWebVersionDisplay();
     this.networkNameDisplay.textContent = network.name;
 
     if (reactNativeApp?.appVersion) {
@@ -17803,7 +17817,7 @@ class AboutModal {
     });
 
     // Set version and network information once during initialization
-    this.versionDisplay.textContent = myVersion + ' ' + version;
+    this.versionDisplay.textContent = getWebVersionDisplay();
     this.networkName.textContent = network.name;
     this.netId.textContent = network.netid;
 
@@ -34664,10 +34678,8 @@ class ReactNativeApp {
    * @returns {number} -1 if version1 is older, 1 if newer, 0 if equal
    */
   compareVersions(version1, version2) {
-    // Convert version strings to comparable numbers
-    // Format: YYYY.MMDD.HHmm -> YYYYMMDDHHmm
-    const v1 = parseInt(version1.replace(/\D/g, ''));
-    const v2 = parseInt(version2.replace(/\D/g, ''));
+    const v1 = getComparableVersion(version1);
+    const v2 = getComparableVersion(version2);
     
     if (v1 < v2) return -1;  // version1 is older
     if (v1 > v2) return 1;   // version1 is newer

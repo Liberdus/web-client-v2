@@ -113,11 +113,9 @@
           <button id="createAccountButton" class="btn btn--primary btn--pill btn--full hidden">Create Account</button>
           <button id="openWelcomeMenu" class="btn btn--secondary btn--pill btn--full hidden">Menu</button>
         </div>
-        <div style="font-size: 0.8rem; margin-top: 10px; text-align: center">
-          Version <span id="versionDisplay"></span>
-        </div>
-        <div style="font-size: 0.8rem; margin-top: 5px; text-align: center" id="appVersionDisplay" class="hidden">
-          App Version: <span id="appVersionText"></span>
+        <div class="welcome-version" aria-label="Version information">
+          <div>Web Version: <span id="versionDisplay"></span></div>
+          <div id="appVersionDisplay" class="hidden">App Version: <span id="appVersionText"></span></div>
         </div>
         <!-- Add a unused anchor tag with nothing in it and add a class to it so can't shift and end up on another modal. Should still be displayed but will just show nothing -->
         <a class="last-item" href="#" id="welcomeScreenLastItem"> </a>
@@ -912,7 +910,7 @@
               <p class="about-description">Liberdus is a decentralized messaging and wallet application.</p>
 
               <div class="about-info-section">
-                <div class="about-info-item">Version <span id="versionDisplayAbout"></span></div>
+                <div class="about-info-item">Web Version: <span id="versionDisplayAbout"></span></div>
                 <div class="about-info-item" id="appVersionAbout" style="display: none;">App Version: <span id="appVersionTextAbout"></span></div>
                 <div class="about-info-item">Network Name: <span id="networkNameAbout"></span></div>
                 <div class="about-info-item">
