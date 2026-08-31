@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-72" />
+    <link rel="stylesheet" href="./styles.css?v=1455-73" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-82" type="module"></script>
+    <script src="./app.js?v=1455-83" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -2628,6 +2628,20 @@
                   <span class="ui-row-sub" id="groupFeesSummary"></span>
                 </span>
                 <button type="button" class="btn btn--text" id="groupFeesClaim">Collect</button>
+              </div>
+
+              <!--
+                What the group has left to pay for its own upkeep. Repairing the
+                tree after someone leaves costs a transaction fee, and the group
+                covers it so the member who happens to perform the repair does
+                not. When this runs out, that member pays instead.
+              -->
+              <div class="ui-row" id="groupMaintenanceRow" hidden>
+                <span class="ui-row-key">
+                  Upkeep
+                  <span class="ui-row-sub" id="groupMaintenanceSummary"></span>
+                </span>
+                <button type="button" class="btn btn--text" id="groupMaintenanceTopUp">Top up</button>
               </div>
 
               <button type="button" class="ui-row ui-row--danger" id="groupLeaveButton">

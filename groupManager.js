@@ -868,6 +868,66 @@ export async function removeMembers(groupId, addresses) {
  * current epoch secret until a remaining member commits a Remove. The UI should
  * not claim the departure is cryptographically complete.
  */
+/**
+ * Whether a group can still pay to repair its own tree.
+ *
+ * The network charges a repair commit to the group's maintenance balance
+ * instead of to whichever member happened to perform it. When that balance runs
+ * out the fee falls back on that member, which is the situation this exists to
+ * warn about before it happens rather than after.
+ *
+ * "Enough" is one fee per member, because any member leaving is one repair the
+ * group will owe. Measured against the fee right now, never a figure captured
+ * when the deposits were made -- the fee moves, and a balance that was ample
+ * last month may not be today.
+ *
+ * @param {object} view a group view
+ * @returns {{ balance: bigint, needed: bigint, low: boolean, empty: boolean }}
+ */
+export function maintenanceHealth(view) {
+  let fee = 0n;
+  try {
+    fee = deps.getTransactionFeeWei() || 0n;
+  } catch {
+    /* no network parameters yet; treat the fee as unknown rather than zero */
+  }
+  let balance = 0n;
+  try {
+    balance = BigInt(view?.maintenanceBalance ?? 0);
+  } catch {
+    balance = 0n;
+  }
+  const needed = fee * BigInt(view?.members?.length ?? 0);
+  return {
+    balance,
+    needed,
+    // With no fee figure there is nothing to compare against, so say nothing
+    // rather than cry wolf.
+    low: fee > 0n && balance < needed,
+    empty: fee > 0n && balance < fee,
+  };
+}
+
+/**
+ * Adds LIB to a group's maintenance balance.
+ *
+ * Open to any account, member or not: the balance can only ever be spent
+ * burning the fee on a repair commit, and there is no withdrawal transaction,
+ * so a contribution cannot be redirected or taken back.
+ *
+ * @param {string} groupId
+ * @param {bigint} amount wei to contribute, on top of this transaction's fee
+ */
+export async function fundGroupMaintenance(groupId, amount) {
+  const value = BigInt(amount);
+  if (value <= 0n) throw new Error('Contribution must be greater than zero');
+  await submitAndConfirm({ ...baseTx('group_maintenance_fund'), groupId, amount: value });
+  // Refresh so the banner reflects the new balance rather than waiting for the
+  // next poll to notice.
+  await upsertGroupView(groupId);
+  if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+}
+
 export async function leaveGroup(groupId) {
   const view = deps.getMyData().groups?.[groupId];
   /*
@@ -1265,6 +1325,13 @@ async function upsertGroupView(groupId, extra = {}) {
     view.members = (info.group.members || []).map(norm);
     view.admins = info.group.admins || [];
     view.maxMembers = info.group.maxMembers;
+    /*
+     * What the group has left to pay for repairing its own tree, as a decimal
+     * string of wei. Kept as a string on the view because that is how it
+     * arrives and how the balance helpers want it; only the health check below
+     * needs it as a number.
+     */
+    view.maintenanceBalance = info.group.maintenanceBalance ?? '0';
     /*
      * When the group was made. The creator joined at epoch 0, so their
      * memberSince entry IS the creation time — both fields are already in this
