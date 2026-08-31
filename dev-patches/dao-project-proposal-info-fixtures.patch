@@ -1,0 +1,56 @@
+# Project Proposal Info fixtures
+#
+# This developer-only patch augments DAO proposal reads with deterministic
+# Project fixtures from dev-fixtures/dao-project-proposal-info-fixtures.js while
+# continuing to load non-fixture proposals through the real network query.
+# The fixture set includes projects in each filterable execution state:
+# started -> Executing, terminated -> Terminated, completed -> Completed.
+# Fixture mode is read-only: both proposal creation and every Proposal Info
+# transaction submission are blocked before signing or network injection.
+#
+# Apply from the repository root:
+#   git apply --check dev-patches/dao-project-proposal-info-fixtures.patch
+#   git apply dev-patches/dao-project-proposal-info-fixtures.patch
+#
+# Reverse after visual testing to restore the regular query-only loader:
+#   git apply --check --reverse dev-patches/dao-project-proposal-info-fixtures.patch
+#   git apply --reverse dev-patches/dao-project-proposal-info-fixtures.patch
+diff --git a/app.js b/app.js
+--- a/app.js
++++ b/app.js
+@@ -75,2 +75,3 @@ async function forceReload(urls) {
++import { createDaoProjectProposalInfoFixtures } from './dev-fixtures/dao-project-proposal-info-fixtures.js';
+ // https://github.com/shardus/lib-crypto-web/blob/main/utils/stringify.js
+ // Needed to stringify and parse bigints; also deterministic stringify
+@@ -2516,2 +2517,9 @@ const menuModal = new MenuModal();
+-setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
++const DAO_PROJECT_FIXTURE_MODE = true;
++const daoProjectProposalInfoFixtures = createDaoProjectProposalInfoFixtures({
++  getCurrentAddress: getDaoCurrentAccountAddress,
++  queryUpstream: queryNetwork,
++});
++setDaoBackendFetcher(createDaoBackendFetcher(
++  daoProjectProposalInfoFixtures.queryDaoApi,
++));
+ const daoProposalVoteTracker = createDaoProposalVoteTracker({
+@@ -2820,3 +2828,6 @@ class DaoModal {
+   getClaimCandidateMetadataEntries(entries, now = getTransactionTimestamp()) {
+-    const proposalNumbers = daoProposalVoteTracker.getOpenClaimProposalNumbers(now);
++    const proposalNumbers = [
++      ...daoProposalVoteTracker.getOpenClaimProposalNumbers(now),
++      ...daoProjectProposalInfoFixtures.getClaimableProposalNumbers(now),
++    ];
+     return getDaoTrackedProposalMetadataEntries(entries, proposalNumbers);
+@@ -4800,2 +4811,6 @@ class ConfirmProposalModal {
+   async handleSign() {
++    if (DAO_PROJECT_FIXTURE_MODE) {
++      showToast('DAO fixture mode is read-only', 3000, 'info');
++      return;
++    }
+     if (this.currentDraft?.kind === DAO_PROJECT_PREVIEW_KIND) {
+@@ -6623,2 +6638,5 @@ class ProposalInfoModal {
+   async submitDaoTransaction(transaction) {
++    if (DAO_PROJECT_FIXTURE_MODE) {
++      throw new Error('DAO fixture mode is read-only. Transactions are disabled.');
++    }
+     if (!myAccount?.keys) throw new Error('Wallet keys unavailable');
