@@ -1202,6 +1202,13 @@ class GroupInfoModal {
     $('groupInfoAlertAction').addEventListener('click', () => this.repair());
     $('groupInfoAddButton').addEventListener('click', () => this.addSelected());
     $('groupMaintenanceTopUp')?.addEventListener('click', () => this.topUpMaintenance());
+    // Same affordance the DAO form help uses: the explanation lives in the
+    // title, and tapping it surfaces that as a dismissible toast.
+    $('groupMaintenanceHelp')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toast(e.currentTarget.title, 0, 'info');
+    });
     $('groupInfoAddCancel').addEventListener('click', () => this.toggleAdd(false));
     $('groupLeaveButton').addEventListener('click', () => this.leave());
     $('groupMuteRow').addEventListener('click', () => this.toggleMute());
@@ -1317,9 +1324,19 @@ class GroupInfoModal {
     if (!health.low) return;
 
     const summary = $('groupMaintenanceSummary');
+    /*
+     * Counted in renewals, not in LIB.
+     *
+     * This line used to read "0.76923076923076923 LIB left of
+     * 1.53846153846153846 LIB", which is two unreadable numbers and a
+     * relationship nobody can act on -- the second one is members × fee, which
+     * is not a quantity anyone holds in their head. What someone actually wants
+     * to know is how many more departures the group can absorb before the cost
+     * starts landing on a member.
+     */
     summary.textContent = health.empty
-      ? 'Empty — the next repair will be charged to a member'
-      : `${formatLib(health.balance)} LIB left of ${formatLib(health.needed)} LIB`;
+      ? 'Empty — the next key renewal will be charged to a member'
+      : `Enough for ${health.covers} more key renewal${health.covers === 1 ? '' : 's'}`;
   }
 
   async topUpMaintenance() {

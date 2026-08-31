@@ -64,6 +64,22 @@ chk('  and reported as empty', h.empty === true);
 h = maintenanceHealth(view(FEE * 2n, 5));
 chk('a partly funded balance is low but not empty', h.low === true && h.empty === false);
 
+// --- a group that cannot need a repair is never low --------------------------
+// No copath in a one-member group, so no renewal can ever be needed. Warning
+// there would be warning about work that cannot happen -- and it is exactly
+// what a freshly created group looks like.
+h = maintenanceHealth(view(0n, 1));
+chk('a one-member group is never low, even at zero', h.low === false && h.empty === false);
+h = maintenanceHealth(view(0n, 0));
+chk('a memberless view is never low', h.low === false);
+h = maintenanceHealth(view(0n, 2));
+chk('  but two members with nothing IS low', h.low === true && h.empty === true);
+
+// --- covers is stated in renewals, not wei ----------------------------------
+chk('an empty balance covers nothing', maintenanceHealth(view(0n, 3)).covers === 0);
+chk('exactly one fee covers one renewal', maintenanceHealth(view(FEE, 3)).covers === 1);
+chk('a part-fee over does not round up', maintenanceHealth(view(FEE * 2n + FEE / 2n, 4)).covers === 2);
+
 // --- the threshold tracks the CURRENT fee -----------------------------------
 // The same balance that was ample at one fee is not at a higher one; a figure
 // captured when the deposits were made would miss this entirely.

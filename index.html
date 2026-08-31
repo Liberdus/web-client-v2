@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-73" />
+    <link rel="stylesheet" href="./styles.css?v=1455-74" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-83" type="module"></script>
+    <script src="./app.js?v=1455-84" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -2631,14 +2631,26 @@
               </div>
 
               <!--
-                What the group has left to pay for its own upkeep. Repairing the
-                tree after someone leaves costs a transaction fee, and the group
-                covers it so the member who happens to perform the repair does
-                not. When this runs out, that member pays instead.
+                What the group has left to pay for its own upkeep. Renewing the
+                group's keys after someone leaves costs a transaction fee, and
+                the group covers it so the member who happens to do the work
+                does not. When this runs out, that member pays instead.
+
+                Only ever shown when it is running low, and never in a group of
+                one, where no renewal can be needed at all.
               -->
               <div class="ui-row" id="groupMaintenanceRow" hidden>
                 <span class="ui-row-key">
-                  Upkeep
+                  <span class="ui-row-key-with-help">
+                    Upkeep
+                    <button
+                      type="button"
+                      class="toll-info-icon"
+                      data-icon="info"
+                      id="groupMaintenanceHelp"
+                      title="When someone leaves, the group's encryption keys are renewed for everyone still in it, and that costs a small network fee. This balance pays it, so the cost doesn't land on whichever member happens to do the work. Anyone can add to it, and it can't be spent on anything else."
+                      aria-label="About group upkeep"></button>
+                  </span>
                   <span class="ui-row-sub" id="groupMaintenanceSummary"></span>
                 </span>
                 <button type="button" class="btn btn--text" id="groupMaintenanceTopUp">Top up</button>

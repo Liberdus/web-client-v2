@@ -10876,6 +10876,33 @@ small {
   flex: 1;
   min-width: 0;
 }
+/*
+ * A row label with an info icon beside it. Inline-flex so the icon tracks the
+ * end of the text rather than the width of the row, and baseline-aligned so it
+ * sits with the label instead of floating above the sub-line beneath it.
+ */
+.ui-row-key-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/*
+ * The icon is a <button>, so it arrives carrying the app's button padding and
+ * min-height and renders as a 78x46 slab next to a 14px glyph. Reset the box to
+ * the glyph, with just enough around it to be tappable.
+ */
+.ui-row-key-with-help .toll-info-icon {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  min-height: 0;
+  min-width: 0;
+  width: 20px;
+  height: 20px;
+  justify-content: center;
+  flex: none;
+}
 .ui-row-sub {
   display: block;
   font-size: var(--font-size-xs);

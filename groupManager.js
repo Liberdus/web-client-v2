@@ -881,8 +881,14 @@ export async function removeMembers(groupId, addresses) {
  * when the deposits were made -- the fee moves, and a balance that was ample
  * last month may not be today.
  *
+ * A group with fewer than two members is never low, however empty it is. There
+ * is no copath in a one-member group, so no repair can ever be needed -- the
+ * same reason flushPathUpdate refuses to act below two. Warning about upkeep
+ * there would be warning about work that cannot happen, and the deposits from
+ * adding a second member arrive before it can.
+ *
  * @param {object} view a group view
- * @returns {{ balance: bigint, needed: bigint, low: boolean, empty: boolean }}
+ * @returns {{ balance: bigint, needed: bigint, covers: number, low: boolean, empty: boolean }}
  */
 export function maintenanceHealth(view) {
   let fee = 0n;
@@ -897,14 +903,20 @@ export function maintenanceHealth(view) {
   } catch {
     balance = 0n;
   }
-  const needed = fee * BigInt(view?.members?.length ?? 0);
+  const memberCount = view?.members?.length ?? 0;
+  const needed = fee * BigInt(memberCount);
+  // How many repairs the balance can actually pay for, which is the number
+  // worth telling someone -- a wei figure is not.
+  const covers = fee > 0n ? Number(balance / fee) : 0;
+  // With no fee figure there is nothing to compare against, and below two
+  // members there is nothing to repair. Either way, say nothing.
+  const applicable = fee > 0n && memberCount >= 2;
   return {
     balance,
     needed,
-    // With no fee figure there is nothing to compare against, so say nothing
-    // rather than cry wolf.
-    low: fee > 0n && balance < needed,
-    empty: fee > 0n && balance < fee,
+    covers,
+    low: applicable && balance < needed,
+    empty: applicable && balance < fee,
   };
 }
 
