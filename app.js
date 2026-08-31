@@ -7982,12 +7982,21 @@ class SignInModal {
       'SignInModal DOM is incomplete'
     );
 
-    this.accountList.addEventListener('click', (event) => {
-      const item = event.target.closest('.sign-in-account-item');
+    const selectAccountItem = (item) => {
       if (!item || this.isSigningIn) return;
       const username = item.dataset.username;
       assert(username, 'Sign-in account item is missing username');
       void this.handleAccountClick(username);
+    };
+    this.accountList.addEventListener('click', (event) => {
+      selectAccountItem(event.target.closest('.sign-in-account-item'));
+    });
+    this.accountList.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const item = event.target.closest('.sign-in-account-item');
+      if (!item) return;
+      event.preventDefault();
+      selectAccountItem(item);
     });
 
     this.actionSheetOverlay.addEventListener('click', (event) => {
@@ -8079,21 +8088,24 @@ class SignInModal {
    * Split current usernames into the same account groups shown in the sign-in list.
    * @param {string[]} usernames Current network usernames in registry order.
    * @param {string} netid Active network id.
-   * @returns {{ usernameGroups: { public: string[], private: string[] }, isPrivateMap: Object }}
+   * @returns {{ usernameGroups: { public: string[], private: string[] }, isPrivateMap: Object, avatarIdMap: Object }}
    */
   getSignInUsernameGroups(usernames, netid) {
     const usernameGroups = { public: [], private: [] };
     const isPrivateMap = Object.create(null);
+    const avatarIdMap = Object.create(null);
 
     for (const username of usernames) {
       const localState = loadState(`${username}_${netid}`);
       const isPrivate = localState?.account?.private === true;
+      const avatarId = localState?.account?.avatarId;
       const usernameType = isPrivate ? 'private' : 'public';
       isPrivateMap[username] = isPrivate;
+      avatarIdMap[username] = typeof avatarId === 'string' && avatarId ? avatarId : null;
       usernameGroups[usernameType].push(username);
     }
 
-    return { usernameGroups, isPrivateMap };
+    return { usernameGroups, isPrivateMap, avatarIdMap };
   }
 
   /**
@@ -8242,13 +8254,59 @@ class SignInModal {
   }
 
   /**
+   * Render the same address-derived avatar used elsewhere in the client.
+   * Accounts without a valid saved address intentionally have no avatar.
+   * @param {unknown} address Saved account address.
+   * @returns {string} Avatar SVG markup or an empty string.
+   */
+  getSignInAccountFallbackAvatar(address) {
+    if (!address) return '';
+
+    try {
+      return generateIdenticon(normalizeAddress(address), 40);
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Replace an address-derived fallback with the account's cached uploaded avatar.
+   * Detached rows indicate that the list closed or rerendered while IndexedDB loaded.
+   * @param {HTMLElement} item Rendered sign-in account row.
+   * @param {string} avatarId Saved account avatar id.
+   * @returns {Promise<void>}
+   */
+  async loadUploadedSignInAvatar(item, avatarId) {
+    try {
+      const blobUrl = await contactAvatarCache.getBlobUrl(avatarId);
+      if (!blobUrl || !item.isConnected) return;
+
+      const image = document.createElement('img');
+      image.className = 'contact-avatar-img';
+      image.width = 40;
+      image.height = 40;
+      image.alt = '';
+      await new Promise((resolve, reject) => {
+        image.addEventListener('load', resolve, { once: true });
+        image.addEventListener('error', reject, { once: true });
+        image.src = blobUrl;
+      });
+
+      if (!item.isConnected) return;
+      item.querySelector('.sign-in-account-avatar')?.replaceChildren(image);
+    } catch {
+      // Keep the deterministic fallback when the local cache is unavailable.
+    }
+  }
+
+  /**
    * Render the account list with notification indicators and sort by notification status.
    * @returns {string[]} Usernames for the current network (registry order, not display order)
    */
   renderAccountList() {
     const { usernames, netidAccounts } = this.getSignInUsernames();
     const { netid } = network;
-    const { usernameGroups, isPrivateMap } = this.getSignInUsernameGroups(usernames, netid);
+    const { usernameGroups, isPrivateMap, avatarIdMap } = this.getSignInUsernameGroups(usernames, netid);
     const usernameOrder = this.getSignInUsernameOrder(usernameGroups, netidAccounts);
     const notifiedAddresses = reactNativeApp.isReactNativeWebView ? reactNativeApp.getNotificationAddresses() : [];
     const normalizedNotifiedSet = new Set();
@@ -8285,15 +8343,17 @@ class SignInModal {
 
     const renderListItem = (username) => {
       const isPrivateAccount = isPrivateMap[username];
-      const displayName = isPrivateAccount ? `- ${username}` : username;
       const privateClass = isPrivateAccount ? ' is-private' : '';
       const notificationBadge = notifiedUsernameSet.has(username)
         ? '<span class="sign-in-account-badge" aria-label="Has notifications">🔔</span>'
         : '';
+      const address = netidAccounts.usernames[username]?.address;
+      const avatar = this.getSignInAccountFallbackAvatar(address);
       return `
-        <li class="sign-in-account-item${privateClass}" data-username="${username}">
+        <li class="sign-in-account-item${privateClass}" data-username="${username}" role="button" tabindex="0">
           <div class="sign-in-account-card">
-            <span class="sign-in-account-name">${escapeHtml(displayName)}</span>
+            <span class="sign-in-account-avatar" aria-hidden="true">${avatar}</span>
+            <span class="sign-in-account-name">${escapeHtml(username)}</span>
             ${notificationBadge}
           </div>
         </li>
@@ -8309,6 +8369,11 @@ class SignInModal {
       sections.push(...privateRemaining.map(renderListItem));
     }
     this.accountList.innerHTML = sections.join('');
+    this.accountList.querySelectorAll('.sign-in-account-item').forEach((item) => {
+      const avatarId = avatarIdMap[item.dataset.username];
+      const hasFallbackAvatar = item.querySelector('.sign-in-account-avatar:not(:empty)');
+      if (avatarId && hasFallbackAvatar) void this.loadUploadedSignInAvatar(item, avatarId);
+    });
     this.updateRecentSignInResetButtonVisibility();
 
     return usernames;
