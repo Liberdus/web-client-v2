@@ -36143,6 +36143,11 @@ class ThumbnailCache {
         reject(request.error);
       };
 
+      request.onblocked = () => {
+        console.warn('Thumbnail database upgrade is blocked by another tab');
+        reject(new Error('Thumbnail database upgrade blocked'));
+      };
+
       request.onsuccess = () => {
         this.db = request.result;
         this.db.onversionchange = () => {
