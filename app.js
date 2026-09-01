@@ -26835,6 +26835,7 @@ class FullImageModal {
     this.translateX = 0;
     this.translateY = 0;
     this.touchGesture = null;
+    this.dragPointerId = null;
   }
 
   load() {
@@ -26859,6 +26860,10 @@ class FullImageModal {
     this.viewer.addEventListener('touchmove', (event) => this.handleTouchMove(event), { passive: false });
     this.viewer.addEventListener('touchend', (event) => this.handleTouchEnd(event));
     this.viewer.addEventListener('touchcancel', (event) => this.handleTouchEnd(event));
+    this.viewer.addEventListener('pointerdown', (event) => this.handlePointerDown(event));
+    this.viewer.addEventListener('pointermove', (event) => this.handlePointerMove(event));
+    this.viewer.addEventListener('pointerup', (event) => this.handlePointerEnd(event));
+    this.viewer.addEventListener('pointercancel', (event) => this.handlePointerEnd(event));
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape' || !this.modal.classList.contains('active')) return;
       event.preventDefault();
@@ -26965,11 +26970,7 @@ class FullImageModal {
       this.applyTransform();
     } else if (event.touches.length === 1 && this.touchGesture?.type === 'pan') {
       event.preventDefault();
-      const touch = event.touches[0];
-      this.translateX = this.touchGesture.translateX + touch.clientX - this.touchGesture.startX;
-      this.translateY = this.touchGesture.translateY + touch.clientY - this.touchGesture.startY;
-      this.constrainTranslation();
-      this.applyTransform();
+      this.panTo(event.touches[0]);
     }
   }
 
@@ -26979,6 +26980,41 @@ class FullImageModal {
     } else if (event.touches.length === 0) {
       this.touchGesture = null;
     }
+  }
+
+  handlePointerDown(event) {
+    if (event.pointerType === 'touch' || event.button !== 0 || event.target !== this.image
+      || this.image.hidden || this.scale <= 1) return;
+
+    event.preventDefault();
+    this.dragPointerId = event.pointerId;
+    this.startPan(event);
+    this.viewer.setPointerCapture?.(event.pointerId);
+    this.viewer.classList.add('is-dragging');
+  }
+
+  handlePointerMove(event) {
+    if (event.pointerId !== this.dragPointerId || this.touchGesture?.type !== 'pan') return;
+    event.preventDefault();
+    this.panTo(event);
+  }
+
+  handlePointerEnd(event) {
+    if (event.pointerId !== this.dragPointerId) return;
+
+    if (this.viewer.hasPointerCapture?.(event.pointerId)) {
+      this.viewer.releasePointerCapture(event.pointerId);
+    }
+    this.dragPointerId = null;
+    this.touchGesture = null;
+    this.viewer.classList.remove('is-dragging');
+  }
+
+  panTo(point) {
+    this.translateX = this.touchGesture.translateX + point.clientX - this.touchGesture.startX;
+    this.translateY = this.touchGesture.translateY + point.clientY - this.touchGesture.startY;
+    this.constrainTranslation();
+    this.applyTransform();
   }
 
   constrainTranslation() {
@@ -26992,6 +27028,7 @@ class FullImageModal {
     this.image.style.transform = this.scale === 1
       ? ''
       : `translate3d(${this.translateX}px, ${this.translateY}px, 0) scale(${this.scale})`;
+    this.viewer.classList.toggle('is-zoomed', this.scale > 1);
     this.updateZoomControls();
   }
 
@@ -27021,7 +27058,9 @@ class FullImageModal {
     this.translateX = 0;
     this.translateY = 0;
     this.touchGesture = null;
+    this.dragPointerId = null;
     if (this.image) this.image.style.transform = '';
+    this.viewer?.classList.remove('is-zoomed', 'is-dragging');
   }
 
   clearImage() {

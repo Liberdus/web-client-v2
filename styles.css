@@ -1815,16 +1815,27 @@ button:disabled {
   will-change: transform;
 }
 
+.full-image-viewer.is-zoomed .full-image-viewer-image {
+  cursor: grab;
+}
+
+.full-image-viewer.is-dragging .full-image-viewer-image {
+  cursor: grabbing;
+}
+
 .full-image-zoom-controls {
   position: absolute;
-  right: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: var(--elev-2);
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(28, 28, 33, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 20px rgba(28, 28, 33, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .full-image-zoom-controls[hidden] {
@@ -1832,24 +1843,58 @@ button:disabled {
 }
 
 .full-image-zoom-button {
-  width: 44px;
-  height: 44px;
+  position: relative;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  padding: 0;
   border: 0;
-  background: #fff;
+  border-radius: 50%;
+  background: transparent;
   color: var(--text-color);
-  font-size: var(--font-size-xl);
-  line-height: 1;
+  font-size: 0;
   cursor: pointer;
   touch-action: manipulation;
+  transition: background-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
 }
 
-.full-image-zoom-button + .full-image-zoom-button {
-  border-top: 1px solid var(--border-color);
+.full-image-zoom-button::before,
+.full-image-zoom-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+#fullImageZoomIn::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+#fullImageZoomOut::after {
+  display: none;
+}
+
+.full-image-zoom-button:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+
+.full-image-zoom-button:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.full-image-zoom-button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
 }
 
 .full-image-zoom-button:disabled {
-  color: var(--secondary-text-color);
-  background: var(--surface-muted);
+  opacity: 0.32;
   cursor: default;
 }
 
