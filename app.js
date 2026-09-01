@@ -47,7 +47,6 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
-      'full-image-cache.js',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -205,10 +204,6 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
-import {
-  FullImageCache,
-  getOrCacheFullImage,
-} from './full-image-cache.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -36115,8 +36110,10 @@ class ThumbnailCache {
   constructor() {
     this.dbName = 'liberdus_thumbnails';
     this.storeName = 'thumbnails';
-    this.dbVersion = 1;
+    this.fullImageStoreName = 'fullImages';
+    this.dbVersion = 2;
     this.db = null;
+    this.openPromise = null;
     this.maxCacheSize = 50 * 1024 * 1024; // 50MB in bytes
   }
 
@@ -36139,17 +36136,26 @@ class ThumbnailCache {
    * @returns {Promise<void>}
    */
   async init() {
-    return new Promise((resolve, reject) => {
+    if (this.db) return this.db;
+    if (this.openPromise) return this.openPromise;
+
+    this.openPromise = new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.dbVersion);
 
       request.onerror = () => {
         console.error('Failed to open thumbnail database:', request.error);
+        this.openPromise = null;
         reject(request.error);
       };
 
       request.onsuccess = () => {
         this.db = request.result;
-        resolve();
+        this.db.onversionchange = () => {
+          this.db.close();
+          this.db = null;
+          this.openPromise = null;
+        };
+        resolve(this.db);
       };
 
       request.onupgradeneeded = (event) => {
@@ -36159,8 +36165,15 @@ class ThumbnailCache {
           const store = db.createObjectStore(this.storeName, { keyPath: 'url' });
           store.createIndex('cachedAt', 'cachedAt', { unique: false });
         }
+
+        if (!db.objectStoreNames.contains(this.fullImageStoreName)) {
+          const store = db.createObjectStore(this.fullImageStoreName, { keyPath: 'url' });
+          store.createIndex('cachedAt', 'cachedAt', { unique: false });
+        }
       };
     });
+
+    return this.openPromise;
   }
 
   /**
@@ -36581,7 +36594,6 @@ class ThumbnailCache {
 }
 
 const thumbnailCache = new ThumbnailCache();
-const fullImageCache = new FullImageCache();
 
 /**
  * Get HTML for a contact avatar (cached blob if available, otherwise identicon)
@@ -37248,3 +37260,114 @@ class PopupSelect {
     }
   }
 }
+
+const FULL_IMAGE_CACHE_MAX_SIZE = 250 * 1024 * 1024;
+
+function getIndexedDbRequestResult(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function waitForIndexedDbTransaction(transaction) {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
+
+class FullImageCache {
+  constructor(database, maxCacheSize = FULL_IMAGE_CACHE_MAX_SIZE) {
+    this.database = database;
+    this.maxCacheSize = maxCacheSize;
+  }
+
+  async load() {
+    try {
+      await this.database.init();
+    } catch (error) {
+      console.warn('Failed to load full-image cache:', error);
+    }
+  }
+
+  async get(attachmentUrl) {
+    const record = await this.getRecord(attachmentUrl);
+    return record?.blob || null;
+  }
+
+  async getRecord(attachmentUrl) {
+    const db = await this.database.init();
+    const transaction = db.transaction(this.database.fullImageStoreName, 'readonly');
+    const store = transaction.objectStore(this.database.fullImageStoreName);
+    return getIndexedDbRequestResult(store.get(attachmentUrl));
+  }
+
+  async getCacheSize() {
+    const db = await this.database.init();
+    const transaction = db.transaction(this.database.fullImageStoreName, 'readonly');
+    const store = transaction.objectStore(this.database.fullImageStoreName);
+    const records = await getIndexedDbRequestResult(store.getAll());
+    return records.reduce((total, record) => total + Number(record.size || 0), 0);
+  }
+
+  async put(attachment, blob) {
+    const attachmentUrl = attachment?.url;
+    const mimeType = attachment?.type || blob?.type || '';
+    if (!attachmentUrl) throw new Error('Cannot cache an image without an attachment URL');
+    if (!mimeType.startsWith('image/')) throw new Error('Full-image cache accepts only image attachments');
+    if (!(blob instanceof Blob)) throw new Error('Full-image cache requires a Blob');
+    if (blob.size > this.maxCacheSize) return false;
+
+    const existingRecord = await this.getRecord(attachmentUrl);
+    const currentSize = await this.getCacheSize();
+    const projectedSize = currentSize - Number(existingRecord?.size || 0) + blob.size;
+    if (projectedSize > this.maxCacheSize) return false;
+
+    const db = await this.database.init();
+    const transaction = db.transaction(this.database.fullImageStoreName, 'readwrite');
+    const store = transaction.objectStore(this.database.fullImageStoreName);
+    store.put({
+      url: attachmentUrl,
+      mimeType,
+      size: blob.size,
+      blob,
+      cachedAt: Date.now(),
+    });
+    await waitForIndexedDbTransaction(transaction);
+    return true;
+  }
+
+  async delete(attachmentUrl) {
+    const db = await this.database.init();
+    const transaction = db.transaction(this.database.fullImageStoreName, 'readwrite');
+    transaction.objectStore(this.database.fullImageStoreName).delete(attachmentUrl);
+    await waitForIndexedDbTransaction(transaction);
+  }
+}
+
+async function getOrCacheFullImage({
+  cache,
+  attachment,
+  downloadAndDecrypt,
+}) {
+  try {
+    const cachedBlob = await cache.get(attachment.url);
+    if (cachedBlob) return cachedBlob;
+  } catch (error) {
+    console.warn('Failed to read full image from cache:', error);
+  }
+
+  const blob = await downloadAndDecrypt();
+
+  try {
+    await cache.put(attachment, blob);
+  } catch (error) {
+    console.warn('Failed to cache full image:', error);
+  }
+
+  return blob;
+}
+
+const fullImageCache = new FullImageCache(thumbnailCache);
