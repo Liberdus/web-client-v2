@@ -31,11 +31,9 @@ function transactionComplete(transaction) {
 
 export class FullImageCache {
   constructor({
-    indexedDBFactory = globalThis.indexedDB,
     dbName = FULL_IMAGE_CACHE_DB_NAME,
     maxCacheSize = FULL_IMAGE_CACHE_MAX_SIZE,
   } = {}) {
-    this.indexedDBFactory = indexedDBFactory;
     this.dbName = dbName;
     this.maxCacheSize = maxCacheSize;
     this.db = null;
@@ -53,10 +51,10 @@ export class FullImageCache {
   async init() {
     if (this.db) return this.db;
     if (this.openPromise) return this.openPromise;
-    if (!this.indexedDBFactory) throw new Error('IndexedDB is unavailable');
+    if (!globalThis.indexedDB) throw new Error('IndexedDB is unavailable');
 
     this.openPromise = new Promise((resolve, reject) => {
-      const request = this.indexedDBFactory.open(this.dbName, FULL_IMAGE_CACHE_DB_VERSION);
+      const request = globalThis.indexedDB.open(this.dbName, FULL_IMAGE_CACHE_DB_VERSION);
 
       request.onupgradeneeded = () => {
         const db = request.result;

@@ -23304,7 +23304,7 @@ class ChatModal {
    * The attachment URL is the cache identity; filenames are export metadata only.
    * @param {Object} item - message containing the attachment metadata
    * @param {HTMLElement} linkEl - rendered attachment row
-   * @returns {{url: string, name: string, type: string, size: number}}
+   * @returns {{url: string, name: string, type: string}}
    */
   getFullImageAttachment(item, linkEl) {
     const attachmentUrl = linkEl?.dataset?.url;
@@ -23319,7 +23319,6 @@ class ChatModal {
       url: attachment.url,
       name: attachment.name || 'image',
       type: attachment.type,
-      size: attachment.size || 0,
     };
   }
 
@@ -23344,11 +23343,12 @@ class ChatModal {
   async handleAttachmentDownload(item, linkEl) {
     let loadingToastId;
     try {
-      loadingToastId = showToast(`Preparing attachment...`, 0, 'loading');
       const isImage = item.type !== 'vm' && (linkEl.dataset.type || '').startsWith('image/');
+      loadingToastId = showToast(isImage ? 'Preparing image...' : 'Decrypting attachment...', 0, 'loading');
       const blob = isImage
         ? await this.getFullImageBlob(item, linkEl)
         : await this.decryptAttachmentToBlob(item, linkEl);
+      const blobUrl = URL.createObjectURL(blob);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
 
       // Generate and cache thumbnail for images and videos, then update in place
@@ -23392,7 +23392,6 @@ class ChatModal {
         reader.readAsDataURL(blob);
       } else {
         // Web browser handling
-        const blobUrl = URL.createObjectURL(blob);
         const isViewable = this.isViewableInBrowser(blob.type);
         
         try {
@@ -24950,11 +24949,11 @@ class ChatModal {
   }
 
   /**
-   * Save an image attachment using the existing download/decrypt flow.
+   * Save an image attachment using the cache-first download/decrypt flow.
    * @param {HTMLElement} attachmentRow
    */
   async saveImageAttachment(attachmentRow) {
-    // Reuse normal attachment download flow (decrypt + download)
+    // Reuse normal attachment download flow (cache/decrypt + download)
     const { item } = this.getAttachmentContextFromRow(attachmentRow);
 
     // Concurent download prevention
