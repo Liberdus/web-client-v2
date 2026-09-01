@@ -26844,11 +26844,17 @@ class FullImageModal {
     this.viewer = document.getElementById('fullImageViewer');
     this.loading = document.getElementById('fullImageLoading');
     this.image = document.getElementById('fullImageViewerImage');
+    this.zoomControls = document.getElementById('fullImageZoomControls');
+    this.zoomInButton = document.getElementById('fullImageZoomIn');
+    this.zoomOutButton = document.getElementById('fullImageZoomOut');
 
-    assert(this.modal && this.closeButton && this.title && this.viewer && this.loading && this.image,
+    assert(this.modal && this.closeButton && this.title && this.viewer && this.loading && this.image
+      && this.zoomControls && this.zoomInButton && this.zoomOutButton,
       'Full image modal elements are required');
 
     this.closeButton.addEventListener('click', () => this.close());
+    this.zoomInButton.addEventListener('click', () => this.zoomBy(0.5));
+    this.zoomOutButton.addEventListener('click', () => this.zoomBy(-0.5));
     this.viewer.addEventListener('touchstart', (event) => this.handleTouchStart(event), { passive: false });
     this.viewer.addEventListener('touchmove', (event) => this.handleTouchMove(event), { passive: false });
     this.viewer.addEventListener('touchend', (event) => this.handleTouchEnd(event));
@@ -26858,6 +26864,7 @@ class FullImageModal {
       event.preventDefault();
       this.close();
     });
+    this.updateZoomControls();
   }
 
   open(blob, filename = 'Image') {
@@ -26880,6 +26887,7 @@ class FullImageModal {
       this.loading.hidden = true;
       this.image.hidden = false;
       this.viewer.setAttribute('aria-busy', 'false');
+      this.updateZoomControls();
     };
     this.image.onerror = () => {
       if (this.objectUrl !== objectUrl) return;
@@ -26984,6 +26992,28 @@ class FullImageModal {
     this.image.style.transform = this.scale === 1
       ? ''
       : `translate3d(${this.translateX}px, ${this.translateY}px, 0) scale(${this.scale})`;
+    this.updateZoomControls();
+  }
+
+  zoomBy(amount) {
+    if (this.image.hidden) return;
+
+    const previousScale = this.scale;
+    this.scale = Math.min(4, Math.max(1, this.scale + amount));
+    const scaleRatio = this.scale / previousScale;
+    this.translateX *= scaleRatio;
+    this.translateY *= scaleRatio;
+    this.constrainTranslation();
+    this.applyTransform();
+  }
+
+  updateZoomControls() {
+    if (!this.zoomInButton || !this.zoomOutButton) return;
+
+    const imageUnavailable = this.image.hidden;
+    this.zoomControls.hidden = imageUnavailable;
+    this.zoomInButton.disabled = imageUnavailable || this.scale >= 4;
+    this.zoomOutButton.disabled = imageUnavailable || this.scale <= 1;
   }
 
   resetTransform() {
@@ -27006,6 +27036,7 @@ class FullImageModal {
     this.viewer.setAttribute('aria-busy', 'false');
     this.image.alt = '';
     this.title.textContent = 'Image';
+    this.updateZoomControls();
 
     if (this.objectUrl) {
       URL.revokeObjectURL(this.objectUrl);
