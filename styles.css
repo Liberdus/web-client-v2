@@ -1784,6 +1784,12 @@ button:disabled {
   touch-action: none;
 }
 
+.full-image-modal .modal-title {
+  max-width: calc(100% - 112px);
+  margin-inline: 56px;
+  font-size: var(--font-size-sm);
+}
+
 .full-image-viewer {
   width: 100%;
   height: 100%;
