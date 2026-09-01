@@ -11938,8 +11938,8 @@ async function processChats(chats, keys) {
                   
                   if (!messageToDelete.my && originalSender === from) {
                     // This is a message received from sender, who is now deleting it - valid
-                    // Purge cached thumbnails for image attachments, if any
-                    chatModal.purgeThumbnail(messageToDelete.xattach);
+                    // Purge cached image data for attachments, if any
+                    chatModal.purgeImageCaches(messageToDelete.xattach);
 
                     // Mark the message as deleted
                     messageToDelete.deleted = MESSAGE_DELETED_STATE_ALL;
@@ -11964,8 +11964,8 @@ async function processChats(chats, keys) {
                     );
                   } else if (messageToDelete.my && normalizeAddress(keys.address) === normalizeAddress(tx.from)) {
                     // This is our own message, and we're deleting it - valid
-                    // Purge cached thumbnails for image attachments, if any
-                    chatModal.purgeThumbnail(messageToDelete.xattach);
+                    // Purge cached image data for attachments, if any
+                    chatModal.purgeImageCaches(messageToDelete.xattach);
 
                     // Mark the message as deleted
                     messageToDelete.deleted = MESSAGE_DELETED_STATE_ALL;
@@ -20368,7 +20368,7 @@ class ChatModal {
     if (!Array.isArray(this.fileAttachments) || this.fileAttachments.length === 0) return;
 
     const removedAttachments = this.fileAttachments.splice(0, this.fileAttachments.length);
-    this.purgeThumbnail(removedAttachments);
+    this.purgeImageCaches(removedAttachments);
 
     if (deleteFromServer) {
       this.deleteAttachmentsFromServer(removedAttachments);
@@ -22909,7 +22909,7 @@ class ChatModal {
   removeAttachment(index) {
     if (this.fileAttachments && index >= 0 && index < this.fileAttachments.length) {
       const removedFile = this.fileAttachments.splice(index, 1)[0];
-      this.purgeThumbnail([removedFile]);
+      this.purgeImageCaches([removedFile]);
       this.showAttachmentPreview(); // Refresh the preview
       showToast(`"${removedFile.name}" removed`, 2000, 'info');
 
@@ -24251,20 +24251,24 @@ class ChatModal {
   }
 
   /**
-   * Removes cached thumbnails for any image attachments in an xattach array.
-   * Safe to call even if thumbnails don't exist.
+   * Removes cached thumbnails and full images for image attachments.
+   * Safe to call even if cached records don't exist.
    * @param {any} xattach
    */
-  purgeThumbnail(xattach) {
+  purgeImageCaches(xattach) {
     if (!Array.isArray(xattach) || !xattach.length) return;
-    for (const att of xattach) {
-      const url = att?.url;
-      const type = att?.type || '';
-      if (!url || url === '#') continue;
-      if (typeof type === 'string' && type.startsWith('image/')) {
-        // Fire-and-forget; deletion errors shouldn't block UI actions
-        void thumbnailCache.delete(url).catch((e) => console.warn('Failed to delete thumbnail:', e));
-      }
+
+    for (const attachment of xattach) {
+      const url = attachment?.url;
+      const type = attachment?.type;
+      if (!url || url === '#' || typeof type !== 'string' || !type.startsWith('image/')) continue;
+
+      void thumbnailCache.delete(url).catch((error) => {
+        console.warn('Failed to delete thumbnail:', error);
+      });
+      void fullImageCache.delete(url).catch((error) => {
+        console.warn('Failed to delete full image:', error);
+      });
     }
   }
 
@@ -25744,8 +25748,8 @@ class ChatModal {
           DELETED_MESSAGE_LOCAL_TEXT
         );
       }
-      // Remove cached thumbnails for image attachments, then remove attachments
-      this.purgeThumbnail(message.xattach);
+      // Remove cached image data for attachments, then remove attachments
+      this.purgeImageCaches(message.xattach);
       delete message.xattach;
       purgeContactReactionsForTarget(contact, message.txid);
       purgePendingReactionsForTarget(this.address, message.txid);
