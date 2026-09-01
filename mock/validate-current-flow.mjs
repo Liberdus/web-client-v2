@@ -116,9 +116,13 @@ for (const deviceBehavior of [
   'renderChatOverlay',
   'renderModalCatalog()',
   'screen.dataset.catalogModal',
+  '<body><div class="container">${rootMarkup}</div>',
+  'deviceRoot.matches("[data-device-root]")',
 ]) {
   assert.ok(mockHtml.includes(deviceBehavior), `Missing device behavior: ${deviceBehavior}`);
 }
+assert.ok(!mockHtml.includes('<main class="container">'), 'Device previews must use the production container element');
+assert.ok(!mockHtml.includes('[data-device-root] { display: contents; }'), 'Device previews must not retain the mock mounting wrapper');
 
 assert.equal(
   [...mockHtml.matchAll(/data-app-modal="[^"]+"/g)].length,
