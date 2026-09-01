@@ -925,9 +925,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Thumbnail Cache
   thumbnailCache.load();
 
-  // Full Image Cache
-  fullImageCache.load();
-
   // Voice Recording Modal
   voiceRecordingModal.load();
 
@@ -37282,14 +37279,6 @@ class FullImageCache {
   constructor(database, maxCacheSize = FULL_IMAGE_CACHE_MAX_SIZE) {
     this.database = database;
     this.maxCacheSize = maxCacheSize;
-  }
-
-  async load() {
-    try {
-      await this.database.init();
-    } catch (error) {
-      console.warn('Failed to load full-image cache:', error);
-    }
   }
 
   async get(attachmentUrl) {
