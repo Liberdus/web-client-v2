@@ -24891,6 +24891,9 @@ class ChatModal {
    * @param {HTMLElement} attachmentRow
    */
   async openImageAttachment(attachmentRow) {
+    if (this.attachmentDownloadInProgress) return;
+    this.attachmentDownloadInProgress = true;
+
     let loadingToastId;
     try {
       const { item, url } = this.getAttachmentContextFromRow(attachmentRow);
@@ -24907,6 +24910,7 @@ class ChatModal {
       this.handleAttachmentError(err, 'Failed to open image.');
     } finally {
       if (loadingToastId) hideToast(loadingToastId);
+      this.attachmentDownloadInProgress = false;
     }
   }
 
@@ -26943,7 +26947,7 @@ class FullImageModal {
   }
 
   handleTouchStart(event) {
-    if (this.image.hidden) return;
+    if (this.image.hidden || event.target.closest('.full-image-zoom-controls')) return;
 
     if (event.touches.length === 2) {
       event.preventDefault();
