@@ -37318,23 +37318,47 @@ class FullImageCache {
     if (!(blob instanceof Blob)) throw new Error('Full-image cache requires a Blob');
     if (blob.size > this.maxCacheSize) return false;
 
-    const existingRecord = await this.getRecord(attachmentUrl);
-    const currentSize = await this.getCacheSize();
-    const projectedSize = currentSize - Number(existingRecord?.size || 0) + blob.size;
-    if (projectedSize > this.maxCacheSize) return false;
-
     const db = await this.database.init();
     if (shouldCache && !shouldCache()) return false;
 
     const transaction = db.transaction(this.database.fullImageStoreName, 'readwrite');
     const store = transaction.objectStore(this.database.fullImageStoreName);
-    store.put({
-      url: attachmentUrl,
-      mimeType,
-      size: blob.size,
-      blob,
-      cachedAt: Date.now(),
-    });
+    const cachedAtIndex = store.index('cachedAt');
+    const evictionCandidates = [];
+    let currentSize = 0;
+    let existingSize = 0;
+
+    const cursorRequest = cachedAtIndex.openCursor(null, 'next');
+    cursorRequest.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        const recordSize = Number(cursor.value?.size || 0);
+        currentSize += recordSize;
+        if (cursor.value?.url === attachmentUrl) {
+          existingSize = recordSize;
+        } else {
+          evictionCandidates.push({ url: cursor.primaryKey, size: recordSize });
+        }
+        cursor.continue();
+        return;
+      }
+
+      let bytesToFree = Math.max(0, currentSize - existingSize + blob.size - this.maxCacheSize);
+      for (const record of evictionCandidates) {
+        if (bytesToFree <= 0) break;
+        store.delete(record.url);
+        bytesToFree -= record.size;
+      }
+
+      store.put({
+        url: attachmentUrl,
+        mimeType,
+        size: blob.size,
+        blob,
+        cachedAt: Date.now(),
+      });
+    };
+
     await this.waitForTransaction(transaction);
     return true;
   }
