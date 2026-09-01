@@ -4,16 +4,6 @@ export const FULL_IMAGE_CACHE_MAX_SIZE = 250 * 1024 * 1024;
 const FULL_IMAGE_CACHE_DB_VERSION = 1;
 const FULL_IMAGE_CACHE_STORE_NAME = 'images';
 
-export function createFullImageCacheScope(netid, accountAddress) {
-  if (!netid || !accountAddress) throw new Error('Full-image cache scope requires a network and account');
-  return JSON.stringify([netid, accountAddress]);
-}
-
-export function createFullImageCacheKey(scope, attachmentUrl) {
-  if (!scope || !attachmentUrl) throw new Error('Full-image cache key requires a scope and attachment URL');
-  return JSON.stringify([scope, attachmentUrl]);
-}
-
 function requestResult(request) {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -60,9 +50,8 @@ export class FullImageCache {
         const db = request.result;
         if (db.objectStoreNames.contains(FULL_IMAGE_CACHE_STORE_NAME)) return;
 
-        const store = db.createObjectStore(FULL_IMAGE_CACHE_STORE_NAME, { keyPath: 'cacheKey' });
-        store.createIndex('scope', 'scope', { unique: false });
-        store.createIndex('lastAccessedAt', 'lastAccessedAt', { unique: false });
+        const store = db.createObjectStore(FULL_IMAGE_CACHE_STORE_NAME, { keyPath: 'url' });
+        store.createIndex('cachedAt', 'cachedAt', { unique: false });
       };
 
       request.onsuccess = () => {
@@ -90,16 +79,16 @@ export class FullImageCache {
     this.openPromise = null;
   }
 
-  async get(scope, attachmentUrl) {
-    const record = await this.getRecord(scope, attachmentUrl);
+  async get(attachmentUrl) {
+    const record = await this.getRecord(attachmentUrl);
     return record?.blob || null;
   }
 
-  async getRecord(scope, attachmentUrl) {
+  async getRecord(attachmentUrl) {
     const db = await this.init();
     const transaction = db.transaction(FULL_IMAGE_CACHE_STORE_NAME, 'readonly');
     const store = transaction.objectStore(FULL_IMAGE_CACHE_STORE_NAME);
-    return requestResult(store.get(createFullImageCacheKey(scope, attachmentUrl)));
+    return requestResult(store.get(attachmentUrl));
   }
 
   async getCacheSize() {
@@ -110,7 +99,7 @@ export class FullImageCache {
     return records.reduce((total, record) => total + Number(record.size || 0), 0);
   }
 
-  async put(scope, attachment, blob) {
+  async put(attachment, blob) {
     const attachmentUrl = attachment?.url;
     const mimeType = attachment?.type || blob?.type || '';
     if (!attachmentUrl) throw new Error('Cannot cache an image without an attachment URL');
@@ -118,7 +107,7 @@ export class FullImageCache {
     if (!(blob instanceof Blob)) throw new Error('Full-image cache requires a Blob');
     if (blob.size > this.maxCacheSize) return false;
 
-    const existingRecord = await this.getRecord(scope, attachmentUrl);
+    const existingRecord = await this.getRecord(attachmentUrl);
     const currentSize = await this.getCacheSize();
     const projectedSize = currentSize - Number(existingRecord?.size || 0) + blob.size;
     if (projectedSize > this.maxCacheSize) return false;
@@ -126,39 +115,32 @@ export class FullImageCache {
     const db = await this.init();
     const transaction = db.transaction(FULL_IMAGE_CACHE_STORE_NAME, 'readwrite');
     const store = transaction.objectStore(FULL_IMAGE_CACHE_STORE_NAME);
-    const now = Date.now();
     store.put({
-      cacheKey: createFullImageCacheKey(scope, attachmentUrl),
-      scope,
-      attachmentUrl,
-      name: attachment.name || 'image',
+      url: attachmentUrl,
       mimeType,
       size: blob.size,
       blob,
-      cachedAt: existingRecord?.cachedAt || now,
-      lastAccessedAt: now,
+      cachedAt: Date.now(),
     });
     await transactionComplete(transaction);
     return true;
   }
 
-  async delete(scope, attachmentUrl) {
+  async delete(attachmentUrl) {
     const db = await this.init();
     const transaction = db.transaction(FULL_IMAGE_CACHE_STORE_NAME, 'readwrite');
-    transaction.objectStore(FULL_IMAGE_CACHE_STORE_NAME)
-      .delete(createFullImageCacheKey(scope, attachmentUrl));
+    transaction.objectStore(FULL_IMAGE_CACHE_STORE_NAME).delete(attachmentUrl);
     await transactionComplete(transaction);
   }
 }
 
 export async function getOrCacheFullImage({
   cache,
-  scope,
   attachment,
   downloadAndDecrypt,
 }) {
   try {
-    const cachedBlob = await cache.get(scope, attachment.url);
+    const cachedBlob = await cache.get(attachment.url);
     if (cachedBlob) return cachedBlob;
   } catch (error) {
     console.warn('Failed to read full image from cache:', error);
@@ -167,7 +149,7 @@ export async function getOrCacheFullImage({
   const blob = await downloadAndDecrypt();
 
   try {
-    await cache.put(scope, attachment, blob);
+    await cache.put(attachment, blob);
   } catch (error) {
     console.warn('Failed to cache full image:', error);
   }

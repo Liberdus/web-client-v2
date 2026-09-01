@@ -207,7 +207,6 @@ import {
 import { evmAssets } from './evm-assets.js';
 import {
   FullImageCache,
-  createFullImageCacheScope,
   getOrCacheFullImage,
 } from './full-image-cache.js';
 
@@ -23304,7 +23303,7 @@ class ChatModal {
    * The attachment URL is the cache identity; filenames are export metadata only.
    * @param {Object} item - message containing the attachment metadata
    * @param {HTMLElement} linkEl - rendered attachment row
-   * @returns {{url: string, name: string, type: string}}
+   * @returns {{url: string, type: string}}
    */
   getFullImageAttachment(item, linkEl) {
     const attachmentUrl = linkEl?.dataset?.url;
@@ -23317,7 +23316,6 @@ class ChatModal {
 
     return {
       url: attachment.url,
-      name: attachment.name || 'image',
       type: attachment.type,
     };
   }
@@ -23330,11 +23328,9 @@ class ChatModal {
    */
   async getFullImageBlob(item, linkEl) {
     const attachment = this.getFullImageAttachment(item, linkEl);
-    const scope = createFullImageCacheScope(network.netid, myAccount.keys.address);
 
     return getOrCacheFullImage({
       cache: fullImageCache,
-      scope,
       attachment,
       downloadAndDecrypt: () => this.decryptAttachmentToBlob(item, linkEl),
     });
