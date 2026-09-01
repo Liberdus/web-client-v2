@@ -1100,10 +1100,9 @@
                 body { min-height: 0; padding: 0; }
                 .container { border-radius: 0; box-shadow: none; height: 100dvh; width: 100%; }
                 .modal { transition: none; }
-                [data-device-root] { display: contents; }
               </style>
             </head>
-            <body><main class="container">${rootMarkup}</main>`;
+            <body><div class="container">${rootMarkup}</div>`;
 
         const getScrollSurface = (frameDocument) => frameDocument.querySelector(
           ".modal-dialog.active .modal-content, #daoModal .dao-list-pane, #chatModal .messages-container, .app-screen.active, .modal.active .modal-content",
@@ -1173,7 +1172,9 @@
               wireDeviceFrame(frame);
               resolve();
             }, { once: true });
-            const rootMarkup = deviceRoot.outerHTML;
+            const rootMarkup = deviceRoot.matches("[data-device-root]")
+              ? deviceRoot.innerHTML
+              : deviceRoot.outerHTML;
             deviceRoot.replaceWith(frame);
             frame.srcdoc = createDeviceDocument(rootMarkup);
           })),
