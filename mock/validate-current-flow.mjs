@@ -1,12 +1,38 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
-const [productionHtml, productionJs, productionCss, mockHtml] = await Promise.all([
+const [productionHtml, productionJs, productionCss, mockHtml, catalogData] = await Promise.all([
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../app.js', import.meta.url), 'utf8'),
   readFile(new URL('../styles.css', import.meta.url), 'utf8'),
   readFile(new URL('./index.html', import.meta.url), 'utf8'),
+  readFile(new URL('./modal-catalog-data.js', import.meta.url), 'utf8'),
 ]);
+
+const catalogWindow = {};
+new Function('window', catalogData)(catalogWindow);
+const catalog = catalogWindow.MODAL_CATALOG;
+assert.ok(Array.isArray(catalog), 'Generated modal catalog must define an array');
+assert.equal(
+  catalogWindow.MODAL_CATALOG_SOURCE,
+  createHash('sha256').update(productionHtml).digest('hex'),
+  'Generated modal catalog is stale; run node mock/generate-modal-catalog.mjs',
+);
+
+const productionModalIds = [...productionHtml.matchAll(/<div\b[^>]*>/g)]
+  .map(([tag]) => ({
+    className: tag.match(/\bclass="([^"]*)"/)?.[1] || '',
+    id: tag.match(/\bid="([^"]+)"/)?.[1] || '',
+  }))
+  .filter(({ className }) => className.split(/\s+/).includes('modal'))
+  .map(({ id }) => id)
+  .sort();
+const catalogModalIds = catalog.map(({ id }) => id).sort();
+assert.deepEqual(catalogModalIds, productionModalIds, 'Generated catalog must include every production modal exactly once');
+for (const entry of catalog) {
+  assert.ok(entry.markup.includes(`id="${entry.id}"`), `Catalog markup is unavailable: ${entry.id}`);
+}
 
 const productionFilterLabels = [...productionHtml.matchAll(
   /<span class="dao-filter-chip-label">([^<]+)<\/span>/g,
@@ -88,20 +114,23 @@ for (const deviceBehavior of [
   'activateShowcasePanel',
   'new URLSearchParams(window.location.search).get("tab")',
   'renderChatOverlay',
+  'renderModalCatalog()',
+  'screen.dataset.catalogModal',
 ]) {
   assert.ok(mockHtml.includes(deviceBehavior), `Missing device behavior: ${deviceBehavior}`);
 }
 
 assert.equal(
   [...mockHtml.matchAll(/data-app-modal="[^"]+"/g)].length,
-  27,
-  'Every DAO, screen, modal, and chat-overlay preview must mount an isolated device frame',
+  28,
+  'Every authored preview and the generated catalog template must expose a device-frame hook',
 );
 
 const showcaseTabs = [...mockHtml.matchAll(/data-showcase-tab="([^"]+)"/g)].map((match) => match[1]);
 const showcasePanels = [...mockHtml.matchAll(/data-showcase-panel="([^"]+)"/g)].map((match) => match[1]);
-assert.deepEqual(showcaseTabs, ['dao', 'screens', 'chat', 'my-info', 'contact-info']);
+assert.deepEqual(showcaseTabs, ['dao', 'screens', 'chat', 'my-info', 'contact-info', 'all-modals']);
 assert.deepEqual(showcasePanels, showcaseTabs, 'Every showcase tab must own exactly one panel');
+assert.ok(mockHtml.includes('<script src="./modal-catalog-data.js"></script>'), 'Mock must load generated modal data');
 
 for (const primaryScreen of ['chatsScreen', 'contactsScreen', 'walletScreen']) {
   assert.ok(productionHtml.includes(`id="${primaryScreen}"`), `Production screen is unavailable: ${primaryScreen}`);
