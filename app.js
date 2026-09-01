@@ -1417,7 +1417,7 @@ class WelcomeMenuModal {
     // Show launch button if ReactNativeWebView is available
     if (window?.ReactNativeWebView) {
       this.launchButton.addEventListener('click', () => launchModal.open());
-      this.launchButton.style.display = 'block';
+      this.launchButton.style.display = 'flex';
       this.updateButton.addEventListener('click', () => aboutModal.openStore());
       this.updateButton.style.display = 'flex';
     }
@@ -2424,7 +2424,7 @@ class MenuModal {
     if (window?.ReactNativeWebView) {
       this.launchButton = document.getElementById('openLaunchUrl');
       this.launchButton.addEventListener('click', () => launchModal.open());
-      this.launchButton.style.display = 'block';
+      this.launchButton.style.display = 'flex';
 
       this.updateButton = document.getElementById('openUpdate');
       this.updateButton.addEventListener('click', () => updateWarningModal.open());
