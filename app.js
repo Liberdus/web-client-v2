@@ -47,6 +47,7 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
+      'full-image-cache.js',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -204,6 +205,11 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
+import {
+  FullImageCache,
+  createFullImageCacheScope,
+  getOrCacheFullImage,
+} from './full-image-cache.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -924,6 +930,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Thumbnail Cache
   thumbnailCache.load();
+
+  // Full Image Cache
+  fullImageCache.load();
 
   // Voice Recording Modal
   voiceRecordingModal.load();
@@ -23290,12 +23299,56 @@ class ChatModal {
     }
   }
 
+  /**
+   * Resolves image metadata from the backing message record.
+   * The attachment URL is the cache identity; filenames are export metadata only.
+   * @param {Object} item - message containing the attachment metadata
+   * @param {HTMLElement} linkEl - rendered attachment row
+   * @returns {{url: string, name: string, type: string, size: number}}
+   */
+  getFullImageAttachment(item, linkEl) {
+    const attachmentUrl = linkEl?.dataset?.url;
+    const attachment = Array.isArray(item?.xattach)
+      ? item.xattach.find(candidate => candidate?.url === attachmentUrl)
+      : null;
+
+    assert(attachment, 'Image attachment entry not found');
+    assert(attachment.type?.startsWith('image/'), 'Full-image cache accepts only image attachments');
+
+    return {
+      url: attachment.url,
+      name: attachment.name || 'image',
+      type: attachment.type,
+      size: attachment.size || 0,
+    };
+  }
+
+  /**
+   * Gets the decrypted full image from IndexedDB, downloading it on a cache miss.
+   * @param {Object} item - message containing the attachment metadata and keys
+   * @param {HTMLElement} linkEl - rendered attachment row
+   * @returns {Promise<Blob>}
+   */
+  async getFullImageBlob(item, linkEl) {
+    const attachment = this.getFullImageAttachment(item, linkEl);
+    const scope = createFullImageCacheScope(network.netid, myAccount.keys.address);
+
+    return getOrCacheFullImage({
+      cache: fullImageCache,
+      scope,
+      attachment,
+      downloadAndDecrypt: () => this.decryptAttachmentToBlob(item, linkEl),
+    });
+  }
+
   async handleAttachmentDownload(item, linkEl) {
     let loadingToastId;
     try {
-      loadingToastId = showToast(`Decrypting attachment...`, 0, 'loading');
-      const blob = await this.decryptAttachmentToBlob(item, linkEl);
-      const blobUrl = URL.createObjectURL(blob);
+      loadingToastId = showToast(`Preparing attachment...`, 0, 'loading');
+      const isImage = item.type !== 'vm' && (linkEl.dataset.type || '').startsWith('image/');
+      const blob = isImage
+        ? await this.getFullImageBlob(item, linkEl)
+        : await this.decryptAttachmentToBlob(item, linkEl);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
 
       // Generate and cache thumbnail for images and videos, then update in place
@@ -23339,17 +23392,14 @@ class ChatModal {
         reader.readAsDataURL(blob);
       } else {
         // Web browser handling
+        const blobUrl = URL.createObjectURL(blob);
         const isViewable = this.isViewableInBrowser(blob.type);
         
         try {
-          if (isViewable) {
-            // Open in new tab and download
-            const newTab = window.open(blobUrl, '_blank');
-            this.triggerFileDownload(blobUrl, filename);
-          } else {
-            // Non-viewable files: download only
-            this.triggerFileDownload(blobUrl, filename);
+          if (isViewable && !isImage) {
+            window.open(blobUrl, '_blank');
           }
+          this.triggerFileDownload(blobUrl, filename);
         } finally {
           // Clean up blob URL after enough time for downloads/tabs to initialize
           setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
@@ -36536,6 +36586,7 @@ class ThumbnailCache {
 }
 
 const thumbnailCache = new ThumbnailCache();
+const fullImageCache = new FullImageCache();
 
 /**
  * Get HTML for a contact avatar (cached blob if available, otherwise identicon)

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Issue 1656 full-image cache test</title>
+  </head>
+  <body>
+    <pre id="result">RUNNING</pre>
+
+    <script type="module">
+      import {
+        FullImageCache,
+        createFullImageCacheScope,
+        getOrCacheFullImage,
+      } from '../full-image-cache.js';
+
+      const result = document.getElementById('result');
+      const dbName = `issue-1656-full-image-cache-${Date.now()}`;
+
+      window.addEventListener('error', (event) => {
+        result.dataset.result = 'FAIL';
+        result.textContent = `FAIL: ${event.error?.stack || event.message}`;
+        document.title = 'FAIL';
+      });
+      window.addEventListener('unhandledrejection', (event) => {
+        result.dataset.result = 'FAIL';
+        result.textContent = `FAIL: ${event.reason?.stack || event.reason}`;
+        document.title = 'FAIL';
+      });
+
+      function assert(condition, message) {
+        if (!condition) throw new Error(message);
+      }
+
+      async function blobText(blob) {
+        return new TextDecoder().decode(await blob.arrayBuffer());
+      }
+
+      function deleteDatabase(name) {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.deleteDatabase(name);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+          request.onblocked = () => reject(new Error('Database deletion was blocked'));
+        });
+      }
+
+      let cache;
+      let reloadedCache;
+      try {
+        const firstScope = createFullImageCacheScope('net-a', 'account-a');
+        const secondScope = createFullImageCacheScope('net-a', 'account-b');
+        const firstAttachment = {
+          url: 'https://files.example/a',
+          name: 'photo.png',
+          type: 'image/png',
+        };
+        const secondAttachment = {
+          url: 'https://files.example/b',
+          name: 'photo.png',
+          type: 'image/png',
+        };
+
+        cache = new FullImageCache({ dbName, maxCacheSize: 1024 });
+        await cache.put(firstScope, firstAttachment, new Blob(['first'], { type: 'image/png' }));
+        await cache.put(firstScope, secondAttachment, new Blob(['second'], { type: 'image/png' }));
+        await cache.put(secondScope, firstAttachment, new Blob(['other-account'], { type: 'image/png' }));
+
+        assert(await blobText(await cache.get(firstScope, firstAttachment.url)) === 'first', 'first image should round-trip');
+        assert(await blobText(await cache.get(firstScope, secondAttachment.url)) === 'second', 'same filename should not collide');
+        assert(await blobText(await cache.get(secondScope, firstAttachment.url)) === 'other-account', 'account scope should not collide');
+
+        const firstRecord = await cache.getRecord(firstScope, firstAttachment.url);
+        assert(firstRecord.name === firstAttachment.name, 'filename metadata should round-trip');
+        assert(firstRecord.mimeType === firstAttachment.type, 'MIME metadata should round-trip');
+        assert(firstRecord.size === 5, 'size metadata should round-trip');
+
+        const oversizedAttachment = {
+          url: 'https://files.example/oversized',
+          name: 'oversized.png',
+          type: 'image/png',
+        };
+        const cachedOversized = await cache.put(
+          firstScope,
+          oversizedAttachment,
+          new Blob([new Uint8Array(2048)], { type: 'image/png' }),
+        );
+        assert(cachedOversized === false, 'an image above the app cache limit should be skipped');
+        assert(await cache.get(firstScope, oversizedAttachment.url) === null, 'an oversized image should not be persisted');
+
+        await cache.delete(firstScope, secondAttachment.url);
+        assert(await cache.get(firstScope, secondAttachment.url) === null, 'a deleted image should no longer be cached');
+
+        cache.close();
+        cache = null;
+        reloadedCache = new FullImageCache({ dbName, maxCacheSize: 1024 });
+        let decryptions = 0;
+        const cachedBlob = await getOrCacheFullImage({
+          cache: reloadedCache,
+          scope: firstScope,
+          attachment: firstAttachment,
+          downloadAndDecrypt: async () => {
+            decryptions += 1;
+            throw new Error('network disabled');
+          },
+        });
+
+        assert(decryptions === 0, 'a persisted cache hit should not download or decrypt');
+        assert(await blobText(cachedBlob) === 'first', 'a persisted cache hit should return the full bytes');
+
+        result.dataset.result = 'PASS';
+        result.textContent = 'PASS';
+      } catch (error) {
+        result.dataset.result = 'FAIL';
+        result.textContent = `FAIL: ${error.stack || error.message}`;
+        document.title = 'FAIL';
+      } finally {
+        cache?.close();
+        reloadedCache?.close();
+        try {
+          await deleteDatabase(dbName);
+        } catch (error) {
+          console.warn('Test database cleanup failed:', error);
+        }
+      }
+    </script>
+  </body>
+</html>
