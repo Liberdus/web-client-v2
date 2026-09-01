@@ -23383,7 +23383,7 @@ class ChatModal {
         const isViewable = this.isViewableInBrowser(blob.type);
         
         try {
-          if (isViewable && !isImage) {
+          if (isViewable) {
             window.open(blobUrl, '_blank');
           }
           this.triggerFileDownload(blobUrl, filename);
