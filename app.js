@@ -23323,6 +23323,8 @@ class ChatModal {
     return fullImageCache.getOrCache({
       attachment,
       downloadAndDecrypt: () => this.decryptAttachmentToBlob(item, linkEl),
+      shouldCache: () => Array.isArray(item?.xattach)
+        && item.xattach.some(candidate => candidate?.url === attachment.url),
     });
   }
 
@@ -37308,7 +37310,7 @@ class FullImageCache {
     return records.reduce((total, record) => total + Number(record.size || 0), 0);
   }
 
-  async put(attachment, blob) {
+  async put(attachment, blob, shouldCache) {
     const attachmentUrl = attachment?.url;
     const mimeType = attachment?.type || blob?.type || '';
     if (!attachmentUrl) throw new Error('Cannot cache an image without an attachment URL');
@@ -37322,6 +37324,8 @@ class FullImageCache {
     if (projectedSize > this.maxCacheSize) return false;
 
     const db = await this.database.init();
+    if (shouldCache && !shouldCache()) return false;
+
     const transaction = db.transaction(this.database.fullImageStoreName, 'readwrite');
     const store = transaction.objectStore(this.database.fullImageStoreName);
     store.put({
@@ -37342,7 +37346,7 @@ class FullImageCache {
     await this.waitForTransaction(transaction);
   }
 
-  async getOrCache({ attachment, downloadAndDecrypt }) {
+  async getOrCache({ attachment, downloadAndDecrypt, shouldCache }) {
     try {
       const cachedBlob = await this.get(attachment.url);
       if (cachedBlob) return cachedBlob;
@@ -37353,7 +37357,7 @@ class FullImageCache {
     const blob = await downloadAndDecrypt();
 
     try {
-      await this.put(attachment, blob);
+      await this.put(attachment, blob, shouldCache);
     } catch (error) {
       console.warn('Failed to cache full image:', error);
     }
