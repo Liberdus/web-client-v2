@@ -1657,6 +1657,24 @@
         <a class="last-item" href="#"> </a>
       </div>
 
+      <!-- Full Image Modal -->
+      <div class="modal fixed-header full-image-modal" id="fullImageModal" role="dialog" aria-modal="true" aria-labelledby="fullImageModalTitle">
+        <div class="modal-header">
+          <button class="back-button" id="closeFullImageModal" aria-label="Close image"></button>
+          <div class="modal-title" id="fullImageModalTitle">Image</div>
+        </div>
+        <div class="modal-content full-image-modal-content">
+          <div class="full-image-viewer" id="fullImageViewer" aria-busy="false">
+            <div class="full-image-loading" id="fullImageLoading" role="status" hidden>
+              <div class="spinner" aria-hidden="true"></div>
+              <span>Loading image...</span>
+            </div>
+            <img class="full-image-viewer-image" id="fullImageViewerImage" alt="" draggable="false" hidden>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
       <!-- Call Schedule Choice Modal -->
       <div class="modal modal-dialog" id="callScheduleChoiceModal">
         <div class="dialog-box-content">
@@ -1891,6 +1909,10 @@
         <div class="context-menu-option" data-action="import-contacts" data-icon="contacts" style="display: none;">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Import Contacts</span>
+        </div>
+        <div class="context-menu-option" data-action="open" data-icon="eye" style="display: none;">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Open</span>
         </div>
         <div class="context-menu-option" data-action="save" data-icon="download">
           <span class="context-menu-icon"></span>

@@ -834,6 +834,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Chat Modal
   chatModal.load();
+  fullImageModal.load();
 
   // Contact Info Modal
   contactInfoModal.load();
@@ -2483,6 +2484,7 @@ class MenuModal {
     saveState();
 
     // clear storage
+    fullImageModal.close();
     clearMyData();
 
     // Lock the app
@@ -24758,12 +24760,11 @@ class ChatModal {
 
   /**
    * Shows context menu for an attachment row.
-   * - Images/Videos: "Preview" when no thumbnail exists in IndexedDB; "Save" when it exists
-   * - Non-images/videos: always "Save"
+   * Images include an Open action; all attachment types include Save.
    * @param {Event} e
    * @param {HTMLElement} attachmentRow
    */
-  async showAttachmentContextMenu(e, attachmentRow) {
+  showAttachmentContextMenu(e, attachmentRow) {
     if (!this.imageAttachmentContextMenu || !attachmentRow) return;
     e.preventDefault();
     e.stopPropagation();
@@ -24774,7 +24775,7 @@ class ChatModal {
     this.currentImageAttachmentRow = attachmentRow;
 
     // Toggle delete-for-all visibility similar to regular message context menu gating
-    const { messageEl, url } = this.getAttachmentContextFromRow(attachmentRow);
+    const { messageEl } = this.getAttachmentContextFromRow(attachmentRow);
 
     // Show copy only if parent message has actual message text
     const copyOption = this.imageAttachmentContextMenu.querySelector('[data-action="copy"]');
@@ -24790,28 +24791,8 @@ class ChatModal {
     }
 
     const isImageAttachment = attachmentRow.dataset.imageAttachment === 'true';
-    const isVideoAttachment = attachmentRow.dataset.videoAttachment === 'true';
-    const hasThumbnailSupport = isImageAttachment || isVideoAttachment;
-
-    // Decide Preview/Save vs Save:
-    // - Images/Videos: Show both Preview and Save when no thumbnail exists; Show only Save when it exists
-    // - Non-images/videos: always Save (no thumbnail concept)
-    let hasThumb = true;
-    if (hasThumbnailSupport) {
-      hasThumb = false;
-      if (url !== '#') {
-        try {
-          const thumb = await thumbnailCache.get(url);
-          hasThumb = !!thumb;
-        } catch (_) {
-          hasThumb = false;
-        }
-      }
-    }
-
-    // Show Preview only for images/videos without a thumbnail; Save is always visible
-    const previewOpt = this.imageAttachmentContextMenu.querySelector('[data-action="preview"]');
-    if (previewOpt) previewOpt.style.display = (hasThumbnailSupport && !hasThumb) ? '' : 'none';
+    const openOption = this.imageAttachmentContextMenu.querySelector('[data-action="open"]');
+    if (openOption) openOption.style.display = isImageAttachment ? 'flex' : 'none';
 
     // Show Import Contacts option for VCF files
     const importContactsOpt = this.imageAttachmentContextMenu.querySelector('[data-action="import-contacts"]');
@@ -24843,8 +24824,8 @@ class ChatModal {
       case 'import-contacts':
         void this.openImportContactsModal(row);
         break;
-      case 'preview':
-        void this.previewMediaAttachment(row);
+      case 'open':
+        void this.openImageAttachment(row);
         break;
       case 'save':
         void this.saveImageAttachment(row);
@@ -24906,37 +24887,26 @@ class ChatModal {
   }
 
   /**
-   * Preview a media attachment (image or video): download + decrypt thumbnail from pUrl + cache in IndexedDB.
-   * Does NOT trigger full file download - uses the pre-generated thumbnail from server.
+   * Opens an image attachment using the cache-first full-image flow.
    * @param {HTMLElement} attachmentRow
    */
-  async previewMediaAttachment(attachmentRow) {
+  async openImageAttachment(attachmentRow) {
     let loadingToastId;
     try {
       const { item, url } = this.getAttachmentContextFromRow(attachmentRow);
       if (url === '#') return;
-      
-      // Get pUrl from data attributes
-      const pUrl = attachmentRow.dataset.pUrl;
-      if (!pUrl) {
-        showToast('Preview not available for this attachment', 2000, 'info');
-        return;
-      }
-      
-      loadingToastId = showToast(`Loading preview...`, 0, 'loading');
-      
-      // Decrypt thumbnail using pUrl (reuses same key derivation as main file)
-      const thumbnailBlob = await this.decryptAttachmentToBlob(item, attachmentRow, pUrl);
-      
-      // Cache and display thumbnail
-      await thumbnailCache.save(url, thumbnailBlob, 'image/jpeg');
-      await this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
-      
+
+      const filename = decodeURIComponent(attachmentRow.dataset.name || 'Image');
+      loadingToastId = showToast('Opening image...', 0, 'loading');
+      const blob = await this.getFullImageBlob(item, attachmentRow);
       hideToast(loadingToastId);
+      loadingToastId = null;
+      fullImageModal.open(blob, filename);
     } catch (err) {
-      console.error('Preview failed:', err);
-      hideToast(loadingToastId);
-      this.handleAttachmentError(err, 'Preview failed.');
+      console.error('Image open failed:', err);
+      this.handleAttachmentError(err, 'Failed to open image.');
+    } finally {
+      if (loadingToastId) hideToast(loadingToastId);
     }
   }
 
@@ -26857,6 +26827,86 @@ class ChatModal {
 }
 
 const chatModal = new ChatModal();
+
+class FullImageModal {
+  constructor() {
+    this.objectUrl = null;
+  }
+
+  load() {
+    this.modal = document.getElementById('fullImageModal');
+    this.closeButton = document.getElementById('closeFullImageModal');
+    this.title = document.getElementById('fullImageModalTitle');
+    this.viewer = document.getElementById('fullImageViewer');
+    this.loading = document.getElementById('fullImageLoading');
+    this.image = document.getElementById('fullImageViewerImage');
+
+    assert(this.modal && this.closeButton && this.title && this.viewer && this.loading && this.image,
+      'Full image modal elements are required');
+
+    this.closeButton.addEventListener('click', () => this.close());
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !this.modal.classList.contains('active')) return;
+      event.preventDefault();
+      this.close();
+    });
+  }
+
+  open(blob, filename = 'Image') {
+    assert(blob instanceof Blob, 'Full image modal requires a Blob');
+
+    const isAlreadyOpen = this.modal.classList.contains('active');
+    if (!isAlreadyOpen && !openModal(this.modal)) return false;
+
+    this.clearImage();
+
+    this.title.textContent = filename;
+    this.image.alt = filename;
+    this.loading.hidden = false;
+    this.viewer.setAttribute('aria-busy', 'true');
+
+    const objectUrl = URL.createObjectURL(blob);
+    this.objectUrl = objectUrl;
+    this.image.onload = () => {
+      if (this.objectUrl !== objectUrl) return;
+      this.loading.hidden = true;
+      this.image.hidden = false;
+      this.viewer.setAttribute('aria-busy', 'false');
+    };
+    this.image.onerror = () => {
+      if (this.objectUrl !== objectUrl) return;
+      this.close();
+      showToast('Unable to display image.', 0, 'error');
+    };
+    this.image.src = objectUrl;
+    return true;
+  }
+
+  clearImage() {
+    if (!this.image) return;
+
+    this.image.onload = null;
+    this.image.onerror = null;
+    this.image.removeAttribute('src');
+    this.image.hidden = true;
+    this.loading.hidden = true;
+    this.viewer.setAttribute('aria-busy', 'false');
+    this.image.alt = '';
+    this.title.textContent = 'Image';
+
+    if (this.objectUrl) {
+      URL.revokeObjectURL(this.objectUrl);
+      this.objectUrl = null;
+    }
+  }
+
+  close() {
+    this.modal?.classList.remove('active');
+    this.clearImage();
+  }
+}
+
+const fullImageModal = new FullImageModal();
 
 class CallInviteModal {
   constructor() {
@@ -36833,7 +36883,7 @@ function createModalCloseHandlers(modals) {
 
 const modalCloseHandlers = new Map([
   ...createModalCloseHandlers({
-    chatModal, menuModal, daoModal, addProposalModal,
+    chatModal, fullImageModal, menuModal, daoModal, addProposalModal,
     confirmProposalModal, proposalInfoModal, settingsModal, manageContactsModal,
     welcomeMenuModal, sendAssetFormModal, historyModal, newChatModal,
     createAccountModal, tollModal, inviteModal, aboutModal,
