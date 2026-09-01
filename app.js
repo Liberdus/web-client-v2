@@ -23320,9 +23320,7 @@ class ChatModal {
    */
   async getFullImageBlob(item, linkEl) {
     const attachment = this.getFullImageAttachment(item, linkEl);
-
-    return getOrCacheFullImage({
-      cache: fullImageCache,
+    return fullImageCache.getOrCache({
       attachment,
       downloadAndDecrypt: () => this.decryptAttachmentToBlob(item, linkEl),
     });
@@ -37260,25 +37258,25 @@ class PopupSelect {
 
 const FULL_IMAGE_CACHE_MAX_SIZE = 250 * 1024 * 1024;
 
-function getIndexedDbRequestResult(request) {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function waitForIndexedDbTransaction(transaction) {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error);
-  });
-}
-
 class FullImageCache {
   constructor(database, maxCacheSize = FULL_IMAGE_CACHE_MAX_SIZE) {
     this.database = database;
     this.maxCacheSize = maxCacheSize;
+  }
+
+  getRequestResult(request) {
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  waitForTransaction(transaction) {
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
   }
 
   async get(attachmentUrl) {
@@ -37290,14 +37288,14 @@ class FullImageCache {
     const db = await this.database.init();
     const transaction = db.transaction(this.database.fullImageStoreName, 'readonly');
     const store = transaction.objectStore(this.database.fullImageStoreName);
-    return getIndexedDbRequestResult(store.get(attachmentUrl));
+    return this.getRequestResult(store.get(attachmentUrl));
   }
 
   async getCacheSize() {
     const db = await this.database.init();
     const transaction = db.transaction(this.database.fullImageStoreName, 'readonly');
     const store = transaction.objectStore(this.database.fullImageStoreName);
-    const records = await getIndexedDbRequestResult(store.getAll());
+    const records = await this.getRequestResult(store.getAll());
     return records.reduce((total, record) => total + Number(record.size || 0), 0);
   }
 
@@ -37324,7 +37322,7 @@ class FullImageCache {
       blob,
       cachedAt: Date.now(),
     });
-    await waitForIndexedDbTransaction(transaction);
+    await this.waitForTransaction(transaction);
     return true;
   }
 
@@ -37332,31 +37330,27 @@ class FullImageCache {
     const db = await this.database.init();
     const transaction = db.transaction(this.database.fullImageStoreName, 'readwrite');
     transaction.objectStore(this.database.fullImageStoreName).delete(attachmentUrl);
-    await waitForIndexedDbTransaction(transaction);
-  }
-}
-
-async function getOrCacheFullImage({
-  cache,
-  attachment,
-  downloadAndDecrypt,
-}) {
-  try {
-    const cachedBlob = await cache.get(attachment.url);
-    if (cachedBlob) return cachedBlob;
-  } catch (error) {
-    console.warn('Failed to read full image from cache:', error);
+    await this.waitForTransaction(transaction);
   }
 
-  const blob = await downloadAndDecrypt();
+  async getOrCache({ attachment, downloadAndDecrypt }) {
+    try {
+      const cachedBlob = await this.get(attachment.url);
+      if (cachedBlob) return cachedBlob;
+    } catch (error) {
+      console.warn('Failed to read full image from cache:', error);
+    }
 
-  try {
-    await cache.put(attachment, blob);
-  } catch (error) {
-    console.warn('Failed to cache full image:', error);
+    const blob = await downloadAndDecrypt();
+
+    try {
+      await this.put(attachment, blob);
+    } catch (error) {
+      console.warn('Failed to cache full image:', error);
+    }
+
+    return blob;
   }
-
-  return blob;
 }
 
 const fullImageCache = new FullImageCache(thumbnailCache);
