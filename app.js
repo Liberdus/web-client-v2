@@ -26831,6 +26831,10 @@ const chatModal = new ChatModal();
 class FullImageModal {
   constructor() {
     this.objectUrl = null;
+    this.scale = 1;
+    this.translateX = 0;
+    this.translateY = 0;
+    this.touchGesture = null;
   }
 
   load() {
@@ -26845,6 +26849,10 @@ class FullImageModal {
       'Full image modal elements are required');
 
     this.closeButton.addEventListener('click', () => this.close());
+    this.viewer.addEventListener('touchstart', (event) => this.handleTouchStart(event), { passive: false });
+    this.viewer.addEventListener('touchmove', (event) => this.handleTouchMove(event), { passive: false });
+    this.viewer.addEventListener('touchend', (event) => this.handleTouchEnd(event));
+    this.viewer.addEventListener('touchcancel', (event) => this.handleTouchEnd(event));
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape' || !this.modal.classList.contains('active')) return;
       event.preventDefault();
@@ -26882,9 +26890,114 @@ class FullImageModal {
     return true;
   }
 
+  getTouchMidpoint(touches) {
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2,
+    };
+  }
+
+  getTouchDistance(touches) {
+    return Math.hypot(
+      touches[0].clientX - touches[1].clientX,
+      touches[0].clientY - touches[1].clientY,
+    );
+  }
+
+  startPinch(touches) {
+    const midpoint = this.getTouchMidpoint(touches);
+    const viewerRect = this.viewer.getBoundingClientRect();
+    const centerX = viewerRect.left + viewerRect.width / 2;
+    const centerY = viewerRect.top + viewerRect.height / 2;
+
+    this.touchGesture = {
+      type: 'pinch',
+      startDistance: Math.max(this.getTouchDistance(touches), 1),
+      startScale: this.scale,
+      anchorX: (midpoint.x - centerX - this.translateX) / this.scale,
+      anchorY: (midpoint.y - centerY - this.translateY) / this.scale,
+    };
+  }
+
+  startPan(touch) {
+    this.touchGesture = {
+      type: 'pan',
+      startX: touch.clientX,
+      startY: touch.clientY,
+      translateX: this.translateX,
+      translateY: this.translateY,
+    };
+  }
+
+  handleTouchStart(event) {
+    if (this.image.hidden) return;
+
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      this.startPinch(event.touches);
+    } else if (event.touches.length === 1 && this.scale > 1) {
+      this.startPan(event.touches[0]);
+    }
+  }
+
+  handleTouchMove(event) {
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      if (this.touchGesture?.type !== 'pinch') this.startPinch(event.touches);
+
+      const midpoint = this.getTouchMidpoint(event.touches);
+      const viewerRect = this.viewer.getBoundingClientRect();
+      const centerX = viewerRect.left + viewerRect.width / 2;
+      const centerY = viewerRect.top + viewerRect.height / 2;
+      this.scale = Math.min(4, Math.max(1,
+        this.touchGesture.startScale * this.getTouchDistance(event.touches) / this.touchGesture.startDistance));
+      this.translateX = midpoint.x - centerX - this.touchGesture.anchorX * this.scale;
+      this.translateY = midpoint.y - centerY - this.touchGesture.anchorY * this.scale;
+      this.constrainTranslation();
+      this.applyTransform();
+    } else if (event.touches.length === 1 && this.touchGesture?.type === 'pan') {
+      event.preventDefault();
+      const touch = event.touches[0];
+      this.translateX = this.touchGesture.translateX + touch.clientX - this.touchGesture.startX;
+      this.translateY = this.touchGesture.translateY + touch.clientY - this.touchGesture.startY;
+      this.constrainTranslation();
+      this.applyTransform();
+    }
+  }
+
+  handleTouchEnd(event) {
+    if (event.touches.length === 1 && this.scale > 1) {
+      this.startPan(event.touches[0]);
+    } else if (event.touches.length === 0) {
+      this.touchGesture = null;
+    }
+  }
+
+  constrainTranslation() {
+    const maxX = Math.max(0, (this.image.clientWidth * this.scale - this.viewer.clientWidth) / 2);
+    const maxY = Math.max(0, (this.image.clientHeight * this.scale - this.viewer.clientHeight) / 2);
+    this.translateX = Math.min(maxX, Math.max(-maxX, this.translateX));
+    this.translateY = Math.min(maxY, Math.max(-maxY, this.translateY));
+  }
+
+  applyTransform() {
+    this.image.style.transform = this.scale === 1
+      ? ''
+      : `translate3d(${this.translateX}px, ${this.translateY}px, 0) scale(${this.scale})`;
+  }
+
+  resetTransform() {
+    this.scale = 1;
+    this.translateX = 0;
+    this.translateY = 0;
+    this.touchGesture = null;
+    if (this.image) this.image.style.transform = '';
+  }
+
   clearImage() {
     if (!this.image) return;
 
+    this.resetTransform();
     this.image.onload = null;
     this.image.onerror = null;
     this.image.removeAttribute('src');

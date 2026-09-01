@@ -1780,7 +1780,7 @@ button:disabled {
 .full-image-modal-content {
   min-height: 0;
   overflow: hidden;
-  background: #111;
+  background: #fff;
   touch-action: none;
 }
 
@@ -1807,8 +1807,11 @@ button:disabled {
   width: auto;
   height: auto;
   object-fit: contain;
+  transform-origin: center;
   user-select: none;
   -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  will-change: transform;
 }
 
 .full-image-viewer-image[hidden] {
@@ -1816,7 +1819,7 @@ button:disabled {
 }
 
 .full-image-loading {
-  color: #fff;
+  color: var(--text-color);
   text-align: center;
 }
 
@@ -1825,7 +1828,7 @@ button:disabled {
 }
 
 .full-image-loading .spinner {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(0, 0, 0, 0.1);
   border-left-color: var(--primary-color);
 }
 
