@@ -108,7 +108,7 @@ import {
   DAO_PROJECT_PREVIEW_KIND,
   DAO_PROJECT_TYPE,
   DAO_PARAMETER_MAX_WHOLE_DIGITS,
-  buildDaoProjectProposalPreviewDraft,
+  buildDaoProjectProposalCreateDraft,
   buildDaoProposalCreateDraft,
   daoRepo,
   DAO_STATES,
@@ -4472,7 +4472,8 @@ class AddProposalModal {
       }
 
       if (proposalType === DAO_PROJECT_TYPE) {
-        const draft = buildDaoProjectProposalPreviewDraft({
+        const draft = buildDaoProjectProposalCreateDraft({
+          from: myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '',
           displayTitle: title,
           description,
           project: this.projectDraft,
@@ -4676,7 +4677,7 @@ function renderDaoProjectMilestones(milestones) {
       </div>
       <div class="proposal-info-grid">
         ${renderDaoProposalRows([
-          ['Duration', `${milestone.durationDays} days`],
+          ['Duration', formatDaoDurationEstimate(milestone.duration)],
           ['Cost', `${milestone.costUsdStr} USD`],
           ['Late penalty', `${milestone.penaltyUsdStr} USD`],
           ['Early bonus', `${milestone.bonusUsdStr} USD`],
@@ -5000,7 +5001,7 @@ class ConfirmProposalModal {
   }
 
   renderProjectPreview(draft) {
-    const proposal = draft.proposal;
+    const proposal = draft.transaction;
     const project = proposal?.project;
     if (!project) {
       this.setTitle('Review Project Draft');
