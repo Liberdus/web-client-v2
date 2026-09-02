@@ -23330,6 +23330,23 @@ class ChatModal {
     });
   }
 
+  /**
+   * Non-mutating cache peek used to skip loading feedback on cache hits.
+   * Returns the cached blob or null on miss or read failure.
+   * @param {Object} item - message containing the attachment metadata and keys
+   * @param {HTMLElement} linkEl - rendered attachment row
+   * @returns {Promise<Blob|null>}
+   */
+  async peekFullImageCache(item, linkEl) {
+    try {
+      const attachment = this.getFullImageAttachment(item, linkEl);
+      return await fullImageCache.get(attachment.url);
+    } catch (error) {
+      console.warn('Failed to peek full image cache:', error);
+      return null;
+    }
+  }
+
   async handleAttachmentDownload(item, linkEl) {
     let loadingToastId;
     try {
@@ -24900,9 +24917,15 @@ class ChatModal {
       if (url === '#') return;
 
       const filename = decodeURIComponent(attachmentRow.dataset.name || 'Image');
-      loadingToastId = showToast('Opening image...', 0, 'loading');
-      const blob = await this.getFullImageBlob(item, attachmentRow);
-      hideToast(loadingToastId);
+
+      // Cache peek: a cache hit opens immediately without loading feedback.
+      // Read failures fall through to the download/decrypt path below.
+      const cachedBlob = await this.peekFullImageCache(item, attachmentRow);
+      if (!cachedBlob) {
+        loadingToastId = showToast('Opening image...', 0, 'loading');
+      }
+      const blob = cachedBlob || await this.getFullImageBlob(item, attachmentRow);
+      if (loadingToastId) hideToast(loadingToastId);
       loadingToastId = null;
       fullImageModal.open(blob, filename);
     } catch (err) {
