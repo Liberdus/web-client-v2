@@ -41,10 +41,14 @@ const mockFilterLabels = [...mockHtml.matchAll(
   /<span class="dao-filter-chip-label">([^<]+)<\/span>/g,
 )].map((match) => match[1].trim());
 
-assert.equal(productionFilterLabels.length, 8, 'Production DAO filter count changed');
-assert.equal(mockFilterLabels.length, 16, 'Expected two complete DAO filter bars in the mock');
-assert.deepEqual(mockFilterLabels.slice(0, 8), productionFilterLabels);
-assert.deepEqual(mockFilterLabels.slice(8), productionFilterLabels);
+assert.ok(productionFilterLabels.length > 0, 'Production DAO filters are unavailable');
+assert.equal(
+  mockFilterLabels.length,
+  productionFilterLabels.length * 2,
+  'Expected two complete DAO filter bars in the mock',
+);
+assert.deepEqual(mockFilterLabels.slice(0, productionFilterLabels.length), productionFilterLabels);
+assert.deepEqual(mockFilterLabels.slice(productionFilterLabels.length), productionFilterLabels);
 
 const productionActions = [
   'Review Draft',
@@ -78,6 +82,9 @@ for (const productionAddProposalHook of [
   'id="addProposalModal"',
   'id="addProposalForm" class="form--narrow dao-proposal-form"',
   'id="addProposalOptionsList"',
+  'id="addProposalProjectEditor"',
+  'id="addProposalProjectMilestones"',
+  'id="addProposalProjectAddMilestone"',
   'class="form-group dao-form-section"',
   'class="dao-form-grid dao-form-grid--timing"',
 ]) {
@@ -104,6 +111,7 @@ for (const deviceBehavior of [
   'getScrollSurface(frameDocument)',
   'scrollSurface.scrollTop += event.deltaY',
   'renderProposalDetails(screen.dataset.proposalState || "review")',
+  'renderProjectProposalDetails(screen.dataset.proposalState)',
   'proposal-more-content',
   'const frameMounts = mountDeviceFrames()',
   'data-flow-screen',
@@ -126,13 +134,13 @@ assert.ok(!mockHtml.includes('[data-device-root] { display: contents; }'), 'Devi
 
 assert.equal(
   [...mockHtml.matchAll(/data-app-modal="[^"]+"/g)].length,
-  28,
+  37,
   'Every authored preview and the generated catalog template must expose a device-frame hook',
 );
 
 const showcaseTabs = [...mockHtml.matchAll(/data-showcase-tab="([^"]+)"/g)].map((match) => match[1]);
 const showcasePanels = [...mockHtml.matchAll(/data-showcase-panel="([^"]+)"/g)].map((match) => match[1]);
-assert.deepEqual(showcaseTabs, ['dao', 'screens', 'chat', 'my-info', 'contact-info', 'all-modals']);
+assert.deepEqual(showcaseTabs, ['dao', 'projects', 'screens', 'account', 'chat', 'my-info', 'contact-info', 'all-modals']);
 assert.deepEqual(showcasePanels, showcaseTabs, 'Every showcase tab must own exactly one panel');
 assert.ok(mockHtml.includes('<script src="./modal-catalog-data.js"></script>'), 'Mock must load generated modal data');
 
@@ -142,7 +150,7 @@ for (const primaryScreen of ['chatsScreen', 'contactsScreen', 'walletScreen']) {
 }
 
 const screensPanelStart = mockHtml.indexOf('id="showcase-panel-screens"');
-const screensPanelEnd = mockHtml.indexOf('id="showcase-panel-chat"');
+const screensPanelEnd = mockHtml.indexOf('id="showcase-panel-account"');
 assert.ok(screensPanelStart >= 0 && screensPanelEnd > screensPanelStart, 'Primary screens panel is unavailable');
 const primaryScreensMarkup = mockHtml.slice(screensPanelStart, screensPanelEnd);
 for (const screenHook of [
@@ -182,6 +190,52 @@ assert.ok(
 assert.ok(primaryScreensMarkup.includes('$248.420000</span>'), 'Asset net worth must use runtime precision');
 assert.ok(!primaryScreensMarkup.includes('<div class="asset-name">Ethereum</div>'), 'Mock must not invent a non-default wallet asset');
 
+const projectsPanelStart = mockHtml.indexOf('id="showcase-panel-projects"');
+const projectsPanelEnd = mockHtml.indexOf('id="showcase-panel-screens"');
+assert.ok(projectsPanelStart >= 0 && projectsPanelEnd > projectsPanelStart, 'Projects panel is unavailable');
+const projectsMarkup = mockHtml.slice(projectsPanelStart, projectsPanelEnd);
+for (const projectHook of [
+  'dao-project-editor',
+  'dao-project-milestone',
+  'dao-project-review-notice',
+  'dao-project-review-milestone-list',
+  'dao-project-info-milestone',
+  'Project submission unavailable',
+]) {
+  assert.ok(
+    productionHtml.includes(projectHook) || productionJs.includes(projectHook) || productionCss.includes(projectHook),
+    `Production project hook is unavailable: ${projectHook}`,
+  );
+  assert.ok(projectsMarkup.includes(projectHook), `Mock project hook is unavailable: ${projectHook}`);
+}
+for (const projectState of ['executing', 'terminated', 'completed']) {
+  assert.ok(productionHtml.includes(`data-filter-key="${projectState}"`), `Production project filter is unavailable: ${projectState}`);
+  assert.ok(projectsMarkup.includes(`data-proposal-state="${projectState}"`), `Mock project state is unavailable: ${projectState}`);
+}
+assert.equal(
+  [...projectsMarkup.matchAll(/data-project-proposal="true"/g)].length,
+  3,
+  'Each project lifecycle preview must render project-specific expandable details',
+);
+
+const accountPanelStart = mockHtml.indexOf('id="showcase-panel-account"');
+const accountPanelEnd = mockHtml.indexOf('id="showcase-panel-chat"');
+assert.ok(accountPanelStart >= 0 && accountPanelEnd > accountPanelStart, 'Account panel is unavailable');
+const accountMarkup = mockHtml.slice(accountPanelStart, accountPanelEnd);
+for (const accountHook of [
+  'welcome-version',
+  'sign-in-account-avatar',
+  'sign-in-account-section',
+  'create-account-advanced',
+  'create-account-option',
+]) {
+  assert.ok(
+    productionHtml.includes(accountHook) || productionJs.includes(accountHook) || productionCss.includes(accountHook),
+    `Production account hook is unavailable: ${accountHook}`,
+  );
+  assert.ok(accountMarkup.includes(accountHook), `Mock account hook is unavailable: ${accountHook}`);
+}
+
 for (const profileModal of ['myInfoModal', 'contactInfoModal']) {
   assert.ok(productionHtml.includes(`id="${profileModal}"`), `Production profile modal is unavailable: ${profileModal}`);
   assert.ok(mockHtml.includes(`data-app-modal="${profileModal}"`), `Mock profile modal is unavailable: ${profileModal}`);
@@ -212,6 +266,21 @@ for (const messageHook of chatMessageHooks) {
 }
 assert.ok(productionCss.includes(".message.sent[data-status='failed']"), 'Production failed-message style is unavailable');
 assert.ok(mockHtml.includes('data-status="failed"'), 'Mock failed-message example is unavailable');
+assert.ok(productionJs.includes("const directionText = item.my ? '-' : '+';"), 'Production payment direction logic is unavailable');
+assert.ok(
+  mockHtml.includes('<div class="message received payment-info"><div class="payment-header"><span class="payment-direction">+</span><span class="payment-amount">18.400000 LIB</span>'),
+  'Mock received payment must retain the production payment bubble structure',
+);
+assert.ok(mockHtml.includes('class="attachment-thumbnail"'), 'Mock loaded image thumbnail is unavailable');
+assert.ok(mockHtml.includes('Preview has not downloaded yet.'), 'Mock image placeholder state is unavailable');
+for (const imageViewerHook of [
+  'id="fullImageModal"',
+  'class="full-image-viewer-image"',
+  'class="full-image-zoom-controls"',
+]) {
+  assert.ok(productionHtml.includes(imageViewerHook), `Production full-image hook is unavailable: ${imageViewerHook}`);
+  assert.ok(mockHtml.includes(imageViewerHook), `Mock full-image hook is unavailable: ${imageViewerHook}`);
+}
 
 const chatOverlayIds = [
   'voiceRecordingModal',
