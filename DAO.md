@@ -28,9 +28,9 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Title
      - Summary
      - Type
-     - A required **No change** option plus one or more options with parameter changes
-     - A separate type-specific change set for each option
-   - The UI validates and renders the nested proposal shape in the review modal, then signs and submits the nested proposal transaction.
+     - Parameter proposals: a required **No change** option plus one or more options with type-specific parameter changes
+     - Project proposals: a contractor address and up to 20 milestones with duration, cost, late penalty, and early bonus terms
+   - The UI validates and renders the nested proposal shape in the review modal, then signs and submits the proposal transaction.
 
 3. **Proposal Info Modal**
    - Displays proposal:
@@ -165,7 +165,7 @@ Still needed for later phases:
 
 ### 3) Wire create + vote to backend
 
-`daoRepo.createProposal(...)` builds the nested proposal transaction, and the Proposal Review modal signs and injects it. The transaction contains exactly one type payload matching `proposalType`, with a nested change set for each action option.
+`daoRepo.createProposal(...)` builds the nested proposal transaction, and the Proposal Review modal signs and injects it. Parameter transactions contain exactly one type payload matching `proposalType`, with a nested change set for each action option. Project transactions contain only the contractor address and proposer-supplied milestone terms; runtime fields are populated by later project lifecycle transactions.
 
 For production, cast-vote submission should refresh the proposal or patch vote totals from the server response.
 
