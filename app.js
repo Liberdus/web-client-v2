@@ -104,6 +104,7 @@ import {
   DAO_PROJECT_MAX_MILESTONES,
   DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
   DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH,
+  DAO_PROJECT_TERMINATION_REASON_MAX_LENGTH,
   DAO_PROJECT_FILTERS,
   DAO_PROJECT_TYPE,
   DAO_PARAMETER_MAX_WHOLE_DIGITS,
@@ -5465,6 +5466,139 @@ function getDaoProjectStartLifecycleAction(
   };
 }
 
+function isDaoProjectContractor(project, currentAddress) {
+  const normalizedAddress = normalizeDaoAddress(currentAddress);
+  return Boolean(normalizedAddress && normalizedAddress === project?.address);
+}
+
+function getDaoProjectRequiredEndorsements(proposal, contractorMayPropose) {
+  const committeeSize = Array.isArray(proposal?.committeeAddresses)
+    ? proposal.committeeAddresses.length
+    : 0;
+  const reachable = committeeSize + (contractorMayPropose ? 1 : 0);
+  return Math.min(3, Math.max(reachable, 1));
+}
+
+function getDaoProjectMilestoneTimeAction({
+  proposal,
+  project,
+  milestone,
+  milestoneNumber,
+  kind,
+  currentAddress,
+}) {
+  const isStart = kind === 'project_milestone_start';
+  const verb = isStart ? 'start' : 'completion';
+  const title = isStart ? 'Start' : 'Complete';
+  const hasProposedTime = milestone.proposedTime !== null;
+  const isCommitteeMember = isDaoProposalCommitteeMember(proposal, currentAddress);
+  const isContractor = isDaoProjectContractor(project, currentAddress);
+  const hasEndorsed = milestone.endorsedTime.includes(normalizeDaoAddress(currentAddress));
+  const endorsementCount = milestone.endorsedTime.length;
+  const requiredEndorsements = getDaoProjectRequiredEndorsements(proposal, true);
+  const action = {
+    kind,
+    title: `${title} milestone ${milestoneNumber}`,
+    milestoneNumber,
+    proposesCurrentTime: !hasProposedTime,
+    canSubmit: false,
+  };
+
+  if (!hasProposedTime) {
+    return {
+      ...action,
+      help: isCommitteeMember || isContractor
+        ? `Propose the current time as milestone ${milestoneNumber}'s ${verb} time. ${requiredEndorsements} total endorsements are required.`
+        : 'Only a proposal committee member or the contractor can propose this time.',
+      buttonLabel: `Propose ${verb} now`,
+      loadingLabel: `Proposing milestone ${verb}...`,
+      canSubmit: isCommitteeMember || isContractor,
+    };
+  }
+
+  const proposedTimeLabel = formatDaoTimestamp(milestone.proposedTime) || 'the proposed time';
+  let help = `Endorse ${proposedTimeLabel} as milestone ${milestoneNumber}'s ${verb} time. ${endorsementCount} of ${requiredEndorsements} endorsements have been submitted.`;
+  if (!isCommitteeMember) {
+    help = 'Only a proposal committee member can endorse the proposed time.';
+  } else if (hasEndorsed) {
+    help = 'You already endorsed the proposed time.';
+  }
+  return {
+    ...action,
+    help,
+    buttonLabel: `Endorse proposed ${verb}`,
+    loadingLabel: `Endorsing milestone ${verb}...`,
+    canSubmit: isCommitteeMember && !hasEndorsed,
+  };
+}
+
+function getDaoProjectMilestoneLifecycleActions(proposal, currentAddress) {
+  if (getEffectiveDaoState(proposal) !== 'executing') return [];
+
+  const project = getDaoProjectPresentation(proposal);
+  if (project.kind !== 'available') return [];
+
+  const actions = [];
+  const executingMilestones = project.milestones
+    .map((milestone, index) => ({ milestone, index }))
+    .filter(({ milestone }) => milestone.status?.key === 'executing');
+  if (executingMilestones.length === 1) {
+    const { milestone, index } = executingMilestones[0];
+    actions.push(getDaoProjectMilestoneTimeAction({
+      proposal,
+      project,
+      milestone,
+      milestoneNumber: index + 1,
+      kind: 'project_milestone_end',
+      currentAddress,
+    }));
+  }
+
+  const nextPendingIndex = project.milestones.findIndex(
+    (milestone) => milestone.status?.key === 'pending',
+  );
+  const canStartNextMilestone = nextPendingIndex >= 0
+    && project.milestones.slice(0, nextPendingIndex).every((milestone) => (
+      milestone.status?.key === 'completed' || milestone.status?.key === 'terminated'
+    ));
+  if (canStartNextMilestone) {
+    actions.push(getDaoProjectMilestoneTimeAction({
+      proposal,
+      project,
+      milestone: project.milestones[nextPendingIndex],
+      milestoneNumber: nextPendingIndex + 1,
+      kind: 'project_milestone_start',
+      currentAddress,
+    }));
+  }
+
+  if (!isDaoProposalCommitteeMember(proposal, currentAddress)) return actions;
+
+  const requiredTerminationVotes = getDaoProjectRequiredEndorsements(proposal, false);
+  const normalizedCurrentAddress = normalizeDaoAddress(currentAddress);
+  for (const [index, milestone] of project.milestones.entries()) {
+    if (milestone.status?.key !== 'pending' && milestone.status?.key !== 'executing') continue;
+
+    const milestoneNumber = index + 1;
+    const alreadyVoted = milestone.terminateVotes.some(
+      (vote) => vote.address === normalizedCurrentAddress,
+    );
+    actions.push({
+      kind: 'project_milestone_terminate',
+      title: `Terminate milestone ${milestoneNumber}`,
+      help: alreadyVoted
+        ? 'You already voted to terminate this milestone.'
+        : `${milestone.terminateVotes.length} of ${requiredTerminationVotes} committee termination votes have been submitted.`,
+      buttonLabel: 'Submit termination vote',
+      loadingLabel: 'Submitting termination vote...',
+      milestoneNumber,
+      reasonRequired: !alreadyVoted,
+      canSubmit: !alreadyVoted,
+    });
+  }
+  return actions;
+}
+
 function formatDaoClaimWindowLabel(claimWindow, now) {
   if (!claimWindow.start || !claimWindow.end) return 'Unavailable';
   const start = formatDaoTimestamp(claimWindow.start) || 'Unavailable';
@@ -5615,6 +5749,7 @@ function getDaoProposalLifecycleActions(
   if (applyAction) actions.push(applyAction);
   const projectStartAction = getDaoProjectStartLifecycleAction(proposal, currentAddress, now);
   if (projectStartAction) actions.push(projectStartAction);
+  actions.push(...getDaoProjectMilestoneLifecycleActions(proposal, currentAddress));
   return actions;
 }
 
@@ -6316,12 +6451,27 @@ class ProposalInfoModal {
         const help = actionType && this.isDaoActionPending(actionType)
           ? getDaoTransactionMessage(actionType, 'pending')
           : action.help;
+        const reasonField = action.reasonRequired
+          ? `
+          <div class="form-group">
+            <label for="proposalLifecycleReason${index}">Termination reason</label>
+            <textarea
+              id="proposalLifecycleReason${index}"
+              class="form-control"
+              rows="3"
+              maxlength="${DAO_PROJECT_TERMINATION_REASON_MAX_LENGTH}"
+              data-lifecycle-action-reason="${index}"
+              placeholder="Explain why this milestone should be terminated"
+            ></textarea>
+          </div>`
+          : '';
         return `
         <div class="proposal-lifecycle-action">
           <div class="proposal-committee-actions-header">
             <h3>${escapeHtml(action.title)}</h3>
             <p>${escapeHtml(help)}</p>
           </div>
+          ${reasonField}
           <button
             type="button"
             class="btn btn--primary btn--pill btn--full"
@@ -6807,10 +6957,15 @@ class ProposalInfoModal {
       const pendingLifecycle = Boolean(actionType && this.isDaoActionPending(actionType));
       const isSubmittingAction = this.isSubmitting && action === this.submittingLifecycleAction;
       const canSubmitLifecycle = action?.canSubmit !== false;
-      button.disabled = this.isSubmitting || !action || !canSubmitLifecycle || pendingLifecycle;
+      const isDisabled = this.isSubmitting || !action || !canSubmitLifecycle || pendingLifecycle;
+      button.disabled = isDisabled;
       button.textContent = action?.buttonLabel || '';
       if (isSubmittingAction) button.textContent = action.loadingLabel;
       if (pendingLifecycle) button.textContent = pendingLabel;
+      const reasonInput = this.lifecycleActionSection?.querySelector(
+        `[data-lifecycle-action-reason="${button.dataset.lifecycleActionIndex}"]`,
+      );
+      if (reasonInput) reasonInput.disabled = isDisabled;
     }
     if (this.voteSubmitButton) {
       this.voteSubmitButton.disabled = disableVote;
@@ -7054,6 +7209,24 @@ class ProposalInfoModal {
       return;
     }
 
+    const actionIndex = this.currentLifecycleActions.indexOf(action);
+    const reasonInput = this.lifecycleActionSection?.querySelector(
+      `[data-lifecycle-action-reason="${actionIndex}"]`,
+    );
+    const reason = String(reasonInput?.value || '').trim();
+    if (action.reasonRequired && !reason) {
+      showToast('Enter a milestone termination reason', 2500, 'warning');
+      reasonInput?.focus();
+      return;
+    }
+    if (reason.length > DAO_PROJECT_TERMINATION_REASON_MAX_LENGTH) {
+      showToast(`Milestone termination reason must be ${DAO_PROJECT_TERMINATION_REASON_MAX_LENGTH} characters or less`, 2500, 'warning');
+      reasonInput?.focus();
+      return;
+    }
+    if (action.kind === 'project_milestone_terminate'
+      && !window.confirm(`Submit a vote to terminate milestone ${action.milestoneNumber}?`)) return;
+
     this.submittingLifecycleAction = action;
     this.setSubmitting(true);
     const loadingToastId = showToast(action.loadingLabel, 0, 'loading');
@@ -7066,6 +7239,9 @@ class ProposalInfoModal {
         networkId: network?.netid || '',
         submitTransaction: (transaction) => this.submitDaoTransaction(transaction),
       };
+      if (action.proposesCurrentTime) request.proposedTime = request.timestamp;
+      if (action.milestoneNumber) request.milestoneNumber = action.milestoneNumber;
+      if (action.reasonRequired) request.reason = reason;
       let result;
       switch (action.kind) {
         case 'vote_result':
@@ -7082,6 +7258,15 @@ class ProposalInfoModal {
           break;
         case 'project_start':
           result = await daoRepo.startProject(request);
+          break;
+        case 'project_milestone_start':
+          result = await daoRepo.startProjectMilestone(request);
+          break;
+        case 'project_milestone_end':
+          result = await daoRepo.endProjectMilestone(request);
+          break;
+        case 'project_milestone_terminate':
+          result = await daoRepo.terminateProjectMilestone(request);
           break;
         default:
           throw new Error(`Unknown DAO lifecycle action: ${action.kind}`);
