@@ -141,6 +141,47 @@ for (const primaryScreen of ['chatsScreen', 'contactsScreen', 'walletScreen']) {
   assert.ok(mockHtml.includes(`data-app-modal="${primaryScreen}"`), `Mock screen is unavailable: ${primaryScreen}`);
 }
 
+const screensPanelStart = mockHtml.indexOf('id="showcase-panel-screens"');
+const screensPanelEnd = mockHtml.indexOf('id="showcase-panel-chat"');
+assert.ok(screensPanelStart >= 0 && screensPanelEnd > screensPanelStart, 'Primary screens panel is unavailable');
+const primaryScreensMarkup = mockHtml.slice(screensPanelStart, screensPanelEnd);
+for (const screenHook of [
+  'logo-link',
+  'app-name-avatar',
+  'contact-section-header',
+  'chat-failed-indicator',
+  'walletTotalBalance',
+  'refreshBalance',
+  'wallet-action-button',
+]) {
+  assert.ok(
+    productionHtml.includes(screenHook) || productionJs.includes(screenHook) || productionCss.includes(screenHook),
+    `Production primary-screen hook is unavailable: ${screenHook}`,
+  );
+  assert.ok(primaryScreensMarkup.includes(screenHook), `Mock primary-screen hook is unavailable: ${screenHook}`);
+}
+assert.equal(
+  [...primaryScreensMarkup.matchAll(/class="app-name">alex<\/div>/g)].length,
+  3,
+  'Every primary screen must show the signed-in runtime header',
+);
+assert.equal(
+  [...primaryScreensMarkup.matchAll(/<div class="contact-section-header">/g)].length,
+  3,
+  'Contact groups must use the runtime-rendered section element',
+);
+assert.equal(
+  [...primaryScreensMarkup.matchAll(/<div class="asset-item">/g)].length,
+  1,
+  'The default runtime wallet must show its single LIB asset',
+);
+assert.ok(
+  primaryScreensMarkup.includes('id="walletTotalBalance">248.42</span>'),
+  'Wallet total must omit a literal currency prefix supplied by production CSS',
+);
+assert.ok(primaryScreensMarkup.includes('$248.420000</span>'), 'Asset net worth must use runtime precision');
+assert.ok(!primaryScreensMarkup.includes('<div class="asset-name">Ethereum</div>'), 'Mock must not invent a non-default wallet asset');
+
 for (const profileModal of ['myInfoModal', 'contactInfoModal']) {
   assert.ok(productionHtml.includes(`id="${profileModal}"`), `Production profile modal is unavailable: ${profileModal}`);
   assert.ok(mockHtml.includes(`data-app-modal="${profileModal}"`), `Mock profile modal is unavailable: ${profileModal}`);
