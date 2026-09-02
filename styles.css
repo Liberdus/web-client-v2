@@ -10141,75 +10141,87 @@ small {
 }
 
 .reply-quote {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 6px 10px;
-  margin-bottom: 6px;
-  border-left: 3px solid #d9deed;
-  background: #f3f5fa;
-  border-radius: 10px;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 7px;
+  padding: 1px 0 1px 10px;
+  border: 0;
+  border-left: 2px solid;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: none;
   cursor: pointer;
 }
 
-.reply-quote-text {
-  color: var(--text-color);
-  font-size: 13px;
-  line-height: 1.3;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.message.sent .reply-quote {
+  border-left-color: rgba(255, 255, 255, 0.55);
 }
 
-.reply-quote:hover {
-  background: rgba(111, 142, 246, 0.14);
+.message.received .reply-quote {
+  border-left-color: var(--primary-color);
+}
+
+.reply-quote:not(:disabled):hover {
+  opacity: 1;
+}
+
+.reply-quote:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .reply-quote-label {
+  display: block;
+  margin-bottom: 1px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  color: var(--muted-text-color, #9aa0a6);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.01em;
   white-space: nowrap;
-  padding: 2px 6px;
-  border-radius: 999px;
-  align-self: flex-start;
 }
 
-.reply-quote-label.reply-owner-me {
-  background: rgba(255, 255, 255, 0.3);
-  color: #0d1333;
-  font-weight: 700;
+.message.sent .reply-quote-label {
+  color: rgba(255, 255, 255, 0.95);
 }
 
-.reply-quote-label.reply-owner-contact {
-  background: #d8dde8;
-  color: #1f2430;
+.message.received .reply-quote-label {
+  color: var(--primary-color);
 }
 
-.reply-quote.reply-owner-me {
-  background: rgba(75, 79, 226, 0.85);
-  border-left-color: rgba(255, 255, 255, 0.7);
+.reply-quote-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
 }
 
-.reply-quote.reply-owner-me .reply-quote-text {
-  color: white;
+.message.sent .reply-quote-text {
+  color: rgba(255, 255, 255, 0.72);
 }
 
-.reply-quote.reply-owner-contact {
-  background: #e5e7ec;
-  border-left-color: #bfc7d8;
+.message.received .reply-quote-text {
+  color: var(--secondary-text-color);
 }
 
-.reply-quote.reply-owner-contact .reply-quote-text {
-  color: #1f2430;
+.message.sent .reply-quote:hover .reply-quote-text {
+  color: rgba(255, 255, 255, 0.95);
 }
 
-.reply-quote.reply-owner-contact .reply-quote-label {
-  background: #d8dde8;
-  color: #1f2430;
+.message.received .reply-quote:hover .reply-quote-text {
+  color: var(--text-color);
 }
 
 .deleted-transaction .transaction-amount {
