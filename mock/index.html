@@ -449,7 +449,9 @@
 
         <div class="showcase-tabs" role="tablist" aria-label="UI preview categories">
           <button class="showcase-tab" id="showcase-tab-dao" type="button" role="tab" aria-controls="showcase-panel-dao" aria-selected="true" data-showcase-tab="dao">DAO Flow</button>
+          <button class="showcase-tab" id="showcase-tab-projects" type="button" role="tab" aria-controls="showcase-panel-projects" aria-selected="false" tabindex="-1" data-showcase-tab="projects">Projects</button>
           <button class="showcase-tab" id="showcase-tab-screens" type="button" role="tab" aria-controls="showcase-panel-screens" aria-selected="false" tabindex="-1" data-showcase-tab="screens">Screens</button>
+          <button class="showcase-tab" id="showcase-tab-account" type="button" role="tab" aria-controls="showcase-panel-account" aria-selected="false" tabindex="-1" data-showcase-tab="account">Account</button>
           <button class="showcase-tab" id="showcase-tab-chat" type="button" role="tab" aria-controls="showcase-panel-chat" aria-selected="false" tabindex="-1" data-showcase-tab="chat">Chat</button>
           <button class="showcase-tab" id="showcase-tab-my-info" type="button" role="tab" aria-controls="showcase-panel-my-info" aria-selected="false" tabindex="-1" data-showcase-tab="my-info">My Info</button>
           <button class="showcase-tab" id="showcase-tab-contact-info" type="button" role="tab" aria-controls="showcase-panel-contact-info" aria-selected="false" tabindex="-1" data-showcase-tab="contact-info">Contact Info</button>
@@ -459,7 +461,7 @@
         <section class="showcase-panel" id="showcase-panel-dao" role="tabpanel" aria-labelledby="showcase-tab-dao" data-showcase-panel="dao">
           <div class="current-note">
             <strong>What changed from the old mock</strong>
-            Backend proposal data, the eight-chip filter bar, review confirmation, committee decisions, weighted voting, finalization, reward claims, and parameter application are all represented below. The obsolete funnel menu, Active/Archived tabs, category dashboard, and standalone reward/parameter/action screens are gone.
+            Backend proposal data, proposal and project filters, review confirmation, committee decisions, weighted voting, finalization, reward claims, and parameter application are all represented below. Project-specific authoring, preview, and lifecycle states are collected in the Projects tab.
           </div>
 
           <section class="flow-section" aria-labelledby="current-flow-title">
@@ -519,7 +521,7 @@
                   </div>
                   <div class="modal-content">
                     <div class="dao-toolbar">
-                      <div class="dao-filter-bar" role="tablist" aria-label="Proposal filter">
+                      <div class="dao-filter-bar" role="tablist" aria-label="Proposal and project filters">
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Review</span><span class="dao-filter-chip-count">2</span></button>
                         <button class="dao-filter-chip active" type="button"><span class="dao-filter-chip-label">Vote</span><span class="dao-filter-chip-count">3</span></button>
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Accepted</span><span class="dao-filter-chip-count">1</span></button>
@@ -527,7 +529,13 @@
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Withheld</span><span class="dao-filter-chip-count">2</span></button>
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Rejected</span><span class="dao-filter-chip-count">1</span></button>
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Applied</span><span class="dao-filter-chip-count">4</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">14</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">17</span></button>
+                        <div class="dao-project-filter-row" role="presentation">
+                          <span class="dao-filter-row-label" aria-hidden="true">Projects:</span>
+                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Executing</span><span class="dao-filter-chip-count">1</span></button>
+                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Terminated</span><span class="dao-filter-chip-count">1</span></button>
+                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Completed</span><span class="dao-filter-chip-count">1</span></button>
+                        </div>
                       </div>
                     </div>
                     <div class="dao-list-pane">
@@ -579,8 +587,8 @@
                         </div>
                         <div class="form-group"><label for="addProposalTitle">Title <span class="dao-form-required" aria-hidden="true">*</span></label><input id="addProposalTitle" class="form-control" type="text" maxlength="100" value="Increase vote exponent" required /></div>
                         <div class="form-group"><label for="addProposalDescription">Description <span class="dao-form-required" aria-hidden="true">*</span></label><textarea id="addProposalDescription" class="form-control" rows="6" maxlength="10000" required>Increase voteExponent so larger single votes receive the expected spend boost.</textarea></div>
-                        <div class="form-group"><label for="addProposalType">Proposal Type <span class="dao-form-required" aria-hidden="true">*</span></label><select id="addProposalType" class="form-control" required><option value="governance">Governance</option><option value="economic">Economic</option><option value="protocol">Protocol</option></select><div class="dao-form-help">Choose governance, economic, or protocol. This controls which parameters can be selected below.</div></div>
-                        <div class="form-group dao-form-section">
+                        <div class="form-group"><label for="addProposalType">Proposal Type <span class="dao-form-required" aria-hidden="true">*</span></label><select id="addProposalType" class="form-control" required><option value="governance">Governance</option><option value="economic">Economic</option><option value="protocol">Protocol</option><option value="project">Project</option></select><div class="dao-form-help">Choose governance, economic, protocol, or Project.</div></div>
+                        <div class="form-group dao-form-section" id="addProposalParameterEditor">
                           <div class="dao-form-label-with-help"><label>Options and Parameter Changes <span class="dao-form-required" aria-hidden="true">*</span></label><button type="button" class="toll-info-icon dao-form-tooltip" data-icon="info" title="No change is always the first option. Choose parameters in Option 1; later options provide alternative values for the same parameters." aria-label="About proposal options"></button></div>
                           <div class="dao-form-help" id="addProposalOptionsLimitHelp">2 to 10 total options.</div>
                           <div class="dao-form-list" id="addProposalOptionsList">
@@ -658,7 +666,7 @@
                   <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">DAO - Review</div></div>
                   <div class="modal-content">
                     <div class="dao-toolbar">
-                      <div class="dao-filter-bar">
+                      <div class="dao-filter-bar" role="tablist" aria-label="Proposal and project filters">
                         <button class="dao-filter-chip active" type="button"><span class="dao-filter-chip-label">Review</span><span class="dao-filter-chip-count">3</span></button>
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Vote</span><span class="dao-filter-chip-count">3</span></button>
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Accepted</span><span class="dao-filter-chip-count">1</span></button>
@@ -666,7 +674,13 @@
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Withheld</span><span class="dao-filter-chip-count">2</span></button>
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Rejected</span><span class="dao-filter-chip-count">1</span></button>
                         <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Applied</span><span class="dao-filter-chip-count">4</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">15</span></button>
+                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">18</span></button>
+                        <div class="dao-project-filter-row" role="presentation">
+                          <span class="dao-filter-row-label" aria-hidden="true">Projects:</span>
+                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Executing</span><span class="dao-filter-chip-count">1</span></button>
+                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Terminated</span><span class="dao-filter-chip-count">1</span></button>
+                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Completed</span><span class="dao-filter-chip-count">1</span></button>
+                        </div>
                       </div>
                     </div>
                     <div class="dao-list-pane">
@@ -790,6 +804,91 @@
           </section>
         </section>
 
+        <section class="showcase-panel preview-panel" id="showcase-panel-projects" role="tabpanel" aria-labelledby="showcase-tab-projects" data-showcase-panel="projects" hidden>
+          <div class="current-note">
+            <strong>Project proposal UI from current main</strong>
+            The authoring preview remains intentionally non-submittable until backend support lands. Existing project proposals can still expose their Executing, Terminated, and Completed lifecycle data.
+          </div>
+          <div class="section-heading"><h2 class="section-title">Project authoring and review</h2><div class="section-note">Scroll each phone to inspect the live form and proposal components.</div></div>
+          <div class="preview-grid">
+            <article class="screen" data-app-modal="addProposalModal">
+              <div class="screen-label-row"><div class="screen-label">Project proposal</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div></div>
+              <div class="screen-note"><strong>Project editor</strong>Milestones, recipient, budget, and fixed ballot choices replace parameter options.</div>
+              <div class="modal fixed-header active" id="addProposalModal">
+                <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Add Proposal</div></div>
+                <div class="modal-content"><div class="form-container">
+                  <form id="addProposalForm" class="form--narrow dao-proposal-form" novalidate>
+                    <div class="dao-form-grid"><div class="form-group"><label>Emergency <span class="dao-form-required">*</span></label><select class="form-control" disabled><option>No</option></select><div class="dao-form-help">Project proposals cannot be emergency proposals.</div></div><div class="form-group"><label>Proposal Fee</label><input class="form-control dao-form-current-value" value="50 USD" readonly /><div class="dao-form-help">Derived from DAO params.</div></div></div>
+                    <div class="form-group"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Community documentation sprint" /></div>
+                    <div class="form-group"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control" rows="4">Fund a focused documentation sprint with reviewed onboarding guides and API examples.</textarea></div>
+                    <div class="form-group"><label>Proposal Type <span class="dao-form-required">*</span></label><select class="form-control"><option selected>Project</option></select><div class="dao-form-help">Project proposals fund a recipient through milestones. This editor is a UI preview.</div></div>
+                    <div class="form-group dao-form-section hidden" id="addProposalParameterEditor"><div class="dao-form-list" id="addProposalOptionsList"></div></div>
+                    <section class="dao-project-editor" id="addProposalProjectEditor" aria-labelledby="addProposalProjectHeading">
+                      <div class="dao-project-preview-notice" role="status"><strong>Project UI preview</strong><span>Project review and submission are not available yet.</span></div>
+                      <div class="dao-form-section-header"><label id="addProposalProjectHeading">Project Details</label></div>
+                      <div class="dao-form-section-header"><label>Milestones <span class="dao-form-required">*</span></label><span class="dao-form-help" id="addProposalProjectMilestoneLimit">2 of 10</span></div>
+                      <div class="dao-form-list" id="addProposalProjectMilestones">
+                        <section class="dao-project-milestone" data-dao-milestone-id="milestone-1">
+                          <div class="dao-form-row-title"><label>Milestone 1</label><div class="dao-project-milestone-actions"><button class="btn btn--secondary dao-project-milestone-action" type="button" disabled aria-label="Move milestone 1 up">↑</button><button class="btn btn--secondary dao-project-milestone-action" type="button" aria-label="Move milestone 1 down">↓</button><button class="btn btn--secondary dao-form-remove-button" type="button" aria-label="Remove milestone 1">×</button></div></div>
+                          <div class="dao-form-grid dao-project-milestone-fields"><div class="form-group form-group--full"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Write onboarding guides" /></div><div class="form-group form-group--full"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Draft installation, account, messaging, and wallet guides.</textarea></div><div class="form-group form-group--full"><label>Deliverable / Acceptance Criteria <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Four reviewed guides published in the documentation site.</textarea></div><div class="form-group"><label>Duration (days) <span class="dao-form-required">*</span></label><input class="form-control" value="14" /><div class="dao-form-help">1–3650 days</div></div><div class="form-group"><label>Cost (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="2400" /></div><div class="form-group"><label>Late Penalty (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="200" /></div><div class="form-group"><label>Early Bonus (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="150" /></div></div>
+                        </section>
+                        <section class="dao-project-milestone" data-dao-milestone-id="milestone-2">
+                          <div class="dao-form-row-title"><label>Milestone 2</label><div class="dao-project-milestone-actions"><button class="btn btn--secondary dao-project-milestone-action" type="button" aria-label="Move milestone 2 up">↑</button><button class="btn btn--secondary dao-project-milestone-action" type="button" disabled aria-label="Move milestone 2 down">↓</button><button class="btn btn--secondary dao-form-remove-button" type="button" aria-label="Remove milestone 2">×</button></div></div>
+                          <div class="dao-form-grid dao-project-milestone-fields"><div class="form-group form-group--full"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Publish API examples" /></div><div class="form-group form-group--full"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Add tested request and response examples.</textarea></div><div class="form-group form-group--full"><label>Deliverable / Acceptance Criteria <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Examples pass CI and are linked from the API reference.</textarea></div><div class="form-group"><label>Duration (days) <span class="dao-form-required">*</span></label><input class="form-control" value="10" /></div><div class="form-group"><label>Cost (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="1800" /></div><div class="form-group"><label>Late Penalty (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="150" /></div><div class="form-group"><label>Early Bonus (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="100" /></div></div>
+                        </section>
+                      </div>
+                      <button class="btn btn--secondary dao-form-add-button" id="addProposalProjectAddMilestone" type="button"><span class="dao-form-add-icon"><span class="plus-glyph">+</span></span><span>Add milestone</span></button>
+                      <div class="form-group"><label>Recipient Address <span class="dao-form-required">*</span></label><input class="form-control" id="addProposalProjectAddress" value="0x8f2a19c13ae97c71d8202d59e31f7c82d7a1" /></div>
+                      <div class="form-group"><label>Budget Summary</label><div class="proposal-info-grid dao-project-budget"><div class="proposal-info-row dao-project-budget-item"><span>Base cost</span><div class="proposal-info-value dao-project-budget-value"><span id="addProposalProjectBaseCost">4,200</span><span>USD</span></div></div><div class="proposal-info-row dao-project-budget-item"><span>Maximum bonuses</span><div class="proposal-info-value dao-project-budget-value"><span id="addProposalProjectMaximumBonus">250</span><span>USD</span></div></div><div class="proposal-info-row dao-project-budget-item"><span>Maximum authorized</span><div class="proposal-info-value dao-project-budget-value"><span id="addProposalProjectMaximumBudget">4,450</span><span>USD</span></div></div></div></div>
+                      <div class="form-group"><label>Proposal Options</label><div class="proposal-option-cards dao-project-ballot"><div class="proposal-option-section"><span class="proposal-option-label">Reject</span><div class="proposal-option-changes"><p class="proposal-info-muted">Project is not funded.</p></div></div><div class="proposal-option-section"><span class="proposal-option-label">Fund project</span><div class="proposal-option-changes"><p class="proposal-info-muted">Approve the recipient, milestones, and maximum budget below.</p></div></div></div></div>
+                    </section>
+                    <div class="form-group dao-form-section"><label>Timing</label><div class="dao-form-grid dao-form-grid--timing"><div class="form-group"><label>Review Delay (ms)</label><button class="form-control dao-review-start-button" type="button">0</button><div class="dao-form-help">Delay: 0 sec</div></div><div class="form-group"><label>Grace Period (ms)</label><button class="form-control dao-review-start-button" type="button">86,400,000</button><div class="dao-form-help">Duration: 1 day</div></div></div></div>
+                    <div class="form-actions"><button class="btn btn--secondary btn--pill btn--full" type="button">Cancel</button><button class="btn btn--primary btn--pill btn--full" id="addProposalSubmitButton" type="button">Review Draft</button></div>
+                  </form>
+                </div></div>
+              </div>
+            </article>
+
+            <article class="screen" data-app-modal="confirmProposalModal">
+              <div class="screen-label-row"><div class="screen-label">Review Project Draft</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Preview only</span></div></div>
+              <div class="screen-note"><strong>Review before submission</strong>Funding, milestones, timing, and the backend limitation are explicit.</div>
+              <div class="modal fixed-header active" id="confirmProposalModal"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Review Project Draft</div></div><div class="modal-content"><div class="form-container">
+                <div class="proposal-info" id="confirmProposalContent">
+                  <div class="proposal-info-heading"><h2 class="proposal-info-title">Community documentation sprint</h2><p class="proposal-type-indicator">Standard Project proposal</p><p class="proposal-info-description">Fund a focused documentation sprint with reviewed onboarding guides and API examples.</p></div>
+                  <div class="dao-project-review-notice" role="status"><strong>Project UI preview</strong><span>Project submission is unavailable until backend support is implemented.</span></div>
+                  <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards dao-project-ballot"><div class="proposal-option-section"><span class="proposal-option-label">Reject</span><div class="proposal-option-changes"><p class="proposal-info-muted">Project is not funded.</p></div></div><div class="proposal-option-section"><span class="proposal-option-label">Fund project</span><div class="proposal-option-changes"><p class="proposal-info-muted">Approve the recipient, milestones, and maximum budget below.</p></div></div></div></section>
+                  <section class="proposal-info-section dao-project-review-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">0x8f2a…d7a1</span></div><div class="proposal-info-row"><span>Base cost</span><span class="proposal-info-value">4,200 USD</span></div><div class="proposal-info-row"><span>Maximum bonuses</span><span class="proposal-info-value">250 USD</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">4,450 USD</span></div></div></section>
+                  <section class="proposal-info-section dao-project-review-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><article class="dao-project-review-milestone"><h4><span>Milestone 1</span><strong>Write onboarding guides</strong></h4><div class="dao-project-review-copy"><div><span>Description</span><p>Draft installation, account, messaging, and wallet guides.</p></div><div><span>Deliverable / Acceptance Criteria</span><p>Four reviewed guides published in the documentation site.</p></div></div><div class="proposal-info-grid"><div class="proposal-info-row"><span>Duration</span><span class="proposal-info-value">14 days</span></div><div class="proposal-info-row"><span>Cost</span><span class="proposal-info-value">2,400 USD</span></div><div class="proposal-info-row"><span>Late penalty</span><span class="proposal-info-value">200 USD</span></div><div class="proposal-info-row"><span>Early bonus</span><span class="proposal-info-value">150 USD</span></div></div></article></div></section>
+                  <section class="proposal-info-section"><h3>Overview</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Type</span><span class="proposal-info-value">Project</span></div><div class="proposal-info-row"><span>Proposal fee</span><span class="proposal-info-value">50 USD</span></div><div class="proposal-info-row"><span>Initial state</span><span class="proposal-info-value">Not submitted (preview only)</span></div></div></section>
+                </div>
+                <div class="form-actions dao-confirm-actions"><button class="btn btn--secondary btn--pill btn--full" type="button">Back</button><button class="btn btn--primary btn--pill btn--full" id="signConfirmProposal" type="button" disabled>Project submission unavailable</button></div>
+              </div></div></div>
+            </article>
+          </div>
+
+          <div class="preview-subsection"><div class="section-heading"><h2 class="section-title">Project lifecycle states</h2><div class="section-note">Collapsible milestones expose terms and runtime payment status without flattening long projects.</div></div>
+            <div class="preview-grid">
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="executing" data-project-proposal="true">
+                <div class="screen-label-row"><div class="screen-label">Executing project</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">In progress</span></div></div>
+                <div class="screen-note"><strong>Active milestone</strong>The current milestone opens by default while later milestones remain collapsed.</div>
+                <div class="modal fixed-header active"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Executing</div></div><div class="modal-content"><div class="form-container"><div class="proposal-info"><div class="proposal-info-heading"><h2 class="proposal-info-title">Community documentation sprint</h2><p class="proposal-type-indicator">Standard Project proposal</p></div><section class="proposal-info-section dao-project-info-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">0x8f2a…d7a1</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">4,450 USD</span></div><div class="proposal-info-row"><span>Treasury balance</span><span class="proposal-info-value">2,050 LIB</span></div><div class="proposal-info-row"><span>Claimable balance</span><span class="proposal-info-value">0 LIB</span></div></div></section><section class="proposal-info-section dao-project-info-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><details class="dao-project-review-milestone dao-project-info-milestone" open><summary><span class="dao-project-info-milestone-heading"><span>Milestone 1</span><strong>Write onboarding guides</strong></span><span class="dao-project-info-milestone-status">Executing</span></summary><div class="dao-project-info-milestone-content"><div class="dao-project-review-copy"><div><span>Description</span><p>Draft installation, account, messaging, and wallet guides.</p></div><div><span>Deliverable / Acceptance Criteria</span><p>Four reviewed guides published in the documentation site.</p></div></div><div class="proposal-info-grid dao-project-info-runtime"><div class="proposal-info-row"><span>Milestone status</span><span class="proposal-info-value">Executing</span></div><div class="proposal-info-row"><span>Started</span><span class="proposal-info-value">Aug 24, 2026</span></div><div class="proposal-info-row"><span>Payout</span><span class="proposal-info-value">Unavailable</span></div><div class="proposal-info-row"><span>Paid</span><span class="proposal-info-value">No</span></div></div></div></details><details class="dao-project-review-milestone dao-project-info-milestone"><summary><span class="dao-project-info-milestone-heading"><span>Milestone 2</span><strong>Publish API examples</strong></span><span class="dao-project-info-milestone-status">Pending</span></summary><div class="dao-project-info-milestone-content"><p class="proposal-info-muted">Starts after milestone 1 is completed.</p></div></details></div></section></div><div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Proposal options, results, overview, review timeline</span></summary></details></div></div></div></div>
+              </article>
+
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="terminated" data-project-proposal="true">
+                <div class="screen-label-row"><div class="screen-label">Terminated project</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Stopped</span></div></div>
+                <div class="screen-note"><strong>Terminal state</strong>Funding and milestone status remain readable after a project stops.</div>
+                <div class="modal fixed-header active"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Terminated</div></div><div class="modal-content"><div class="form-container"><div class="proposal-info"><div class="proposal-info-heading"><h2 class="proposal-info-title">Regional ambassador pilot</h2><p class="proposal-type-indicator">Standard Project proposal</p></div><section class="proposal-info-section dao-project-info-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">0x71ce…83b2</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">8,000 USD</span></div><div class="proposal-info-row"><span>Claimable balance</span><span class="proposal-info-value">0 LIB</span></div></div></section><section class="proposal-info-section dao-project-info-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><details class="dao-project-review-milestone dao-project-info-milestone" open><summary><span class="dao-project-info-milestone-heading"><span>Milestone 1</span><strong>Recruit pilot cohort</strong></span><span class="dao-project-info-milestone-status">Terminated</span></summary><div class="dao-project-info-milestone-content"><div class="dao-project-info-notice dao-project-info-notice--unavailable" role="status"><strong>Project terminated</strong><span>No additional milestone payment is available.</span></div><div class="proposal-info-grid dao-project-info-runtime"><div class="proposal-info-row"><span>Milestone status</span><span class="proposal-info-value proposal-info-value--rejected">Terminated</span></div><div class="proposal-info-row"><span>Started</span><span class="proposal-info-value">Jul 2, 2026</span></div><div class="proposal-info-row"><span>Paid</span><span class="proposal-info-value">No</span></div></div></div></details></div></section></div><div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Proposal options, results, overview, review timeline</span></summary></details></div></div></div></div>
+              </article>
+
+              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="completed" data-project-proposal="true">
+                <div class="screen-label-row"><div class="screen-label">Completed project</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Paid</span></div></div>
+                <div class="screen-note"><strong>Completed work</strong>Finished and paid timestamps remain available in each collapsible milestone.</div>
+                <div class="modal fixed-header active"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Completed</div></div><div class="modal-content"><div class="form-container"><div class="proposal-info"><div class="proposal-info-heading"><h2 class="proposal-info-title">Wallet accessibility audit</h2><p class="proposal-type-indicator">Standard Project proposal</p></div><section class="proposal-info-section dao-project-info-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">0x4a20…119d</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">3,600 USD</span></div><div class="proposal-info-row"><span>Treasury balance</span><span class="proposal-info-value">0 LIB</span></div><div class="proposal-info-row"><span>Claimable balance</span><span class="proposal-info-value">0 LIB</span></div></div></section><section class="proposal-info-section dao-project-info-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><details class="dao-project-review-milestone dao-project-info-milestone" open><summary><span class="dao-project-info-milestone-heading"><span>Milestone 1</span><strong>Audit and recommendations</strong></span><span class="dao-project-info-milestone-status">Completed</span></summary><div class="dao-project-info-milestone-content"><div class="dao-project-review-copy"><div><span>Description</span><p>Review wallet flows against WCAG guidance.</p></div><div><span>Deliverable / Acceptance Criteria</span><p>Prioritized findings with reproducible cases.</p></div></div><div class="proposal-info-grid dao-project-info-runtime"><div class="proposal-info-row"><span>Milestone status</span><span class="proposal-info-value proposal-info-value--accept">Completed</span></div><div class="proposal-info-row"><span>Started</span><span class="proposal-info-value">Jun 10, 2026</span></div><div class="proposal-info-row"><span>Completed</span><span class="proposal-info-value">Jun 21, 2026</span></div><div class="proposal-info-row"><span>Payout</span><span class="proposal-info-value">1,824.5 LIB</span></div><div class="proposal-info-row"><span>Paid</span><span class="proposal-info-value">Yes</span></div><div class="proposal-info-row"><span>Paid at</span><span class="proposal-info-value">Jun 22, 2026</span></div></div></div></details></div></section></div><div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Proposal options, results, overview, review timeline</span></summary></details></div></div></div></div>
+              </article>
+            </div>
+          </div>
+        </section>
+
         <section class="showcase-panel preview-panel" id="showcase-panel-screens" role="tabpanel" aria-labelledby="showcase-tab-screens" data-showcase-panel="screens" hidden>
           <div class="section-heading">
             <h2 class="section-title">Primary app screens</h2>
@@ -855,6 +954,57 @@
           </div>
         </section>
 
+        <section class="showcase-panel preview-panel" id="showcase-panel-account" role="tabpanel" aria-labelledby="showcase-tab-account" data-showcase-panel="account" hidden>
+          <div class="section-heading"><h2 class="section-title">Account entry screens</h2><div class="section-note">Current welcome placement, sign-in identities, and advanced account creation controls.</div></div>
+          <div class="preview-grid">
+            <article class="screen" data-app-modal="welcomeScreen">
+              <div class="screen-label-row"><div class="screen-label">Welcome screen</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Signed out</span></div></div>
+              <div class="screen-note"><strong>Pinned version footer</strong>Entry actions remain centered while version information stays at the bottom of the runtime viewport.</div>
+              <div data-device-root>
+                <div class="welcome-screen" id="welcomeScreen">
+                  <a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link"><img src="../media/liberdus_logo_250.png" alt="Liberdus Logo" style="margin-bottom: 20px" /></a>
+                  <h1><span id="welcomeBrandTitle">Liberdus</span><br /><span style="font-size: 0.8rem; margin-top: 1px; text-align: center" id="networkNameDisplay">Devnet</span></h1>
+                  <div class="welcome-buttons"><button class="btn btn--primary btn--pill btn--full" type="button">Sign In</button><button class="btn btn--primary btn--pill btn--full" type="button">Create Account</button><button class="btn btn--secondary btn--pill btn--full" type="button">Menu</button></div>
+                  <div class="welcome-version" aria-label="Version information"><div>Web Version: <span>0.11.4</span></div><div>App Version: <span>devnet</span></div></div>
+                  <a class="last-item" href="#"> </a>
+                </div>
+              </div>
+            </article>
+
+            <article class="screen" data-app-modal="signInModal">
+              <div class="screen-label-row"><div class="screen-label">Sign In</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Saved accounts</span></div></div>
+              <div class="screen-note"><strong>Profile icons</strong>Saved accounts now retain an uploaded avatar or deterministic address-derived fallback.</div>
+              <div class="modal fixed-header active" id="signInModal">
+                <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Sign In</div><button class="sign-in-account-reset" type="button">Reset</button></div>
+                <div class="modal-content"><div class="form-container"><ul class="sign-in-account-list" id="signInAccountList" aria-label="Accounts">
+                  <li class="sign-in-account-item" data-username="alex" role="button" tabindex="0"><div class="sign-in-account-card"><span class="sign-in-account-avatar" aria-hidden="true"><svg viewBox="0 0 40 40"><rect width="40" height="40" rx="20" fill="#dcdcf8"/><path d="M6 12h14v14H6zM20 5h14v14H20zM20 27h14v8H20z" fill="#3d3dce"/></svg></span><span class="sign-in-account-name">alex</span><span class="sign-in-account-badge" aria-label="Has notifications">🔔</span></div></li>
+                  <li class="sign-in-account-item" data-username="river" role="button" tabindex="0"><div class="sign-in-account-card"><span class="sign-in-account-avatar" aria-hidden="true"><img src="../media/liberdus_logo_50.png" class="contact-avatar-img" width="40" height="40" alt="" /></span><span class="sign-in-account-name">river</span></div></li>
+                  <li class="sign-in-account-section" role="presentation">Private accounts</li>
+                  <li class="sign-in-account-item is-private" data-username="quiet-node" role="button" tabindex="0"><div class="sign-in-account-card"><span class="sign-in-account-avatar" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#fee2e2"/><path d="M8 8h10v24H8zM22 8h10v10H22zM22 22h10v10H22z" fill="#b91c1c"/></svg></span><span class="sign-in-account-name">quiet-node</span></div></li>
+                </ul><a class="last-item" href="#"> </a></div></div>
+                <div class="sign-in-action-sheet-overlay" aria-hidden="true"><div class="sign-in-action-sheet" role="dialog"><div class="sign-in-action-sheet-handle"></div><div class="sign-in-action-sheet-header"><div class="sign-in-action-sheet-title"></div><button class="sign-in-action-sheet-close" type="button">Close</button></div></div></div>
+              </div>
+            </article>
+
+            <article class="screen" data-app-modal="createAccountModal">
+              <div class="screen-label-row"><div class="screen-label">Create Account</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Advanced open</span></div></div>
+              <div class="screen-note"><strong>Restyled advanced options</strong>Permanent-name guidance, private mode, and private-key controls use the current disclosure and checkbox cards.</div>
+              <div class="modal fixed-header active" id="createAccountModal">
+                <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Create Account</div></div>
+                <div class="modal-content"><div class="form-container"><form id="createAccountForm" class="form--narrow create-account-form">
+                  <div class="form-group"><label>Username <span class="create-account-status"> available </span></label><input class="form-control" value="alex-demo" /><p class="create-account-help">This is how people find you, and it is permanent — a name cannot be changed once it is taken.</p></div>
+                  <details class="create-account-advanced" id="advancedOptions" open><summary><span>Advanced</span><span class="create-account-chevron" aria-hidden="true"></span></summary><div class="create-account-advanced-body">
+                    <div class="create-account-option"><div class="create-account-option-copy"><div class="create-account-option-heading"><label>Private account</label><button class="toll-info-icon private-account-help" data-icon="info" type="button" aria-label="About private accounts"></button></div><label class="create-account-option-help">Can only message and pay other private accounts. Cannot be changed later.</label></div><label class="create-account-option-toggle"><input type="checkbox" /><span class="create-account-check"></span></label></div>
+                    <div class="create-account-option"><div class="create-account-option-copy"><label class="create-account-option-title">Use my own private key</label><label class="create-account-option-help">Otherwise one is generated for you.</label></div><label class="create-account-option-toggle"><input type="checkbox" checked /><span class="create-account-check"></span></label></div>
+                    <div id="privateKeySection"><label class="create-account-private-key-label">Private key <span class="create-account-error"></span></label><div class="create-account-private-key"><input type="password" class="form-control" value="00000000000000000000000000000000" /><button type="button" class="password-toggle-btn" aria-label="Show private key"></button></div></div>
+                  </div></details>
+                  <div class="form-actions create-account-actions"><button type="button" class="btn btn--primary btn--pill btn--full">Create Account</button></div>
+                </form></div></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
         <section class="showcase-panel preview-panel" id="showcase-panel-chat" role="tabpanel" aria-labelledby="showcase-tab-chat" data-showcase-panel="chat" hidden>
           <div class="section-heading"><h2 class="section-title">Chat modal</h2><div class="section-note">Scroll inside the phone to inspect every production message shape and state.</div></div>
           <div class="preview-grid preview-grid--single">
@@ -868,7 +1018,8 @@
                   <div class="message received"><div class="message-content">Plain received text with a link to <a href="#">liberdus.com</a>.</div><div class="message-time">9:30 AM</div></div>
                   <div class="message sent has-reactions"><div class="message-content">Plain sent text with reactions.</div><div class="message-time">9:31 AM</div><div class="message-reactions" aria-label="Reactions"><span class="message-reaction-chip my-reaction">👍</span><span class="message-reaction-chip">❤️</span></div></div>
                   <div class="message received"><div class="reply-quote reply-owner-me"><span class="reply-quote-label reply-owner-me">You</span><div class="reply-quote-text">Plain sent text with reactions.</div></div><div class="message-content">This reply quotes your earlier message.</div><div class="message-time">9:32 AM</div></div>
-                  <div class="message received"><div class="attachment-row" style="display:flex;flex-direction:column;background:#f5f5f7;border-radius:12px;padding:5px;margin-bottom:6px" data-image-attachment="true"><div class="attachment-icon-container" style="margin-bottom:10px;flex-direction:column"><div class="attachment-icon" data-file-type="image"></div><div class="attachment-preview-hint">Click for options</div></div><div><span class="attachment-label" style="font-weight:500;color:#222;display:block">flow-review.png</span><span class="attachment-meta" style="color:#888">PNG · 842 KB</span></div></div><div class="message-content">Updated mobile flow.</div><div class="message-time">9:34 AM</div></div>
+                  <div class="message received"><div class="attachment-row" style="display:flex;flex-direction:column;background:#f5f5f7;border-radius:12px;padding:5px;margin-bottom:6px" data-image-attachment="true"><div class="attachment-icon-container" style="margin-bottom:10px;flex-direction:column"><div class="attachment-icon" data-file-type="image"></div><div class="attachment-preview-hint">Click for options</div></div><div><span class="attachment-label" style="font-weight:500;color:#222;display:block">flow-review.png</span><span class="attachment-meta" style="color:#888">PNG · 842 KB</span></div></div><div class="message-content">Preview has not downloaded yet.</div><div class="message-time">9:34 AM</div></div>
+                  <div class="message received"><div class="attachment-row" style="display:flex;flex-direction:column;background:#f5f5f7;border-radius:12px;padding:5px;margin-bottom:6px" data-image-attachment="true" data-thumbnail-url="mock-loaded"><div class="attachment-icon-container" style="margin-bottom:10px;flex-direction:column"><img class="attachment-thumbnail" src="../media/liberdus_logo_512.png" alt="Thumbnail" /></div><div style="min-width:0"><span class="attachment-label" style="font-weight:500;color:#222;display:block;word-wrap:break-word">liberdus-preview.png</span><span class="attachment-meta" style="color:#888">PNG · 1.1 MB</span></div></div><div class="message-content">Loaded cached thumbnail preview.</div><div class="message-time">9:35 AM</div></div>
                   <div class="message sent"><div class="attachment-row" style="display:flex;align-items:center;background:#f5f5f7;border-radius:12px;padding:10px 12px;margin-bottom:6px"><div class="attachment-icon-container" style="margin-right:14px;flex-shrink:0"><div class="attachment-icon" data-file-type="pdf"></div></div><div><span class="attachment-label" style="font-weight:500;color:#222;display:block">governance-notes.pdf</span><span class="attachment-meta" style="color:#888">PDF · 1.4 MB</span></div></div><div class="message-time">9:36 AM</div></div>
                   <div class="message received payment-info"><div class="payment-header"><span class="payment-direction">+</span><span class="payment-amount">18.400000 LIB</span></div><div class="payment-memo">Review reward</div><div class="message-time">9:40 AM</div></div>
                   <div class="message sent"><div class="call-message"><a href="#" class="call-message-phone-button" aria-label="Join Video Call"><span class="sr-only">Join Video Call</span></a><div><div class="call-message-text">Join Video Call</div></div></div><div class="message-time">9:42 AM</div></div>
@@ -887,6 +1038,13 @@
           </div>
 
           <div class="preview-subsection">
+            <div class="section-heading"><h2 class="section-title">Image attachment viewer</h2><div class="section-note">The gallery above contains both the pre-download placeholder and a loaded thumbnail.</div></div>
+            <div class="preview-grid preview-grid--single">
+              <article class="screen" data-app-modal="fullImageModal"><div class="screen-label-row"><div class="screen-label">Full image viewer</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Loaded</span></div></div><div class="screen-note"><strong>In-app preview</strong>A loaded full image can be zoomed and panned without opening another browser tab.</div><div class="modal fixed-header full-image-modal active" id="fullImageModal" role="dialog" aria-modal="true" aria-labelledby="fullImageModalTitle"><div class="modal-header"><button class="back-button" type="button" aria-label="Close image"></button><div class="modal-title" id="fullImageModalTitle">liberdus-preview.png</div></div><div class="modal-content full-image-modal-content"><div class="full-image-viewer" id="fullImageViewer" aria-busy="false"><div class="full-image-loading" role="status" hidden><div class="spinner"></div><span>Loading image...</span></div><img class="full-image-viewer-image" id="fullImageViewerImage" src="../media/liberdus_logo_512.png" alt="Liberdus preview" draggable="false" /><div class="full-image-zoom-controls" id="fullImageZoomControls" role="group" aria-label="Image zoom controls"><button class="full-image-zoom-button" id="fullImageZoomOut" type="button" aria-label="Zoom out">−</button><button class="full-image-zoom-button" id="fullImageZoomIn" type="button" aria-label="Zoom in">+</button></div></div></div></div></article>
+            </div>
+          </div>
+
+          <div class="preview-subsection">
             <div class="section-heading"><h2 class="section-title">Chat overlays</h2><div class="section-note">Each preview shows the real overlay above a dimmed Chat modal.</div></div>
             <div class="preview-grid">
               <article class="screen" data-app-modal="voiceRecordingModal" data-chat-overlay="voice"><div class="screen-label-row"><div class="screen-label">Voice message</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Initial recording state</strong>Cancel or begin recording without leaving Chat.</div><div data-device-root></div></article>
@@ -895,7 +1053,7 @@
               <article class="screen" data-app-modal="durationPickerModal" data-chat-overlay="duration"><div class="screen-label-row"><div class="screen-label">Call duration</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Duration picker</strong>Days, hours, and minutes use the shared picker dialog.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="chatHeaderContextMenu" data-chat-overlay="chat-menu"><div class="screen-label-row"><div class="screen-label">Chat actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Header menu</strong>Call, pay, and contact info actions open from the Chat header.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="messageContextMenu" data-chat-overlay="message-menu"><div class="screen-label-row"><div class="screen-label">Message actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Bubble menu</strong>Quick reactions, reply, copy, edit, and deletion actions.</div><div data-device-root></div></article>
-              <article class="screen" data-app-modal="imageAttachmentContextMenu" data-chat-overlay="image-menu"><div class="screen-label-row"><div class="screen-label">Image actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Attachment menu</strong>Image reactions, save, share, reply, and deletion actions.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="imageAttachmentContextMenu" data-chat-overlay="image-menu"><div class="screen-label-row"><div class="screen-label">Image actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Attachment menu</strong>Open launches the cache-first viewer; save, share, reply, reactions, and deletion remain available.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="attachmentOptionsContextMenu" data-chat-overlay="attachments"><div class="screen-label-row"><div class="screen-label">Add attachment</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Attachment menu</strong>Camera, library, files, contacts, and location entry points.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="locationSharePanel" data-chat-overlay="location"><div class="screen-label-row"><div class="screen-label">Share location</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Location confirmation</strong>Coordinates and accuracy are reviewed before sending.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="chatReactionSheetOverlay" data-chat-overlay="reactions"><div class="screen-label-row"><div class="screen-label">Reaction picker</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Expanded reactions</strong>Category rail and emoji grid use the production bottom sheet.</div><div data-device-root></div></article>
@@ -1030,6 +1188,29 @@
           return `<div class="proposal-more-content">${sections.join("")}</div>`;
         };
 
+        const renderProjectProposalDetails = (state) => {
+          const stateLabels = {
+            completed: "Completed",
+            executing: "Executing",
+            terminated: "Terminated",
+          };
+          const stateLabel = stateLabels[state];
+          if (!stateLabel) throw new Error(`Unknown project proposal state: ${state}`);
+
+          return `<div class="proposal-more-content">
+            <section class="proposal-info-section">
+              <h3>Proposal Options</h3>
+              <div class="proposal-option-cards dao-project-ballot">
+                <div class="proposal-option-section"><span class="proposal-option-label">Reject</span><div class="proposal-option-changes"><p class="proposal-info-muted">Project is not funded.</p></div></div>
+                <div class="proposal-option-section"><span class="proposal-option-label">Fund project</span><div class="proposal-option-changes"><p class="proposal-info-muted">Approve the recipient, milestones, and maximum budget.</p></div></div>
+              </div>
+            </section>
+            ${renderDetailSection("Results", [["Winner", "Fund project", "accept"], ["Total voting power", "31.7 power"]])}
+            ${renderDetailSection("Overview", [["Number", "#1048"], ["Type", "Project"], ["Status", stateLabel], ["Created", "Jun 2, 2026, 9:10 AM"], ["Updated", "Aug 29, 2026, 4:30 PM"]])}
+            ${renderDetailSection("Review Timeline", [["Window state", "Review complete"], ["Review starts", "Jun 2, 2026, 9:10 AM"], ["Review ends", "Jun 4, 2026, 9:10 AM"]])}
+          </div>`;
+        };
+
         const renderChatBackdrop = () => `
           <div class="modal fixed-header active is-transition-complete" id="chatModal" aria-hidden="true">
             <div class="modal-header">
@@ -1068,7 +1249,7 @@
                 <div class="message-context-menu" id="messageContextMenu" style="display: block; right: 18px; top: 210px"><div class="message-context-reactions" aria-label="Quick reactions">${["👍", "❤️", "😂", "😮", "👎"].map((emoji) => `<button class="message-context-reaction-button" type="button">${emoji}</button>`).join("")}<button class="message-context-reaction-button message-context-reaction-button-more" type="button"><span class="plus-glyph">+</span></button></div><div class="context-menu-option" data-icon="reply"><span class="context-menu-icon"></span><span class="context-menu-text">Reply</span></div><div class="context-menu-option" data-icon="copy"><span class="context-menu-icon"></span><span class="context-menu-text">Copy</span></div><div class="context-menu-option" data-icon="edit"><span class="context-menu-icon"></span><span class="context-menu-text">Edit</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for me</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for all</span></div></div>`;
             case "image-menu":
               return `
-                <div class="message-context-menu" id="imageAttachmentContextMenu" style="display: block; left: 18px; top: 210px"><div class="message-context-reactions" aria-label="Quick reactions">${["👍", "❤️", "😂", "😮", "👎"].map((emoji) => `<button class="message-context-reaction-button" type="button">${emoji}</button>`).join("")}<button class="message-context-reaction-button message-context-reaction-button-more" type="button"><span class="plus-glyph">+</span></button></div><div class="context-menu-option" data-icon="download"><span class="context-menu-icon"></span><span class="context-menu-text">Save</span></div><div class="context-menu-option" data-icon="share"><span class="context-menu-icon"></span><span class="context-menu-text">Share</span></div><div class="context-menu-option" data-icon="reply"><span class="context-menu-icon"></span><span class="context-menu-text">Reply</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for me</span></div></div>`;
+                <div class="message-context-menu" id="imageAttachmentContextMenu" style="display: block; left: 18px; top: 210px"><div class="message-context-reactions" aria-label="Quick reactions">${["👍", "❤️", "😂", "😮", "👎"].map((emoji) => `<button class="message-context-reaction-button" type="button">${emoji}</button>`).join("")}<button class="message-context-reaction-button message-context-reaction-button-more" type="button"><span class="plus-glyph">+</span></button></div><div class="context-menu-option" data-icon="eye"><span class="context-menu-icon"></span><span class="context-menu-text">Open</span></div><div class="context-menu-option" data-icon="download"><span class="context-menu-icon"></span><span class="context-menu-text">Save</span></div><div class="context-menu-option" data-icon="share"><span class="context-menu-icon"></span><span class="context-menu-text">Share</span></div><div class="context-menu-option" data-icon="reply"><span class="context-menu-icon"></span><span class="context-menu-text">Reply</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for me</span></div></div>`;
             case "attachments":
               return `
                 <div class="message-context-menu" id="attachmentOptionsContextMenu" style="bottom: 96px; display: block; left: 18px">
@@ -1160,7 +1341,10 @@
 
             const details = deviceRoot.querySelector(".proposal-more");
             if (details && !details.querySelector(".proposal-more-content")) {
-              details.insertAdjacentHTML("beforeend", renderProposalDetails(screen.dataset.proposalState || "review"));
+              const proposalDetails = screen.dataset.projectProposal === "true"
+                ? renderProjectProposalDetails(screen.dataset.proposalState)
+                : renderProposalDetails(screen.dataset.proposalState || "review");
+              details.insertAdjacentHTML("beforeend", proposalDetails);
             }
 
             const frame = document.createElement("iframe");
