@@ -23709,6 +23709,7 @@ class ChatModal {
 
     // --- Render Attachments if present ---
     let attachmentsHTML = '';
+    let hasMediaAttachment = false;
     if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
       attachmentsHTML = item.xattach.map(att => {
         const fileUrl = normalizeResourceUrl(att.url || '#', window.location.href) || '#';
@@ -23720,11 +23721,11 @@ class ChatModal {
         const fileType = mimeType ? mimeType.split('/').pop().toUpperCase() : '';
         const isImage = mimeType.startsWith('image/');
         const isVideo = mimeType.startsWith('video/');
-        const hasThumbnail = isImage || isVideo;
+        const isMedia = isImage || isVideo;
+        hasMediaAttachment = hasMediaAttachment || isMedia;
         const fileTypeIcon = this.getFileTypeForIcon(mimeType, fileName);
-        const paddingStyle = hasThumbnail ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
         return `
-                <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
+                <div class="attachment-row ${isMedia ? 'attachment-row--media' : 'attachment-row--file'}"
                   data-url="${escapeHtmlAttribute(fileUrl)}"
                   data-p-url="${escapeHtmlAttribute(previewUrl)}"
                   data-name="${escapeHtmlAttribute(encodedFileName)}"
@@ -23732,16 +23733,15 @@ class ChatModal {
                   ${isImage ? 'data-image-attachment="true"' : ''}
                   ${isVideo ? 'data-video-attachment="true"' : ''}
                 >
-                  <div class="attachment-icon-container" style="${hasThumbnail ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
+                  <div class="attachment-icon-container">
                     <div class="attachment-icon" data-file-type="${escapeHtmlAttribute(fileTypeIcon)}"></div>
-                    ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
+                    ${isMedia ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
                   </div>
-                  <div style="min-width:0;">
-                    <span class="attachment-label" style="font-weight:500;color:#222;display:block;word-wrap:break-word;">
-                      ${escapeHtml(fileName)}
-                    </span><br>
-                    <span class="attachment-meta" style="color: #888;">${escapeHtml(fileType)}${fileType && fileSize ? ' · ' : ''}${escapeHtml(fileSize)}</span>
-                  </div>
+                  ${isMedia ? '' : `
+                  <div class="attachment-details">
+                    <span class="attachment-label">${escapeHtml(fileName)}</span>
+                    <span class="attachment-meta">${escapeHtml(fileType)}${fileType && fileSize ? ' · ' : ''}${escapeHtml(fileSize)}</span>
+                  </div>`}
                 </div>
               `;
       }).join('');
@@ -23873,7 +23873,7 @@ class ChatModal {
     const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${escapeHtmlAttribute(item.callTime)}"` : '';
     const evmPayment = messageType === EVM_CHAT_MESSAGE_TYPE && messageTextHTML !== '';
     return `
-            <div class="message ${messageClass}${evmPayment ? ' evm-payment-bubble' : ''}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
+            <div class="message ${messageClass}${hasMediaAttachment ? ' has-media-attachment' : ''}${evmPayment ? ' evm-payment-bubble' : ''}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
               ${replyHTML}
               ${attachmentsHTML}
               ${messageTextHTML}
@@ -24817,7 +24817,9 @@ class ChatModal {
       }
 
       const thumbnailImage = new Image();
-      thumbnailImage.alt = 'Thumbnail';
+      const encodedFileName = attachmentRow.dataset.name;
+      const fileName = encodedFileName ? decodeURIComponent(encodedFileName) : '';
+      thumbnailImage.alt = fileName ? `Preview of ${fileName}` : 'Attachment preview';
       thumbnailImage.className = 'attachment-thumbnail';
       thumbnailImage.src = thumbnailUrl;
 
