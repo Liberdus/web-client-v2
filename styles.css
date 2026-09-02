@@ -3889,16 +3889,23 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-committee-actions .form-group,
+#proposalInfoModal .proposal-lifecycle-actions .form-group,
 #proposalInfoModal .proposal-vote-actions .form-group {
   margin-bottom: 0;
 }
 
 #proposalInfoModal .proposal-committee-actions .form-control,
+#proposalInfoModal .proposal-lifecycle-actions .form-control,
 #proposalInfoModal .proposal-vote-actions .form-control {
   border-radius: 8px;
   font-size: 14px;
   height: 44px;
   padding: 10px 12px;
+}
+
+#proposalInfoModal .proposal-lifecycle-actions textarea.form-control {
+  min-height: 76px;
+  resize: vertical;
 }
 
 #proposalInfoModal .proposal-vote-actions .form-control {
