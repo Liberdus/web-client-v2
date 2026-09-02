@@ -169,6 +169,7 @@ const DAO_NON_FILTER_STATE_LABELS = new Map([
 
 export const DAO_PROPOSAL_DAY_MS = 24 * 60 * 60 * 1000;
 export const DAO_PROPOSAL_GRACE_PERIOD_MAX_MS = 999_999_999_999;
+export const DAO_PROJECT_RECLAIM_DELAY_MS = 90 * DAO_PROPOSAL_DAY_MS;
 const DAO_PROPOSAL_MAX_DATE_MS = 100_000_000 * DAO_PROPOSAL_DAY_MS; // ECMAScript Date limit.
 const DAO_PROPOSALS_META_ID_STRING = 'dao proposals meta';
 export const DAO_PROPOSAL_TITLE_MAX_LENGTH = 100;
@@ -187,6 +188,9 @@ export const DAO_ACTION_TYPES = Object.freeze({
   PROJECT_MILESTONE_END: 'dao_project_milestone_end',
   PROJECT_MILESTONE_TERMINATE: 'dao_project_milestone_terminate',
   PROJECT_MILESTONE_CLAIM: 'dao_project_milestone_claim',
+  PROJECT_CHANGE_ADDRESS: 'dao_project_change_address',
+  PROJECT_END: 'dao_project_end',
+  PROJECT_RECLAIM_BALANCE: 'dao_project_reclaim_balance',
 });
 
 const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
@@ -199,6 +203,9 @@ const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
   project_milestone_end: DAO_ACTION_TYPES.PROJECT_MILESTONE_END,
   project_milestone_terminate: DAO_ACTION_TYPES.PROJECT_MILESTONE_TERMINATE,
   project_milestone_claim: DAO_ACTION_TYPES.PROJECT_MILESTONE_CLAIM,
+  project_change_address: DAO_ACTION_TYPES.PROJECT_CHANGE_ADDRESS,
+  project_end: DAO_ACTION_TYPES.PROJECT_END,
+  project_reclaim_balance: DAO_ACTION_TYPES.PROJECT_RECLAIM_BALANCE,
 });
 
 const DAO_TRANSACTION_MESSAGES = Object.freeze({
@@ -279,6 +286,24 @@ const DAO_TRANSACTION_MESSAGES = Object.freeze({
     success: 'Milestone payment claimed',
     failure: 'Milestone payment claim failed',
     timeout: 'Milestone payment claim confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.PROJECT_CHANGE_ADDRESS]: {
+    pending: 'Contractor address change submitted—pending confirmation',
+    success: 'Contractor address change confirmed',
+    failure: 'Contractor address change failed',
+    timeout: 'Contractor address change confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.PROJECT_END]: {
+    pending: 'Project end submitted—pending confirmation',
+    success: 'Project ended',
+    failure: 'Project end failed',
+    timeout: 'Project end confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.PROJECT_RECLAIM_BALANCE]: {
+    pending: 'Project balance reclaim submitted—pending confirmation',
+    success: 'Project balance reclaimed',
+    failure: 'Project balance reclaim failed',
+    timeout: 'Project balance reclaim confirmation is taking longer than expected',
   },
 });
 
@@ -946,6 +971,66 @@ export function buildDaoProjectMilestoneClaimTransaction({
     }),
     milestoneNumber: normalizeDaoProjectMilestoneNumber(proposal, milestoneNumber),
   };
+}
+
+export function buildDaoProjectChangeAddressTransaction({
+  from,
+  proposal,
+  proposedAddress,
+  timestamp,
+  networkId,
+} = {}) {
+  const transaction = buildDaoProposalActionTransaction({
+    type: DAO_ACTION_TYPES.PROJECT_CHANGE_ADDRESS,
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Contractor address change timestamp',
+    fromLabel: 'Contractor address change sender',
+  });
+  if (proposedAddress === undefined) return transaction;
+
+  const address = normalizeDaoAddress(proposedAddress);
+  if (!address) throw new Error('Proposed contractor address is invalid');
+  if (address === normalizeDaoAddress(proposal?.project?.address)) {
+    throw new Error('Proposed contractor address is already the contractor address');
+  }
+  return { ...transaction, proposedAddress: `${address}${'0'.repeat(24)}` };
+}
+
+export function buildDaoProjectEndTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: DAO_ACTION_TYPES.PROJECT_END,
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Project end timestamp',
+    fromLabel: 'Project end sender',
+  });
+}
+
+export function buildDaoProjectReclaimBalanceTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: DAO_ACTION_TYPES.PROJECT_RECLAIM_BALANCE,
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Project balance reclaim timestamp',
+    fromLabel: 'Project balance reclaim sender',
+  });
 }
 
 async function submitDaoTransaction({ transaction, submitTransaction, errorMessage }) {
@@ -2434,6 +2519,50 @@ export const daoRepo = {
       submitTransaction,
       errorMessage: 'Milestone payment claim failed',
       transactionFields: { milestoneNumber },
+    });
+  },
+
+  async changeProjectAddress({
+    from,
+    proposal,
+    proposedAddress,
+    timestamp,
+    networkId,
+    submitTransaction,
+  } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoProjectChangeAddressTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Contractor address change failed',
+      transactionFields: { proposedAddress },
+    });
+  },
+
+  async endProject({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoProjectEndTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Project end failed',
+    });
+  },
+
+  async reclaimProjectBalance({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoProjectReclaimBalanceTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Project balance reclaim failed',
     });
   },
 };

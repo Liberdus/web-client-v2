@@ -104,6 +104,7 @@ import {
   DAO_PROJECT_MAX_MILESTONES,
   DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
   DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH,
+  DAO_PROJECT_RECLAIM_DELAY_MS,
   DAO_PROJECT_TERMINATION_REASON_MAX_LENGTH,
   DAO_PROJECT_FILTERS,
   DAO_PROJECT_TYPE,
@@ -5651,6 +5652,94 @@ function getDaoProjectMilestoneClaimActions(proposal, currentAddress) {
   });
 }
 
+function getDaoProjectAddressChangeActions(proposal, project, currentAddress) {
+  const state = getEffectiveDaoState(proposal);
+  const hasRemainingBalance = project.balanceWei !== null && project.balanceWei > 0n;
+  const canChangeAddress = state === 'executing'
+    || ((state === 'completed' || state === 'terminated') && hasRemainingBalance);
+  if (!canChangeAddress) return [];
+
+  const pendingAddress = project.proposedAddress;
+  const normalizedCurrentAddress = normalizeDaoAddress(currentAddress);
+  const requiredEndorsements = getDaoProjectRequiredEndorsements(proposal, false);
+  const proposeAction = {
+    kind: 'project_change_address',
+    title: pendingAddress ? 'Replace proposed contractor' : 'Change contractor address',
+    help: pendingAddress
+      ? `Propose a different contractor address. This replaces ${pendingAddress} and restarts its endorsements.`
+      : `Propose a new contractor address. ${requiredEndorsements} committee endorsements are required.`,
+    buttonLabel: pendingAddress ? 'Propose replacement address' : 'Propose contractor address',
+    loadingLabel: 'Proposing contractor address...',
+    addressRequired: true,
+    currentContractorAddress: project.address,
+    pendingContractorAddress: pendingAddress,
+    canSubmit: true,
+  };
+  if (!pendingAddress) return [proposeAction];
+
+  const hasEndorsed = project.endorsedAddress.includes(normalizedCurrentAddress);
+  return [{
+    kind: 'project_change_address',
+    title: 'Endorse contractor address',
+    help: hasEndorsed
+      ? `You already endorsed ${pendingAddress}.`
+      : `Endorse ${pendingAddress}. ${project.endorsedAddress.length} of ${requiredEndorsements} committee endorsements have been submitted.`,
+    buttonLabel: 'Endorse proposed address',
+    loadingLabel: 'Endorsing contractor address...',
+    canSubmit: !hasEndorsed,
+  }, proposeAction];
+}
+
+function getDaoProjectBalanceReclaimHelp(project, reclaimableAt, canReclaim) {
+  if (reclaimableAt === null) {
+    return 'The project end time is unavailable. Refresh the proposal before reclaiming its balance.';
+  }
+  if (canReclaim) {
+    return `Reclaim the remaining ${formatDaoLibWei(project.balanceWei)} from project escrow.`;
+  }
+  return `The contractor can claim earned payments until ${formatDaoTimestamp(reclaimableAt)}.`;
+}
+
+function getDaoProjectCloseoutActions(proposal, currentAddress, now) {
+  if (!isDaoProposalCommitteeMember(proposal, currentAddress)) return [];
+
+  const project = getDaoProjectPresentation(proposal);
+  if (project.kind !== 'available') return [];
+
+  const state = getEffectiveDaoState(proposal);
+  const actions = getDaoProjectAddressChangeActions(proposal, project, currentAddress);
+  const allMilestonesFinished = project.milestones.every((milestone) => (
+    milestone.status?.key === 'completed' || milestone.status?.key === 'terminated'
+  ));
+  if (state === 'executing' && allMilestonesFinished) {
+    actions.push({
+      kind: 'project_end',
+      title: 'End project',
+      help: 'All milestones are finished. End the project and retain only completed, unpaid milestone payouts in escrow.',
+      buttonLabel: 'End project',
+      loadingLabel: 'Ending project...',
+      canSubmit: true,
+    });
+  }
+
+  const isEnded = state === 'completed' || state === 'terminated';
+  if (!isEnded || project.balanceWei === null || project.balanceWei <= 0n) return actions;
+
+  const reclaimableAt = project.endTime === null
+    ? null
+    : project.endTime + DAO_PROJECT_RECLAIM_DELAY_MS;
+  const canReclaim = reclaimableAt !== null && now >= reclaimableAt;
+  actions.push({
+    kind: 'project_reclaim_balance',
+    title: 'Reclaim project balance',
+    help: getDaoProjectBalanceReclaimHelp(project, reclaimableAt, canReclaim),
+    buttonLabel: 'Reclaim remaining balance',
+    loadingLabel: 'Reclaiming project balance...',
+    canSubmit: canReclaim,
+  });
+  return actions;
+}
+
 function formatDaoClaimWindowLabel(claimWindow, now) {
   if (!claimWindow.start || !claimWindow.end) return 'Unavailable';
   const start = formatDaoTimestamp(claimWindow.start) || 'Unavailable';
@@ -5803,6 +5892,7 @@ function getDaoProposalLifecycleActions(
   if (projectStartAction) actions.push(projectStartAction);
   actions.push(...getDaoProjectMilestoneLifecycleActions(proposal, currentAddress));
   actions.push(...getDaoProjectMilestoneClaimActions(proposal, currentAddress));
+  actions.push(...getDaoProjectCloseoutActions(proposal, currentAddress, now));
   return actions;
 }
 
@@ -6518,6 +6608,23 @@ class ProposalInfoModal {
             ></textarea>
           </div>`
           : '';
+        const addressField = action.addressRequired
+          ? `
+          <div class="form-group">
+            <label for="proposalLifecycleAddress${index}">New contractor address</label>
+            <input
+              id="proposalLifecycleAddress${index}"
+              class="form-control"
+              type="text"
+              inputmode="text"
+              maxlength="66"
+              autocomplete="off"
+              spellcheck="false"
+              data-lifecycle-action-address="${index}"
+              placeholder="Enter a Liberdus address"
+            >
+          </div>`
+          : '';
         return `
         <div class="proposal-lifecycle-action">
           <div class="proposal-committee-actions-header">
@@ -6525,6 +6632,7 @@ class ProposalInfoModal {
             <p>${escapeHtml(help)}</p>
           </div>
           ${reasonField}
+          ${addressField}
           <button
             type="button"
             class="btn btn--primary btn--pill btn--full"
@@ -7019,6 +7127,10 @@ class ProposalInfoModal {
         `[data-lifecycle-action-reason="${button.dataset.lifecycleActionIndex}"]`,
       );
       if (reasonInput) reasonInput.disabled = isDisabled;
+      const addressInput = this.lifecycleActionSection?.querySelector(
+        `[data-lifecycle-action-address="${button.dataset.lifecycleActionIndex}"]`,
+      );
+      if (addressInput) addressInput.disabled = isDisabled;
     }
     if (this.voteSubmitButton) {
       this.voteSubmitButton.disabled = disableVote;
@@ -7266,6 +7378,9 @@ class ProposalInfoModal {
     const reasonInput = this.lifecycleActionSection?.querySelector(
       `[data-lifecycle-action-reason="${actionIndex}"]`,
     );
+    const addressInput = this.lifecycleActionSection?.querySelector(
+      `[data-lifecycle-action-address="${actionIndex}"]`,
+    );
     const reason = String(reasonInput?.value || '').trim();
     if (action.reasonRequired && !reason) {
       showToast('Enter a milestone termination reason', 2500, 'warning');
@@ -7277,8 +7392,32 @@ class ProposalInfoModal {
       reasonInput?.focus();
       return;
     }
+    const proposedAddress = action.addressRequired
+      ? normalizeDaoAddress(addressInput?.value)
+      : '';
+    if (action.addressRequired && !proposedAddress) {
+      showToast('Enter a valid Liberdus contractor address', 2500, 'warning');
+      addressInput?.focus();
+      return;
+    }
+    if (proposedAddress === action.currentContractorAddress) {
+      showToast('Enter an address different from the current contractor', 2500, 'warning');
+      addressInput?.focus();
+      return;
+    }
+    if (proposedAddress === action.pendingContractorAddress) {
+      showToast('That contractor address is already proposed', 2500, 'warning');
+      addressInput?.focus();
+      return;
+    }
     if (action.kind === 'project_milestone_terminate'
       && !window.confirm(`Submit a vote to terminate milestone ${action.milestoneNumber}?`)) return;
+    if (action.kind === 'project_change_address' && action.addressRequired
+      && !window.confirm(`Propose ${proposedAddress} as the new project contractor?`)) return;
+    if (action.kind === 'project_end'
+      && !window.confirm('End this project and release funds not owed for completed milestones?')) return;
+    if (action.kind === 'project_reclaim_balance'
+      && !window.confirm('Reclaim this project’s remaining balance? Unclaimed contractor payments will no longer be available.')) return;
 
     this.submittingLifecycleAction = action;
     this.setSubmitting(true);
@@ -7295,6 +7434,7 @@ class ProposalInfoModal {
       if (action.proposesCurrentTime) request.proposedTime = request.timestamp;
       if (action.milestoneNumber) request.milestoneNumber = action.milestoneNumber;
       if (action.reasonRequired) request.reason = reason;
+      if (action.addressRequired) request.proposedAddress = proposedAddress;
       let result;
       switch (action.kind) {
         case 'vote_result':
@@ -7323,6 +7463,15 @@ class ProposalInfoModal {
           break;
         case 'project_milestone_claim':
           result = await daoRepo.claimProjectMilestone(request);
+          break;
+        case 'project_change_address':
+          result = await daoRepo.changeProjectAddress(request);
+          break;
+        case 'project_end':
+          result = await daoRepo.endProject(request);
+          break;
+        case 'project_reclaim_balance':
+          result = await daoRepo.reclaimProjectBalance(request);
           break;
         default:
           throw new Error(`Unknown DAO lifecycle action: ${action.kind}`);
