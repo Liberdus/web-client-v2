@@ -186,6 +186,7 @@ export const DAO_ACTION_TYPES = Object.freeze({
   PROJECT_MILESTONE_START: 'dao_project_milestone_start',
   PROJECT_MILESTONE_END: 'dao_project_milestone_end',
   PROJECT_MILESTONE_TERMINATE: 'dao_project_milestone_terminate',
+  PROJECT_MILESTONE_CLAIM: 'dao_project_milestone_claim',
 });
 
 const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
@@ -197,6 +198,7 @@ const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
   project_milestone_start: DAO_ACTION_TYPES.PROJECT_MILESTONE_START,
   project_milestone_end: DAO_ACTION_TYPES.PROJECT_MILESTONE_END,
   project_milestone_terminate: DAO_ACTION_TYPES.PROJECT_MILESTONE_TERMINATE,
+  project_milestone_claim: DAO_ACTION_TYPES.PROJECT_MILESTONE_CLAIM,
 });
 
 const DAO_TRANSACTION_MESSAGES = Object.freeze({
@@ -271,6 +273,12 @@ const DAO_TRANSACTION_MESSAGES = Object.freeze({
     success: 'Milestone termination vote confirmed',
     failure: 'Milestone termination vote failed',
     timeout: 'Milestone termination confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.PROJECT_MILESTONE_CLAIM]: {
+    pending: 'Milestone payment claim submitted—pending confirmation',
+    success: 'Milestone payment claimed',
+    failure: 'Milestone payment claim failed',
+    timeout: 'Milestone payment claim confirmation is taking longer than expected',
   },
 });
 
@@ -877,6 +885,20 @@ export function buildDaoProjectMilestoneEndTransaction({
   });
 }
 
+function normalizeDaoProjectMilestoneNumber(proposal, milestoneNumber) {
+  const safeMilestoneNumber = normalizeDaoDraftInteger(
+    milestoneNumber,
+    'Milestone number',
+  );
+  const milestoneCount = Array.isArray(proposal?.project?.milestones)
+    ? proposal.project.milestones.length
+    : 0;
+  if (safeMilestoneNumber < 1 || safeMilestoneNumber > milestoneCount) {
+    throw new Error(`Milestone number must be between 1 and ${milestoneCount}`);
+  }
+  return safeMilestoneNumber;
+}
+
 export function buildDaoProjectMilestoneTerminateTransaction({
   from,
   proposal,
@@ -894,25 +916,35 @@ export function buildDaoProjectMilestoneTerminateTransaction({
     timestampLabel: 'Milestone termination timestamp',
     fromLabel: 'Milestone termination sender',
   });
-  const safeMilestoneNumber = normalizeDaoDraftInteger(
-    milestoneNumber,
-    'Milestone number',
-  );
-  const milestoneCount = Array.isArray(proposal?.project?.milestones)
-    ? proposal.project.milestones.length
-    : 0;
-  if (safeMilestoneNumber < 1 || safeMilestoneNumber > milestoneCount) {
-    throw new Error(`Milestone number must be between 1 and ${milestoneCount}`);
-  }
-
   return {
     ...transaction,
-    milestoneNumber: safeMilestoneNumber,
+    milestoneNumber: normalizeDaoProjectMilestoneNumber(proposal, milestoneNumber),
     reason: requireDaoDraftString(
       reason,
       'Milestone termination reason',
       DAO_PROJECT_TERMINATION_REASON_MAX_LENGTH,
     ),
+  };
+}
+
+export function buildDaoProjectMilestoneClaimTransaction({
+  from,
+  proposal,
+  milestoneNumber,
+  timestamp,
+  networkId,
+} = {}) {
+  return {
+    ...buildDaoProposalActionTransaction({
+      type: DAO_ACTION_TYPES.PROJECT_MILESTONE_CLAIM,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      timestampLabel: 'Milestone payment claim timestamp',
+      fromLabel: 'Milestone payment claim sender',
+    }),
+    milestoneNumber: normalizeDaoProjectMilestoneNumber(proposal, milestoneNumber),
   };
 }
 
@@ -1295,6 +1327,14 @@ function normalizeDaoProjectPresentationWei(value, issues, label, required = fal
   return amount;
 }
 
+function normalizeDaoProjectPresentationPercentage(value, issues, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    issues.push(`${label} is unavailable`);
+    return null;
+  }
+  return value;
+}
+
 function normalizeDaoProjectPresentationAddresses(value, issues, label) {
   if (!Array.isArray(value)) {
     issues.push(`${label} are unavailable`);
@@ -1421,6 +1461,16 @@ export function getDaoProjectPresentation(proposal) {
     issues,
     'Project recipient endorsements',
   );
+  const durationBonusPercentage = normalizeDaoProjectPresentationPercentage(
+    project.durationBonusPercentage,
+    issues,
+    'Project duration bonus percentage',
+  );
+  const durationPenaltyPercentage = normalizeDaoProjectPresentationPercentage(
+    project.durationPenaltyPercentage,
+    issues,
+    'Project duration penalty percentage',
+  );
 
   return Object.freeze({
     kind: 'available',
@@ -1434,9 +1484,61 @@ export function getDaoProjectPresentation(proposal) {
     endTime,
     proposedAddress,
     endorsedAddress,
+    durationBonusPercentage,
+    durationPenaltyPercentage,
     budget: canCalculateBudget ? getDaoProjectBudgetSummary(milestones) : null,
     milestones,
   });
+}
+
+function getDaoProjectUsdWei(usdStr, rateUsdStr) {
+  const usdUnits = getDaoUsdUnits(usdStr);
+  const rateUnits = getDaoUsdUnits(rateUsdStr);
+  if (rateUnits === 0n) throw new Error('Project rate is zero');
+  return (usdUnits * (10n ** 18n)) / rateUnits;
+}
+
+export function getDaoProjectMilestonePayout(project, milestone) {
+  if (!project || !milestone) return null;
+  const plannedDuration = Number(milestone.durationMs);
+  const startTime = Number(milestone.startTime);
+  const endTime = Number(milestone.endTime);
+  const bonusPercentage = project.durationBonusPercentage;
+  const penaltyPercentage = project.durationPenaltyPercentage;
+  const hasValidTiming = Number.isFinite(plannedDuration) && plannedDuration > 0
+    && Number.isFinite(startTime) && startTime > 0
+    && Number.isFinite(endTime) && endTime >= startTime;
+  const hasValidPercentages = typeof bonusPercentage === 'number'
+    && Number.isFinite(bonusPercentage)
+    && bonusPercentage >= 0
+    && typeof penaltyPercentage === 'number'
+    && Number.isFinite(penaltyPercentage)
+    && penaltyPercentage >= 0;
+  if (!hasValidTiming || !hasValidPercentages) return null;
+
+  const actualDuration = endTime - startTime;
+  const earlyCutoff = plannedDuration * (1 - bonusPercentage / 100);
+  const lateCutoff = plannedDuration * (1 + penaltyPercentage / 100);
+  let speed = 'ontime';
+  if (actualDuration < earlyCutoff) speed = 'early';
+  if (actualDuration > lateCutoff) speed = 'late';
+
+  try {
+    const costWei = getDaoProjectUsdWei(milestone.costUsdStr, project.rateUsdStr);
+    if (speed === 'early') {
+      return {
+        amountWei: costWei + getDaoProjectUsdWei(milestone.bonusUsdStr, project.rateUsdStr),
+        speed,
+      };
+    }
+    if (speed === 'late') {
+      const penaltyWei = getDaoProjectUsdWei(milestone.penaltyUsdStr, project.rateUsdStr);
+      return { amountWei: penaltyWei >= costWei ? 0n : costWei - penaltyWei, speed };
+    }
+    return { amountWei: costWei, speed };
+  } catch {
+    return null;
+  }
 }
 
 export function shouldOpenDaoProjectMilestoneByDefault(project, proposalState, milestoneIndex) {
@@ -2312,6 +2414,26 @@ export const daoRepo = {
       submitTransaction,
       errorMessage: 'Milestone termination vote failed',
       transactionFields: { milestoneNumber, reason },
+    });
+  },
+
+  async claimProjectMilestone({
+    from,
+    proposal,
+    milestoneNumber,
+    timestamp,
+    networkId,
+    submitTransaction,
+  } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoProjectMilestoneClaimTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Milestone payment claim failed',
+      transactionFields: { milestoneNumber },
     });
   },
 };

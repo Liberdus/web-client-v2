@@ -63,6 +63,8 @@ Accepted project proposals can be started after their grace period by a snapshot
 
 For an executing project, the contractor or a proposal committee member can propose the current milestone start/completion time. Committee members endorse the pending time, and the server commits it once the required threshold is reached. Committee members can also submit a reasoned vote to terminate a pending or executing milestone.
 
+The current contractor can claim each completed, unpaid milestone while the project is `executing`, `completed`, or `terminated`. The UI previews the fixed-rate payout and its early, on-time, or late adjustment before submission.
+
 ## Data model used by the UI
 
 The UI consumes an in-memory “store” shape:

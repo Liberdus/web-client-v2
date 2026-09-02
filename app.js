@@ -115,6 +115,7 @@ import {
   getDaoFinalVoteResult,
   getDaoNotificationSummary,
   getDaoProjectBudgetSummary,
+  getDaoProjectMilestonePayout,
   getDaoProjectPresentation,
   getDaoProposalInfoStateLabel,
   getDaoProposalListFilterKey,
@@ -4698,6 +4699,12 @@ function formatDaoProjectUsd(value) {
   return value === null ? 'Unavailable' : `${value} USD`;
 }
 
+function formatDaoProjectDeliverySpeed(speed) {
+  if (speed === 'early') return 'Early';
+  if (speed === 'late') return 'Late';
+  return speed === 'ontime' ? 'On time' : 'Unavailable';
+}
+
 function getDaoProjectStatusTone(status) {
   if (status === 'completed') return 'accept';
   if (status === 'terminated') return 'rejected';
@@ -4725,6 +4732,9 @@ function renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatu
     const statusLabel = milestone.status?.label || 'Unavailable';
     const statusTone = getDaoProjectStatusTone(milestone.status?.key);
     const isDefaultOpen = shouldOpenDaoProjectMilestoneByDefault(project, proposalState, index);
+    const pendingPayout = milestone.status?.key === 'completed' && milestone.paidWei === 0n
+      ? getDaoProjectMilestonePayout(project, milestone)
+      : null;
 
     return `
       <details class="dao-project-review-milestone dao-project-info-milestone"${isDefaultOpen ? ' open' : ''}>
@@ -4764,6 +4774,10 @@ function renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatu
               ['Time endorsements', String(milestone.endorsedTime.length)],
               ['Termination votes', String(milestone.terminateVotes.length)],
               ['Paid amount', milestone.paidWei === null ? null : formatDaoLibWei(milestone.paidWei)],
+              ...(pendingPayout ? [
+                ['Expected payout', formatDaoLibWei(pendingPayout.amountWei)],
+                ['Delivery timing', formatDaoProjectDeliverySpeed(pendingPayout.speed)],
+              ] : []),
             ])}
           </div>
           ` : ''}
@@ -5599,6 +5613,44 @@ function getDaoProjectMilestoneLifecycleActions(proposal, currentAddress) {
   return actions;
 }
 
+function getDaoProjectMilestoneClaimActions(proposal, currentAddress) {
+  const state = getEffectiveDaoState(proposal);
+  if (state !== 'executing' && state !== 'completed' && state !== 'terminated') return [];
+
+  const project = getDaoProjectPresentation(proposal);
+  if (project.kind !== 'available' || !isDaoProjectContractor(project, currentAddress)) return [];
+
+  return project.milestones.flatMap((milestone, index) => {
+    if (milestone.status?.key !== 'completed' || milestone.paidWei !== 0n) return [];
+
+    const milestoneNumber = index + 1;
+    const payout = getDaoProjectMilestonePayout(project, milestone);
+    const hasSufficientBalance = payout !== null
+      && project.balanceWei !== null
+      && payout.amountWei <= project.balanceWei;
+    let help;
+    if (!payout) {
+      help = 'Payout details are unavailable until the completed milestone data is refreshed.';
+    } else if (project.balanceWei === null) {
+      help = 'The project balance is unavailable. Refresh the proposal before claiming.';
+    } else if (payout.amountWei > project.balanceWei) {
+      help = 'The calculated payout exceeds the project balance. Refresh the proposal before retrying.';
+    } else {
+      help = `Claim ${formatDaoLibWei(payout.amountWei)} for ${formatDaoProjectDeliverySpeed(payout.speed).toLowerCase()} delivery.`;
+    }
+
+    return [{
+      kind: 'project_milestone_claim',
+      title: `Claim milestone ${milestoneNumber}`,
+      help,
+      buttonLabel: 'Claim milestone payment',
+      loadingLabel: 'Claiming milestone payment...',
+      milestoneNumber,
+      canSubmit: hasSufficientBalance,
+    }];
+  });
+}
+
 function formatDaoClaimWindowLabel(claimWindow, now) {
   if (!claimWindow.start || !claimWindow.end) return 'Unavailable';
   const start = formatDaoTimestamp(claimWindow.start) || 'Unavailable';
@@ -5750,6 +5802,7 @@ function getDaoProposalLifecycleActions(
   const projectStartAction = getDaoProjectStartLifecycleAction(proposal, currentAddress, now);
   if (projectStartAction) actions.push(projectStartAction);
   actions.push(...getDaoProjectMilestoneLifecycleActions(proposal, currentAddress));
+  actions.push(...getDaoProjectMilestoneClaimActions(proposal, currentAddress));
   return actions;
 }
 
@@ -7267,6 +7320,9 @@ class ProposalInfoModal {
           break;
         case 'project_milestone_terminate':
           result = await daoRepo.terminateProjectMilestone(request);
+          break;
+        case 'project_milestone_claim':
+          result = await daoRepo.claimProjectMilestone(request);
           break;
         default:
           throw new Error(`Unknown DAO lifecycle action: ${action.kind}`);
