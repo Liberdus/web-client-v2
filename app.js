@@ -23318,33 +23318,20 @@ class ChatModal {
    * Gets the decrypted full image from IndexedDB, downloading it on a cache miss.
    * @param {Object} item - message containing the attachment metadata and keys
    * @param {HTMLElement} linkEl - rendered attachment row
+   * @param {() => void} [onDownloadStart] - called before downloading and decrypting
    * @returns {Promise<Blob>}
    */
-  async getFullImageBlob(item, linkEl) {
+  async getFullImageBlob(item, linkEl, onDownloadStart) {
     const attachment = this.getFullImageAttachment(item, linkEl);
     return fullImageCache.getOrCache({
       attachment,
-      downloadAndDecrypt: () => this.decryptAttachmentToBlob(item, linkEl),
+      downloadAndDecrypt: () => {
+        onDownloadStart?.();
+        return this.decryptAttachmentToBlob(item, linkEl);
+      },
       shouldCache: () => Array.isArray(item?.xattach)
         && item.xattach.some(candidate => candidate?.url === attachment.url),
     });
-  }
-
-  /**
-   * Non-mutating cache peek used to skip loading feedback on cache hits.
-   * Returns the cached blob or null on miss or read failure.
-   * @param {Object} item - message containing the attachment metadata and keys
-   * @param {HTMLElement} linkEl - rendered attachment row
-   * @returns {Promise<Blob|null>}
-   */
-  async peekFullImageCache(item, linkEl) {
-    try {
-      const attachment = this.getFullImageAttachment(item, linkEl);
-      return await fullImageCache.get(attachment.url);
-    } catch (error) {
-      console.warn('Failed to peek full image cache:', error);
-      return null;
-    }
   }
 
   async handleAttachmentDownload(item, linkEl) {
@@ -24918,13 +24905,11 @@ class ChatModal {
 
       const filename = decodeURIComponent(attachmentRow.dataset.name || 'Image');
 
-      // Cache peek: a cache hit opens immediately without loading feedback.
-      // Read failures fall through to the download/decrypt path below.
-      const cachedBlob = await this.peekFullImageCache(item, attachmentRow);
-      if (!cachedBlob) {
+      // A cache hit opens immediately without loading feedback; the toast
+      // callback only fires on a cache miss or cache-read failure.
+      const blob = await this.getFullImageBlob(item, attachmentRow, () => {
         loadingToastId = showToast('Opening image...', 0, 'loading');
-      }
-      const blob = cachedBlob || await this.getFullImageBlob(item, attachmentRow);
+      });
       if (loadingToastId) hideToast(loadingToastId);
       loadingToastId = null;
       fullImageModal.open(blob, filename);
