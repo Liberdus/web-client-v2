@@ -6701,9 +6701,10 @@ class ProposalInfoModal {
           >
         </div>`
       : '';
+    const isMilestoneClaim = action.kind === 'project_milestone_claim';
 
     return `
-      <details class="proposal-lifecycle-action"${action.kind === 'project_milestone_claim' ? ' open' : ''}>
+      <details class="proposal-lifecycle-action${isMilestoneClaim ? ' proposal-lifecycle-action--claim' : ''}"${isMilestoneClaim ? ' open' : ''}>
         <summary>
           <span>${escapeHtml(action.title)}</span>
         </summary>

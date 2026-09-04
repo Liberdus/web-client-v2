@@ -3786,11 +3786,15 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-lifecycle-action {
-  background: var(--input-background);
+  background: transparent;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   display: grid;
   overflow: hidden;
+}
+
+#proposalInfoModal .proposal-lifecycle-action--claim {
+  background: var(--input-background);
 }
 
 #proposalInfoModal .proposal-lifecycle-action-group {
