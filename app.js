@@ -6703,7 +6703,7 @@ class ProposalInfoModal {
       : '';
 
     return `
-      <details class="proposal-lifecycle-action">
+      <details class="proposal-lifecycle-action"${action.kind === 'project_milestone_claim' ? ' open' : ''}>
         <summary>
           <span>${escapeHtml(action.title)}</span>
         </summary>
