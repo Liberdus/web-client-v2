@@ -2635,7 +2635,6 @@ const DAO_FILTER_OPTIONS = [
   ...DAO_PROJECT_FILTERS,
 ];
 const DAO_PROJECT_FILTER_KEYS = new Set(DAO_PROJECT_FILTERS.map(({ key }) => key));
-const DAO_PROJECT_CANDIDATE_STATES = new Set(['accepted', 'applied']);
 
 function formatDaoTimestamp(ts) {
   const n = Number(ts || 0);
@@ -2766,17 +2765,12 @@ class DaoModal {
       await daoRepo.refresh({ force: true });
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
       this.acknowledgeNotifications(notificationCutoff);
-      const projectFilterProposalNumbers = await this.loadProjectFilterCandidates();
-      if (!this.isActive() || refreshId !== this.openRefreshId) return;
       const refreshedClaimProposalNumbers = await this.syncTrackedClaimWindows();
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
       this.refreshState = 'ready';
       await this.loadSelectedFilter({
         reset: true,
-        reuseProposalNumbers: new Set([
-          ...projectFilterProposalNumbers,
-          ...refreshedClaimProposalNumbers,
-        ]),
+        reuseProposalNumbers: refreshedClaimProposalNumbers,
       });
       this.lastSuccessfulRefreshId = Math.max(this.lastSuccessfulRefreshId, refreshId);
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
@@ -2903,18 +2897,6 @@ class DaoModal {
     });
   }
 
-  async loadProjectFilterCandidates() {
-    const entries = daoRepo.getProposalMetaForUi()
-      .filter((entry) => DAO_PROJECT_CANDIDATE_STATES.has(entry.status));
-    await daoRepo.loadProposalEntries(entries, { append: true });
-    const candidateNumbers = new Set(entries.map((entry) => entry.proposal));
-    return new Set(
-      daoRepo.getProposalsForUi()
-        .map((proposal) => proposal.number)
-        .filter((proposalNumber) => candidateNumbers.has(proposalNumber)),
-    );
-  }
-
   async loadSelectedFilter({ reset, reuseProposalNumbers = new Set() }) {
     const entries = this.getSelectedMetadataEntries(daoRepo.getProposalMetaForUi());
 
@@ -2965,15 +2947,11 @@ class DaoModal {
     let didRefreshDaoData = false;
     try {
       await daoRepo.refresh({ force: true });
-      const projectFilterProposalNumbers = await this.loadProjectFilterCandidates();
       const refreshedClaimProposalNumbers = await this.syncTrackedClaimWindows();
       if (this.isActive()) {
         await this.loadSelectedFilter({
           reset: true,
-          reuseProposalNumbers: new Set([
-            ...projectFilterProposalNumbers,
-            ...refreshedClaimProposalNumbers,
-          ]),
+          reuseProposalNumbers: refreshedClaimProposalNumbers,
         });
       }
       if (!daoRepo.getProposalById(pendingTxInfo?.proposalStoreId)) {
@@ -3286,7 +3264,7 @@ class DaoModal {
     if (projectFilter) {
       chips.push({
         value: projectFilter.label,
-        tone: getDaoProjectStatusTone(proposal?.project?.status) || 'neutral',
+        tone: getDaoProjectStatusTone(state) || 'neutral',
       });
     } else if (result && state !== 'accepted') {
       chips.push({
@@ -4692,7 +4670,7 @@ function renderDaoProjectMilestones(milestones) {
           <p>${escapeHtml(milestone.description)}</p>
         </div>
         <div>
-          <span>Deliverable / Acceptance Criteria</span>
+          <span>Deliverable</span>
           <p>${escapeHtml(milestone.deliverable)}</p>
         </div>
       </div>
@@ -4763,13 +4741,13 @@ function renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatu
               <p>${escapeHtml(description)}</p>
             </div>
             <div>
-              <span>Deliverable / Acceptance Criteria</span>
+              <span>Deliverable</span>
               <p>${escapeHtml(deliverable)}</p>
             </div>
           </div>
           <div class="proposal-info-grid" aria-label="Milestone ${milestoneNumber} terms">
             ${renderDaoProposalRows([
-              ['Duration', milestone.durationDays === null ? null : `${milestone.durationDays} days`],
+              ['Duration', milestone.durationMs === null ? null : formatDaoDurationEstimate(milestone.durationMs)],
               ['Cost', formatDaoProjectUsd(milestone.costUsdStr)],
               ['Late penalty', formatDaoProjectUsd(milestone.penaltyUsdStr)],
               ['Early bonus', formatDaoProjectUsd(milestone.bonusUsdStr)],
@@ -4779,11 +4757,12 @@ function renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatu
           <div class="proposal-info-grid dao-project-info-runtime" aria-label="Milestone ${milestoneNumber} runtime status">
             ${renderDaoProposalRows([
               ['Milestone status', statusLabel, statusTone],
-              ['Started', milestone.startedAt === null ? null : formatDaoDetailTimestamp(milestone.startedAt)],
-              ['Completed', milestone.completedAt === null ? null : formatDaoDetailTimestamp(milestone.completedAt)],
-              ['Payout', milestone.payoutWei === null ? null : formatDaoLibWei(milestone.payoutWei)],
-              ['Paid', milestone.paid === null ? null : milestone.paid ? 'Yes' : 'No'],
-              ['Paid at', milestone.paidAt === null ? null : formatDaoDetailTimestamp(milestone.paidAt)],
+              ['Started', milestone.startTime === null ? null : formatDaoDetailTimestamp(milestone.startTime)],
+              ['Ended', milestone.endTime === null ? null : formatDaoDetailTimestamp(milestone.endTime)],
+              ['Proposed time', milestone.proposedTime === null ? null : formatDaoDetailTimestamp(milestone.proposedTime)],
+              ['Time endorsements', String(milestone.endorsedTime.length)],
+              ['Termination votes', String(milestone.terminateVotes.length)],
+              ['Paid amount', milestone.paidWei === null ? null : formatDaoLibWei(milestone.paidWei)],
             ])}
           </div>
           ` : ''}
@@ -4832,8 +4811,14 @@ function renderDaoProjectProposalInfo(proposal, proposalState) {
       ['Base cost', budget ? `${budget.baseCostUsdStr} USD` : null],
       ['Maximum bonuses', budget ? `${budget.maximumBonusUsdStr} USD` : null],
       ['Maximum authorized', budget ? `${budget.maximumAuthorizedUsdStr} USD` : null],
-      ['Treasury balance', project.balanceWei === null ? null : formatDaoLibWei(project.balanceWei)],
-      ['Claimable balance', project.claimableBalanceWei === null ? null : formatDaoLibWei(project.claimableBalanceWei)],
+      ...(showRuntimeStatus ? [
+        ['Treasury balance', project.balanceWei === null ? null : formatDaoLibWei(project.balanceWei)],
+        ['Fixed USD/LIB rate', project.rateUsdStr === null ? null : `${project.rateUsdStr} USD/LIB`],
+        ['Started', project.startTime === null ? null : formatDaoDetailTimestamp(project.startTime)],
+        ['Ended', project.endTime === null ? null : formatDaoDetailTimestamp(project.endTime)],
+        ['Proposed recipient', project.proposedAddress],
+        ['Recipient endorsements', String(project.endorsedAddress.length)],
+      ] : []),
     ], 'dao-project-info-funding'),
     renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatus),
   ].filter(Boolean).join('');
@@ -5275,7 +5260,13 @@ function getDaoVoteTotals(proposal) {
 }
 
 function isDaoFinalResultState(state) {
-  return state === 'accepted' || state === 'rejected' || state === 'applied';
+  return state === 'accepted'
+    || state === 'rejected'
+    || state === 'applied'
+    || state === 'canceled'
+    || state === 'executing'
+    || state === 'completed'
+    || state === 'terminated';
 }
 
 function isDaoFinalizedState(state) {
@@ -5474,7 +5465,7 @@ function getDaoProposalRewardSummary(
   now = getTransactionTimestamp(),
 ) {
   const state = getEffectiveDaoState(proposal);
-  const isRewardState = state === 'accepted' || state === 'rejected' || state === 'applied' || state === 'withheld';
+  const isRewardState = state === 'withheld' || isDaoFinalResultState(state);
   if (!isRewardState) return null;
 
   const pool = parseDaoUnsignedBigInt(proposal?.voterRewardPool);
