@@ -2969,7 +2969,7 @@ input[type='file'].form-control::file-selector-button {
   padding: 0;
 }
 
-#proposalInfoModal .dao-project-info-milestone summary {
+#proposalInfoModal .dao-project-info-milestone > summary {
   align-items: center;
   cursor: pointer;
   display: grid;
@@ -2980,11 +2980,11 @@ input[type='file'].form-control::file-selector-button {
   text-align: left;
 }
 
-#proposalInfoModal .dao-project-info-milestone summary::-webkit-details-marker {
+#proposalInfoModal .dao-project-info-milestone > summary::-webkit-details-marker {
   display: none;
 }
 
-#proposalInfoModal .dao-project-info-milestone summary::after {
+#proposalInfoModal .dao-project-info-milestone > summary::after {
   border-bottom: 2px solid var(--secondary-text-color);
   border-right: 2px solid var(--secondary-text-color);
   content: '';
@@ -2994,15 +2994,15 @@ input[type='file'].form-control::file-selector-button {
   width: 8px;
 }
 
-#proposalInfoModal .dao-project-info-milestone[open] summary {
+#proposalInfoModal .dao-project-info-milestone[open] > summary {
   border-bottom: 1px solid var(--border-color);
 }
 
-#proposalInfoModal .dao-project-info-milestone[open] summary::after {
+#proposalInfoModal .dao-project-info-milestone[open] > summary::after {
   transform: rotate(225deg);
 }
 
-#proposalInfoModal .dao-project-info-milestone summary:focus-visible {
+#proposalInfoModal .dao-project-info-milestone > summary:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: -2px;
 }
@@ -3808,7 +3808,7 @@ input[type='file'].form-control::file-selector-button {
   gap: 2px;
 }
 
-#proposalInfoModal .proposal-lifecycle-action summary {
+#proposalInfoModal .proposal-lifecycle-action > summary {
   align-items: center;
   cursor: pointer;
   display: grid;
@@ -3818,34 +3818,35 @@ input[type='file'].form-control::file-selector-button {
   padding: 10px;
 }
 
-#proposalInfoModal .proposal-lifecycle-action summary::-webkit-details-marker {
+#proposalInfoModal .proposal-lifecycle-action > summary::-webkit-details-marker {
   display: none;
 }
 
-#proposalInfoModal .proposal-lifecycle-action summary:focus-visible {
+#proposalInfoModal .proposal-lifecycle-action > summary:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: -2px;
 }
 
-#proposalInfoModal .proposal-lifecycle-action summary::after {
+#proposalInfoModal .proposal-lifecycle-action > summary::after {
   border-bottom: 2px solid var(--secondary-text-color);
   border-right: 2px solid var(--secondary-text-color);
   content: '';
   height: 7px;
   justify-self: center;
   transform: rotate(45deg);
+  transition: transform 0.2s ease;
   width: 7px;
 }
 
-#proposalInfoModal .proposal-lifecycle-action[open] summary {
+#proposalInfoModal .proposal-lifecycle-action[open] > summary {
   border-bottom: 1px solid var(--border-color);
 }
 
-#proposalInfoModal .proposal-lifecycle-action[open] summary::after {
+#proposalInfoModal .proposal-lifecycle-action[open] > summary::after {
   transform: rotate(225deg);
 }
 
-#proposalInfoModal .proposal-lifecycle-action summary > span {
+#proposalInfoModal .proposal-lifecycle-action > summary > span {
   color: var(--text-color);
   font-size: 14px;
   font-weight: var(--font-weight-semibold);
