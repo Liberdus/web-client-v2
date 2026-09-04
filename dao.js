@@ -19,6 +19,7 @@ export const DAO_PROJECT_MAX_MILESTONES = 20;
 export const DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH = 100;
 export const DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH = 2000;
 export const DAO_PROJECT_DURATION_MAX_DAYS = 3650;
+export const DAO_PROJECT_TERMINATION_REASON_MAX_LENGTH = 500;
 
 export const DAO_TYPE_OPTIONS = [
   { key: 'governance', label: 'Governance', group: 'Server proposal types' },
@@ -182,6 +183,9 @@ export const DAO_ACTION_TYPES = Object.freeze({
   BURN_REWARD: 'dao_burn_reward',
   APPLY_PARAMETERS: 'dao_apply_parameters',
   PROJECT_START: 'dao_project_start',
+  PROJECT_MILESTONE_START: 'dao_project_milestone_start',
+  PROJECT_MILESTONE_END: 'dao_project_milestone_end',
+  PROJECT_MILESTONE_TERMINATE: 'dao_project_milestone_terminate',
 });
 
 const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
@@ -190,6 +194,9 @@ const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
   burn_reward: DAO_ACTION_TYPES.BURN_REWARD,
   apply_parameters: DAO_ACTION_TYPES.APPLY_PARAMETERS,
   project_start: DAO_ACTION_TYPES.PROJECT_START,
+  project_milestone_start: DAO_ACTION_TYPES.PROJECT_MILESTONE_START,
+  project_milestone_end: DAO_ACTION_TYPES.PROJECT_MILESTONE_END,
+  project_milestone_terminate: DAO_ACTION_TYPES.PROJECT_MILESTONE_TERMINATE,
 });
 
 const DAO_TRANSACTION_MESSAGES = Object.freeze({
@@ -246,6 +253,24 @@ const DAO_TRANSACTION_MESSAGES = Object.freeze({
     success: 'Project started',
     failure: 'Project start failed',
     timeout: 'Project start confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.PROJECT_MILESTONE_START]: {
+    pending: 'Milestone start submitted—pending confirmation',
+    success: 'Milestone start confirmed',
+    failure: 'Milestone start failed',
+    timeout: 'Milestone start confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.PROJECT_MILESTONE_END]: {
+    pending: 'Milestone completion submitted—pending confirmation',
+    success: 'Milestone completion confirmed',
+    failure: 'Milestone completion failed',
+    timeout: 'Milestone completion confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.PROJECT_MILESTONE_TERMINATE]: {
+    pending: 'Milestone termination vote submitted—pending confirmation',
+    success: 'Milestone termination vote confirmed',
+    failure: 'Milestone termination vote failed',
+    timeout: 'Milestone termination confirmation is taking longer than expected',
   },
 });
 
@@ -787,6 +812,110 @@ export function buildDaoProjectStartTransaction({
   });
 }
 
+function buildDaoProjectMilestoneTimeTransaction({
+  type,
+  from,
+  proposal,
+  proposedTime,
+  timestamp,
+  networkId,
+  actionLabel,
+} = {}) {
+  const transaction = buildDaoProposalActionTransaction({
+    type,
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: `${actionLabel} timestamp`,
+    fromLabel: `${actionLabel} sender`,
+  });
+  if (proposedTime === undefined) return transaction;
+
+  const safeProposedTime = requireDaoNonNegativeNumber(proposedTime, `${actionLabel} proposed time`);
+  if (safeProposedTime <= 0) throw new Error(`${actionLabel} proposed time is required`);
+  if (safeProposedTime > transaction.timestamp) {
+    throw new Error(`${actionLabel} proposed time cannot be later than the transaction timestamp`);
+  }
+  transaction.proposedTime = safeProposedTime;
+  return transaction;
+}
+
+export function buildDaoProjectMilestoneStartTransaction({
+  from,
+  proposal,
+  proposedTime,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProjectMilestoneTimeTransaction({
+    type: DAO_ACTION_TYPES.PROJECT_MILESTONE_START,
+    from,
+    proposal,
+    proposedTime,
+    timestamp,
+    networkId,
+    actionLabel: 'Milestone start',
+  });
+}
+
+export function buildDaoProjectMilestoneEndTransaction({
+  from,
+  proposal,
+  proposedTime,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProjectMilestoneTimeTransaction({
+    type: DAO_ACTION_TYPES.PROJECT_MILESTONE_END,
+    from,
+    proposal,
+    proposedTime,
+    timestamp,
+    networkId,
+    actionLabel: 'Milestone completion',
+  });
+}
+
+export function buildDaoProjectMilestoneTerminateTransaction({
+  from,
+  proposal,
+  milestoneNumber,
+  reason,
+  timestamp,
+  networkId,
+} = {}) {
+  const transaction = buildDaoProposalActionTransaction({
+    type: DAO_ACTION_TYPES.PROJECT_MILESTONE_TERMINATE,
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Milestone termination timestamp',
+    fromLabel: 'Milestone termination sender',
+  });
+  const safeMilestoneNumber = normalizeDaoDraftInteger(
+    milestoneNumber,
+    'Milestone number',
+  );
+  const milestoneCount = Array.isArray(proposal?.project?.milestones)
+    ? proposal.project.milestones.length
+    : 0;
+  if (safeMilestoneNumber < 1 || safeMilestoneNumber > milestoneCount) {
+    throw new Error(`Milestone number must be between 1 and ${milestoneCount}`);
+  }
+
+  return {
+    ...transaction,
+    milestoneNumber: safeMilestoneNumber,
+    reason: requireDaoDraftString(
+      reason,
+      'Milestone termination reason',
+      DAO_PROJECT_TERMINATION_REASON_MAX_LENGTH,
+    ),
+  };
+}
+
 async function submitDaoTransaction({ transaction, submitTransaction, errorMessage }) {
   try {
     if (typeof submitTransaction !== 'function') {
@@ -821,9 +950,11 @@ async function submitDaoProposalAction({
   networkId,
   submitTransaction,
   errorMessage,
+  transactionFields = {},
 } = {}) {
   try {
     const transaction = buildTransaction({
+      ...transactionFields,
       from,
       proposal,
       timestamp,
@@ -2120,6 +2251,67 @@ export const daoRepo = {
       networkId,
       submitTransaction,
       errorMessage: 'Project start failed',
+    });
+  },
+
+  async startProjectMilestone({
+    from,
+    proposal,
+    proposedTime,
+    timestamp,
+    networkId,
+    submitTransaction,
+  } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoProjectMilestoneStartTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Milestone start failed',
+      transactionFields: { proposedTime },
+    });
+  },
+
+  async endProjectMilestone({
+    from,
+    proposal,
+    proposedTime,
+    timestamp,
+    networkId,
+    submitTransaction,
+  } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoProjectMilestoneEndTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Milestone completion failed',
+      transactionFields: { proposedTime },
+    });
+  },
+
+  async terminateProjectMilestone({
+    from,
+    proposal,
+    milestoneNumber,
+    reason,
+    timestamp,
+    networkId,
+    submitTransaction,
+  } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoProjectMilestoneTerminateTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Milestone termination vote failed',
+      transactionFields: { milestoneNumber, reason },
     });
   },
 };

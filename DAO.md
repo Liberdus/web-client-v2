@@ -61,6 +61,8 @@ The UI uses these statuses:
 
 Accepted project proposals can be started after their grace period by a snapshotted proposal committee member. A confirmed start moves the proposal to `executing` and funds the project escrow at the server's current network rate.
 
+For an executing project, the contractor or a proposal committee member can propose the current milestone start/completion time. Committee members endorse the pending time, and the server commits it once the required threshold is reached. Committee members can also submit a reasoned vote to terminate a pending or executing milestone.
+
 ## Data model used by the UI
 
 The UI consumes an in-memory “store” shape:
