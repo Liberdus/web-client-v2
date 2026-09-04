@@ -4747,7 +4747,7 @@ function renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatu
           </div>
           <div class="proposal-info-grid" aria-label="Milestone ${milestoneNumber} terms">
             ${renderDaoProposalRows([
-              ['Duration', milestone.durationMs === null ? null : formatDaoDurationSummary(milestone.durationMs)],
+              ['Duration', milestone.durationMs === null ? null : formatDaoDurationEstimate(milestone.durationMs)],
               ['Cost', formatDaoProjectUsd(milestone.costUsdStr)],
               ['Late penalty', formatDaoProjectUsd(milestone.penaltyUsdStr)],
               ['Early bonus', formatDaoProjectUsd(milestone.bonusUsdStr)],
