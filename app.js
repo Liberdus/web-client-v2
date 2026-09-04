@@ -3239,7 +3239,7 @@ class DaoModal {
     } else {
       const lifecycleActions = getDaoProposalLifecycleActions(proposal, reward);
       const claimAction = lifecycleActions.find((action) => action.kind === 'claim_reward');
-      const applyAction = lifecycleActions.find((action) => action.kind === 'apply_parameters');
+      const readyAction = lifecycleActions.find((action) => action.rowPreviewLabel);
 
       if (claimAction) {
         chips.push({
@@ -3253,10 +3253,10 @@ class DaoModal {
           tone: 'neutral',
         });
       }
-      if (applyAction?.rowPreviewLabel) {
+      if (readyAction) {
         chips.push({
-          value: applyAction.rowPreviewLabel,
-          tone: applyAction.canSubmit ? 'accepted' : 'neutral',
+          value: readyAction.rowPreviewLabel,
+          tone: readyAction.canSubmit ? 'accepted' : 'neutral',
         });
       }
     }
@@ -5423,6 +5423,48 @@ function getDaoProposalApplyLifecycleAction(
   );
 }
 
+function getDaoProjectStartLifecycleAction(
+  proposal,
+  currentAddress = getDaoCurrentAccountAddress(),
+  now = getTransactionTimestamp(),
+) {
+  if (getEffectiveDaoState(proposal) !== 'accepted') return null;
+  if (proposal?.proposalType !== DAO_PROJECT_TYPE) return null;
+
+  const action = {
+    kind: 'project_start',
+    title: 'Start project',
+    buttonLabel: 'Start project',
+    loadingLabel: 'Starting project...',
+    canSubmit: false,
+  };
+  if (!isDaoProposalCommitteeMember(proposal, currentAddress)) {
+    return {
+      ...action,
+      help: 'Only a proposal committee member can start this project.',
+    };
+  }
+
+  const applyWindow = getDaoProposalApplyWindow(proposal, now);
+  if (!applyWindow.isReady) {
+    const eligibleAt = applyWindow.eligibleAt ? formatDaoTimestamp(applyWindow.eligibleAt) : '';
+    return {
+      ...action,
+      help: eligibleAt
+        ? `Project start becomes available after the grace period ends: ${eligibleAt}.`
+        : 'Project start timing is unavailable until the proposal includes grace-period timing.',
+      rowPreviewLabel: formatDaoReadyAtLabel(applyWindow.eligibleAt, now),
+    };
+  }
+
+  return {
+    ...action,
+    help: 'Starting this project mints its approved budget into escrow at the current network rate.',
+    rowPreviewLabel: 'Ready to start',
+    canSubmit: true,
+  };
+}
+
 function formatDaoClaimWindowLabel(claimWindow, now) {
   if (!claimWindow.start || !claimWindow.end) return 'Unavailable';
   const start = formatDaoTimestamp(claimWindow.start) || 'Unavailable';
@@ -5571,6 +5613,8 @@ function getDaoProposalLifecycleActions(
 
   const applyAction = getDaoProposalApplyLifecycleAction(proposal, currentAddress, now);
   if (applyAction) actions.push(applyAction);
+  const projectStartAction = getDaoProjectStartLifecycleAction(proposal, currentAddress, now);
+  if (projectStartAction) actions.push(projectStartAction);
   return actions;
 }
 
@@ -7035,6 +7079,9 @@ class ProposalInfoModal {
           break;
         case 'apply_parameters':
           result = await daoRepo.applyParameters(request);
+          break;
+        case 'project_start':
+          result = await daoRepo.startProject(request);
           break;
         default:
           throw new Error(`Unknown DAO lifecycle action: ${action.kind}`);
