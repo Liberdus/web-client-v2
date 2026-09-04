@@ -19812,7 +19812,9 @@ class ChatModal {
         e.stopPropagation();
         return false;
       }
-      return true;
+      e.preventDefault();
+      window.open(phoneAnchor.href, '_blank');
+      return false;
     });
     // Close all context menus when messages container scrolls
     this.messagesContainer.addEventListener('scroll', () => this.handleMessagesContainerScroll(), { passive: true });
