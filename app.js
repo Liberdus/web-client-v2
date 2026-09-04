@@ -23318,13 +23318,17 @@ class ChatModal {
    * Gets the decrypted full image from IndexedDB, downloading it on a cache miss.
    * @param {Object} item - message containing the attachment metadata and keys
    * @param {HTMLElement} linkEl - rendered attachment row
+   * @param {() => void} [onDownloadStart] - called before downloading and decrypting
    * @returns {Promise<Blob>}
    */
-  async getFullImageBlob(item, linkEl) {
+  async getFullImageBlob(item, linkEl, onDownloadStart) {
     const attachment = this.getFullImageAttachment(item, linkEl);
     return fullImageCache.getOrCache({
       attachment,
-      downloadAndDecrypt: () => this.decryptAttachmentToBlob(item, linkEl),
+      downloadAndDecrypt: () => {
+        onDownloadStart?.();
+        return this.decryptAttachmentToBlob(item, linkEl);
+      },
       shouldCache: () => Array.isArray(item?.xattach)
         && item.xattach.some(candidate => candidate?.url === attachment.url),
     });
@@ -24900,9 +24904,11 @@ class ChatModal {
       if (url === '#') return;
 
       const filename = decodeURIComponent(attachmentRow.dataset.name || 'Image');
-      loadingToastId = showToast('Opening image...', 0, 'loading');
-      const blob = await this.getFullImageBlob(item, attachmentRow);
-      hideToast(loadingToastId);
+
+      const blob = await this.getFullImageBlob(item, attachmentRow, () => {
+        loadingToastId = showToast('Opening image...', 0, 'loading');
+      });
+      if (loadingToastId) hideToast(loadingToastId);
       loadingToastId = null;
       fullImageModal.open(blob, filename);
     } catch (err) {
