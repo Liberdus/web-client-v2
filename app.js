@@ -24905,8 +24905,6 @@ class ChatModal {
 
       const filename = decodeURIComponent(attachmentRow.dataset.name || 'Image');
 
-      // A cache hit opens immediately without loading feedback; the toast
-      // callback only fires on a cache miss or cache-read failure.
       const blob = await this.getFullImageBlob(item, attachmentRow, () => {
         loadingToastId = showToast('Opening image...', 0, 'loading');
       });
