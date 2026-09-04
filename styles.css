@@ -3861,11 +3861,16 @@ input[type='file'].form-control::file-selector-button {
   padding: 10px;
 }
 
-#proposalInfoModal .dao-project-milestone-actions {
-  border-top: 1px solid var(--border-color);
+#proposalInfoModal .dao-project-info-milestone-group {
   display: grid;
   gap: 8px;
-  padding-top: 10px;
+  min-width: 0;
+}
+
+#proposalInfoModal .dao-project-milestone-actions {
+  display: grid;
+  gap: 8px;
+  padding: 0 8px 2px;
 }
 
 #proposalInfoModal .dao-project-milestone-actions h5 {

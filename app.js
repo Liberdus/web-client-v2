@@ -4744,67 +4744,68 @@ function renderDaoProjectInfoMilestones(
     const deliverable = formatDaoDetailValue(milestone.deliverable);
     const statusLabel = milestone.status?.label || 'Unavailable';
     const statusTone = getDaoProjectStatusTone(milestone.status?.key);
-    const isDefaultOpen = milestoneActions.length > 0
-      || shouldOpenDaoProjectMilestoneByDefault(project, proposalState, index);
+    const isDefaultOpen = shouldOpenDaoProjectMilestoneByDefault(project, proposalState, index);
     const pendingPayout = milestone.status?.key === 'completed' && milestone.paidWei === 0n
       ? getDaoProjectMilestonePayout(project, milestone)
       : null;
 
     return `
-      <details class="dao-project-review-milestone dao-project-info-milestone"${isDefaultOpen ? ' open' : ''}>
-        <summary>
-          <span class="dao-project-info-milestone-heading">
-            <span>Milestone ${milestoneNumber}</span>
-            <strong>${escapeHtml(title)}</strong>
-          </span>
-          <span class="dao-project-info-milestone-status">${escapeHtml(statusLabel)}</span>
-        </summary>
-        <div class="dao-project-info-milestone-content">
-          <div class="dao-project-review-copy">
-            <div>
-              <span>Description</span>
-              <p>${escapeHtml(description)}</p>
+      <div class="dao-project-info-milestone-group">
+        <details class="dao-project-review-milestone dao-project-info-milestone"${isDefaultOpen ? ' open' : ''}>
+          <summary>
+            <span class="dao-project-info-milestone-heading">
+              <span>Milestone ${milestoneNumber}</span>
+              <strong>${escapeHtml(title)}</strong>
+            </span>
+            <span class="dao-project-info-milestone-status">${escapeHtml(statusLabel)}</span>
+          </summary>
+          <div class="dao-project-info-milestone-content">
+            <div class="dao-project-review-copy">
+              <div>
+                <span>Description</span>
+                <p>${escapeHtml(description)}</p>
+              </div>
+              <div>
+                <span>Deliverable</span>
+                <p>${escapeHtml(deliverable)}</p>
+              </div>
             </div>
-            <div>
-              <span>Deliverable</span>
-              <p>${escapeHtml(deliverable)}</p>
+            <div class="proposal-info-grid" aria-label="Milestone ${milestoneNumber} terms">
+              ${renderDaoProposalRows([
+                ['Duration', milestone.durationMs === null ? null : formatDaoDurationEstimate(milestone.durationMs)],
+                ['Cost', formatDaoProjectUsd(milestone.costUsdStr)],
+                ['Late penalty', formatDaoProjectUsd(milestone.penaltyUsdStr)],
+                ['Early bonus', formatDaoProjectUsd(milestone.bonusUsdStr)],
+              ])}
             </div>
+            ${showRuntimeStatus ? `
+            <div class="proposal-info-grid dao-project-info-runtime" aria-label="Milestone ${milestoneNumber} runtime status">
+              ${renderDaoProposalRows([
+                ['Milestone status', statusLabel, statusTone],
+                ['Started', milestone.startTime === null ? null : formatDaoDetailTimestamp(milestone.startTime)],
+                ['Ended', milestone.endTime === null ? null : formatDaoDetailTimestamp(milestone.endTime)],
+                ['Proposed time', milestone.proposedTime === null ? null : formatDaoDetailTimestamp(milestone.proposedTime)],
+                ['Time endorsements', String(milestone.endorsedTime.length)],
+                ['Termination votes', String(milestone.terminateVotes.length)],
+                ['Paid amount', milestone.paidWei === null ? null : formatDaoLibWei(milestone.paidWei)],
+                ...(pendingPayout ? [
+                  ['Expected payout', formatDaoLibWei(pendingPayout.amountWei)],
+                  ['Delivery timing', formatDaoProjectDeliverySpeed(pendingPayout.speed)],
+                ] : []),
+              ])}
+            </div>
+            ` : ''}
           </div>
-          <div class="proposal-info-grid" aria-label="Milestone ${milestoneNumber} terms">
-            ${renderDaoProposalRows([
-              ['Duration', milestone.durationMs === null ? null : formatDaoDurationEstimate(milestone.durationMs)],
-              ['Cost', formatDaoProjectUsd(milestone.costUsdStr)],
-              ['Late penalty', formatDaoProjectUsd(milestone.penaltyUsdStr)],
-              ['Early bonus', formatDaoProjectUsd(milestone.bonusUsdStr)],
-            ])}
-          </div>
-          ${showRuntimeStatus ? `
-          <div class="proposal-info-grid dao-project-info-runtime" aria-label="Milestone ${milestoneNumber} runtime status">
-            ${renderDaoProposalRows([
-              ['Milestone status', statusLabel, statusTone],
-              ['Started', milestone.startTime === null ? null : formatDaoDetailTimestamp(milestone.startTime)],
-              ['Ended', milestone.endTime === null ? null : formatDaoDetailTimestamp(milestone.endTime)],
-              ['Proposed time', milestone.proposedTime === null ? null : formatDaoDetailTimestamp(milestone.proposedTime)],
-              ['Time endorsements', String(milestone.endorsedTime.length)],
-              ['Termination votes', String(milestone.terminateVotes.length)],
-              ['Paid amount', milestone.paidWei === null ? null : formatDaoLibWei(milestone.paidWei)],
-              ...(pendingPayout ? [
-                ['Expected payout', formatDaoLibWei(pendingPayout.amountWei)],
-                ['Delivery timing', formatDaoProjectDeliverySpeed(pendingPayout.speed)],
-              ] : []),
-            ])}
-          </div>
-          ` : ''}
-          ${milestoneActions.length > 0 ? `
-          <section class="dao-project-milestone-actions" aria-label="Milestone ${milestoneNumber} actions">
-            <h5>Milestone actions</h5>
-            ${milestoneActions
-              .map(({ action, actionIndex }) => renderLifecycleAction(action, actionIndex))
-              .join('')}
-          </section>
-          ` : ''}
-        </div>
-      </details>
+        </details>
+        ${milestoneActions.length > 0 ? `
+        <section class="dao-project-milestone-actions" aria-label="Milestone ${milestoneNumber} actions">
+          <h5>Milestone actions</h5>
+          ${milestoneActions
+            .map(({ action, actionIndex }) => renderLifecycleAction(action, actionIndex))
+            .join('')}
+        </section>
+        ` : ''}
+      </div>
     `;
   }).join('');
 
@@ -6702,7 +6703,7 @@ class ProposalInfoModal {
       : '';
 
     return `
-      <details class="proposal-lifecycle-action" open>
+      <details class="proposal-lifecycle-action">
         <summary>
           <span>${escapeHtml(action.title)}</span>
         </summary>
