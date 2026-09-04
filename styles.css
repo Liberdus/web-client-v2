@@ -3132,12 +3132,6 @@ input[type='file'].form-control::file-selector-button {
   text-align: right;
 }
 
-#proposalInfoModal .dao-project-info-funding .proposal-info-row:first-child .proposal-info-value {
-  font-size: clamp(10px, 2.2vw, 13px);
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-
 #proposalInfoModal .dao-project-info-runtime {
   border-top: 1px solid var(--border-color);
   padding-top: 10px;

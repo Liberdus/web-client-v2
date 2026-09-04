@@ -4670,7 +4670,7 @@ function renderDaoProjectMilestones(milestones) {
           <p>${escapeHtml(milestone.description)}</p>
         </div>
         <div>
-          <span>Deliverable / Acceptance Criteria</span>
+          <span>Deliverable</span>
           <p>${escapeHtml(milestone.deliverable)}</p>
         </div>
       </div>
@@ -4741,7 +4741,7 @@ function renderDaoProjectInfoMilestones(project, proposalState, showRuntimeStatu
               <p>${escapeHtml(description)}</p>
             </div>
             <div>
-              <span>Deliverable / Acceptance Criteria</span>
+              <span>Deliverable</span>
               <p>${escapeHtml(deliverable)}</p>
             </div>
           </div>
