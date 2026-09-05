@@ -426,7 +426,7 @@
   <body>
     <div class="mock-viewport" data-pan-viewport>
       <div class="zoom-controls" aria-label="Mock board zoom controls">
-        <span class="zoom-help">Device: wheel to scroll · canvas: wheel to zoom, drag to pan · arrow: click to pin</span>
+        <span class="zoom-help">Device: scroll content · canvas: scroll or drag to pan, Ctrl/Cmd + scroll to zoom · arrow: click to pin</span>
         <button class="zoom-button" type="button" data-zoom-out aria-label="Zoom out">−</button>
         <button class="zoom-reset" type="button" data-zoom-reset aria-label="Reset zoom and position">100%</button>
         <button class="zoom-button" type="button" data-zoom-in aria-label="Zoom in">+</button>
@@ -1362,7 +1362,19 @@
         viewport.addEventListener("wheel", (event) => {
           if (event.target.closest(".zoom-controls")) return;
           event.preventDefault();
-          zoomAt(scale + (event.deltaY < 0 ? 0.08 : -0.08), event.clientX, event.clientY);
+          if (event.ctrlKey || event.metaKey) {
+            if (event.deltaY !== 0) {
+              zoomAt(scale + (event.deltaY < 0 ? 0.08 : -0.08), event.clientX, event.clientY);
+            }
+            return;
+          }
+
+          // Wheel deltas can be pixels, lines, or pages depending on the device.
+          const unitX = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientWidth : 1;
+          const unitY = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
+          offsetX -= event.deltaX * unitX;
+          offsetY -= event.deltaY * unitY;
+          updateTransform();
         }, { passive: false });
 
         const isInteractive = (target) => target.closest(".screen, button, input, select, textarea, summary, [data-flow-source], .transition-connector, .zoom-controls");
