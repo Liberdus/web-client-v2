@@ -116,10 +116,13 @@ Their functions now live in the filter bar, proposal-row preview badges, and the
 ## Proposal and milestone gallery
 
 Open `mock/index.html?tab=proposals` (the existing `?tab=projects` link also works).
-The **Proposals** tab starts with 31 independent state examples, followed by project
+The **Proposals** tab starts with 36 independent state examples, followed by project
 creation and signing previews. All phones load the production stylesheet; controls
 illustrate available actions without submitting transactions.
 
+- Committee endorsements: start time, completion time, and contractor changes,
+  each with one endorsement, two endorsements, and an already-endorsed account.
+  This first group opens and scrolls to the recorded counts and available actions.
 - Proposal statuses: Review, Voting, Accepted, Withheld, Rejected, Canceled,
   Applied, Executing, Completed, and Terminated. Applied is for parameter proposals.
 - Milestone statuses: Pending, Executing, Completed, and Terminated. Proposed

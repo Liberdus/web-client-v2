@@ -11,17 +11,19 @@
   `).join('');
   const section = (title, values, className = '') => `<section class="proposal-info-section${className ? ` ${className}` : ''}"><h3>${title}</h3><div class="proposal-info-grid">${rows(values)}</div></section>`;
   const action = (title, button, help, field = '') => `
-    <details class="proposal-lifecycle-action${button === 'Claim milestone payment' ? ' proposal-lifecycle-action--claim' : ''}"${button === 'Claim milestone payment' ? ' open' : ''}>
+    <details class="proposal-lifecycle-action${button === 'Claim milestone payment' ? ' proposal-lifecycle-action--claim' : ''}"${button === 'Claim milestone payment' || button.startsWith('Endorse ') ? ' open' : ''}>
       <summary><span>${title}</span></summary>
       <div class="proposal-lifecycle-action-content"><p>${help}</p>${field}<button class="btn btn--primary btn--pill btn--full" type="button">${button}</button></div>
     </details>`;
   const start = action('Start milestone 1', 'Propose start now', 'Propose the current time as milestone 1’s start time. 3 total endorsements are required.');
-  const endorseStart = action('Start milestone 1', 'Endorse proposed start', 'Endorse Sep 1, 2026, 9:00 AM as the start time. 2 of 3 endorsements have been submitted.');
+  const endorseStart = (count) => action('Start milestone 1', 'Endorse proposed start', `Endorse Sep 1, 2026, 9:00 AM as milestone 1’s start time. ${count} of 3 endorsements have been submitted.`);
   const complete = action('Complete milestone 1', 'Propose completion now', 'Propose the current time as milestone 1’s completion time. 3 total endorsements are required.');
-  const endorseComplete = action('Complete milestone 1', 'Endorse proposed completion', 'Endorse Sep 11, 2026, 9:00 AM as the completion time. 2 of 3 endorsements have been submitted.');
+  const endorseComplete = (count) => action('Complete milestone 1', 'Endorse proposed completion', `Endorse Sep 11, 2026, 9:00 AM as milestone 1’s completion time. ${count} of 3 endorsements have been submitted.`);
   const terminate = action('Terminate milestone 1', 'Submit termination vote', '1 of 3 committee termination votes has been submitted.', '<div class="form-group"><label for="mockTerminationReason">Termination reason</label><textarea id="mockTerminationReason" class="form-control" rows="3" maxlength="500" placeholder="Explain why this milestone should be terminated"></textarea></div>');
   const claim = (amount, timing) => action('Claim milestone 1', 'Claim milestone payment', `Claim ${amount} LIB for ${timing} delivery.`);
   const changeAddress = action('Change contractor address', 'Propose contractor address', 'Propose a new contractor address. 3 committee endorsements are required.', '<div class="form-group"><label for="mockContractorAddress">New contractor address</label><input id="mockContractorAddress" class="form-control" type="text" maxlength="66" placeholder="Enter a Liberdus address" /></div>');
+  const endorseAddress = (count) => action('Endorse contractor address', 'Endorse proposed address', `${count} of 3 committee endorsements have been submitted.`);
+  const replaceAddress = action('Replace proposed contractor', 'Propose replacement address', 'Propose a different contractor address and restart endorsements.', '<div class="form-group"><label for="mockContractorAddress">New contractor address</label><input id="mockContractorAddress" class="form-control" type="text" maxlength="66" placeholder="Enter a Liberdus address" /></div>');
   const endProject = action('End project', 'End project', 'All milestones are finished. End the project and retain only completed, unpaid milestone payouts in escrow.');
   const reclaim = action('Reclaim project balance', 'Reclaim remaining balance', 'Reclaim the remaining 1,200 LIB from project escrow.');
 
@@ -49,11 +51,21 @@
     { id: 'completed', state: 'completed', note: 'The project has ended with all work completed and paid.', milestone: 'paid', balance: '0 LIB' },
     { id: 'terminated', state: 'terminated', note: 'The project has ended with a terminated milestone. No payment is owed for terminated work.', milestone: 'terminated', balance: '0 LIB' },
   ];
+  // These snapshots open and scroll to the endorsement details for easy comparison.
+  const endorsementCases = [
+    { id: 'start-one-endorsement', title: 'Start time · 1 of 3 endorsed', note: 'Committee view: one start-time endorsement is recorded. Two more are required to start the milestone.', milestone: 'pending', proposed: 'Sep 1, 2026, 9:00 AM', endorsements: 1, milestoneActions: endorseStart(1) + terminate, actions: changeAddress },
+    { id: 'start-endorsement', title: 'Start time · 2 of 3 endorsed', note: 'Committee view: two start-time endorsements are recorded. Your endorsement will start the milestone.', milestone: 'pending', proposed: 'Sep 1, 2026, 9:00 AM', endorsements: 2, milestoneActions: endorseStart(2) + terminate, actions: changeAddress },
+    { id: 'start-endorsed', title: 'Start time · already endorsed', note: 'You already endorsed this start time and voted to terminate. The count remains visible; duplicate actions are hidden.', milestone: 'pending', proposed: 'Sep 1, 2026, 9:00 AM', endorsements: 2, actions: changeAddress },
+    { id: 'completion-one-endorsement', title: 'Completion time · 1 of 3 endorsed', note: 'Committee view: one completion-time endorsement is recorded. The milestone remains executing.', milestone: 'executing', proposed: 'Sep 11, 2026, 9:00 AM', endorsements: 1, milestoneActions: endorseComplete(1) + terminate, actions: changeAddress },
+    { id: 'completion-endorsement', title: 'Completion time · 2 of 3 endorsed', note: 'Committee view: two completion-time endorsements are recorded. Your endorsement will complete the milestone.', milestone: 'executing', proposed: 'Sep 11, 2026, 9:00 AM', endorsements: 2, milestoneActions: endorseComplete(2) + terminate, actions: changeAddress },
+    { id: 'completion-endorsed', title: 'Completion time · already endorsed', note: 'You already endorsed this completion time. The count remains visible, and you can still vote to terminate.', milestone: 'executing', proposed: 'Sep 11, 2026, 9:00 AM', endorsements: 2, milestoneActions: terminate, actions: changeAddress },
+    { id: 'contractor-one-endorsement', title: 'Contractor change · 1 of 3 endorsed', note: 'Committee view: one address endorsement is recorded. The existing contractor remains until all three endorse.', milestone: 'executing', contractorChange: true, contractorEndorsements: 1, milestoneActions: complete + terminate, actions: endorseAddress(1) + replaceAddress },
+    { id: 'contractor-endorse', title: 'Contractor change · 2 of 3 endorsed', note: 'Committee view: two address endorsements are recorded. Your endorsement will commit the replacement.', milestone: 'executing', contractorChange: true, contractorEndorsements: 2, milestoneActions: complete + terminate, actions: endorseAddress(2) + replaceAddress },
+    { id: 'contractor-endorsed', title: 'Contractor change · already endorsed', note: 'You already endorsed this address. The pending recipient and count remain visible, with the option to propose a replacement.', milestone: 'executing', contractorChange: true, contractorEndorsements: 2, milestoneActions: complete + terminate, actions: replaceAddress },
+  ].map((example) => ({ state: 'executing', votes: 1, endorsementPreview: example.contractorChange ? 'contractor' : 'time', ...example }));
+
   const milestoneCases = [
     { id: 'pending-start', title: 'Pending · propose start', note: 'Contractor view: the next pending milestone can receive a proposed start time.', milestone: 'pending', milestoneActions: start },
-    { id: 'start-endorsement', actions: changeAddress, title: 'Pending · start proposed', note: 'Committee view: two endorsements are recorded; the next endorsement commits the start.', milestone: 'pending', votes: 1, proposed: 'Sep 1, 2026, 9:00 AM', endorsements: 2, milestoneActions: endorseStart + terminate },
-    { id: 'start-endorsed', actions: changeAddress, votes: 1, title: 'Pending · already endorsed', note: 'A committee member who already endorsed and voted to terminate sees no duplicate actions.', milestone: 'pending', proposed: 'Sep 1, 2026, 9:00 AM', endorsements: 2 },
-    { id: 'completion-endorsement', actions: changeAddress, title: 'Executing · completion proposed', note: 'Committee view: the milestone stays executing until the proposed completion time has enough endorsements.', milestone: 'executing', votes: 1, proposed: 'Sep 11, 2026, 9:00 AM', endorsements: 2, milestoneActions: endorseComplete + terminate },
     { id: 'termination-vote', actions: changeAddress, title: 'Executing · termination vote', note: 'Committee view: a reason is required for a termination vote. The milestone remains executing until the threshold is met.', milestone: 'executing', votes: 1, milestoneActions: complete + terminate },
     { id: 'terminated-next', title: 'Terminated · next milestone pending', note: 'Terminated work is unpaid. A later pending milestone can start after the earlier one finishes.', milestone: 'terminated', nextMilestone: 'pending', nextActions: action('Start milestone 2', 'Propose start now', 'Propose the current time as milestone 2’s start time. 3 total endorsements are required.') },
     { id: 'claim-early', title: 'Completed · early payment', note: 'Contractor view: 7 days against a 10-day duration earns the 200 USD bonus at 2 USD/LIB.', milestone: 'early', milestoneActions: claim('1,300', 'early') },
@@ -66,7 +78,6 @@
   const closeoutCases = [
     { id: 'grace-period', state: 'accepted', title: 'Accepted · grace period', note: 'Project start is hidden until the grace period ends, including for committee members.', milestone: 'pending' },
     { id: 'contractor-change', state: 'executing', title: 'Change contractor', note: 'Committee view: propose a new address while the project is executing.', milestone: 'executing', milestoneActions: complete + terminate, votes: 1, actions: changeAddress },
-    { id: 'contractor-endorse', state: 'executing', title: 'Endorse contractor change', note: 'Committee view: the existing contractor remains in place until the replacement is endorsed.', milestone: 'executing', milestoneActions: complete + terminate, votes: 1, contractorChange: true, actions: action('Endorse contractor address', 'Endorse proposed address', '2 of 3 committee endorsements have been submitted.') + action('Replace proposed contractor', 'Propose replacement address', 'Propose a different contractor address and restart endorsements.', '<div class="form-group"><label for="mockContractorAddress">New contractor address</label><input id="mockContractorAddress" class="form-control" type="text" maxlength="66" placeholder="Enter a Liberdus address" /></div>') },
     { id: 'end-project', state: 'executing', title: 'All milestones finished · end project', note: 'Committee view: all work is finished. End the project while retaining funds for the unpaid milestone.', milestone: 'ontime', actions: endProject + changeAddress },
     { id: 'ended-unpaid', state: 'completed', title: 'Completed project · payment owed', note: 'Contractor view: ending the project preserves the earned payment claim.', milestone: 'ontime', balance: '1,200 LIB', milestoneActions: claim('1,200', 'on-time') },
     { id: 'terminated-unpaid', state: 'terminated', title: 'Terminated project · payment owed', note: 'Contractor view: completed work remains claimable even when another milestone was terminated.', milestone: 'ontime', nextMilestone: 'terminated', balance: '1,200 LIB', milestoneActions: claim('1,200', 'on-time') },
@@ -78,7 +89,7 @@
   function renderMilestone(example, key, number, actions) {
     const milestone = milestones[key];
     const runtime = ['executing', 'completed', 'terminated'].includes(example.state);
-    const open = ['review', 'voting'].includes(example.state) || (example.state === 'executing' && milestone.status === 'executing');
+    const open = example.endorsementPreview === 'time' || ['review', 'voting'].includes(example.state) || (example.state === 'executing' && milestone.status === 'executing');
     return `<div class="dao-project-info-milestone-group">
       <details class="dao-project-review-milestone dao-project-info-milestone" data-milestone-state="${milestone.status}"${open ? ' open' : ''}>
         <summary><span class="dao-project-info-milestone-heading"><span>Milestone ${number}</span><strong>${number === 1 ? 'Write onboarding guides' : 'Publish API examples'}</strong></span><span class="dao-project-info-milestone-status">${labels[milestone.status]}</span></summary>
@@ -174,7 +185,7 @@
     const title = example.title || `${labels[example.state]} proposal`;
     const optionsMarkup = renderOptions(isProject);
     const resultsMarkup = ['review', 'voting', 'canceled'].includes(example.state) ? '' : renderTallies(example.state, isProject);
-    return `<article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="${example.state}" data-state-example="${example.id}">
+    return `<article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="${example.state}" data-state-example="${example.id}"${example.endorsementPreview ? ` data-endorsement-preview="${example.endorsementPreview}"` : ''}>
       <div class="screen-label-row"><div class="screen-label">${title}</div><div class="screen-badges"><span class="screen-badge">${labels[example.state]}</span></div></div>
       <div class="screen-note">${example.note}</div>
       <div class="modal fixed-header active"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">${labels[example.state]}</div></div>
@@ -193,7 +204,7 @@
           ${example.state === 'voting' ? renderTallies('voting', isProject) : ''}
         </div>
         ${example.actions || example.contractorChange ? `<section class="proposal-lifecycle-actions">
-          ${example.contractorChange ? section('Pending Contractor Change', [['Proposed recipient', '0x71ce19c13ae97c71d8202d59e31f7c82d7a183b2'], ['Endorsements', '2 of 3 required']], 'dao-project-info-recipient-change') : ''}
+          ${example.contractorChange ? section('Pending Contractor Change', [['Proposed recipient', '0x71ce19c13ae97c71d8202d59e31f7c82d7a183b2'], ['Endorsements', `${example.contractorEndorsements} of 3 required`]], 'dao-project-info-recipient-change') : ''}
           ${example.actions ? `<div class="proposal-lifecycle-action-group"><h3>Project actions</h3>${example.actions}</div>` : ''}
         </section>` : ''}
         ${example.state === 'voting' ? renderVoteForm() : ''}
@@ -208,8 +219,9 @@
   }
 
   window.PROPOSAL_STATE_GROUPS = [
+    { title: 'Committee endorsements', note: 'Start time, completion time, and contractor changes with one or two endorsements, plus your already-endorsed view. These snapshots open and scroll to the relevant details.', examples: endorsementCases },
     { title: 'Proposal states', note: 'Every proposal status, including parameter-only Applied.', examples: proposalCases },
-    { title: 'Milestone states and payments', note: 'Pending, Executing, Completed, and Terminated, with endorsement and payment variants. Expand milestones and action cards to inspect them.', examples: milestoneCases },
+    { title: 'Milestone states and payments', note: 'Pending, Executing, Completed, and Terminated, with payment variants. Expand milestones and action cards to inspect them.', examples: milestoneCases },
     { title: 'Project start, contractor changes, and closeout', note: 'Role and timing determine which actions appear. Each phone is an independent snapshot.', examples: closeoutCases },
   ];
   window.PROPOSAL_STATE_MARKUP = window.PROPOSAL_STATE_GROUPS.map((group) => `

@@ -248,6 +248,21 @@ for (const id of ['claim-paid', 'claim-insufficient', 'observer', 'grace-period'
 const alreadyEndorsed = stateExamples.find(({ id }) => id === 'start-endorsed');
 assert.ok(!alreadyEndorsed.milestoneActions, 'Already-endorsed milestone must not offer duplicate milestone actions');
 assert.ok(alreadyEndorsed.actions.includes('Propose contractor address'), 'Committee member must retain contractor-change access');
+for (const [prefix, countKey, button] of [
+  ['start', 'endorsements', 'Endorse proposed start'],
+  ['completion', 'endorsements', 'Endorse proposed completion'],
+  ['contractor', 'contractorEndorsements', 'Endorse proposed address'],
+]) {
+  for (const count of [1, 2]) {
+    assert.ok(stateExamples.some((example) => example.id.startsWith(`${prefix}-`)
+      && example[countKey] === count && `${example.actions || ''}${example.milestoneActions || ''}`.includes(button)),
+    `Missing ${prefix} action with ${count} recorded endorsement(s)`);
+  }
+  const endorsed = stateExamples.find(({ id }) => id === `${prefix}-endorsed`);
+  assert.ok(endorsed?.[countKey] > 0, `Already-endorsed ${prefix} must retain its recorded count`);
+  assert.ok(!`${endorsed.actions || ''}${endorsed.milestoneActions || ''}`.includes(button),
+    `Already-endorsed ${prefix} must hide its endorsement button`);
+}
 for (const hook of ['dao-project-info-recipient-change', 'proposal-lifecycle-action-group', 'proposal-vote-current-section', 'proposal-result-meter-track', 'proposal-result-overview', 'proposal-committee-vote-list', 'dao-project-ballot', 'proposal-info-row--accept', 'proposal-info-row--rejected', 'proposal-vote-weight-percent', 'proposal-vote-requirement-value']) {
   assert.ok(productionJs.includes(hook) || productionCss.includes(hook), `Production rendering hook missing: ${hook}`);
   assert.ok(stateMarkup.includes(hook), `State gallery rendering hook missing: ${hook}`);

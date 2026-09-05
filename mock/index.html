@@ -1278,6 +1278,17 @@
           ".modal-dialog.active .modal-content, #daoModal .dao-list-pane, #chatModal .messages-container, .app-screen.active, .modal.active .modal-content",
         );
 
+        const positionEndorsementPreview = (frame) => {
+          const screen = frame.closest("[data-endorsement-preview]");
+          if (!screen || frame.dataset.endorsementPositioned || !frame.getClientRects().length) return;
+          const target = frame.contentDocument?.querySelector(screen.dataset.endorsementPreview === "contractor"
+            ? ".dao-project-info-recipient-change" : ".dao-project-info-runtime");
+          if (!target) return;
+          const surface = getScrollSurface(frame.contentDocument);
+          surface.scrollTop += target.getBoundingClientRect().top - surface.getBoundingClientRect().top - 12;
+          frame.dataset.endorsementPositioned = "true";
+        };
+
         const setFocusedPreview = (preview) => {
           if (focusedPreview === preview) return;
           if (focusedPreview) {
@@ -1388,6 +1399,7 @@
             frame.title = `${label} interactive phone preview`;
             frame.addEventListener("load", () => {
               wireDeviceFrame(frame);
+              positionEndorsementPreview(frame);
               resolve();
             }, { once: true });
             const rootMarkup = deviceRoot.matches("[data-device-root]")
@@ -1732,6 +1744,9 @@
           });
           requestAnimationFrame(() => {
             if (panelName === "dao") renderArrows();
+            if (panelName === "projects") {
+              canvas.querySelectorAll("[data-endorsement-preview] iframe").forEach(positionEndorsementPreview);
+            }
           });
         };
 
