@@ -6,10 +6,10 @@
     executing: 'Executing', terminated: 'Terminated', completed: 'Completed',
     pending: 'Pending',
   };
-  const rows = (values) => values.map(([label, value]) => `
-    <div class="proposal-info-row"><span>${label}</span><span class="proposal-info-value">${value}</span></div>
+  const rows = (values) => values.map(([label, value, tone]) => `
+    <div class="proposal-info-row${tone ? ` proposal-info-row--${tone}` : ''}"><span>${label}</span><span class="proposal-info-value">${String(value).replace(/(, 2026), /, '$1\n')}</span></div>
   `).join('');
-  const section = (title, values) => `<section class="proposal-info-section"><h3>${title}</h3><div class="proposal-info-grid">${rows(values)}</div></section>`;
+  const section = (title, values, className = '') => `<section class="proposal-info-section${className ? ` ${className}` : ''}"><h3>${title}</h3><div class="proposal-info-grid">${rows(values)}</div></section>`;
   const action = (title, button, help, field = '') => `
     <details class="proposal-lifecycle-action${button === 'Claim milestone payment' ? ' proposal-lifecycle-action--claim' : ''}"${button === 'Claim milestone payment' ? ' open' : ''}>
       <summary><span>${title}</span></summary>
@@ -19,9 +19,9 @@
   const endorseStart = action('Start milestone 1', 'Endorse proposed start', 'Endorse Sep 1, 2026, 9:00 AM as the start time. 2 of 3 endorsements have been submitted.');
   const complete = action('Complete milestone 1', 'Propose completion now', 'Propose the current time as milestone 1’s completion time. 3 total endorsements are required.');
   const endorseComplete = action('Complete milestone 1', 'Endorse proposed completion', 'Endorse Sep 11, 2026, 9:00 AM as the completion time. 2 of 3 endorsements have been submitted.');
-  const terminate = action('Terminate milestone 1', 'Submit termination vote', '1 of 3 committee termination votes has been submitted.', '<div class="form-group"><label>Termination reason<textarea class="form-control" rows="3" maxlength="500" placeholder="Explain why this milestone should be terminated"></textarea></label></div>');
+  const terminate = action('Terminate milestone 1', 'Submit termination vote', '1 of 3 committee termination votes has been submitted.', '<div class="form-group"><label for="mockTerminationReason">Termination reason</label><textarea id="mockTerminationReason" class="form-control" rows="3" maxlength="500" placeholder="Explain why this milestone should be terminated"></textarea></div>');
   const claim = (amount, timing) => action('Claim milestone 1', 'Claim milestone payment', `Claim ${amount} LIB for ${timing} delivery.`);
-  const changeAddress = action('Change contractor address', 'Propose contractor address', 'Propose a new contractor address. 3 committee endorsements are required.', '<div class="form-group"><label>New contractor address<input class="form-control" type="text" maxlength="66" placeholder="Enter a Liberdus address" /></label></div>');
+  const changeAddress = action('Change contractor address', 'Propose contractor address', 'Propose a new contractor address. 3 committee endorsements are required.', '<div class="form-group"><label for="mockContractorAddress">New contractor address</label><input id="mockContractorAddress" class="form-control" type="text" maxlength="66" placeholder="Enter a Liberdus address" /></div>');
   const endProject = action('End project', 'End project', 'All milestones are finished. End the project and retain only completed, unpaid milestone payouts in escrow.');
   const reclaim = action('Reclaim project balance', 'Reclaim remaining balance', 'Reclaim the remaining 1,200 LIB from project escrow.');
 
@@ -39,7 +39,7 @@
 
   const proposalCases = [
     { id: 'review', state: 'review', note: 'Observer view during committee review, before public voting. Milestone terms open by default.', milestone: 'pending' },
-    { id: 'voting', state: 'voting', note: 'Observer view during public voting on Reject or Fund project. Milestones have not started.', milestone: 'pending' },
+    { id: 'voting', state: 'voting', note: 'Public voting on Reject or Fund project. The vote form starts with zero weights; milestones have not started.', milestone: 'pending' },
     { id: 'accepted', state: 'accepted', note: 'Committee view after the grace period. The approved project is ready to start.', milestone: 'pending', actions: action('Start project', 'Start project', 'Starting this project mints its approved budget into escrow at the current network rate.') },
     { id: 'withheld', state: 'withheld', note: 'The committee withheld the proposal. No project execution actions are available.', milestone: 'pending' },
     { id: 'rejected', state: 'rejected', note: 'Reject won public voting. The project is not funded.', milestone: 'pending' },
@@ -51,10 +51,10 @@
   ];
   const milestoneCases = [
     { id: 'pending-start', title: 'Pending · propose start', note: 'Contractor view: the next pending milestone can receive a proposed start time.', milestone: 'pending', milestoneActions: start },
-    { id: 'start-endorsement', title: 'Pending · start proposed', note: 'Committee view: two endorsements are recorded; the next endorsement commits the start.', milestone: 'pending', proposed: 'Sep 1, 2026, 9:00 AM', endorsements: 2, milestoneActions: endorseStart + terminate },
-    { id: 'start-endorsed', votes: 1, title: 'Pending · already endorsed', note: 'A committee member who already endorsed and voted to terminate sees no duplicate actions.', milestone: 'pending', proposed: 'Sep 1, 2026, 9:00 AM', endorsements: 2 },
-    { id: 'completion-endorsement', title: 'Executing · completion proposed', note: 'Committee view: the milestone stays executing until the proposed completion time has enough endorsements.', milestone: 'executing', proposed: 'Sep 11, 2026, 9:00 AM', endorsements: 2, milestoneActions: endorseComplete + terminate },
-    { id: 'termination-vote', title: 'Executing · termination vote', note: 'Committee view: a reason is required for a termination vote. The milestone remains executing until the threshold is met.', milestone: 'executing', votes: 1, milestoneActions: complete + terminate },
+    { id: 'start-endorsement', actions: changeAddress, title: 'Pending · start proposed', note: 'Committee view: two endorsements are recorded; the next endorsement commits the start.', milestone: 'pending', votes: 1, proposed: 'Sep 1, 2026, 9:00 AM', endorsements: 2, milestoneActions: endorseStart + terminate },
+    { id: 'start-endorsed', actions: changeAddress, votes: 1, title: 'Pending · already endorsed', note: 'A committee member who already endorsed and voted to terminate sees no duplicate actions.', milestone: 'pending', proposed: 'Sep 1, 2026, 9:00 AM', endorsements: 2 },
+    { id: 'completion-endorsement', actions: changeAddress, title: 'Executing · completion proposed', note: 'Committee view: the milestone stays executing until the proposed completion time has enough endorsements.', milestone: 'executing', votes: 1, proposed: 'Sep 11, 2026, 9:00 AM', endorsements: 2, milestoneActions: endorseComplete + terminate },
+    { id: 'termination-vote', actions: changeAddress, title: 'Executing · termination vote', note: 'Committee view: a reason is required for a termination vote. The milestone remains executing until the threshold is met.', milestone: 'executing', votes: 1, milestoneActions: complete + terminate },
     { id: 'terminated-next', title: 'Terminated · next milestone pending', note: 'Terminated work is unpaid. A later pending milestone can start after the earlier one finishes.', milestone: 'terminated', nextMilestone: 'pending', nextActions: action('Start milestone 2', 'Propose start now', 'Propose the current time as milestone 2’s start time. 3 total endorsements are required.') },
     { id: 'claim-early', title: 'Completed · early payment', note: 'Contractor view: 7 days against a 10-day duration earns the 200 USD bonus at 2 USD/LIB.', milestone: 'early', milestoneActions: claim('1,300', 'early') },
     { id: 'claim-ontime', title: 'Completed · on-time payment', note: 'Contractor view: 10 days earns the base 2,400 USD payment at the fixed rate.', milestone: 'ontime', milestoneActions: claim('1,200', 'on-time') },
@@ -65,8 +65,8 @@
   ].map((example) => ({ state: 'executing', ...example }));
   const closeoutCases = [
     { id: 'grace-period', state: 'accepted', title: 'Accepted · grace period', note: 'Project start is hidden until the grace period ends, including for committee members.', milestone: 'pending' },
-    { id: 'contractor-change', state: 'executing', title: 'Change contractor', note: 'Committee view: propose a new address while the project is executing.', milestone: 'executing', actions: changeAddress },
-    { id: 'contractor-endorse', state: 'executing', title: 'Endorse contractor change', note: 'Committee view: the existing contractor remains in place until the replacement is endorsed.', milestone: 'executing', contractorChange: true, actions: action('Endorse contractor address', 'Endorse proposed address', '2 of 3 committee endorsements have been submitted.') + action('Replace proposed contractor', 'Propose replacement address', 'Propose a different contractor address and restart endorsements.', '<div class="form-group"><label>New contractor address<input class="form-control" type="text" maxlength="66" placeholder="Enter a Liberdus address" /></label></div>') },
+    { id: 'contractor-change', state: 'executing', title: 'Change contractor', note: 'Committee view: propose a new address while the project is executing.', milestone: 'executing', milestoneActions: complete + terminate, votes: 1, actions: changeAddress },
+    { id: 'contractor-endorse', state: 'executing', title: 'Endorse contractor change', note: 'Committee view: the existing contractor remains in place until the replacement is endorsed.', milestone: 'executing', milestoneActions: complete + terminate, votes: 1, contractorChange: true, actions: action('Endorse contractor address', 'Endorse proposed address', '2 of 3 committee endorsements have been submitted.') + action('Replace proposed contractor', 'Propose replacement address', 'Propose a different contractor address and restart endorsements.', '<div class="form-group"><label for="mockContractorAddress">New contractor address</label><input id="mockContractorAddress" class="form-control" type="text" maxlength="66" placeholder="Enter a Liberdus address" /></div>') },
     { id: 'end-project', state: 'executing', title: 'All milestones finished · end project', note: 'Committee view: all work is finished. End the project while retaining funds for the unpaid milestone.', milestone: 'ontime', actions: endProject + changeAddress },
     { id: 'ended-unpaid', state: 'completed', title: 'Completed project · payment owed', note: 'Contractor view: ending the project preserves the earned payment claim.', milestone: 'ontime', balance: '1,200 LIB', milestoneActions: claim('1,200', 'on-time') },
     { id: 'terminated-unpaid', state: 'terminated', title: 'Terminated project · payment owed', note: 'Contractor view: completed work remains claimable even when another milestone was terminated.', milestone: 'ontime', nextMilestone: 'terminated', balance: '1,200 LIB', milestoneActions: claim('1,200', 'on-time') },
@@ -85,8 +85,8 @@
         <div class="dao-project-info-milestone-content">
           <div class="dao-project-review-copy"><div><span>Description</span><p>Document the account, messaging, and wallet flows.</p></div><div><span>Deliverable</span><p>Four reviewed guides published on the documentation site.</p></div></div>
           <div class="proposal-info-grid" aria-label="Milestone ${number} terms">${rows([['Duration', '10 days'], ['Cost', '2,400 USD'], ['Late penalty', '300 USD'], ['Early bonus', '200 USD']])}</div>
-          ${runtime ? `<div class="proposal-info-grid dao-project-info-runtime">${rows([
-            ['Milestone status', labels[milestone.status]], ['Started', milestone.start], ['Ended', milestone.end],
+          ${runtime ? `<div class="proposal-info-grid dao-project-info-runtime" aria-label="Milestone ${number} runtime status">${rows([
+            ['Milestone status', labels[milestone.status], milestone.status === 'completed' ? 'accept' : milestone.status === 'terminated' ? 'rejected' : ''], ['Started', milestone.start], ['Ended', milestone.end],
             ['Proposed time', number === 1 ? example.proposed || 'Unavailable' : 'Unavailable'],
             ['Time endorsements', number === 1 ? example.endorsements || 0 : 0], ['Termination votes', number === 1 ? example.votes || 0 : 0], ['Paid amount', milestone.paid],
             ...(milestone.payout ? [['Expected payout', milestone.payout], ['Delivery timing', milestone.timing]] : []),
@@ -97,13 +97,83 @@
     </div>`;
   }
 
+  function renderOptions(isProject) {
+    const options = isProject ? ['Reject', 'Fund project'] : ['no', 'Update parameters'];
+    return `<section class="proposal-info-section"><h3>Proposal Options</h3>
+      <div class="proposal-option-cards${isProject ? ' dao-project-ballot' : ''}">${options.map((option, index) => `
+        <div class="proposal-option-section${!isProject && index === 0 ? ' proposal-option-section--no-change' : ''}">
+          <span class="proposal-option-label">${option}</span>
+          ${isProject ? `<div class="proposal-option-changes"><p class="proposal-info-muted">${index === 0 ? 'Project is not funded.' : 'Approve the recipient, milestones, and maximum budget below.'}</p></div>`
+            : index === 0 ? '<p class="proposal-info-muted"><span class="proposal-change-arrow" aria-hidden="true">&rarr;</span> No parameter changes.</p>'
+            : '<div class="proposal-option-changes"><div class="proposal-change-row"><span>proposalFeeUsdStr</span><div class="proposal-change-values"><small><span>Current:</span><strong>50</strong></small><span class="proposal-change-arrow" aria-hidden="true">&rarr;</span><small><span>New:</span><strong>40</strong></small></div></div></div>'}
+        </div>`).join('')}</div></section>`;
+  }
+
+  function renderMeter(tallies, winner, ariaLabel) {
+    const total = tallies.reduce((sum, tally) => sum + tally.value, 0);
+    return `<div class="proposal-result-meter" aria-label="${ariaLabel}">
+      <div class="proposal-result-meter-labels">${tallies.map((tally, index) => `
+        <div class="proposal-result-meter-label proposal-result-meter-label--${index === 0 ? 'start' : 'end'} proposal-result-meter-label--${tally.tone}${index === winner ? ' proposal-result-meter-label--winner' : ''}">
+          <span>${tally.label}</span><small>${Number((tally.value / total * 100).toFixed(1))}% (${tally.display})</small>
+        </div>`).join('')}</div>
+      <div class="proposal-result-meter-track" aria-hidden="true">${tallies.map((tally) => `
+        <span class="proposal-result-meter-segment proposal-result-meter-segment--${tally.tone}" style="--result-segment-units: ${Math.round(tally.value / total * 1000)};"></span>`).join('')}</div>
+    </div>`;
+  }
+
+  function renderCommitteeVotes(withheld) {
+    return `<div class="proposal-committee-votes"><h4>Committee votes</h4><ul class="proposal-committee-vote-list">
+      ${['Ari Rivera', 'Sam Chen', 'Mina Patel'].map((name, index) => {
+        const vote = index === 2 || (withheld && index === 1) ? 'withhold' : 'accept';
+        return `<li class="proposal-committee-vote-row"><span class="proposal-committee-vote-address"><strong>${name}</strong><small>0x${index + 1}2…a${index + 1}b</small></span><span class="proposal-committee-vote-choice proposal-committee-vote-choice--${vote}">${vote === 'accept' ? 'Accept' : 'Withhold - Deliverables need clarification'}</span></li>`;
+      }).join('')}</ul></div>`;
+  }
+
+  function renderTallies(state, isProject) {
+    const committee = state === 'review' || state === 'withheld';
+    const withheld = state === 'withheld';
+    const rejected = state === 'rejected';
+    const tallies = committee ? [
+      { label: 'Accept', value: withheld ? 1 : 2, display: withheld ? '1 vote' : '2 votes', tone: 'accept' },
+      { label: 'Withhold', value: withheld ? 2 : 1, display: withheld ? '2 votes' : '1 vote', tone: 'withhold' },
+    ] : [
+      { label: isProject ? 'Reject' : 'no', value: rejected ? 23.4 : 8.3, display: rejected ? '23.4' : '8.3', tone: 'palette-0' },
+      { label: isProject ? 'Fund project' : 'Update parameters', value: rejected ? 8.3 : 23.4, display: rejected ? '8.3' : '23.4', tone: 'palette-1' },
+    ];
+    const winner = state === 'review' ? -1 : rejected ? 0 : 1;
+    const meter = renderMeter(tallies, winner, committee ? 'Committee review vote totals' : 'Vote result breakdown');
+    if (state === 'review' || state === 'voting') {
+      return `<section class="proposal-info-section proposal-vote-current-section"><div class="proposal-vote-current-heading"><h3>${committee ? 'Committee Review' : 'Current Vote'}</h3><span${committee ? '' : ' class="proposal-vote-current-deadline"'}>${committee ? 'Review ends: Aug 22, 9:00 AM' : 'Voting ends: Aug 29, 9:00 AM'}</span></div>${meter}${committee ? renderCommitteeVotes(false) : ''}</section>`;
+    }
+    return `<section class="proposal-info-section"><h3>Results</h3><div class="proposal-result-overview">
+      <div class="proposal-result-card"><span>${committee ? 'Outcome' : 'Winner'}</span><span class="proposal-result-value">${committee ? 'Withheld' : tallies[winner].label}</span></div>
+      <div class="proposal-result-card"><span>${committee ? 'Committee size' : 'Total voting power'}</span><span class="proposal-result-value">${committee ? '3' : '31.7 power'}</span></div>
+    </div>${meter}${committee ? renderCommitteeVotes(true) : ''}</section>`;
+  }
+
+  function renderVoteForm() {
+    return `<section class="proposal-vote-actions" id="proposalVoteActionSection" aria-label="Proposal voting actions">
+      <div class="proposal-committee-actions-header"><h3>Vote preview</h3><p id="proposalVoteActionHelp">Allocate option weights and choose a minimum-spend multiple to preview voting power.</p></div>
+      <div class="proposal-vote-options" id="proposalVoteOptions">
+        <div class="proposal-vote-options-header"><span>Option</span><span>%</span><span class="proposal-vote-weight-label">Weight<button type="button" class="toll-info-icon proposal-vote-help" data-icon="info" aria-label="About weight"></button></span></div>
+        ${['Reject', 'Fund project'].map((option, index) => `<label class="proposal-vote-option"><span>${option}</span><span class="proposal-vote-weight-percent" data-vote-weight-percent="${index}" aria-label="${option} percent">0%</span><input type="number" class="form-control" min="0" max="1000000" step="1" inputmode="numeric" placeholder="0" aria-label="${option} weight" data-vote-option-index="${index}" value="0" /></label>`).join('')}
+        <div class="proposal-vote-requirements" aria-label="Vote requirements">
+          ${[['Vote Threshold', '10 LIB'], ['Minimum Spend', '1 LIB']].map(([label, value]) => `<span class="proposal-vote-requirement-label">${label}<button type="button" class="toll-info-icon proposal-vote-help" data-icon="info" aria-label="About ${label}"></button></span><span class="proposal-vote-requirement-value">${value}</span>`).join('')}
+        </div>
+      </div>
+      <div class="proposal-vote-spend-multiple-row"><label for="proposalVoteSpendMultiple">Spend multiple</label><input type="number" id="proposalVoteSpendMultiple" class="form-control" min="1" step="1" inputmode="numeric" value="1" /><span id="proposalVoteMinimumSpend">× 1 LIB minimum spend</span></div>
+      <div class="proposal-vote-preview proposal-vote-preview--message" id="proposalVotePreview"><div class="proposal-vote-preview-message proposal-vote-preview-message--warning">Enter at least one positive option weight.</div></div>
+      <button type="button" class="btn btn--primary btn--pill btn--full" id="proposalVoteSubmit" disabled>Submit vote</button>
+    </section>`;
+  }
+
   function renderScreen(example) {
     const isProject = example.state !== 'applied';
     const runtime = ['executing', 'completed', 'terminated'].includes(example.state);
     const multiple = Boolean(example.nextMilestone);
     const title = example.title || `${labels[example.state]} proposal`;
-    const options = isProject ? ['Reject', 'Fund project'] : ['No change', 'Update parameters'];
-    const result = example.state === 'withheld' ? 'Committee withheld' : example.state === 'rejected' ? 'Reject' : example.state === 'canceled' ? 'Canceled' : options[1];
+    const optionsMarkup = renderOptions(isProject);
+    const resultsMarkup = ['review', 'voting', 'canceled'].includes(example.state) ? '' : renderTallies(example.state, isProject);
     return `<article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="${example.state}" data-state-example="${example.id}">
       <div class="screen-label-row"><div class="screen-label">${title}</div><div class="screen-badges"><span class="screen-badge">${labels[example.state]}</span></div></div>
       <div class="screen-note">${example.note}</div>
@@ -118,17 +188,20 @@
           <section class="proposal-info-section dao-project-info-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list">
             ${renderMilestone(example, example.milestone, 1, example.milestoneActions)}
             ${multiple ? renderMilestone(example, example.nextMilestone, 2, example.nextActions) : ''}
-          </div></section>` : section('Results', [['Winner', 'Update parameters'], ['Proposal fee', '50 USD → 40 USD']])}
-          ${example.state === 'review' ? section('Committee Review', [['Accept', '2 votes'], ['Withhold', '1 vote']]) : ''}
-          ${example.state === 'voting' ? section('Current Vote', [['Reject', '8.3 power'], ['Fund project', '23.4 power']]) : ''}
-          ${example.contractorChange ? section('Pending Contractor Change', [['Proposed recipient', '0x71ce19c13ae97c71d8202d59e31f7c82d7a183b2'], ['Endorsements', '2 of 3 required']]) : ''}
-          ${example.actions ? `<section class="proposal-lifecycle-actions">${example.actions}</section>` : ''}
+          </div></section>` : optionsMarkup + resultsMarkup}
+          ${example.state === 'review' ? renderTallies('review', isProject) : ''}
+          ${example.state === 'voting' ? renderTallies('voting', isProject) : ''}
         </div>
-        <div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Proposal options, results, overview, review timeline</span></summary><div class="proposal-more-content">
-          <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards">${options.map((option) => `<div class="proposal-option-section"><span class="proposal-option-label">${option}</span></div>`).join('')}</div></section>
-          ${['review', 'voting'].includes(example.state) ? '' : section('Results', [['Result', result]])}
-          ${section('Overview', [['Type', isProject ? 'Project' : 'Governance'], ['Status', labels[example.state]]])}
-          ${section('Review Timeline', [['Review starts', 'Aug 20, 2026, 9:00 AM'], ['Review ends', 'Aug 22, 2026, 9:00 AM']])}
+        ${example.actions || example.contractorChange ? `<section class="proposal-lifecycle-actions">
+          ${example.contractorChange ? section('Pending Contractor Change', [['Proposed recipient', '0x71ce19c13ae97c71d8202d59e31f7c82d7a183b2'], ['Endorsements', '2 of 3 required']], 'dao-project-info-recipient-change') : ''}
+          ${example.actions ? `<div class="proposal-lifecycle-action-group"><h3>Project actions</h3>${example.actions}</div>` : ''}
+        </section>` : ''}
+        ${example.state === 'voting' ? renderVoteForm() : ''}
+        <div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">${isProject ? 'Proposal options, results, overview, review timeline' : 'Overview, review timeline'}${example.state === 'review' ? ', committee review' : ''}</span></summary><div class="proposal-more-content">
+          ${isProject ? optionsMarkup + resultsMarkup : ''}
+          ${section('Overview', [['Number', '#1048'], ['Type', isProject ? 'Project' : 'Governance'], ['Status', labels[example.state]], ['Created', 'Aug 20, 2026, 9:00 AM'], ['Updated', example.state === 'review' ? 'Aug 21, 2026, 9:00 AM' : example.state === 'voting' ? 'Aug 25, 2026, 9:00 AM' : 'Sep 16, 2026, 9:00 AM']])}
+          ${section('Review Timeline', [['Window state', example.state === 'review' ? 'Review open' : 'Review ended'], ['Review starts', 'Aug 20, 2026, 9:00 AM'], ['Review ends', 'Aug 22, 2026, 9:00 AM']])}
+          ${example.state === 'review' ? section('Committee Review', [['Committee size', '3'], ['Next state', 'Voting if finalized']]) : ''}
         </div></details></div>
       </div></div></div>
     </article>`;

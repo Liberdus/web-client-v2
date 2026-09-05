@@ -240,11 +240,21 @@ for (const label of ['Propose start now', 'Endorse proposed start', 'Propose com
   assert.ok(productionJs.includes(label) || productionJs.includes(productionLabel), `Unavailable production project action: ${label}`);
   assert.ok(stateMarkup.includes(label), `Missing project action example: ${label}`);
 }
-for (const id of ['start-endorsed', 'claim-paid', 'claim-insufficient', 'observer', 'grace-period', 'reclaimed']) {
+for (const id of ['claim-paid', 'claim-insufficient', 'observer', 'grace-period', 'reclaimed']) {
   const example = stateExamples.find((example) => example.id === id);
   assert.ok(example, `Missing unavailable-action example: ${id}`);
   assert.ok(!example.actions && !example.milestoneActions, `${id} must not offer an unavailable action`);
 }
+const alreadyEndorsed = stateExamples.find(({ id }) => id === 'start-endorsed');
+assert.ok(!alreadyEndorsed.milestoneActions, 'Already-endorsed milestone must not offer duplicate milestone actions');
+assert.ok(alreadyEndorsed.actions.includes('Propose contractor address'), 'Committee member must retain contractor-change access');
+for (const hook of ['dao-project-info-recipient-change', 'proposal-lifecycle-action-group', 'proposal-vote-current-section', 'proposal-result-meter-track', 'proposal-result-overview', 'proposal-committee-vote-list', 'dao-project-ballot', 'proposal-info-row--accept', 'proposal-info-row--rejected', 'proposal-vote-weight-percent', 'proposal-vote-requirement-value']) {
+  assert.ok(productionJs.includes(hook) || productionCss.includes(hook), `Production rendering hook missing: ${hook}`);
+  assert.ok(stateMarkup.includes(hook), `State gallery rendering hook missing: ${hook}`);
+}
+assert.ok(projectsMarkup.includes('Review Project Proposal'), 'Confirmation must use the runtime project title');
+assert.ok(projectsMarkup.includes('Signing submits this project proposal for review.'), 'Confirmation must explain project signing');
+
 assert.ok(!projectsMarkup.includes('Project submission unavailable'), 'Project signing must reflect the closeout-actions branch');
 assert.ok(mockHtml.includes('data-showcase-tab="projects">Proposals</button>'));
 assert.ok(mockHtml.includes('<script src="./proposal-states.js"></script>'));
