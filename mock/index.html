@@ -294,6 +294,31 @@
         width: var(--device-viewport-width);
       }
 
+      .device-preview {
+        position: relative;
+      }
+
+      .device-preview.is-focused .device-frame {
+        outline: 3px solid var(--primary-color);
+        outline-offset: 3px;
+      }
+
+      .device-focus-trigger {
+        background: transparent;
+        border: 0;
+        border-radius: 10px;
+        cursor: pointer;
+        height: 100%;
+        inset: 0;
+        position: absolute;
+        width: 100%;
+      }
+
+      .device-focus-trigger:focus-visible {
+        outline: 3px solid var(--primary-color);
+        outline-offset: 3px;
+      }
+
       .transition-arrows {
         height: 100%;
         left: 0;
@@ -426,7 +451,7 @@
   <body>
     <div class="mock-viewport" data-pan-viewport>
       <div class="zoom-controls" aria-label="Mock board zoom controls">
-        <span class="zoom-help">Device: scroll content · canvas: scroll or drag to pan, Ctrl/Cmd + scroll to zoom · arrow: click to pin</span>
+        <span class="zoom-help">Scroll to pan · click a device to interact · click outside, Escape, or zoom to exit · Ctrl/Cmd + scroll to zoom</span>
         <button class="zoom-button" type="button" data-zoom-out aria-label="Zoom out">−</button>
         <button class="zoom-reset" type="button" data-zoom-reset aria-label="Reset zoom and position">100%</button>
         <button class="zoom-button" type="button" data-zoom-in aria-label="Zoom in">+</button>
@@ -1085,6 +1110,7 @@
         let dragging = false;
         let lastX = 0;
         let lastY = 0;
+        let focusedPreview = null;
         const pinnedConnectors = new Set();
         const productionStylesUrl = new URL("../styles.css", window.location.href).href;
         const modalCatalog = window.MODAL_CATALOG;
@@ -1252,11 +1278,57 @@
           ".modal-dialog.active .modal-content, #daoModal .dao-list-pane, #chatModal .messages-container, .app-screen.active, .modal.active .modal-content",
         );
 
+        const setFocusedPreview = (preview) => {
+          if (focusedPreview === preview) return;
+          if (focusedPreview) {
+            const previousFrame = focusedPreview.querySelector("iframe");
+            previousFrame.contentDocument?.activeElement?.blur();
+            previousFrame.blur();
+            previousFrame.inert = true;
+            focusedPreview.classList.remove("is-focused");
+            focusedPreview.querySelector(".device-focus-trigger").hidden = false;
+          }
+          focusedPreview = preview;
+          if (preview) {
+            const frame = preview.querySelector("iframe");
+            preview.classList.add("is-focused");
+            preview.querySelector(".device-focus-trigger").hidden = true;
+            frame.inert = false;
+            frame.focus({ preventScroll: true });
+          }
+        };
+
+        const handleDeviceEscape = (event) => {
+          if (event.key !== "Escape" || !focusedPreview) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const trigger = focusedPreview.querySelector(".device-focus-trigger");
+          setFocusedPreview(null);
+          trigger.focus({ preventScroll: true });
+        };
+        document.addEventListener("keydown", handleDeviceEscape, true);
+        document.addEventListener("pointerdown", (event) => {
+          if (!focusedPreview?.contains(event.target)) setFocusedPreview(null);
+        }, true);
+
         const wireDeviceFrame = (frame) => {
           const frameDocument = frame.contentDocument;
           if (!frameDocument) return;
 
+          frameDocument.addEventListener("keydown", handleDeviceEscape, true);
           frameDocument.addEventListener("wheel", (event) => {
+            if (event.ctrlKey || event.metaKey) {
+              event.preventDefault();
+              const frameBox = frame.getBoundingClientRect();
+              if (event.deltaY !== 0) {
+                zoomAt(
+                  scale + (event.deltaY < 0 ? 0.08 : -0.08),
+                  frameBox.left + event.clientX * scale,
+                  frameBox.top + event.clientY * scale,
+                );
+              }
+              return;
+            }
             const target = event.target instanceof frame.contentWindow.Element ? event.target : null;
             const scrollSurface = getScrollSurface(frameDocument);
             if (!target || !scrollSurface) return;
@@ -1311,6 +1383,7 @@
             const frame = document.createElement("iframe");
             const label = screen.querySelector(".screen-label")?.textContent?.trim() || "App modal";
             frame.className = "device-frame";
+            frame.inert = true;
             frame.dataset.appModal = screen.dataset.appModal;
             frame.title = `${label} interactive phone preview`;
             frame.addEventListener("load", () => {
@@ -1320,8 +1393,17 @@
             const rootMarkup = deviceRoot.matches("[data-device-root]")
               ? deviceRoot.innerHTML
               : deviceRoot.outerHTML;
-            deviceRoot.replaceWith(frame);
+            const preview = document.createElement("div");
+            preview.className = "device-preview";
+            const focusTrigger = document.createElement("button");
+            focusTrigger.className = "device-focus-trigger";
+            focusTrigger.type = "button";
+            focusTrigger.setAttribute("aria-label", `Interact with ${label} preview`);
+            focusTrigger.title = "Click to interact. Escape or zoom to return to the canvas.";
+            focusTrigger.addEventListener("click", () => setFocusedPreview(preview));
+            preview.append(frame, focusTrigger);
             frame.srcdoc = createDeviceDocument(rootMarkup);
+            deviceRoot.replaceWith(preview);
           })),
         );
 
@@ -1347,6 +1429,7 @@
         };
 
         const zoomAt = (nextScale, anchorX, anchorY) => {
+          setFocusedPreview(null);
           const clampedScale = clamp(nextScale, minScale, maxScale);
           const canvasX = (anchorX - offsetX) / scale;
           const canvasY = (anchorY - offsetY) / scale;
@@ -1359,6 +1442,7 @@
         zoomIn.addEventListener("click", () => zoomAt(scale + zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2));
         zoomOut.addEventListener("click", () => zoomAt(scale - zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2));
         zoomReset.addEventListener("click", () => {
+          setFocusedPreview(null);
           scale = 1;
           offsetX = 0;
           offsetY = 0;
@@ -1637,6 +1721,7 @@
         };
 
         const activateShowcasePanel = (panelName) => {
+          setFocusedPreview(null);
           showcaseTabs.forEach((tab) => {
             const isActive = tab.dataset.showcaseTab === panelName;
             tab.setAttribute("aria-selected", isActive);

@@ -105,8 +105,9 @@ Their functions now live in the filter bar, proposal-row preview badges, and the
 
 ## Interactive mock controls
 
-- Hover a device and use the mouse wheel or trackpad to scroll its production-sized content.
-- Scroll vertically or horizontally over the canvas to pan in that direction, or drag the board background.
+- Scroll vertically or horizontally to pan the canvas, including while hovering over an unfocused device. Dragging the board background also pans.
+- Click a device once to focus it; its outline turns purple and subsequent clicks and scrolling interact with its content.
+- Click outside the device, press **Escape**, switch tabs, or zoom the canvas to leave device focus. Expanding or collapsing a milestone keeps focus.
 - Use **+**, **−**, the percentage button, or **Ctrl/Cmd + scroll** outside a device to control zoom.
 - Click a flow arrow, arrow label, or connected source control to pin its animated highlight.
 - Run `node mock/validate-current-flow.mjs` after changing production DAO modal labels or actions.
