@@ -3138,6 +3138,10 @@ input[type='file'].form-control::file-selector-button {
   text-align: center;
 }
 
+#proposalInfoModal .dao-project-info-recipient-change .proposal-info-row {
+  border-bottom: 0;
+}
+
 #proposalInfoModal .dao-project-info-recipient-change .proposal-info-row:first-child {
   gap: 4px;
   grid-template-columns: minmax(0, 1fr);
