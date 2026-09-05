@@ -21956,10 +21956,10 @@ class ChatModal {
       const replyOwnerLabel = `<span class="reply-quote-label ${ownerClass}">${escapeHtml(ownerText)}</span>`;
 
       replyHTML = `
-                <div class="reply-quote ${ownerClass}" data-reply-txid="${escapeHtml(item.replyId)}">
+                <button type="button" class="reply-quote ${ownerClass}" data-reply-txid="${escapeHtml(item.replyId)}">
                   ${replyOwnerLabel}
-                  <div class="reply-quote-text">${replyText}</div>
-                </div>
+                  <span class="reply-quote-text">${replyText}</span>
+                </button>
               `;
     }
 
