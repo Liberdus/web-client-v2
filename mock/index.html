@@ -1238,6 +1238,10 @@
                 body { min-height: 0; padding: 0; }
                 .container { border-radius: 0; box-shadow: none; height: 100dvh; width: 100%; }
                 .modal { transition: none; }
+                /* Preview the two-column milestone layout without changing the app stylesheet. */
+                #proposalInfoModal .dao-project-review-milestone .proposal-info-row {
+                  flex-basis: calc((100% - 8px) / 2);
+                }
               </style>
             </head>
             <body><div class="container">${rootMarkup}</div>`;

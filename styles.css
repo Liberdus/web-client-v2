@@ -3744,6 +3744,10 @@ input[type='file'].form-control::file-selector-button {
     flex-basis: calc((100% - 8px) / 2);
   }
 
+  #proposalInfoModal .dao-project-review-milestone .proposal-info-row {
+    flex-basis: 100%;
+  }
+
   #proposalInfoModal .dao-project-info-funding .proposal-info-row,
   #proposalInfoModal .dao-project-info-recipient-change .proposal-info-row {
     grid-template-columns: minmax(100px, auto) minmax(0, 1fr);

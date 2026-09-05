@@ -2,7 +2,7 @@
 
 This reference includes the DAO project lifecycle from `feat/dao-projects-7-closeout-actions` at `cd9aad46`. The interactive reference is [`mock/index.html`](mock/index.html).
 
-Its device frames use the iPhone 17 Pro logical viewport (`402 × 874`) and load the production stylesheet. Mock-only styling is limited to the surrounding flow board and annotations.
+Its device frames use the iPhone 17 Pro logical viewport (`402 × 874`) and load the production stylesheet. The mock overrides milestone info cards to use two columns inside its device frames. Layout experiments belong in the mock, leaving the app stylesheet and behavior unchanged.
 
 ## Entry and list
 
