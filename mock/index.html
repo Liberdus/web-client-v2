@@ -449,7 +449,7 @@
 
         <div class="showcase-tabs" role="tablist" aria-label="UI preview categories">
           <button class="showcase-tab" id="showcase-tab-dao" type="button" role="tab" aria-controls="showcase-panel-dao" aria-selected="true" data-showcase-tab="dao">DAO Flow</button>
-          <button class="showcase-tab" id="showcase-tab-projects" type="button" role="tab" aria-controls="showcase-panel-projects" aria-selected="false" tabindex="-1" data-showcase-tab="projects">Projects</button>
+          <button class="showcase-tab" id="showcase-tab-projects" type="button" role="tab" aria-controls="showcase-panel-projects" aria-selected="false" tabindex="-1" data-showcase-tab="projects">Proposals</button>
           <button class="showcase-tab" id="showcase-tab-screens" type="button" role="tab" aria-controls="showcase-panel-screens" aria-selected="false" tabindex="-1" data-showcase-tab="screens">Screens</button>
           <button class="showcase-tab" id="showcase-tab-account" type="button" role="tab" aria-controls="showcase-panel-account" aria-selected="false" tabindex="-1" data-showcase-tab="account">Account</button>
           <button class="showcase-tab" id="showcase-tab-chat" type="button" role="tab" aria-controls="showcase-panel-chat" aria-selected="false" tabindex="-1" data-showcase-tab="chat">Chat</button>
@@ -461,7 +461,7 @@
         <section class="showcase-panel" id="showcase-panel-dao" role="tabpanel" aria-labelledby="showcase-tab-dao" data-showcase-panel="dao">
           <div class="current-note">
             <strong>What changed from the old mock</strong>
-            Backend proposal data, proposal and project filters, review confirmation, committee decisions, weighted voting, finalization, reward claims, and parameter application are all represented below. Project-specific authoring, preview, and lifecycle states are collected in the Projects tab.
+            Backend proposal data, proposal and project filters, review confirmation, committee decisions, weighted voting, finalization, reward claims, and parameter application are all represented below. Project-specific authoring, preview, and lifecycle states are collected in the Proposals tab.
           </div>
 
           <section class="flow-section" aria-labelledby="current-flow-title">
@@ -806,9 +806,10 @@
 
         <section class="showcase-panel preview-panel" id="showcase-panel-projects" role="tabpanel" aria-labelledby="showcase-tab-projects" data-showcase-panel="projects" hidden>
           <div class="current-note">
-            <strong>Project proposal UI from current main</strong>
-            The authoring preview remains intentionally non-submittable until backend support lands. Existing project proposals can still expose their Executing, Terminated, and Completed lifecycle data.
+            <strong>Proposal and milestone states</strong>
+            Scroll each phone and expand its milestone and action cards. These independent previews do not submit transactions.
           </div>
+          <div id="proposal-state-gallery"></div>
           <div class="section-heading"><h2 class="section-title">Project authoring and review</h2><div class="section-note">Scroll each phone to inspect the live form and proposal components.</div></div>
           <div class="preview-grid">
             <article class="screen" data-app-modal="addProposalModal">
@@ -821,20 +822,19 @@
                     <div class="dao-form-grid"><div class="form-group"><label>Emergency <span class="dao-form-required">*</span></label><select class="form-control" disabled><option>No</option></select><div class="dao-form-help">Project proposals cannot be emergency proposals.</div></div><div class="form-group"><label>Proposal Fee</label><input class="form-control dao-form-current-value" value="50 USD" readonly /><div class="dao-form-help">Derived from DAO params.</div></div></div>
                     <div class="form-group"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Community documentation sprint" /></div>
                     <div class="form-group"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control" rows="4">Fund a focused documentation sprint with reviewed onboarding guides and API examples.</textarea></div>
-                    <div class="form-group"><label>Proposal Type <span class="dao-form-required">*</span></label><select class="form-control"><option selected>Project</option></select><div class="dao-form-help">Project proposals fund a recipient through milestones. This editor is a UI preview.</div></div>
+                    <div class="form-group"><label>Proposal Type <span class="dao-form-required">*</span></label><select class="form-control"><option selected>Project</option></select><div class="dao-form-help">Project proposals fund a recipient through milestones. The contractor can claim approved milestone payments.</div></div>
                     <div class="form-group dao-form-section hidden" id="addProposalParameterEditor"><div class="dao-form-list" id="addProposalOptionsList"></div></div>
                     <section class="dao-project-editor" id="addProposalProjectEditor" aria-labelledby="addProposalProjectHeading">
-                      <div class="dao-project-preview-notice" role="status"><strong>Project UI preview</strong><span>Project review and submission are not available yet.</span></div>
                       <div class="dao-form-section-header"><label id="addProposalProjectHeading">Project Details</label></div>
-                      <div class="dao-form-section-header"><label>Milestones <span class="dao-form-required">*</span></label><span class="dao-form-help" id="addProposalProjectMilestoneLimit">2 of 10</span></div>
+                      <div class="dao-form-section-header"><label>Milestones <span class="dao-form-required">*</span></label><span class="dao-form-help" id="addProposalProjectMilestoneLimit">2 of 20</span></div>
                       <div class="dao-form-list" id="addProposalProjectMilestones">
                         <section class="dao-project-milestone" data-dao-milestone-id="milestone-1">
                           <div class="dao-form-row-title"><label>Milestone 1</label><div class="dao-project-milestone-actions"><button class="btn btn--secondary dao-project-milestone-action" type="button" disabled aria-label="Move milestone 1 up">↑</button><button class="btn btn--secondary dao-project-milestone-action" type="button" aria-label="Move milestone 1 down">↓</button><button class="btn btn--secondary dao-form-remove-button" type="button" aria-label="Remove milestone 1">×</button></div></div>
-                          <div class="dao-form-grid dao-project-milestone-fields"><div class="form-group form-group--full"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Write onboarding guides" /></div><div class="form-group form-group--full"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Draft installation, account, messaging, and wallet guides.</textarea></div><div class="form-group form-group--full"><label>Deliverable / Acceptance Criteria <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Four reviewed guides published in the documentation site.</textarea></div><div class="form-group"><label>Duration (days) <span class="dao-form-required">*</span></label><input class="form-control" value="14" /><div class="dao-form-help">1–3650 days</div></div><div class="form-group"><label>Cost (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="2400" /></div><div class="form-group"><label>Late Penalty (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="200" /></div><div class="form-group"><label>Early Bonus (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="150" /></div></div>
+                          <div class="dao-form-grid dao-project-milestone-fields"><div class="form-group form-group--full"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Write onboarding guides" /></div><div class="form-group form-group--full"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Draft installation, account, messaging, and wallet guides.</textarea></div><div class="form-group form-group--full"><label>Deliverable <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Four reviewed guides published in the documentation site.</textarea></div><div class="form-group"><label>Duration (days) <span class="dao-form-required">*</span></label><input class="form-control" value="14" /><div class="dao-form-help">1–3650 days</div></div><div class="form-group"><label>Cost (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="2400" /></div><div class="form-group"><label>Late Penalty (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="200" /></div><div class="form-group"><label>Early Bonus (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="150" /></div></div>
                         </section>
                         <section class="dao-project-milestone" data-dao-milestone-id="milestone-2">
                           <div class="dao-form-row-title"><label>Milestone 2</label><div class="dao-project-milestone-actions"><button class="btn btn--secondary dao-project-milestone-action" type="button" aria-label="Move milestone 2 up">↑</button><button class="btn btn--secondary dao-project-milestone-action" type="button" disabled aria-label="Move milestone 2 down">↓</button><button class="btn btn--secondary dao-form-remove-button" type="button" aria-label="Remove milestone 2">×</button></div></div>
-                          <div class="dao-form-grid dao-project-milestone-fields"><div class="form-group form-group--full"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Publish API examples" /></div><div class="form-group form-group--full"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Add tested request and response examples.</textarea></div><div class="form-group form-group--full"><label>Deliverable / Acceptance Criteria <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Examples pass CI and are linked from the API reference.</textarea></div><div class="form-group"><label>Duration (days) <span class="dao-form-required">*</span></label><input class="form-control" value="10" /></div><div class="form-group"><label>Cost (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="1800" /></div><div class="form-group"><label>Late Penalty (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="150" /></div><div class="form-group"><label>Early Bonus (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="100" /></div></div>
+                          <div class="dao-form-grid dao-project-milestone-fields"><div class="form-group form-group--full"><label>Title <span class="dao-form-required">*</span></label><input class="form-control" value="Publish API examples" /></div><div class="form-group form-group--full"><label>Description <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Add tested request and response examples.</textarea></div><div class="form-group form-group--full"><label>Deliverable <span class="dao-form-required">*</span></label><textarea class="form-control" rows="3">Examples pass CI and are linked from the API reference.</textarea></div><div class="form-group"><label>Duration (days) <span class="dao-form-required">*</span></label><input class="form-control" value="10" /></div><div class="form-group"><label>Cost (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="1800" /></div><div class="form-group"><label>Late Penalty (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="150" /></div><div class="form-group"><label>Early Bonus (USD) <span class="dao-form-required">*</span></label><input class="form-control" value="100" /></div></div>
                         </section>
                       </div>
                       <button class="btn btn--secondary dao-form-add-button" id="addProposalProjectAddMilestone" type="button"><span class="dao-form-add-icon"><span class="plus-glyph">+</span></span><span>Add milestone</span></button>
@@ -850,43 +850,21 @@
             </article>
 
             <article class="screen" data-app-modal="confirmProposalModal">
-              <div class="screen-label-row"><div class="screen-label">Review Project Draft</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Preview only</span></div></div>
-              <div class="screen-note"><strong>Review before submission</strong>Funding, milestones, timing, and the backend limitation are explicit.</div>
+              <div class="screen-label-row"><div class="screen-label">Review Project Draft</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div></div>
+              <div class="screen-note"><strong>Review before submission</strong>Review funding, milestones, and timing before signing the proposal.</div>
               <div class="modal fixed-header active" id="confirmProposalModal"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Review Project Draft</div></div><div class="modal-content"><div class="form-container">
                 <div class="proposal-info" id="confirmProposalContent">
                   <div class="proposal-info-heading"><h2 class="proposal-info-title">Community documentation sprint</h2><p class="proposal-type-indicator">Standard Project proposal</p><p class="proposal-info-description">Fund a focused documentation sprint with reviewed onboarding guides and API examples.</p></div>
-                  <div class="dao-project-review-notice" role="status"><strong>Project UI preview</strong><span>Project submission is unavailable until backend support is implemented.</span></div>
                   <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards dao-project-ballot"><div class="proposal-option-section"><span class="proposal-option-label">Reject</span><div class="proposal-option-changes"><p class="proposal-info-muted">Project is not funded.</p></div></div><div class="proposal-option-section"><span class="proposal-option-label">Fund project</span><div class="proposal-option-changes"><p class="proposal-info-muted">Approve the recipient, milestones, and maximum budget below.</p></div></div></div></section>
                   <section class="proposal-info-section dao-project-review-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">0x8f2a…d7a1</span></div><div class="proposal-info-row"><span>Base cost</span><span class="proposal-info-value">4,200 USD</span></div><div class="proposal-info-row"><span>Maximum bonuses</span><span class="proposal-info-value">250 USD</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">4,450 USD</span></div></div></section>
-                  <section class="proposal-info-section dao-project-review-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><article class="dao-project-review-milestone"><h4><span>Milestone 1</span><strong>Write onboarding guides</strong></h4><div class="dao-project-review-copy"><div><span>Description</span><p>Draft installation, account, messaging, and wallet guides.</p></div><div><span>Deliverable / Acceptance Criteria</span><p>Four reviewed guides published in the documentation site.</p></div></div><div class="proposal-info-grid"><div class="proposal-info-row"><span>Duration</span><span class="proposal-info-value">14 days</span></div><div class="proposal-info-row"><span>Cost</span><span class="proposal-info-value">2,400 USD</span></div><div class="proposal-info-row"><span>Late penalty</span><span class="proposal-info-value">200 USD</span></div><div class="proposal-info-row"><span>Early bonus</span><span class="proposal-info-value">150 USD</span></div></div></article></div></section>
-                  <section class="proposal-info-section"><h3>Overview</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Type</span><span class="proposal-info-value">Project</span></div><div class="proposal-info-row"><span>Proposal fee</span><span class="proposal-info-value">50 USD</span></div><div class="proposal-info-row"><span>Initial state</span><span class="proposal-info-value">Not submitted (preview only)</span></div></div></section>
+                  <section class="proposal-info-section dao-project-review-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><article class="dao-project-review-milestone"><h4><span>Milestone 1</span><strong>Write onboarding guides</strong></h4><div class="dao-project-review-copy"><div><span>Description</span><p>Draft installation, account, messaging, and wallet guides.</p></div><div><span>Deliverable</span><p>Four reviewed guides published in the documentation site.</p></div></div><div class="proposal-info-grid"><div class="proposal-info-row"><span>Duration</span><span class="proposal-info-value">14 days</span></div><div class="proposal-info-row"><span>Cost</span><span class="proposal-info-value">2,400 USD</span></div><div class="proposal-info-row"><span>Late penalty</span><span class="proposal-info-value">200 USD</span></div><div class="proposal-info-row"><span>Early bonus</span><span class="proposal-info-value">150 USD</span></div></div></article></div></section>
+                  <section class="proposal-info-section"><h3>Overview</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Type</span><span class="proposal-info-value">Project</span></div><div class="proposal-info-row"><span>Proposal fee</span><span class="proposal-info-value">50 USD</span></div><div class="proposal-info-row"><span>Initial state</span><span class="proposal-info-value">Review after submission</span></div></div></section>
                 </div>
-                <div class="form-actions dao-confirm-actions"><button class="btn btn--secondary btn--pill btn--full" type="button">Back</button><button class="btn btn--primary btn--pill btn--full" id="signConfirmProposal" type="button" disabled>Project submission unavailable</button></div>
+                <div class="form-actions dao-confirm-actions"><button class="btn btn--secondary btn--pill btn--full" type="button">Back</button><button class="btn btn--primary btn--pill btn--full" id="signConfirmProposal" type="button">Sign Proposal</button></div>
               </div></div></div>
             </article>
           </div>
 
-          <div class="preview-subsection"><div class="section-heading"><h2 class="section-title">Project lifecycle states</h2><div class="section-note">Collapsible milestones expose terms and runtime payment status without flattening long projects.</div></div>
-            <div class="preview-grid">
-              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="executing" data-project-proposal="true">
-                <div class="screen-label-row"><div class="screen-label">Executing project</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">In progress</span></div></div>
-                <div class="screen-note"><strong>Active milestone</strong>The current milestone opens by default while later milestones remain collapsed.</div>
-                <div class="modal fixed-header active"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Executing</div></div><div class="modal-content"><div class="form-container"><div class="proposal-info"><div class="proposal-info-heading"><h2 class="proposal-info-title">Community documentation sprint</h2><p class="proposal-type-indicator">Standard Project proposal</p></div><section class="proposal-info-section dao-project-info-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">0x8f2a…d7a1</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">4,450 USD</span></div><div class="proposal-info-row"><span>Treasury balance</span><span class="proposal-info-value">2,050 LIB</span></div><div class="proposal-info-row"><span>Claimable balance</span><span class="proposal-info-value">0 LIB</span></div></div></section><section class="proposal-info-section dao-project-info-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><details class="dao-project-review-milestone dao-project-info-milestone" open><summary><span class="dao-project-info-milestone-heading"><span>Milestone 1</span><strong>Write onboarding guides</strong></span><span class="dao-project-info-milestone-status">Executing</span></summary><div class="dao-project-info-milestone-content"><div class="dao-project-review-copy"><div><span>Description</span><p>Draft installation, account, messaging, and wallet guides.</p></div><div><span>Deliverable / Acceptance Criteria</span><p>Four reviewed guides published in the documentation site.</p></div></div><div class="proposal-info-grid dao-project-info-runtime"><div class="proposal-info-row"><span>Milestone status</span><span class="proposal-info-value">Executing</span></div><div class="proposal-info-row"><span>Started</span><span class="proposal-info-value">Aug 24, 2026</span></div><div class="proposal-info-row"><span>Payout</span><span class="proposal-info-value">Unavailable</span></div><div class="proposal-info-row"><span>Paid</span><span class="proposal-info-value">No</span></div></div></div></details><details class="dao-project-review-milestone dao-project-info-milestone"><summary><span class="dao-project-info-milestone-heading"><span>Milestone 2</span><strong>Publish API examples</strong></span><span class="dao-project-info-milestone-status">Pending</span></summary><div class="dao-project-info-milestone-content"><p class="proposal-info-muted">Starts after milestone 1 is completed.</p></div></details></div></section></div><div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Proposal options, results, overview, review timeline</span></summary></details></div></div></div></div>
-              </article>
-
-              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="terminated" data-project-proposal="true">
-                <div class="screen-label-row"><div class="screen-label">Terminated project</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Stopped</span></div></div>
-                <div class="screen-note"><strong>Terminal state</strong>Funding and milestone status remain readable after a project stops.</div>
-                <div class="modal fixed-header active"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Terminated</div></div><div class="modal-content"><div class="form-container"><div class="proposal-info"><div class="proposal-info-heading"><h2 class="proposal-info-title">Regional ambassador pilot</h2><p class="proposal-type-indicator">Standard Project proposal</p></div><section class="proposal-info-section dao-project-info-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">0x71ce…83b2</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">8,000 USD</span></div><div class="proposal-info-row"><span>Claimable balance</span><span class="proposal-info-value">0 LIB</span></div></div></section><section class="proposal-info-section dao-project-info-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><details class="dao-project-review-milestone dao-project-info-milestone" open><summary><span class="dao-project-info-milestone-heading"><span>Milestone 1</span><strong>Recruit pilot cohort</strong></span><span class="dao-project-info-milestone-status">Terminated</span></summary><div class="dao-project-info-milestone-content"><div class="dao-project-info-notice dao-project-info-notice--unavailable" role="status"><strong>Project terminated</strong><span>No additional milestone payment is available.</span></div><div class="proposal-info-grid dao-project-info-runtime"><div class="proposal-info-row"><span>Milestone status</span><span class="proposal-info-value proposal-info-value--rejected">Terminated</span></div><div class="proposal-info-row"><span>Started</span><span class="proposal-info-value">Jul 2, 2026</span></div><div class="proposal-info-row"><span>Paid</span><span class="proposal-info-value">No</span></div></div></div></details></div></section></div><div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Proposal options, results, overview, review timeline</span></summary></details></div></div></div></div>
-              </article>
-
-              <article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="completed" data-project-proposal="true">
-                <div class="screen-label-row"><div class="screen-label">Completed project</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Paid</span></div></div>
-                <div class="screen-note"><strong>Completed work</strong>Finished and paid timestamps remain available in each collapsible milestone.</div>
-                <div class="modal fixed-header active"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Completed</div></div><div class="modal-content"><div class="form-container"><div class="proposal-info"><div class="proposal-info-heading"><h2 class="proposal-info-title">Wallet accessibility audit</h2><p class="proposal-type-indicator">Standard Project proposal</p></div><section class="proposal-info-section dao-project-info-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">0x4a20…119d</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">3,600 USD</span></div><div class="proposal-info-row"><span>Treasury balance</span><span class="proposal-info-value">0 LIB</span></div><div class="proposal-info-row"><span>Claimable balance</span><span class="proposal-info-value">0 LIB</span></div></div></section><section class="proposal-info-section dao-project-info-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><details class="dao-project-review-milestone dao-project-info-milestone" open><summary><span class="dao-project-info-milestone-heading"><span>Milestone 1</span><strong>Audit and recommendations</strong></span><span class="dao-project-info-milestone-status">Completed</span></summary><div class="dao-project-info-milestone-content"><div class="dao-project-review-copy"><div><span>Description</span><p>Review wallet flows against WCAG guidance.</p></div><div><span>Deliverable / Acceptance Criteria</span><p>Prioritized findings with reproducible cases.</p></div></div><div class="proposal-info-grid dao-project-info-runtime"><div class="proposal-info-row"><span>Milestone status</span><span class="proposal-info-value proposal-info-value--accept">Completed</span></div><div class="proposal-info-row"><span>Started</span><span class="proposal-info-value">Jun 10, 2026</span></div><div class="proposal-info-row"><span>Completed</span><span class="proposal-info-value">Jun 21, 2026</span></div><div class="proposal-info-row"><span>Payout</span><span class="proposal-info-value">1,824.5 LIB</span></div><div class="proposal-info-row"><span>Paid</span><span class="proposal-info-value">Yes</span></div><div class="proposal-info-row"><span>Paid at</span><span class="proposal-info-value">Jun 22, 2026</span></div></div></div></details></div></section></div><div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">Proposal options, results, overview, review timeline</span></summary></details></div></div></div></div>
-              </article>
-            </div>
-          </div>
         </section>
 
         <section class="showcase-panel preview-panel" id="showcase-panel-screens" role="tabpanel" aria-labelledby="showcase-tab-screens" data-showcase-panel="screens" hidden>
@@ -1084,6 +1062,7 @@
     </div>
 
     <script src="./modal-catalog-data.js"></script>
+    <script src="./proposal-states.js"></script>
     <script>
       (() => {
         const viewport = document.querySelector("[data-pan-viewport]");
@@ -1137,6 +1116,7 @@
             </section>`).join("");
         };
         renderModalCatalog();
+        document.getElementById("proposal-state-gallery").innerHTML = window.PROPOSAL_STATE_MARKUP;
 
         const renderDetailSection = (title, rows) => `
           <section class="proposal-info-section">
@@ -1186,29 +1166,6 @@
           ]));
 
           return `<div class="proposal-more-content">${sections.join("")}</div>`;
-        };
-
-        const renderProjectProposalDetails = (state) => {
-          const stateLabels = {
-            completed: "Completed",
-            executing: "Executing",
-            terminated: "Terminated",
-          };
-          const stateLabel = stateLabels[state];
-          if (!stateLabel) throw new Error(`Unknown project proposal state: ${state}`);
-
-          return `<div class="proposal-more-content">
-            <section class="proposal-info-section">
-              <h3>Proposal Options</h3>
-              <div class="proposal-option-cards dao-project-ballot">
-                <div class="proposal-option-section"><span class="proposal-option-label">Reject</span><div class="proposal-option-changes"><p class="proposal-info-muted">Project is not funded.</p></div></div>
-                <div class="proposal-option-section"><span class="proposal-option-label">Fund project</span><div class="proposal-option-changes"><p class="proposal-info-muted">Approve the recipient, milestones, and maximum budget.</p></div></div>
-              </div>
-            </section>
-            ${renderDetailSection("Results", [["Winner", "Fund project", "accept"], ["Total voting power", "31.7 power"]])}
-            ${renderDetailSection("Overview", [["Number", "#1048"], ["Type", "Project"], ["Status", stateLabel], ["Created", "Jun 2, 2026, 9:10 AM"], ["Updated", "Aug 29, 2026, 4:30 PM"]])}
-            ${renderDetailSection("Review Timeline", [["Window state", "Review complete"], ["Review starts", "Jun 2, 2026, 9:10 AM"], ["Review ends", "Jun 4, 2026, 9:10 AM"]])}
-          </div>`;
         };
 
         const renderChatBackdrop = () => `
@@ -1341,9 +1298,7 @@
 
             const details = deviceRoot.querySelector(".proposal-more");
             if (details && !details.querySelector(".proposal-more-content")) {
-              const proposalDetails = screen.dataset.projectProposal === "true"
-                ? renderProjectProposalDetails(screen.dataset.proposalState)
-                : renderProposalDetails(screen.dataset.proposalState || "review");
+              const proposalDetails = renderProposalDetails(screen.dataset.proposalState || "review");
               details.insertAdjacentHTML("beforeend", proposalDetails);
             }
 
@@ -1689,7 +1644,8 @@
           });
         });
 
-        const requestedPanel = new URLSearchParams(window.location.search).get("tab");
+        const requestedTab = new URLSearchParams(window.location.search).get("tab");
+        const requestedPanel = requestedTab === "proposals" ? "projects" : requestedTab;
         if (showcasePanels.some((panel) => panel.dataset.showcasePanel === requestedPanel)) {
           activateShowcasePanel(requestedPanel);
         }

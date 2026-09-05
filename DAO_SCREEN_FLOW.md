@@ -1,6 +1,6 @@
 # DAO Screen Flow
 
-This document describes the DAO UI that exists on `main` at `9c02dfb3` (August 26, 2026). The interactive reference is [`mock/index.html`](mock/index.html).
+This reference includes the DAO project lifecycle from `feat/dao-projects-7-closeout-actions` at `cd9aad46`. The interactive reference is [`mock/index.html`](mock/index.html).
 
 Its device frames use the iPhone 17 Pro logical viewport (`402 × 874`) and load the production stylesheet. Mock-only styling is limited to the surrounding flow board and annotations.
 
@@ -110,3 +110,28 @@ Their functions now live in the filter bar, proposal-row preview badges, and the
 - Drag the board background to pan.
 - Click a flow arrow, arrow label, or connected source control to pin its animated highlight.
 - Run `node mock/validate-current-flow.mjs` after changing production DAO modal labels or actions.
+
+
+## Proposal and milestone gallery
+
+Open `mock/index.html?tab=proposals` (the existing `?tab=projects` link also works).
+The **Proposals** tab starts with 31 independent state examples, followed by project
+creation and signing previews. All phones load the production stylesheet; controls
+illustrate available actions without submitting transactions.
+
+- Proposal statuses: Review, Voting, Accepted, Withheld, Rejected, Canceled,
+  Applied, Executing, Completed, and Terminated. Applied is for parameter proposals.
+- Milestone statuses: Pending, Executing, Completed, and Terminated. Proposed
+  times, endorsements, termination votes, and payment status are shown as variants.
+- Payments: early bonus, on-time payout, late penalty, already paid, insufficient
+  escrow, and completed work that remains claimable after project end or termination.
+- Project actions: grace-period waiting, project start, contractor address proposals
+  and endorsements, project end, the 90-day claim window, balance reclaim, and empty escrow.
+
+The notes above each phone identify the viewing role and timing. Unavailable project
+actions are hidden, matching the app. Milestone terms and runtime fields expand
+independently from action cards; payment claims open by default.
+
+Fixtures and rendering live in `mock/proposal-states.js`. Run
+`node mock/generate-modal-catalog.mjs` after changing production modal markup, then
+`node mock/validate-current-flow.mjs` to check the catalog and state coverage.

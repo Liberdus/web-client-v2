@@ -2,14 +2,20 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
-const [productionHtml, productionJs, productionCss, mockHtml, catalogData] = await Promise.all([
+const [productionHtml, productionJs, productionCss, mockHtml, catalogData, stateData, daoJs] = await Promise.all([
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../app.js', import.meta.url), 'utf8'),
   readFile(new URL('../styles.css', import.meta.url), 'utf8'),
   readFile(new URL('./index.html', import.meta.url), 'utf8'),
   readFile(new URL('./modal-catalog-data.js', import.meta.url), 'utf8'),
+  readFile(new URL('./proposal-states.js', import.meta.url), 'utf8'),
+  readFile(new URL('../dao.js', import.meta.url), 'utf8'),
 ]);
 
+const stateWindow = {};
+new Function('window', stateData)(stateWindow);
+const stateMarkup = stateWindow.PROPOSAL_STATE_MARKUP;
+const stateExamples = stateWindow.PROPOSAL_STATE_GROUPS.flatMap(({ examples }) => examples);
 const catalogWindow = {};
 new Function('window', catalogData)(catalogWindow);
 const catalog = catalogWindow.MODAL_CATALOG;
@@ -111,7 +117,7 @@ for (const deviceBehavior of [
   'getScrollSurface(frameDocument)',
   'scrollSurface.scrollTop += event.deltaY',
   'renderProposalDetails(screen.dataset.proposalState || "review")',
-  'renderProjectProposalDetails(screen.dataset.proposalState)',
+  'window.PROPOSAL_STATE_MARKUP',
   'proposal-more-content',
   'const frameMounts = mountDeviceFrames()',
   'data-flow-screen',
@@ -134,7 +140,7 @@ assert.ok(!mockHtml.includes('[data-device-root] { display: contents; }'), 'Devi
 
 assert.equal(
   [...mockHtml.matchAll(/data-app-modal="[^"]+"/g)].length,
-  37,
+  34,
   'Every authored preview and the generated catalog template must expose a device-frame hook',
 );
 
@@ -193,14 +199,12 @@ assert.ok(!primaryScreensMarkup.includes('<div class="asset-name">Ethereum</div>
 const projectsPanelStart = mockHtml.indexOf('id="showcase-panel-projects"');
 const projectsPanelEnd = mockHtml.indexOf('id="showcase-panel-screens"');
 assert.ok(projectsPanelStart >= 0 && projectsPanelEnd > projectsPanelStart, 'Projects panel is unavailable');
-const projectsMarkup = mockHtml.slice(projectsPanelStart, projectsPanelEnd);
+const projectsMarkup = mockHtml.slice(projectsPanelStart, projectsPanelEnd) + stateMarkup;
 for (const projectHook of [
   'dao-project-editor',
   'dao-project-milestone',
-  'dao-project-review-notice',
   'dao-project-review-milestone-list',
   'dao-project-info-milestone',
-  'Project submission unavailable',
 ]) {
   assert.ok(
     productionHtml.includes(projectHook) || productionJs.includes(projectHook) || productionCss.includes(projectHook),
@@ -212,11 +216,38 @@ for (const projectState of ['executing', 'terminated', 'completed']) {
   assert.ok(productionHtml.includes(`data-filter-key="${projectState}"`), `Production project filter is unavailable: ${projectState}`);
   assert.ok(projectsMarkup.includes(`data-proposal-state="${projectState}"`), `Mock project state is unavailable: ${projectState}`);
 }
-assert.equal(
-  [...projectsMarkup.matchAll(/data-project-proposal="true"/g)].length,
-  3,
-  'Each project lifecycle preview must render project-specific expandable details',
-);
+// Compare the gallery against the branch's persisted states so new states cannot
+// silently disappear from this reference.
+const proposalStates = ['DAO_STATES', 'DAO_PROJECT_FILTERS'].flatMap((name) => {
+  const declaration = daoJs.match(new RegExp(`export const ${name} = \\[([\\s\\S]*?)\\];`));
+  assert.ok(declaration, `Missing production state list: ${name}`);
+  const states = [...declaration[1].matchAll(/key: '([^']+)'/g)].map((match) => match[1]);
+  assert.ok(states.length > 0, `Production state list must not be empty: ${name}`);
+  return states;
+});
+for (const state of [...proposalStates, 'canceled']) {
+  assert.ok(stateMarkup.includes(`data-proposal-state="${state}"`), `Missing proposal state: ${state}`);
+}
+const milestoneLabels = daoJs.match(/const DAO_PROJECT_MILESTONE_STATUS_LABELS = Object.freeze\(\{([\s\S]*?)\}\)/)[1];
+for (const [, state] of milestoneLabels.matchAll(/(\w+):/g)) {
+  assert.ok(stateMarkup.includes(`data-milestone-state="${state}"`), `Missing milestone state: ${state}`);
+}
+assert.equal(new Set(stateExamples.map(({ id }) => id)).size, stateExamples.length, 'State example IDs must be unique');
+assert.equal([...stateMarkup.matchAll(/data-app-modal="proposalInfoModal"/g)].length, stateExamples.length);
+assert.equal([...stateMarkup.matchAll(/<details class="proposal-more">/g)].length, stateExamples.length);
+for (const label of ['Propose start now', 'Endorse proposed start', 'Propose completion now', 'Endorse proposed completion', 'Submit termination vote', 'Claim milestone payment', 'Start project', 'End project', 'Propose contractor address', 'Endorse proposed address', 'Reclaim remaining balance']) {
+  const productionLabel = label.replace(/start|completion/, '${verb}');
+  assert.ok(productionJs.includes(label) || productionJs.includes(productionLabel), `Unavailable production project action: ${label}`);
+  assert.ok(stateMarkup.includes(label), `Missing project action example: ${label}`);
+}
+for (const id of ['start-endorsed', 'claim-paid', 'claim-insufficient', 'observer', 'grace-period', 'reclaimed']) {
+  const example = stateExamples.find((example) => example.id === id);
+  assert.ok(example, `Missing unavailable-action example: ${id}`);
+  assert.ok(!example.actions && !example.milestoneActions, `${id} must not offer an unavailable action`);
+}
+assert.ok(!projectsMarkup.includes('Project submission unavailable'), 'Project signing must reflect the closeout-actions branch');
+assert.ok(mockHtml.includes('data-showcase-tab="projects">Proposals</button>'));
+assert.ok(mockHtml.includes('<script src="./proposal-states.js"></script>'));
 
 const accountPanelStart = mockHtml.indexOf('id="showcase-panel-account"');
 const accountPanelEnd = mockHtml.indexOf('id="showcase-panel-chat"');
