@@ -7602,6 +7602,9 @@ class ProposalInfoModal {
       if (action.milestoneNumber) request.milestoneNumber = action.milestoneNumber;
       if (action.reasonRequired) request.reason = reason;
       if (action.addressRequired) request.proposedAddress = proposedAddress;
+      if (action.kind === 'project_change_address' && !action.addressRequired) {
+        request.expectedProposedAddress = action.pendingContractorAddress;
+      }
       let result;
       switch (action.kind) {
         case 'vote_result':

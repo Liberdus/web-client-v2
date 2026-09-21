@@ -994,6 +994,7 @@ export function buildDaoProjectChangeAddressTransaction({
   from,
   proposal,
   proposedAddress,
+  expectedProposedAddress,
   timestamp,
   networkId,
 } = {}) {
@@ -1006,7 +1007,14 @@ export function buildDaoProjectChangeAddressTransaction({
     timestampLabel: 'Contractor address change timestamp',
     fromLabel: 'Contractor address change sender',
   });
-  if (proposedAddress === undefined) return transaction;
+  if (proposedAddress !== undefined && expectedProposedAddress !== undefined) {
+    throw new Error('Cannot propose and endorse a contractor address in the same transaction');
+  }
+  if (proposedAddress === undefined) {
+    const expectedAddress = normalizeDaoAddress(expectedProposedAddress);
+    if (!expectedAddress) throw new Error('Expected proposed contractor address is invalid');
+    return { ...transaction, expectedProposedAddress: `${expectedAddress}${'0'.repeat(24)}` };
+  }
 
   const address = normalizeDaoAddress(proposedAddress);
   if (!address) throw new Error('Proposed contractor address is invalid');
@@ -2547,6 +2555,7 @@ export const daoRepo = {
     from,
     proposal,
     proposedAddress,
+    expectedProposedAddress,
     timestamp,
     networkId,
     submitTransaction,
@@ -2559,7 +2568,7 @@ export const daoRepo = {
       networkId,
       submitTransaction,
       errorMessage: 'Contractor address change failed',
-      transactionFields: { proposedAddress },
+      transactionFields: { proposedAddress, expectedProposedAddress },
     });
   },
 
