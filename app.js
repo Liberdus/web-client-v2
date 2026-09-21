@@ -5501,6 +5501,7 @@ function getDaoProjectMilestoneTimeAction({
     title: `${title} milestone ${milestoneNumber}`,
     milestoneNumber,
     proposesCurrentTime: !hasProposedTime,
+    expectedProposedTime: milestone.proposedTime,
     canSubmit: false,
   };
 
@@ -7186,6 +7187,33 @@ class ProposalInfoModal {
     this.handleLifecycleActionSubmit(action);
   }
 
+  async refreshProjectActionProposal(action, proposal) {
+    const currentAddress = getDaoCurrentAccountAddress();
+    const networkId = network?.netid || '';
+    const proposalId = this._currentProposalId;
+    const refreshed = await daoRepo.refreshProposal(proposal.number);
+    if (currentAddress !== getDaoCurrentAccountAddress()
+      || networkId !== (network?.netid || '')
+      || proposalId !== this._currentProposalId
+      || !this.modal.classList.contains('active')) {
+      throw new Error('Account or proposal changed. Reopen the proposal before submitting.');
+    }
+    if (!refreshed) {
+      throw new Error('Could not refresh the proposal. Try again before submitting.');
+    }
+
+    const refreshedAction = getDaoProjectMilestoneLifecycleActions(refreshed, currentAddress)
+      .find((candidate) => candidate.kind === action.kind
+        && candidate.milestoneNumber === action.milestoneNumber);
+    if (!refreshedAction?.canSubmit
+      || refreshedAction.proposesCurrentTime !== action.proposesCurrentTime
+      || refreshedAction.expectedProposedTime !== action.expectedProposedTime) {
+      this.renderProposal(refreshed);
+      throw new Error('Milestone changed. Review the updated proposal before submitting.');
+    }
+    return refreshed;
+  }
+
   async handleLifecycleActionSubmit(action) {
     if (this.isSubmitting || !action || action.canSubmit === false) return;
 
@@ -7199,7 +7227,7 @@ class ProposalInfoModal {
       return;
     }
 
-    const proposal = this.getCurrentProposal();
+    let proposal = this.getCurrentProposal();
     if (!proposal) {
       showToast('Proposal data is unavailable', 2500, 'warning');
       return;
@@ -7232,6 +7260,13 @@ class ProposalInfoModal {
     const loadingToastId = showToast(action.loadingLabel, 0, 'loading');
 
     try {
+      if (action.kind === 'project_milestone_start' || action.kind === 'project_milestone_end') {
+        proposal = await this.refreshProjectActionProposal(action, proposal);
+        if (this.isDaoActionPending(actionType)) {
+          showToast(getDaoTransactionMessage(actionType, 'pending'), 2500, 'info');
+          return;
+        }
+      }
       const request = {
         from: getDaoCurrentAccountAddress(),
         proposal,
