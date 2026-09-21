@@ -5737,6 +5737,8 @@ function getDaoProjectAddressChangeActions(proposal, project, currentAddress) {
       : `Endorse ${pendingAddress}. ${project.endorsedAddress.length} of ${requiredEndorsements} committee endorsements have been submitted.`,
     buttonLabel: 'Endorse proposed address',
     loadingLabel: 'Endorsing contractor address...',
+    currentContractorAddress: project.address,
+    pendingContractorAddress: pendingAddress,
     canSubmit: !hasEndorsed,
   }, proposeAction];
 }
@@ -7481,6 +7483,19 @@ class ProposalInfoModal {
       throw new Error('Could not refresh the proposal. Try again before submitting.');
     }
 
+    if (action.kind === 'project_change_address') {
+      const refreshedAction = getDaoProjectCloseoutActions(refreshed, currentAddress, getTransactionTimestamp())
+        .find((candidate) => candidate.kind === action.kind
+          && candidate.addressRequired === action.addressRequired);
+      if (!refreshedAction?.canSubmit
+        || refreshedAction.currentContractorAddress !== action.currentContractorAddress
+        || refreshedAction.pendingContractorAddress !== action.pendingContractorAddress) {
+        this.renderProposal(refreshed);
+        throw new Error('Contractor address changed. Review the updated proposal before submitting.');
+      }
+      return refreshed;
+    }
+
     const refreshedAction = getDaoProjectMilestoneLifecycleActions(refreshed, currentAddress)
       .find((candidate) => candidate.kind === action.kind
         && candidate.milestoneNumber === action.milestoneNumber);
@@ -7566,7 +7581,9 @@ class ProposalInfoModal {
     const loadingToastId = showToast(action.loadingLabel, 0, 'loading');
 
     try {
-      if (action.kind === 'project_milestone_start' || action.kind === 'project_milestone_end') {
+      if (action.kind === 'project_milestone_start'
+        || action.kind === 'project_milestone_end'
+        || action.kind === 'project_change_address') {
         proposal = await this.refreshProjectActionProposal(action, proposal);
         if (this.isDaoActionPending(actionType)) {
           showToast(getDaoTransactionMessage(actionType, 'pending'), 2500, 'info');
