@@ -7275,6 +7275,7 @@ class ProposalInfoModal {
         submitTransaction: (transaction) => this.submitDaoTransaction(transaction),
       };
       if (action.proposesCurrentTime) request.proposedTime = request.timestamp;
+      if (action.proposesCurrentTime === false) request.expectedProposedTime = action.expectedProposedTime;
       if (action.milestoneNumber) request.milestoneNumber = action.milestoneNumber;
       if (action.reasonRequired) request.reason = reason;
       let result;
