@@ -28,6 +28,7 @@ const DEFAULT_NEAR_RPC_URLS = Object.freeze([
   'https://rpc.mainnet.near.org',
 ]);
 const DEFAULT_ONECLICK_BASE_URL = 'https://1click.chaindefuser.com/v0';
+const DEFAULT_BRIDGE_RPC_URL = 'https://bridge.chaindefuser.com/rpc';
 
 const INTENTS_REQUEST_TIMEOUT_MS = 20_000;
 const INTENT_DEADLINE_MS = 120_000;
@@ -60,6 +61,10 @@ export function getNearRpcUrls() {
 
 export function getOneClickBaseUrl() {
   return (overrideList('LIBERDUS_ONECLICK_BASE_URL') || [DEFAULT_ONECLICK_BASE_URL])[0];
+}
+
+export function getBridgeRpcUrl() {
+  return (overrideList('LIBERDUS_INTENTS_BRIDGE_URL') || [DEFAULT_BRIDGE_RPC_URL])[0];
 }
 
 function normalizeSecretKey(value) {
@@ -317,6 +322,102 @@ export function fetchIntentsTokens({ baseUrl = null } = {}) {
   return fetchJson(`${baseUrl || getOneClickBaseUrl()}/tokens`, {
     headers: { accept: 'application/json' },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Deposits.
+//
+// The bridge derives a deposit address per (account, chain) and credits the
+// intents balance once the transfer confirms on the origin chain. The address
+// is stable: asking twice returns the same one, so it can be shown and reused
+// like any receive address.
+// ---------------------------------------------------------------------------
+
+let bridgeRequestId = 0;
+
+async function bridgeRpc(method, params) {
+  const url = getBridgeRpcUrl();
+  const id = ++bridgeRequestId;
+  const body = await fetchJson(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id, method, params: [params ?? {}] }),
+  });
+  // The bridge reports failures as a plain string in `error`, not an object.
+  if (body?.error) {
+    const message = typeof body.error === 'string'
+      ? body.error
+      : body.error.message || 'The deposit service rejected the request';
+    throw new IntentsError(message, 'BRIDGE_ERROR', { error: body.error, method });
+  }
+  if (!body?.result) {
+    throw new IntentsError(`${method} returned no result`, 'INVALID_BRIDGE_RESPONSE', { body });
+  }
+  return body.result;
+}
+
+/**
+ * Every asset the bridge can move, with the per-token deposit and withdrawal
+ * minimums. Those minimums are not advisory: a deposit below one is not
+ * credited, so the UI has to state them before someone sends funds.
+ */
+export async function fetchBridgeTokens() {
+  const result = await bridgeRpc('supported_tokens', {});
+  return Array.isArray(result?.tokens) ? result.tokens : [];
+}
+
+/** The chain part of a defuse asset identifier, e.g. "btc:mainnet:native" -> "btc:mainnet". */
+export function bridgeChainOf(defuseAssetIdentifier) {
+  const parts = String(defuseAssetIdentifier || '').split(':');
+  return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : null;
+}
+
+/**
+ * A deposit address for one chain.
+ *
+ * Some chains (Stellar among them) share one address and tell depositors apart
+ * by memo. The service refuses a plain request for those, so the refusal is
+ * used as the signal to ask again in MEMO mode rather than guessing per chain.
+ * A memo in the result is mandatory for the depositor -- funds sent without it
+ * are not credited.
+ */
+export async function requestDepositAddress(accountId, chain) {
+  if (!accountId) throw new IntentsError('A deposit address needs an account id', 'MISSING_ACCOUNT');
+  if (!chain) throw new IntentsError('A deposit address needs a chain', 'MISSING_CHAIN');
+
+  let result;
+  try {
+    result = await bridgeRpc('deposit_address', { account_id: accountId, chain });
+  } catch (error) {
+    if (error instanceof IntentsError && /memo/i.test(error.message)) {
+      result = await bridgeRpc('deposit_address', {
+        account_id: accountId,
+        chain,
+        deposit_mode: 'MEMO',
+      });
+    } else {
+      throw error;
+    }
+  }
+
+  if (!result?.address) {
+    throw new IntentsError('The deposit service returned no address', 'INVALID_BRIDGE_RESPONSE', { result });
+  }
+  return {
+    address: String(result.address),
+    chain: String(result.chain || chain),
+    memo: result.memo ? String(result.memo) : null,
+  };
+}
+
+/** Deposits the bridge has seen for this account and chain, newest first. */
+export async function fetchRecentDeposits(accountId, chain, { limit = 20 } = {}) {
+  const result = await bridgeRpc('recent_deposits', {
+    account_id: accountId,
+    chain,
+    limit,
+  });
+  return Array.isArray(result?.deposits) ? result.deposits : [];
 }
 
 /** Decode a "secp256k1:<base58>" signature back to its 65 bytes. */

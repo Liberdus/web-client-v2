@@ -62,7 +62,9 @@ export function intentsAccountIdForAddress(address) {
 }
 
 // Mirrors formatUnits() in evm-assets.js, which is private to that module.
-function formatUnits(value, decimals = 18) {
+// Exported so intents-deposits.js can format minimums the same way rather than
+// keeping a third copy of it.
+export function formatUnits(value, decimals = 18) {
   const amount = typeof value === 'bigint' ? value : BigInt(value || 0);
   const divisor = 10n ** BigInt(decimals);
   const whole = amount / divisor;
