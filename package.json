@@ -14,6 +14,7 @@
   "scripts": {
     "test:intents": "node test/intents.mjs",
     "test:intents-assets": "node test/intents-assets.mjs",
-    "test:all": "npm run test:intents && npm run test:intents-assets"
+    "test:intents-deposits": "node test/intents-deposits.mjs",
+    "test:all": "npm run test:intents && npm run test:intents-assets && npm run test:intents-deposits"
   }
 }

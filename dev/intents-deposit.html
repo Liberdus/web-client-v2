@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Liberdus wallet — Intents deposit</title>
+    <style>
+      :root {
+        --bg: #0e1116; --panel: #161b22; --line: #2a3140; --fg: #d7dde7;
+        --muted: #7d8899; --dim: #4a5464; --green: #7ee787; --red: #f7768e; --accent: #7aa2f7;
+        --warn: #e8c07d; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg); padding: 26px 20px 60px;
+        font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      }
+      .wrap { max-width: 640px; margin: 0 auto; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      .sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+      .sub code, code { font-family: var(--mono); color: var(--accent); }
+      .bar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+      button { background: var(--accent); color: #0b1020; border: 0; border-radius: 7px;
+               padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+      button:disabled { opacity: .5; cursor: default; }
+      button.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+      input[type=text], select { background: #0b0e13; color: var(--fg);
+        border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px;
+        font-family: var(--mono); font-size: 12px; }
+      input[type=text] { flex: 1; min-width: 280px; }
+      select { min-width: 200px; }
+      .status { font-family: var(--mono); font-size: 12px; padding: 6px 12px; border-radius: 999px;
+                border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+      .status.ok { color: var(--green); border-color: #24422c; background: #10251a; }
+      .status.bad { color: var(--red); border-color: #4a1f28; background: #241014; }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+              padding: 18px; margin-bottom: 16px; }
+      .qr { display: flex; justify-content: center; margin-bottom: 14px; }
+      .qr img { image-rendering: pixelated; border-radius: 8px; background: #fff; padding: 8px; }
+      .addr { font-family: var(--mono); font-size: 13px; word-break: break-all; text-align: center;
+              background: #0b0e13; border: 1px solid var(--line); border-radius: 7px;
+              padding: 10px 12px; margin-bottom: 10px; }
+      .rules { border: 1px solid #4a3a1f; background: #241d10; color: var(--warn);
+               border-radius: 9px; padding: 12px 14px; font-size: 13px; margin-bottom: 14px; }
+      .rules strong { color: #f5d9a8; }
+      .rules ul { margin: 6px 0 0; padding-left: 18px; }
+      .rules li { margin-bottom: 3px; }
+      .rows { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; }
+      .rows dt { color: var(--muted); }
+      .rows dd { margin: 0; font-family: var(--mono); text-align: right; }
+      h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+           margin: 0 0 8px; }
+      .empty { color: var(--dim); font-size: 13px; }
+      .err { color: var(--red); font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Liberdus wallet — Intents deposit</h1>
+      <p class="sub">
+        Phase 3: <code>intents-deposits.js</code> against mainnet. The bridge derives a stable
+        address per account and chain; sending to it is the whole deposit — no NEAR, no signature,
+        no transaction from this client.
+      </p>
+
+      <div class="bar">
+        <input id="address" type="text" spellcheck="false"
+               value="0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1" />
+        <select id="asset"><option>loading…</option></select>
+        <button id="show">Show address</button>
+        <span id="status" class="status">idle</span>
+      </div>
+
+      <div id="error" class="err" hidden></div>
+
+      <div class="card" id="target" hidden>
+        <div class="qr" id="qr"></div>
+        <div class="addr" id="addr">—</div>
+        <div class="rules" id="rules"></div>
+        <dl class="rows" id="rows"></dl>
+      </div>
+
+      <h2>Recent deposits</h2>
+      <div class="card">
+        <div id="deposits" class="empty">—</div>
+        <div class="bar" style="margin: 12px 0 0;">
+          <button class="ghost" id="poll">Check now</button>
+          <span class="status" id="polled">never checked</span>
+        </div>
+      </div>
+    </div>
+    <script src="../external/qr.js"></script>
+    <script type="module" src="./intents-deposit.js"></script>
+  </body>
+</html>
