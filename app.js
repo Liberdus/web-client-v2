@@ -48,6 +48,10 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'evm-assets.js',
+      'intents.js',
+      'intents-assets.js',
+      'intents-deposits.js',
+      'intents-ui.js',
       'dao.js',
       'data/emoji-picker-data.js',
       'lib.js',
@@ -204,6 +208,7 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
+import { multichain } from './intents-ui.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -495,6 +500,7 @@ function clearMyData() {
   myData = null;
   myAccount = null;
   evmAssets.reset();
+  multichain.reset();
   daoRepo.reset();
   daoModal.resetNotificationState();
   resetDaoNotificationSummary();
@@ -797,6 +803,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Connected EVM assets
   evmAssets.load();
+
+  // Multichain (NEAR Intents) assets
+  multichain.load();
 
   // About and Contact Modals
   sourceModal.load();
@@ -2217,6 +2226,10 @@ class WalletScreen {
         hideToast(loadingToastId);
       }
     }
+
+    // The multichain row is its own balance and its own request, so it is
+    // refreshed alongside the wallet rather than blocking it.
+    multichain.updateSummary({ refresh: true }).catch(() => {});
 
     const walletUsdValue = calculateWalletUsdValue(walletData.assets);
     walletData.networth = walletUsdValue ?? 0.0;
@@ -33012,6 +33025,10 @@ class ReceiveModal {
 // initialize the receive modal
 const receiveModal = new ReceiveModal();
 
+multichain.configure({
+  getAccount: () => myAccount,
+});
+
 evmAssets.configure({
   getAccount: () => myAccount,
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
@@ -37094,6 +37111,8 @@ const modalCloseHandlers = new Map([
   // Structural exceptions require an id or a controller-specific close method.
   ['assetsModal', () => evmAssets.close('assetsModal')],
   ['assetDetailsModal', () => evmAssets.close('assetDetailsModal')],
+  ['multichainModal', () => multichain.close('multichainModal')],
+  ['multichainAssetModal', () => multichain.close('multichainAssetModal')],
   ['sendAssetConfirmModal', () => {
     evmAssets.confirmationModal.reset();
     sendAssetConfirmModal.close();

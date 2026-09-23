@@ -206,6 +206,11 @@
             <span class="action-label">Faucet</span>
           </button>
         </div>
+        <button type="button" class="multichain-summary" id="multichainSummary">
+          <span class="multichain-summary-label">Multichain</span>
+          <span class="multichain-summary-value" id="multichainSummaryValue">$0.00</span>
+          <span class="multichain-summary-chevron" aria-hidden="true"></span>
+        </button>
         <div class="wallet-assets">
           <div class="section-title">Assets</div>
           <div id="assetsList">
@@ -284,6 +289,7 @@
           <ul class="menu-list">
             <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
             <li class="menu-item" id="openAssets" data-icon="assets">EVM Assets</li>
+            <li class="menu-item" id="openMultichain" data-icon="multichain">Multichain</li>
             <li class="menu-item" id="openFarm" data-icon="trending-up">Farm</li>
             <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
             <li class="menu-item" id="openDao" data-icon="dao" style="display: none;">DAO</li>
@@ -336,6 +342,66 @@
               </div>
             </div>
           </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Multichain (NEAR Intents) Modal -->
+      <div class="modal fixed-header" id="multichainModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeMultichainModal"></button>
+          <div class="modal-title">Multichain</div>
+        </div>
+        <div class="modal-content assets-modal-content">
+          <div class="wallet-balance">
+            <div class="balance-label">Total Balance</div>
+            <div class="balance-amount">
+              <span id="multichainTotalBalance">-.--</span>
+              <button class="refresh-button" id="refreshMultichainBalance">&#8635;</button>
+            </div>
+          </div>
+          <div class="wallet-assets assets-portfolio">
+            <div class="multichain-custody" id="multichainStatus">Checking balances&#8230;</div>
+            <div id="multichainAssetsList">
+              <div class="empty-state">
+                <div></div>
+                <div>No multichain assets yet</div>
+                <div>Deposit Bitcoin or Solana to get started</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Multichain Asset Detail Modal -->
+      <div class="modal fixed-header" id="multichainAssetModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeMultichainAssetModal"></button>
+          <div class="modal-title" id="multichainAssetTitle">Asset</div>
+        </div>
+        <div class="modal-content asset-details-content">
+          <section class="asset-detail-hero">
+            <div class="asset-detail-symbol" id="multichainAssetSymbol">&#8212;</div>
+            <div class="asset-detail-updated" id="multichainAssetChain">&#8212;</div>
+          </section>
+
+          <section class="asset-detail-section">
+            <h2>Your balance</h2>
+            <div class="multichain-asset-balance">
+              <div class="multichain-asset-amount" id="multichainAssetAmount">&#8212;</div>
+              <div class="multichain-asset-value" id="multichainAssetValue">&#8212;</div>
+            </div>
+          </section>
+
+          <div class="wallet-actions asset-detail-actions">
+            <button class="wallet-action-button" id="multichainAssetReceive">
+              <span class="action-icon"></span>
+              <span class="action-label">Receive</span>
+            </button>
+          </div>
+
+          <section class="multichain-deposit" id="multichainDepositPanel" hidden></section>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
