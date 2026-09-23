@@ -2,6 +2,8 @@
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
 const version = 't'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
+const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
+const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
 let myVersion = '0';
 
 function getComparableVersion(value) {
@@ -209,6 +211,12 @@ import {
 
 import { evmAssets } from './evm-assets.js';
 import { multichain } from './intents-ui.js';
+import {
+  INTENTS_CHAT_MESSAGE_TYPE,
+  parseTransferMessage,
+  verifyTransferClaim,
+} from './intents-chat.js';
+import { chatPaymentPanel } from './intents-chat-ui.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -804,6 +812,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Connected EVM assets
   evmAssets.load();
 
+  // Sending an intents balance inside a conversation
+  chatPaymentPanel.load();
+
   // Multichain (NEAR Intents) assets
   multichain.load();
 
@@ -1181,6 +1192,12 @@ class WelcomeScreen {
   }
 
   async revealHydratedWelcome() {
+    // A hidden tab paints nothing, so it stalls image decoding and animation frames.
+    if (document.visibilityState === 'hidden') {
+      this.showHydratedWelcome();
+      return;
+    }
+
     await this.waitForBootSplashImages();
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -1203,17 +1220,36 @@ class WelcomeScreen {
       this.waitForImage(splashLogo),
       this.waitForImage(welcomeLogo),
     ]);
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await this.waitForBootSplashFrame();
+    await this.waitForBootSplashFrame();
+  }
+
+  // A hidden tab runs no animation frames, so never block boot on one.
+  waitForBootSplashFrame() {
+    return Promise.race([
+      new Promise((resolve) => requestAnimationFrame(resolve)),
+      new Promise((resolve) => setTimeout(resolve, BOOT_SPLASH_FRAME_TIMEOUT_MS)),
+    ]);
   }
 
   async waitForImage(image) {
     if (!image.complete) {
-      await new Promise((resolve) => image.addEventListener('load', resolve, { once: true }));
+      await Promise.race([
+        new Promise((resolve) => image.addEventListener('load', resolve, { once: true })),
+        new Promise((resolve) => setTimeout(resolve, BOOT_SPLASH_IMAGE_TIMEOUT_MS)),
+      ]);
+    }
+    if (!image.complete) {
+      return;
     }
     assert(image.naturalWidth > 0, 'Boot splash image is required');
 
+    // Decoding only avoids a flash of a blank logo, and a tab hidden mid-boot never finishes it.
     if (image.decode) {
-      await image.decode();
+      await Promise.race([
+        image.decode().catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, BOOT_SPLASH_IMAGE_TIMEOUT_MS)),
+      ]);
     }
   }
 
@@ -1242,12 +1278,21 @@ class WelcomeScreen {
     assert(welcomeLogo, 'Welcome logo is required');
     assert(welcomeTitle, 'Welcome title is required');
 
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    // The handoff is purely cosmetic and a hidden tab neither paints it nor finishes it.
+    if (document.visibilityState === 'hidden') {
+      this.showHydratedWelcome();
+      return;
+    }
+
+    await this.waitForBootSplashFrame();
     this.bootSplash.classList.add('is-handoff');
 
-    await Promise.all([
-      this.createBootSplashHandoffAnimation(splashLogo, welcomeLogo).finished,
-      this.createBootSplashHandoffAnimation(splashTitle, welcomeTitle).finished,
+    await Promise.race([
+      Promise.all([
+        this.createBootSplashHandoffAnimation(splashLogo, welcomeLogo).finished,
+        this.createBootSplashHandoffAnimation(splashTitle, welcomeTitle).finished,
+      ]),
+      new Promise((resolve) => setTimeout(resolve, BOOT_SPLASH_HANDOFF_MS + 100)),
     ]);
     this.showHydratedWelcome();
   }
@@ -1874,6 +1919,10 @@ class ChatsScreen {
         previewHTML = `<span><i>Voice message</i></span>`;
       } else if (latestActivity.type === 'location') {
         previewHTML = `<span><i>Shared location</i></span>`;
+      } else if (latestActivity.type === INTENTS_CHAT_MESSAGE_TYPE) {
+        previewHTML = latestActivity.payment
+          ? `<span><i>${escapeHtml(latestActivity.payment.amount)} ${escapeHtml(latestActivity.payment.symbol)}</i></span>`
+          : `<span><i>Payment</i></span>`;
       } else if (latestActivity.type === 'update_toll_required') {
         previewHTML = truncateMessage(escapeHtml(getUpdateTollRequiredPreviewText(latestActivity, contact)), 50);
       } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
@@ -11221,6 +11270,10 @@ function getReactionTargetPreviewText(message) {
     return 'location';
   }
 
+  if (message.type === INTENTS_CHAT_MESSAGE_TYPE) {
+    return message.payment ? `${message.payment.amount} ${message.payment.symbol}` : 'payment';
+  }
+
   const messageText = typeof message.message === 'string' ? message.message.trim() : '';
   if (messageText) {
     return messageText;
@@ -11623,6 +11676,45 @@ function restorePendingMessageEdit(pendingTxid, contactAddress, editPending) {
  * @param {Object} pendingTxInfo
  * @returns {void}
  */
+/**
+ * A received payment message only claims a payment; this checks the intent
+ * behind it actually settled, and says so on the bubble.
+ *
+ * Results are cached per intent hash: a settled intent stays settled, and
+ * re-asking on every render would poll the relay for the whole history.
+ */
+const intentsPaymentVerifications = new Map();
+
+async function verifyVisibleChatPayments() {
+  const bubbles = document.querySelectorAll(
+    '.intents-payment-message[data-verified="unchecked"], .intents-payment-message[data-verified="pending"]'
+  );
+
+  for (const bubble of bubbles) {
+    const intentHash = bubble.dataset.intentHash;
+    if (!intentHash) continue;
+
+    let result = intentsPaymentVerifications.get(intentHash);
+    if (!result || result.state === 'pending' || result.state === 'unverifiable') {
+      result = await verifyTransferClaim({ intentHash });
+      // Only a resting answer is worth remembering.
+      if (result.state === 'settled' || result.state === 'failed') {
+        intentsPaymentVerifications.set(intentHash, result);
+      }
+    }
+
+    const label = bubble.querySelector('.intents-payment-verified');
+    if (!label) continue;
+    bubble.dataset.verified = result.state;
+    label.textContent = {
+      settled: 'Confirmed on chain',
+      pending: 'Confirming…',
+      failed: 'Not confirmed',
+      unverifiable: 'Could not check yet',
+    }[result.state] || 'Could not check yet';
+  }
+}
+
 function reconcilePendingMessageEdit(pendingTxInfo) {
   const { editPending } = pendingTxInfo;
   assert(editPending, `Missing pending message edit metadata for ${pendingTxInfo.txid}`);
@@ -12120,6 +12212,18 @@ async function processChats(chats, keys) {
                   payload.latitude = latitude;
                   payload.longitude = longitude;
                   payload.accuracy = Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null;
+                } else if (parsedMessage.type === INTENTS_CHAT_MESSAGE_TYPE) {
+                  // Every field of this arrives from the sender, and a payment
+                  // bubble is worth forging, so anything malformed is dropped
+                  // rather than rendered with defaults.
+                  const claim = parseTransferMessage(parsedMessage);
+                  if (!claim) {
+                    console.warn('Ignoring invalid chat payment message', parsedMessage);
+                    continue;
+                  }
+                  payload.message = '';
+                  payload.type = INTENTS_CHAT_MESSAGE_TYPE;
+                  payload.payment = claim;
                 } else if (parsedMessage.type === 'message') {
                   const hasReactionFields =
                     typeof parsedMessage.reactId !== 'undefined' ||
@@ -21673,6 +21777,74 @@ class ChatModal {
   }
 
   /**
+   * Send the chat receipt for a payment that has already settled on NEAR.
+   *
+   * Called only after the transfer is published, so a failure here means the
+   * money moved and the receipt did not. It throws rather than swallowing
+   * that, so the caller can say exactly which of the two happened.
+   */
+  async sendIntentsPaymentMessage(recipientAddress, messageObj) {
+    const currentAddress = normalizeAddress(recipientAddress);
+    const keys = myAccount.keys;
+    assert(keys, 'Keys not found for sender address');
+
+    const tollInLib =
+      myData.contacts[currentAddress].tollRequiredToSend == 0
+        ? 0n
+        : getEffectiveTollLibWei(this.toll);
+    const sufficientBalance = await validateBalance(tollInLib);
+    if (!sufficientBalance) {
+      throw new Error('Not enough LIB for the message fee.');
+    }
+
+    const chatCryptoContext = await this.prepareEncryptedChatContext(currentAddress, keys);
+    const { payload, chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
+      currentAddress,
+      messageObj,
+      tollInLib,
+      keys,
+      chatCryptoContext
+    );
+
+    const contact = myData.contacts[currentAddress];
+    const newMessage = {
+      message: '',
+      type: INTENTS_CHAT_MESSAGE_TYPE,
+      payment: parseTransferMessage(messageObj),
+      // Our own payment is settled by definition: we published it ourselves.
+      paymentVerified: 'settled',
+      timestamp: payload.sent_timestamp,
+      sent_timestamp: payload.sent_timestamp,
+      my: true,
+      txid,
+      status: 'sent'
+    };
+    insertSorted(contact.messages, newMessage, 'timestamp');
+
+    const chatIndex = myData.chats.findIndex((chat) => chat.address === currentAddress);
+    if (chatIndex !== -1) {
+      myData.chats.splice(chatIndex, 1);
+    }
+    insertSorted(myData.chats, {
+      address: currentAddress,
+      timestamp: newMessage.sent_timestamp,
+      txid
+    }, 'timestamp');
+
+    this.appendChatModal();
+    saveState();
+    chatsScreen.updateChatList();
+
+    const response = await injectTx(chatMessageObj, txid);
+    if (!response?.result?.success) {
+      updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+      this.appendChatModal();
+      saveState();
+      throw new Error(response?.result?.reason || 'The chat receipt was rejected.');
+    }
+  }
+
+  /**
    * Cancel editing mode without sending: clears hidden edit txid and restores UI state
    */
   cancelEdit() {
@@ -22080,6 +22252,32 @@ class ChatModal {
               </div>`;
         break;
       }
+      case INTENTS_CHAT_MESSAGE_TYPE: {
+        const payment = item.payment;
+        if (payment) {
+          // A received payment is a claim until the intent behind it is
+          // checked, so the bubble says what was claimed and carries its
+          // verification state rather than asserting money arrived.
+          const verified = item.paymentVerified || 'unchecked';
+          const verifiedLabel = {
+            settled: 'Confirmed on chain',
+            pending: 'Confirming…',
+            failed: 'Not confirmed',
+            unverifiable: 'Could not check yet',
+            unchecked: 'Checking…',
+          }[verified];
+          messageTextHTML = `
+              <div class="intents-payment-message" data-verified="${escapeHtml(verified)}" data-intent-hash="${escapeHtml(payment.intentHash)}">
+                <div class="intents-payment-amount">
+                  ${escapeHtml(payment.amount)} ${escapeHtml(payment.symbol)}
+                </div>
+                ${payment.chainName ? `<div class="intents-payment-chain">${escapeHtml(payment.chainName)}</div>` : ''}
+                ${payment.note ? `<div class="intents-payment-note">${escapeHtml(payment.note)}</div>` : ''}
+                <div class="intents-payment-verified">${escapeHtml(verifiedLabel)}</div>
+              </div>`;
+        }
+        break;
+      }
       case 'location': {
         const latitude = Number(item.latitude);
         const longitude = Number(item.longitude);
@@ -22291,6 +22489,8 @@ class ChatModal {
         }
       }
     }, 300); // <<< Delay of 300 milliseconds for rendering
+
+    verifyVisibleChatPayments();
   }
 
 
@@ -24451,6 +24651,11 @@ class ChatModal {
       case 'location':
         void this.handleShareLocationAction();
         break;
+      case 'intents-payment': {
+        const contact = myData.contacts[chatModal.address];
+        void chatPaymentPanel.open(chatModal.address, contact?.username || contact?.name || null);
+        break;
+      }
     }
   }
 
@@ -33027,6 +33232,13 @@ const receiveModal = new ReceiveModal();
 
 multichain.configure({
   getAccount: () => myAccount,
+});
+
+chatPaymentPanel.configure({
+  getAccount: () => myAccount,
+  onSent: (recipientAddress, messageObj) =>
+    chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
+  showToast,
 });
 
 evmAssets.configure({

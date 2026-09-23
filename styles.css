@@ -11075,6 +11075,115 @@ small {
   color: var(--danger-color);
 }
 
+/* A payment inside a conversation. The verification line is part of the
+   bubble, not a decoration: a received payment is a claim until the intent
+   behind it is checked. */
+.intents-payment-message {
+  border-radius: 12px;
+  padding: 12px 14px;
+  min-width: 160px;
+}
+
+.intents-payment-amount {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.intents-payment-chain {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.intents-payment-note {
+  margin-top: 8px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.intents-payment-verified {
+  margin-top: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.intents-payment-message[data-verified='settled'] .intents-payment-verified {
+  color: var(--success-color);
+  opacity: 1;
+}
+
+.intents-payment-message[data-verified='failed'] .intents-payment-verified {
+  color: var(--danger-color);
+  opacity: 1;
+}
+
+.chat-payment-intro {
+  color: var(--secondary-text-color);
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.chat-payment-label {
+  display: block;
+  /* The surrounding dialog body centres its content, which suits a title but
+     not a form label sitting above the field it names. */
+  text-align: left;
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  margin: 0 0 4px;
+}
+
+#chatPaymentPanel .form-control {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.chat-payment-amount-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.chat-payment-amount-row .form-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.chat-payment-max {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--primary-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-payment-status {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--input-background-color, #f4f5f7);
+  color: var(--secondary-text-color);
+  font-size: 13px;
+  text-align: center;
+}
+
+.chat-payment-status[data-kind='error'] {
+  color: var(--danger-color);
+}
+
+.chat-payment-actions {
+  gap: 10px;
+  margin-top: 4px;
+}
+
 .multichain-withdraw {
   padding: 4px 16px 24px;
 }

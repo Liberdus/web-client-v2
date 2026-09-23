@@ -1703,6 +1703,33 @@
               </div>
             </div>
           </div>
+          <!-- Send an intents balance inside a conversation -->
+          <div class="location-share-panel" id="chatPaymentPanel" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="chatPaymentTitle">
+            <div class="voice-recording-content">
+              <div class="voice-recording-header">
+                <h3 id="chatPaymentTitle">Send Crypto</h3>
+              </div>
+              <div class="voice-recording-body">
+                <div class="chat-payment-intro" id="chatPaymentIntro">&#8212;</div>
+                <label class="chat-payment-label" for="chatPaymentAsset">Asset</label>
+                <select id="chatPaymentAsset" class="form-control"></select>
+                <label class="chat-payment-label" for="chatPaymentAmount">Amount</label>
+                <div class="chat-payment-amount-row">
+                  <input class="form-control" id="chatPaymentAmount" type="text" inputmode="decimal"
+                    autocomplete="off" spellcheck="false" placeholder="0.0" />
+                  <button type="button" class="chat-payment-max" id="chatPaymentMax">Max</button>
+                </div>
+                <label class="chat-payment-label" for="chatPaymentNote">Note (optional)</label>
+                <input class="form-control" id="chatPaymentNote" type="text" maxlength="140"
+                  autocomplete="off" placeholder="What is it for?" />
+                <div class="chat-payment-status" id="chatPaymentStatus" hidden></div>
+                <div class="voice-recording-controls chat-payment-actions">
+                  <button type="button" class="voice-btn voice-btn-secondary" id="cancelChatPaymentButton">Cancel</button>
+                  <button type="button" class="voice-btn voice-btn-primary" id="sendChatPaymentButton">Send</button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="toll-container chat-toll-container">
             <span class="toll-label" id="tollLabel">Toll:</span>
             <span class="toll-value" id="tollValue"></span>
@@ -2071,8 +2098,14 @@
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Share Location</span>
         </div>
+        <div class="context-menu-option" data-action="intents-payment" data-icon="assets">
+          <span class="context-menu-icon"></span>
+          <span class="context-menu-text">Send Crypto</span>
+        </div>
         <a class="last-item" href="#"> </a>
       </div>
+
+
 
       <!-- Camera Capture Modal -->
       <div class="camera-capture-overlay" id="cameraCaptureOverlay" style="display: none;" role="dialog" aria-modal="true" aria-label="Camera" tabindex="-1">
