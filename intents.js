@@ -29,6 +29,7 @@ const DEFAULT_NEAR_RPC_URLS = Object.freeze([
 ]);
 const DEFAULT_ONECLICK_BASE_URL = 'https://1click.chaindefuser.com/v0';
 const DEFAULT_BRIDGE_RPC_URL = 'https://bridge.chaindefuser.com/rpc';
+const DEFAULT_SOLVER_RELAY_URL = 'https://solver-relay-v2.chaindefuser.com/rpc';
 
 const INTENTS_REQUEST_TIMEOUT_MS = 20_000;
 const INTENT_DEADLINE_MS = 120_000;
@@ -65,6 +66,10 @@ export function getOneClickBaseUrl() {
 
 export function getBridgeRpcUrl() {
   return (overrideList('LIBERDUS_INTENTS_BRIDGE_URL') || [DEFAULT_BRIDGE_RPC_URL])[0];
+}
+
+export function getSolverRelayUrl() {
+  return (overrideList('LIBERDUS_INTENTS_RELAY_URL') || [DEFAULT_SOLVER_RELAY_URL])[0];
 }
 
 function normalizeSecretKey(value) {
@@ -418,6 +423,93 @@ export async function fetchRecentDeposits(accountId, chain, { limit = 20 } = {})
     limit,
   });
   return Array.isArray(result?.deposits) ? result.deposits : [];
+}
+
+// ---------------------------------------------------------------------------
+// Publishing.
+//
+// A signed intent still has to reach the verifier, and calling execute_intents
+// costs NEAR. The solver relay does that submission and pays the gas, which is
+// why the account never needs NEAR of its own.
+//
+// `quote_hashes` is only meaningful for a swap, where it names the solver
+// quotes being accepted. A transfer or a withdrawal has no counterparty to
+// quote, so it publishes with none.
+// ---------------------------------------------------------------------------
+
+let relayRequestId = 0;
+
+async function solverRelayRpc(method, params) {
+  const url = getSolverRelayUrl();
+  const id = ++relayRequestId;
+  const body = await fetchJson(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id, method, params: [params ?? {}] }),
+  });
+  if (body?.error) {
+    const message = typeof body.error === 'string'
+      ? body.error
+      : body.error.message || 'The solver relay rejected the request';
+    throw new IntentsError(message, 'RELAY_ERROR', { error: body.error, method });
+  }
+  return body?.result ?? null;
+}
+
+/**
+ * Submit a signed intent for execution.
+ *
+ * This is the one call in this module that moves money. Everything else reads
+ * or simulates.
+ */
+export async function publishIntent(signedPayload, { quoteHashes = null } = {}) {
+  const result = await solverRelayRpc('publish_intent', {
+    quote_hashes: quoteHashes,
+    signed_data: signedPayload,
+  });
+
+  if (result?.status !== 'OK') {
+    throw new IntentsError(
+      result?.reason || result?.message || 'The solver relay did not accept the intent',
+      'INTENT_REJECTED',
+      { result },
+    );
+  }
+  if (!result.intent_hash) {
+    throw new IntentsError('The solver relay returned no intent hash', 'INVALID_RELAY_RESPONSE', { result });
+  }
+  return String(result.intent_hash);
+}
+
+/** PENDING until the relayer lands it, then SETTLED with the NEAR transaction. */
+export async function getIntentStatus(intentHash) {
+  const result = await solverRelayRpc('get_status', { intent_hash: intentHash });
+  return {
+    status: String(result?.status || 'UNKNOWN'),
+    transactionHash: result?.data?.hash ? String(result.data.hash) : null,
+    raw: result,
+  };
+}
+
+/**
+ * Poll until the intent settles or stops being pending.
+ *
+ * Resolves with the final status rather than throwing on failure: a settled
+ * failure is an outcome the caller has to show, not an exception.
+ */
+export async function waitForIntentSettlement(intentHash, {
+  timeoutMs = 60_000,
+  pollMs = 2_000,
+} = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let last = { status: 'PENDING', transactionHash: null, raw: null };
+
+  while (Date.now() < deadline) {
+    last = await getIntentStatus(intentHash);
+    if (last.status !== 'PENDING') return last;
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+  return { ...last, status: last.status === 'PENDING' ? 'TIMED_OUT' : last.status };
 }
 
 /** Decode a "secp256k1:<base58>" signature back to its 65 bytes. */
