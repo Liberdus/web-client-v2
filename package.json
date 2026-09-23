@@ -15,6 +15,7 @@
     "test:intents": "node test/intents.mjs",
     "test:intents-assets": "node test/intents-assets.mjs",
     "test:intents-deposits": "node test/intents-deposits.mjs",
-    "test:all": "npm run test:intents && npm run test:intents-assets && npm run test:intents-deposits"
+    "test:intents-transfer": "node test/intents-transfer.mjs",
+    "test:all": "npm run test:intents && npm run test:intents-assets && npm run test:intents-deposits && npm run test:intents-transfer"
   }
 }

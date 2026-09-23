@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Liberdus wallet — Intents transfer</title>
+    <style>
+      :root {
+        --bg: #0e1116; --panel: #161b22; --line: #2a3140; --fg: #d7dde7;
+        --muted: #7d8899; --dim: #4a5464; --green: #7ee787; --red: #f7768e; --accent: #7aa2f7;
+        --warn: #e8c07d; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg); padding: 26px 20px 60px;
+        font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      }
+      .wrap { max-width: 720px; margin: 0 auto; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      .sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+      code { font-family: var(--mono); color: var(--accent); }
+      .grid { display: grid; grid-template-columns: 120px 1fr; gap: 10px 12px;
+              align-items: center; margin-bottom: 16px; }
+      label { color: var(--muted); font-size: 13px; }
+      input, select { background: #0b0e13; color: var(--fg); border: 1px solid var(--line);
+        border-radius: 7px; padding: 8px 10px; font-family: var(--mono); font-size: 12px;
+        width: 100%; }
+      .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+      button { background: var(--accent); color: #0b1020; border: 0; border-radius: 7px;
+               padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+      button:disabled { opacity: .45; cursor: default; }
+      button.danger { background: #7a2130; color: #ffd9de; }
+      .status { font-family: var(--mono); font-size: 12px; padding: 6px 12px; border-radius: 999px;
+                border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+      .status.ok { color: var(--green); border-color: #24422c; background: #10251a; }
+      .status.bad { color: var(--red); border-color: #4a1f28; background: #241014; }
+      .danger-note { border: 1px solid #5c2430; background: #241014; color: #f2b8c0;
+                     border-radius: 9px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; }
+      h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+           margin: 18px 0 8px; }
+      pre { background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+            padding: 12px 14px; font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+            overflow-x: auto; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Liberdus wallet — Intents transfer</h1>
+      <p class="sub">
+        Phase 4: <code>intents-transfer.js</code> against mainnet. A transfer settles inside
+        <code>intents.near</code> between two Liberdus accounts — no chain fee, no bridge, no NEAR.
+        The relayer submits it and pays the gas.
+      </p>
+
+      <div class="danger-note">
+        <strong>Simulate is read-only. Publish is not.</strong> Simulating asks the verifier what
+        the transfer would do and changes nothing. Publishing sends it for execution and moves real
+        funds between real accounts. There is no undo.
+      </div>
+
+      <div class="grid">
+        <label for="secret">Sender secret</label>
+        <input id="secret" type="text" spellcheck="false"
+               value="4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d" />
+        <label for="recipient">Recipient</label>
+        <input id="recipient" type="text" spellcheck="false"
+               value="0x0551f7c9a91ee579c9e40444ffc490001c323108" />
+        <label for="asset">Asset</label>
+        <select id="asset"><option>loading…</option></select>
+        <label for="amount">Amount</label>
+        <input id="amount" type="text" spellcheck="false" value="0.001" />
+        <label for="memo">Memo</label>
+        <input id="memo" type="text" spellcheck="false" value="liberdus chat payment" />
+      </div>
+
+      <div class="bar">
+        <button id="prepare">Prepare &amp; sign</button>
+        <button id="simulate" disabled>Simulate</button>
+        <button id="publish" class="danger" disabled>Publish for real</button>
+        <span id="status" class="status">idle</span>
+      </div>
+
+      <h2>Sender</h2>
+      <pre id="sender">—</pre>
+      <h2>Signed intent</h2>
+      <pre id="signed">—</pre>
+      <h2>Result</h2>
+      <pre id="result">—</pre>
+    </div>
+    <script type="module" src="./intents-transfer.js"></script>
+  </body>
+</html>
