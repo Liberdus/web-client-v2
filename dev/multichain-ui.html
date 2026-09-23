@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Liberdus wallet — Multichain UI harness</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { padding: 0; }
+      .harness-bar {
+        display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+        padding: 12px 16px; border-bottom: 1px solid var(--border-color);
+        font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      }
+      .harness-bar input { flex: 1; min-width: 260px; padding: 7px 9px;
+        border: 1px solid var(--border-color); border-radius: 7px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+      .harness-bar button { padding: 7px 12px; border: 0; border-radius: 7px;
+        background: var(--primary-color); color: #fff; font-weight: 600; cursor: pointer; }
+      .harness-note { padding: 10px 16px; color: var(--secondary-text-color);
+        font: 12.5px/1.5 -apple-system, system-ui, sans-serif;
+        border-bottom: 1px solid var(--border-color); }
+      .harness-frame { max-width: 420px; margin: 0 auto; }
+    </style>
+  </head>
+  <body>
+    <div class="harness-bar">
+      <input id="harnessAddress" type="text" spellcheck="false"
+             value="0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1" />
+      <button id="harnessApply">Load account</button>
+      <button id="harnessOpen">Open Multichain</button>
+    </div>
+    <p class="harness-note">
+      Runs the real <code>intents-ui.js</code> against the real markup and styles: the nodes below
+      are lifted out of <code>index.html</code> at load time, not copied, so this cannot drift from
+      what the app ships. Only the signed-in account is stubbed.
+    </p>
+    <div class="harness-frame" id="harnessFrame"></div>
+    <script src="../external/qr.js"></script>
+    <script type="module" src="./multichain-ui.js"></script>
+  </body>
+</html>
