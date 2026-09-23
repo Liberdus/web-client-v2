@@ -12,6 +12,8 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "test:intents": "node test/intents.mjs"
+    "test:intents": "node test/intents.mjs",
+    "test:intents-assets": "node test/intents-assets.mjs",
+    "test:all": "npm run test:intents && npm run test:intents-assets"
   }
 }
