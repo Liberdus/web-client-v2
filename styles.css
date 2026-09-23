@@ -11075,6 +11075,102 @@ small {
   color: var(--danger-color);
 }
 
+.multichain-withdraw {
+  padding: 4px 16px 24px;
+}
+
+.multichain-withdraw-intro {
+  color: var(--secondary-text-color);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.multichain-withdraw-label {
+  display: block;
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  margin: 12px 0 4px;
+}
+
+.multichain-withdraw-amount-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.multichain-withdraw-max {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--primary-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.multichain-withdraw-quote {
+  margin-top: 16px;
+}
+
+.multichain-withdraw-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+
+.multichain-withdraw-rows dt {
+  color: var(--secondary-text-color);
+}
+
+.multichain-withdraw-rows dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.multichain-withdraw-warning {
+  margin-top: 10px;
+  color: var(--danger-color);
+  font-size: 12px;
+  text-align: center;
+}
+
+.multichain-withdraw-working,
+.multichain-withdraw-error {
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+.multichain-withdraw-error {
+  color: var(--danger-color);
+}
+
+.multichain-withdraw-status {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--input-background-color, #f4f5f7);
+  color: var(--secondary-text-color);
+  font-size: 13px;
+  text-align: center;
+}
+
+.multichain-withdraw-status[data-kind='ok'] {
+  background: #e8f6ec;
+  color: var(--success-color);
+}
+
+.multichain-withdraw-status[data-kind='error'] {
+  color: var(--danger-color);
+}
+
 .multichain-deposit-arrived {
   margin-bottom: 14px;
   padding: 12px 14px;

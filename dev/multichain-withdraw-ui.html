@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" />
+<title>Multichain withdraw UI — harness</title>
+<link rel="stylesheet" href="../styles.css" /></head>
+<body>
+<div id="multichainAssetModal" class="modal">
+  <button id="closeMultichainAssetModal"></button>
+  <div id="multichainAssetTitle"></div><div id="multichainAssetSymbol"></div>
+  <div id="multichainAssetChain"></div><div id="multichainAssetAmount"></div>
+  <div id="multichainAssetValue"></div>
+  <button id="multichainAssetReceive">Receive</button>
+  <button id="multichainAssetWithdraw">Withdraw</button>
+  <section id="multichainDepositPanel" hidden></section>
+  <section id="multichainWithdrawPanel" hidden>
+    <div id="multichainWithdrawIntro"></div>
+    <input id="multichainWithdrawTo" /><input id="multichainWithdrawAmount" />
+    <button id="multichainWithdrawMax">Max</button>
+    <button id="multichainWithdrawPreview">Preview withdrawal</button>
+    <div id="multichainWithdrawQuote" hidden></div>
+    <div id="multichainWithdrawStatus" hidden></div>
+  </section>
+</div>
+<div id="multichainModal" class="modal"><button id="closeMultichainModal"></button>
+  <span id="multichainTotalBalance"></span><button id="refreshMultichainBalance"></button>
+  <div id="multichainAssetsList"></div><div id="multichainStatus"></div></div>
+<button id="openMultichain"></button>
+<button id="multichainSummary"><span id="multichainSummaryValue"></span></button>
+<pre id="log" style="font-family:monospace;font-size:12px;padding:12px"></pre>
+<script src="../external/qr.js"></script>
+<script type="module" src="./multichain-withdraw-ui.js"></script>
+</body></html>

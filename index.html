@@ -399,9 +399,43 @@
               <span class="action-icon"></span>
               <span class="action-label">Receive</span>
             </button>
+            <button class="wallet-action-button" id="multichainAssetWithdraw">
+              <span class="action-icon"></span>
+              <span class="action-label">Withdraw</span>
+            </button>
           </div>
 
           <section class="multichain-deposit" id="multichainDepositPanel" hidden></section>
+
+          <section class="multichain-withdraw" id="multichainWithdrawPanel" hidden>
+            <div class="multichain-withdraw-intro" id="multichainWithdrawIntro">&#8212;</div>
+            <label class="multichain-withdraw-label" for="multichainWithdrawTo">Send to</label>
+            <input
+              class="form-control"
+              id="multichainWithdrawTo"
+              type="text"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Address on the destination chain"
+            />
+            <label class="multichain-withdraw-label" for="multichainWithdrawAmount">Amount</label>
+            <div class="multichain-withdraw-amount-row">
+              <input
+                class="form-control"
+                id="multichainWithdrawAmount"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="0.0"
+              />
+              <button type="button" class="multichain-withdraw-max" id="multichainWithdrawMax">Max</button>
+            </div>
+            <button class="btn btn--primary btn--full" id="multichainWithdrawPreview">Preview withdrawal</button>
+            <div class="multichain-withdraw-quote" id="multichainWithdrawQuote" hidden></div>
+            <div class="multichain-withdraw-status" id="multichainWithdrawStatus" hidden></div>
+          </section>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
