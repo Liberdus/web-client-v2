@@ -141,10 +141,18 @@ class MultichainModal {
   }
 }
 
+// A deposit lands a minute or two after it is sent, long after the balance was
+// last read. Without this the screen sits on a stale zero and looks broken --
+// which is exactly how it looked the first time somebody deposited to it.
+const DEPOSIT_WATCH_INTERVAL_MS = 10_000;
+const DEPOSIT_WATCH_TIMEOUT_MS = 10 * 60_000;
+
 class MultichainAssetModal {
   constructor(controller) {
     this.controller = controller;
     this.assetKey = null;
+    this.watchTimer = null;
+    this.watchUntil = 0;
   }
 
   load() {
@@ -178,11 +186,18 @@ class MultichainAssetModal {
     this.depositPanel.hidden = true;
     this.depositPanel.innerHTML = '';
     this.receiveButton.disabled = false;
+    this.stopWatching();
     openModal(this.modal);
   }
 
   close() {
+    this.stopWatching();
     this.modal.classList.remove('active');
+    // The balance may have moved while this was open, so let the list behind
+    // it catch up rather than showing a number this screen has already
+    // superseded.
+    this.controller.assetsModal.render();
+    this.controller.updateSummary();
   }
 
   isActive() {
@@ -206,6 +221,7 @@ class MultichainAssetModal {
     try {
       const target = await intentsDeposits.requestDepositTarget(accountId, asset.assetId);
       this.renderDeposit(target);
+      this.startWatching(asset);
     } catch (error) {
       console.warn('Deposit address unavailable:', error);
       this.depositPanel.innerHTML = `
@@ -243,6 +259,69 @@ class MultichainAssetModal {
     `;
 
     this.renderQr(qrText);
+  }
+
+  /**
+   * Watch for the deposit while the address is on screen.
+   *
+   * Polls the balance rather than the bridge's deposit list: the balance is
+   * what the person is waiting to see, and it is the same single view call the
+   * rest of this screen already makes. Stops as soon as it moves, and gives up
+   * after ten minutes so a forgotten tab is not polling all day.
+   */
+  startWatching(asset) {
+    this.stopWatching();
+    const startingAmount = asset.rawAmount;
+    const assetKey = this.assetKey;
+    this.watchUntil = Date.now() + DEPOSIT_WATCH_TIMEOUT_MS;
+
+    this.watchTimer = setInterval(async () => {
+      if (!this.isActive() || this.assetKey !== assetKey) {
+        this.stopWatching();
+        return;
+      }
+      if (Date.now() > this.watchUntil) {
+        this.stopWatching();
+        return;
+      }
+
+      try {
+        await intentsAssets.refresh({ force: true });
+      } catch {
+        return; // A failed poll is not worth reporting; the next one may work.
+      }
+
+      const current = intentsAssets.getAsset(assetKey);
+      if (!current || current.rawAmount === startingAmount) return;
+
+      this.stopWatching();
+      this.showDepositArrived(current, startingAmount);
+    }, DEPOSIT_WATCH_INTERVAL_MS);
+  }
+
+  stopWatching() {
+    if (this.watchTimer) {
+      clearInterval(this.watchTimer);
+      this.watchTimer = null;
+    }
+  }
+
+  showDepositArrived(asset, previousRawAmount) {
+    this.amount.textContent = `${asset.tokenAmount} ${asset.tokenSymbol}`;
+    this.value.textContent = asset.tokenValueUsd === null
+      ? 'No price available'
+      : formatUsd(asset.tokenValueUsd);
+
+    const received = BigInt(asset.rawAmount) - BigInt(previousRawAmount);
+    const banner = document.createElement('div');
+    banner.className = 'multichain-deposit-arrived';
+    banner.textContent = received > 0n
+      ? `Deposit received. Your ${asset.tokenSymbol} balance is now ${asset.tokenAmount}.`
+      : `Your ${asset.tokenSymbol} balance changed to ${asset.tokenAmount}.`;
+    this.depositPanel.prepend(banner);
+
+    this.controller.assetsModal.render();
+    this.controller.updateSummary();
   }
 
   renderQr(text) {
