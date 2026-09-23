@@ -752,6 +752,78 @@ export function bin2hex(bin){
     return Array.from(bin).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Base58 with the Bitcoin alphabet. NEAR writes keys and signatures as
+// "<curve>:<base58>", so intents.js needs it to hand a signature to the
+// intents verifier contract. Byte-wise carry rather than BigInt, so the
+// leading zeros a key or signature may start with survive the round trip.
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+export function bin2base58(bytes) {
+    if (!(bytes instanceof Uint8Array)) {
+        throw new TypeError('Input must be a Uint8Array');
+    }
+    if (bytes.length === 0) return '';
+
+    // Each leading zero byte encodes as one '1' and carries no magnitude.
+    let zeros = 0;
+    while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+
+    // log(256)/log(58) = 1.365..., so 1.38 bytes of digits per byte is enough.
+    const size = Math.ceil((bytes.length - zeros) * 138 / 100) + 1;
+    const digits = new Uint8Array(size);
+    let length = 0;
+
+    for (let i = zeros; i < bytes.length; i++) {
+        let carry = bytes[i];
+        let used = 0;
+        for (let k = size - 1; (carry !== 0 || used < length) && k >= 0; k--, used++) {
+            carry += 256 * digits[k];
+            digits[k] = carry % 58;
+            carry = (carry / 58) | 0;
+        }
+        length = used;
+    }
+
+    let encoded = '1'.repeat(zeros);
+    for (let i = size - length; i < size; i++) {
+        encoded += BASE58_ALPHABET[digits[i]];
+    }
+    return encoded;
+}
+
+export function base582bin(str) {
+    if (typeof str !== 'string') {
+        throw new TypeError('Input must be a string');
+    }
+    if (str.length === 0) return new Uint8Array();
+
+    let zeros = 0;
+    while (zeros < str.length && str[zeros] === '1') zeros++;
+
+    // log(58)/log(256) = 0.733...
+    const size = Math.ceil((str.length - zeros) * 733 / 1000) + 1;
+    const bytes = new Uint8Array(size);
+    let length = 0;
+
+    for (let i = zeros; i < str.length; i++) {
+        let carry = BASE58_ALPHABET.indexOf(str[i]);
+        if (carry < 0) {
+            throw new TypeError(`Invalid base58 character "${str[i]}"`);
+        }
+        let used = 0;
+        for (let k = size - 1; (carry !== 0 || used < length) && k >= 0; k--, used++) {
+            carry += 58 * bytes[k];
+            bytes[k] = carry % 256;
+            carry = (carry / 256) | 0;
+        }
+        length = used;
+    }
+
+    const decoded = new Uint8Array(zeros + length);
+    decoded.set(bytes.subarray(size - length), zeros);
+    return decoded;
+}
+
 /**
  * Normalizes a string to a float and limits the number of decimals to 18 and the number of digits before the decimal point to 9.
  * @param {string} value - The float as a string to normalize.
