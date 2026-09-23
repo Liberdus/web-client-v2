@@ -10,5 +10,8 @@
     "decentralized"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "scripts": {
+    "test:intents": "node test/intents.mjs"
+  }
 }

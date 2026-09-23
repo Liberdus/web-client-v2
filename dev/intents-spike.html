@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Liberdus wallet — NEAR Intents spike</title>
+    <style>
+      :root {
+        --bg: #0e1116; --panel: #161b22; --line: #2a3140; --fg: #d7dde7;
+        --muted: #7d8899; --dim: #4a5464; --green: #7ee787; --red: #f7768e; --accent: #7aa2f7;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg); padding: 26px 20px 60px;
+        font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      }
+      .wrap { max-width: 980px; margin: 0 auto; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      .sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+      .sub code { font-family: var(--mono); color: var(--accent); }
+      .bar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+      button { background: var(--accent); color: #0b1020; border: 0; border-radius: 7px;
+               padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+      button:disabled { opacity: .5; cursor: default; }
+      input[type=text] { flex: 1; min-width: 320px; background: #0b0e13; color: var(--fg);
+        border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px;
+        font-family: var(--mono); font-size: 12px; }
+      .summary { font-family: var(--mono); font-size: 13px; padding: 6px 12px; border-radius: 999px;
+                 border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
+      .summary.ok { color: var(--green); border-color: #24422c; background: #10251a; }
+      .summary.bad { color: var(--red); border-color: #4a1f28; background: #241014; }
+      .note { border: 1px solid #4a3a1f; background: #241d10; color: #e8c07d; border-radius: 9px;
+              padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px; }
+      ul { list-style: none; margin: 0 0 18px; padding: 0; background: var(--panel);
+           border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+      li { display: flex; align-items: baseline; gap: 10px; padding: 8px 14px;
+           border-bottom: 1px solid #1b2029; font-size: 13.5px; }
+      li:last-child { border-bottom: 0; }
+      li.section { display: block; background: #12161d; color: var(--muted); font-size: 11px;
+                   text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+      .mark { font-family: var(--mono); }
+      li.ok .mark { color: var(--green); }
+      li.bad .mark, li.bad .label { color: var(--red); }
+      .label { flex: 1; }
+      .detail { color: var(--dim); font-family: var(--mono); font-size: 11.5px; text-align: right;
+                max-width: 52%; overflow-wrap: anywhere; }
+      h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+           margin: 0 0 8px; }
+      pre { background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+            padding: 12px 14px; font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+            overflow-x: auto; margin: 0 0 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Liberdus wallet — NEAR Intents spike</h1>
+      <p class="sub">
+        Phase 0: proves the Liberdus account key can sign for its own NEAR Intents account, with
+        nothing but <code>intents.js</code>, <code>crypto.js</code> and <code>lib.js</code>. Every
+        call is read-only — signatures are checked by <code>simulate_intents</code>, a view method,
+        so no funds move and no NEAR is needed.
+      </p>
+      <div class="note">
+        Talks to <strong>mainnet</strong>, because NEAR Intents has no testnet. Read-only: this page
+        never calls <code>execute_intents</code> and never publishes an intent. Use a throwaway key —
+        the default is a well-known public test key.
+      </div>
+      <div class="bar">
+        <input id="secret" type="text" spellcheck="false"
+               value="4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d" />
+        <button id="random">Random key</button>
+        <button id="run">Run checks</button>
+        <span id="summary" class="summary">idle</span>
+      </div>
+      <ul id="results"></ul>
+      <h2>Signed intent</h2>
+      <pre id="signed">—</pre>
+      <h2>Verifier response</h2>
+      <pre id="response">—</pre>
+    </div>
+    <script type="module" src="./intents-spike.js"></script>
+  </body>
+</html>
