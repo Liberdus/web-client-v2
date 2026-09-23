@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" />
+<title>Chat payment UI — harness</title><link rel="stylesheet" href="../styles.css" /></head>
+<body style="padding:16px">
+<div class="location-share-panel" id="chatPaymentPanel" style="display:none">
+  <div class="location-share-dialog">
+    <div id="chatPaymentIntro"></div>
+    <select id="chatPaymentAsset"></select>
+    <input id="chatPaymentAmount" /><button id="chatPaymentMax">Max</button>
+    <input id="chatPaymentNote" />
+    <div id="chatPaymentStatus" hidden></div>
+    <button id="cancelChatPaymentButton">Cancel</button>
+    <button id="sendChatPaymentButton">Send</button>
+  </div>
+</div>
+<h3>Rendered bubbles</h3>
+<div id="bubbles"></div>
+<pre id="log" style="font-family:monospace;font-size:12px"></pre>
+<script type="module" src="./chat-payment-ui.js"></script>
+</body></html>
