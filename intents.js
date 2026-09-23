@@ -512,6 +512,69 @@ export async function waitForIntentSettlement(intentHash, {
   return { ...last, status: last.status === 'PENDING' ? 'TIMED_OUT' : last.status };
 }
 
+// ---------------------------------------------------------------------------
+// Swaps and withdrawals, through 1Click.
+//
+// Getting an asset back onto its own chain is not one mechanism but several:
+// some tokens leave through the PoA bridge, others through Omni, and the split
+// is a hand-maintained list that moves. Omni withdrawals also derive a storage
+// account by a hash where letter case matters, and charge a fee in wNEAR.
+//
+// 1Click owns all of that. We ask it what a withdrawal would cost, and it
+// answers with a deposit address inside the verifier; funding that address with
+// an ordinary transfer intent is the whole withdrawal on our side.
+//
+// A dry quote validates the destination address and the minimum before anything
+// exists, so it doubles as the pre-flight check -- and its numbers are live,
+// where the ones in supported_tokens are not always.
+// ---------------------------------------------------------------------------
+
+async function oneClickRequest(path, { method = 'GET', body = null } = {}) {
+  const url = `${getOneClickBaseUrl()}${path}`;
+  try {
+    return await fetchJson(url, {
+      method,
+      headers: body
+        ? { 'content-type': 'application/json', accept: 'application/json' }
+        : { accept: 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    // 1Click explains refusals in a `message` field, and those explanations are
+    // worth showing verbatim: "Amount is too low for bridge, try at least N".
+    const raw = error?.details?.body;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.message) {
+          throw new IntentsError(String(parsed.message), 'QUOTE_REFUSED', { cause: error });
+        }
+      } catch (parseError) {
+        if (parseError instanceof IntentsError) throw parseError;
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Price a swap or withdrawal.
+ *
+ * `dry` decides whether this is a question or a commitment: a dry quote prices
+ * it and validates the inputs, while a real one allocates the deposit address
+ * that funds it.
+ */
+export function requestSwapQuote(params) {
+  return oneClickRequest('/quote', { method: 'POST', body: params });
+}
+
+/** Where a swap or withdrawal has got to, keyed by the deposit address. */
+export function getSwapStatus(depositAddress, depositMemo = null) {
+  const query = new URLSearchParams({ depositAddress });
+  if (depositMemo) query.set('depositMemo', depositMemo);
+  return oneClickRequest(`/status?${query.toString()}`);
+}
+
 /** Decode a "secp256k1:<base58>" signature back to its 65 bytes. */
 export function parseIntentSignature(value) {
   const [curve, encoded] = String(value || '').split(':');

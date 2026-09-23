@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Liberdus wallet — Intents withdrawal</title>
+    <style>
+      :root {
+        --bg:#0e1116; --panel:#161b22; --line:#2a3140; --fg:#d7dde7; --muted:#7d8899;
+        --green:#7ee787; --red:#f7768e; --accent:#7aa2f7;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      *{box-sizing:border-box}
+      body{margin:0;background:var(--bg);color:var(--fg);padding:26px 20px 60px;
+        font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+      .wrap{max-width:720px;margin:0 auto}
+      h1{font-size:18px;margin:0 0 4px}
+      .sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+      code{font-family:var(--mono);color:var(--accent)}
+      .grid{display:grid;grid-template-columns:130px 1fr;gap:10px 12px;align-items:center;margin-bottom:16px}
+      label{color:var(--muted);font-size:13px}
+      input,select{background:#0b0e13;color:var(--fg);border:1px solid var(--line);border-radius:7px;
+        padding:8px 10px;font-family:var(--mono);font-size:12px;width:100%}
+      .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+      button{background:var(--accent);color:#0b1020;border:0;border-radius:7px;padding:8px 14px;
+        font-size:13px;font-weight:600;cursor:pointer}
+      button:disabled{opacity:.45;cursor:default}
+      button.warn{background:#7a5a21;color:#ffe9c4}
+      button.danger{background:#7a2130;color:#ffd9de}
+      .status{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;
+        border:1px solid var(--line);background:var(--panel);color:var(--muted)}
+      .status.ok{color:var(--green);border-color:#24422c;background:#10251a}
+      .status.bad{color:var(--red);border-color:#4a1f28;background:#241014}
+      .note{border:1px solid #5c2430;background:#241014;color:#f2b8c0;border-radius:9px;
+        padding:12px 14px;font-size:13px;margin-bottom:16px}
+      h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:18px 0 8px}
+      pre{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:12px 14px;
+        font-family:var(--mono);font-size:11.5px;color:var(--muted);overflow-x:auto;margin:0;
+        white-space:pre-wrap;overflow-wrap:anywhere}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Liberdus wallet — Intents withdrawal</h1>
+      <p class="sub">
+        Phase 5: <code>intents-withdraw.js</code> against mainnet. 1Click prices the withdrawal and
+        returns a deposit address inside the verifier; funding it with a transfer intent is our
+        whole side of it.
+      </p>
+      <div class="note">
+        <strong>Preview is free. Prepare creates a real quote. Withdraw moves funds.</strong>
+        Preview only prices it and validates the address. Prepare takes a live quote and allocates a
+        deposit address that expires. Withdraw signs, publishes, and sends your asset to the
+        destination chain. There is no undo.
+      </div>
+
+      <div class="grid">
+        <label for="secret">Account secret</label>
+        <input id="secret" type="text" spellcheck="false" value="" placeholder="hex secret key" />
+        <label for="asset">Asset</label>
+        <select id="asset"><option>loading…</option></select>
+        <label for="destination">Send to</label>
+        <input id="destination" type="text" spellcheck="false" placeholder="address on the destination chain" />
+        <label for="amount">Amount</label>
+        <input id="amount" type="text" spellcheck="false" value="0.005" />
+      </div>
+
+      <div class="bar">
+        <button id="preview">Preview</button>
+        <button id="prepare" class="warn" disabled>Prepare quote</button>
+        <button id="simulate" disabled>Simulate</button>
+        <button id="withdraw" class="danger" disabled>Withdraw for real</button>
+        <span id="status" class="status">idle</span>
+      </div>
+
+      <h2>Account</h2>
+      <pre id="account">—</pre>
+      <h2>Quote</h2>
+      <pre id="quote">—</pre>
+      <h2>Result</h2>
+      <pre id="result">—</pre>
+    </div>
+    <script type="module" src="./intents-withdraw.js"></script>
+  </body>
+</html>
