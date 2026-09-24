@@ -53,7 +53,6 @@ async function checkVersion() {
       'lib.js',
       'network.js',
       'crypto.js',
-      'chat-security.js',
       'encryption.worker.js',
       'offline.html',
       'meet/index.html',
@@ -163,6 +162,7 @@ import {
   dhkeyCombined,
   decryptChacha,
   generateUUIDv4,
+  verifyMessage,
 } from './crypto.js';
 
 // Put standalone conversion function in lib.js
@@ -198,13 +198,10 @@ import {
   normalizeUnsignedFloat,
   getVerifiedUsername,
   EthNum,
-} from './lib.js';
-
-import {
   getExpectedChatId,
   isPublicKeyForAddress,
   validateChatTransaction,
-} from './chat-security.js';
+} from './lib.js';
 
 import {
   CHAT_REACTION_SHEET_CATEGORIES,
@@ -11354,14 +11351,14 @@ async function ensureContactKeys(address) {
 async function getVerifiedChatContactKeys(address) {
   const existingContact = myData.contacts[address];
   const existingPublicKey = existingContact?.public;
-  if (isPublicKeyForAddress(existingPublicKey, address) && existingContact?.pqPublic) {
+  if (isPublicKeyForAddress(existingPublicKey, address, generateAddress) && existingContact?.pqPublic) {
     return { public: existingPublicKey, pqPublic: existingContact.pqPublic };
   }
 
   try {
     const accountInfo = await queryNetwork(`/account/${longAddress(address)}`);
     const publicKey = accountInfo?.account?.publicKey;
-    if (!isPublicKeyForAddress(publicKey, address)) return null;
+    if (!isPublicKeyForAddress(publicKey, address, generateAddress)) return null;
     return {
       public: publicKey,
       pqPublic: accountInfo?.account?.pqPublicKey || existingContact?.pqPublic || null,
@@ -12386,7 +12383,7 @@ async function processChats(chats, keys) {
   let hasAnyTransfer = false;
   let needsUpcomingCallsUiRefresh = false;
   const currentUserAddress = normalizeAddress(keys.address);
-  const currentUserPublicKey = isPublicKeyForAddress(keys.public, currentUserAddress)
+  const currentUserPublicKey = isPublicKeyForAddress(keys.public, currentUserAddress, generateAddress)
     ? keys.public
     : bin2hex(getPublicKey(hex2bin(keys.secret)));
 
@@ -12395,7 +12392,7 @@ async function processChats(chats, keys) {
     let expectedChatId;
     try {
       from = normalizeAddress(sender);
-      expectedChatId = getExpectedChatId(currentUserAddress, from);
+      expectedChatId = getExpectedChatId(currentUserAddress, from, hashBytes);
     } catch {
       console.warn('Ignoring chat entry with an invalid participant address');
       continue;
@@ -12426,6 +12423,12 @@ async function processChats(chats, keys) {
           expectedChatId,
           networkId: network.netid,
           publicKey,
+        }, {
+          ethHashMessage,
+          generateAddress,
+          hashBytes,
+          stringify,
+          verifyMessage,
         });
         if (!validation.ok) {
           console.warn(`Ignoring unauthenticated chat transaction: ${validation.reason}`);
