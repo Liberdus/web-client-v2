@@ -53,6 +53,7 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'lock-security.js',
+      'media-cache-security.js',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
