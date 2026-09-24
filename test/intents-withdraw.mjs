@@ -78,6 +78,36 @@ ck('too precise for the asset', await failsWith(() => service.preview({
   accountId: ACCOUNT, asset, destinationAddress: SOL_ADDRESS, amount: '0.0000000001',
 })), 'TOO_PRECISE');
 
+section('a symbol that exists on several chains');
+{
+  // ETH held on Base can leave to Ethereum; the destination asset says which,
+  // and getting it wrong sends the funds to the right address on the wrong chain.
+  const ethOnBase = normalizeIntentsToken(
+    { assetId: 'nep141:base-eth.omft.near', decimals: 18, blockchain: 'base', symbol: 'ETH', price: 2773 },
+    '900000000000000',
+  );
+  const ethOnMainnet = normalizeIntentsToken(
+    { assetId: 'nep141:eth.omft.near', decimals: 18, blockchain: 'eth', symbol: 'ETH', price: 2773 },
+    '0',
+  );
+  quoteReply = { quote: { amountInFormatted: '0.0001', amountOutFormatted: '0.00009', minAmountOut: '90', withdrawFee: '1', timeEstimate: 30 } };
+  const preview = await service.preview({
+    accountId: ACCOUNT, asset: ethOnBase, destinationAsset: ethOnMainnet,
+    destinationAddress: '0x0551f7c9a91ee579c9e40444ffc490001c323108', amount: '0.0001',
+  });
+  ck('origin is what is held', lastQuoteRequest.originAsset, 'nep141:base-eth.omft.near');
+  ck('destination is the chosen chain', lastQuoteRequest.destinationAsset, 'nep141:eth.omft.near');
+  ck('the preview names it', preview.destinationChain, 'Ethereum');
+
+  await service.preview({
+    accountId: ACCOUNT, asset: ethOnBase,
+    destinationAddress: '0x0551f7c9a91ee579c9e40444ffc490001c323108', amount: '0.0001',
+  });
+  ck('with no choice it stays on its own chain',
+    [lastQuoteRequest.originAsset, lastQuoteRequest.destinationAsset],
+    ['nep141:base-eth.omft.near', 'nep141:base-eth.omft.near']);
+}
+
 section('preparing the funding transfer');
 {
   quoteReply = {

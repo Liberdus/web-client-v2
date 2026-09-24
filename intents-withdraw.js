@@ -11,25 +11,22 @@
 // of our side. The bridge choice, the fee maths and the storage derivation stay
 // where they are maintained.
 //
-// One thing we deliberately do not delegate: 1Click can compose the intent
-// payload for us, and we do not let it. This client signs only payloads it
-// built itself, so a remote service can never hand it something to sign whose
-// recipient or amount differs from what the person agreed to.
+// The quote/fund/follow machinery is shared with swaps and lives in
+// intents-oneclick.js, including the rule that we sign only payloads we built
+// ourselves. What is specific here is that the asset does not change: only
+// where it lives does.
 
-import {
-  buildIntentPayload,
-  buildTransferIntent,
-  buildVersionedNonce,
-  getCurrentSalt,
-  getSwapStatus,
-  intentDeadline,
-  publishIntent,
-  requestSwapQuote,
-  signIntentPayload,
-  simulateIntents,
-  waitForIntentSettlement,
-} from './intents.js';
+import { getSwapStatus, requestSwapQuote } from './intents.js';
 import { parseTokenAmount } from './intents-transfer.js';
+import {
+  buildFundingTransfer,
+  buildQuoteRequest,
+  followOrder,
+  fundOrder,
+  isQuoteExpired,
+  simulateFunding,
+  STATUS_TIMEOUT_MS,
+} from './intents-oneclick.js';
 
 export class IntentsWithdrawError extends Error {
   constructor(message, code = 'WITHDRAW_ERROR', details = {}) {
@@ -38,34 +35,6 @@ export class IntentsWithdrawError extends Error {
     this.code = code;
     this.details = details;
   }
-}
-
-// How long the quote's deposit address stays fundable. Past it, 1Click warns
-// that funds sent may be lost, so we refuse to publish rather than race it.
-const DEPOSIT_DEADLINE_MARGIN_MS = 30_000;
-const QUOTE_LIFETIME_MS = 10 * 60_000;
-const STATUS_POLL_MS = 3_000;
-const STATUS_TIMEOUT_MS = 10 * 60_000;
-
-const SETTLED_STATUSES = new Set(['SUCCESS', 'REFUNDED', 'FAILED']);
-
-function quoteRequestFor({ accountId, asset, destinationAddress, rawAmount, dry, slippageBps }) {
-  return {
-    dry,
-    swapType: 'EXACT_INPUT',
-    slippageTolerance: slippageBps,
-    // Same asset in and out: a withdrawal is a swap that does not change what
-    // you hold, only where it lives.
-    originAsset: asset.assetId,
-    depositType: 'INTENTS',
-    destinationAsset: asset.assetId,
-    amount: rawAmount,
-    refundTo: accountId,
-    refundType: 'INTENTS',
-    recipient: destinationAddress,
-    recipientType: 'DESTINATION_CHAIN',
-    deadline: new Date(Date.now() + QUOTE_LIFETIME_MS).toISOString(),
-  };
 }
 
 export class IntentsWithdrawService {
@@ -92,6 +61,27 @@ export class IntentsWithdrawService {
   }
 
   /**
+   * The quote fields that make this a withdrawal rather than a swap.
+   *
+   * `destinationAsset` defaults to the asset being spent -- the same coin, on
+   * its own chain. It differs when the same symbol exists on several chains:
+   * ETH held on Base can leave to Ethereum or Arbitrum, and the person has to
+   * say which, because an address is not enough to tell them apart.
+   */
+  quoteFor({ accountId, asset, destinationAsset = null, destinationAddress, rawAmount, dry }) {
+    return buildQuoteRequest({
+      accountId,
+      originAssetId: asset.assetId,
+      destinationAssetId: (destinationAsset || asset).assetId,
+      rawAmount,
+      recipient: destinationAddress,
+      recipientType: 'DESTINATION_CHAIN',
+      dry,
+      slippageBps: this.slippageBps,
+    });
+  }
+
+  /**
    * What this withdrawal would cost, without creating one.
    *
    * Also the validation step: a dry quote is where 1Click rejects a malformed
@@ -99,20 +89,15 @@ export class IntentsWithdrawService {
    * explanations are better than anything we could compute locally -- the
    * minimums it quotes are live, where the cached ones are not always.
    */
-  async preview({ accountId, asset, destinationAddress, amount }) {
+  async preview({ accountId, asset, destinationAsset = null, destinationAddress, amount }) {
     const rawAmount = parseTokenAmount(amount, asset.tokenDecimals).toString();
     if (!destinationAddress) {
       throw new IntentsWithdrawError('Enter an address to withdraw to', 'NO_DESTINATION');
     }
 
-    const response = await this.requestQuote(quoteRequestFor({
-      accountId,
-      asset,
-      destinationAddress,
-      rawAmount,
-      dry: true,
-      slippageBps: this.slippageBps,
-    }));
+    const response = await this.requestQuote(
+      this.quoteFor({ accountId, asset, destinationAsset, destinationAddress, rawAmount, dry: true }),
+    );
 
     const quote = response?.quote;
     if (!quote) {
@@ -129,6 +114,7 @@ export class IntentsWithdrawService {
       timeEstimateSeconds: quote.timeEstimate,
       symbol: asset.tokenSymbol,
       destinationAddress,
+      destinationChain: (destinationAsset || asset).chainName,
     });
   }
 
@@ -136,7 +122,7 @@ export class IntentsWithdrawService {
    * Commit to the withdrawal: take a real quote, and build the transfer that
    * funds it. Nothing is signed or published here.
    */
-  async prepare({ accountId, asset, destinationAddress, amount }) {
+  async prepare({ accountId, asset, destinationAsset = null, destinationAddress, amount }) {
     if (!accountId) {
       throw new IntentsWithdrawError('No account is signed in', 'NO_ACCOUNT');
     }
@@ -149,14 +135,9 @@ export class IntentsWithdrawService {
       );
     }
 
-    const response = await this.requestQuote(quoteRequestFor({
-      accountId,
-      asset,
-      destinationAddress,
-      rawAmount,
-      dry: false,
-      slippageBps: this.slippageBps,
-    }));
+    const response = await this.requestQuote(
+      this.quoteFor({ accountId, asset, destinationAsset, destinationAddress, rawAmount, dry: false }),
+    );
 
     const quote = response?.quote;
     const depositAddress = quote?.depositAddress;
@@ -168,21 +149,12 @@ export class IntentsWithdrawService {
       );
     }
 
-    const deadline = intentDeadline();
-    const salt = await getCurrentSalt();
-
-    // The transfer that funds the withdrawal. Built here, from values we chose,
-    // so what gets signed is what was agreed -- 1Click supplies the destination
-    // account and nothing else.
-    const payload = buildIntentPayload({
-      signerId: accountId,
-      deadline,
-      nonce: buildVersionedNonce(salt, deadline),
-      intents: [buildTransferIntent({
-        receiverId: depositAddress,
-        tokens: { [asset.assetId]: rawAmount },
-        memo: quote.depositMemo || null,
-      })],
+    const payload = await buildFundingTransfer({
+      accountId,
+      assetId: asset.assetId,
+      rawAmount,
+      depositAddress,
+      depositMemo: quote.depositMemo,
     });
 
     return Object.freeze({
@@ -192,6 +164,7 @@ export class IntentsWithdrawService {
       amount: String(amount).trim(),
       rawAmount,
       destinationAddress,
+      destinationChain: (destinationAsset || asset).chainName,
       depositAddress,
       depositMemo: quote.depositMemo || null,
       depositDeadline: quote.deadline || null,
@@ -203,12 +176,8 @@ export class IntentsWithdrawService {
   }
 
   /** Ask the verifier whether the funding transfer would go through. */
-  async simulate(signed) {
-    try {
-      return { ok: true, simulation: await simulateIntents(signed), reason: null };
-    } catch (error) {
-      return { ok: false, simulation: null, reason: error.message || String(error) };
-    }
+  simulate(signed) {
+    return simulateFunding(signed);
   }
 
   /**
@@ -218,23 +187,15 @@ export class IntentsWithdrawService {
    * lost, so an expired quote is refused here rather than published hopefully.
    */
   async execute(prepared, secretKey, { onStatus = null, signed = null } = {}) {
-    if (prepared.depositDeadline) {
-      const expiresAt = Date.parse(prepared.depositDeadline);
-      if (Number.isFinite(expiresAt) && Date.now() > expiresAt - DEPOSIT_DEADLINE_MARGIN_MS) {
-        throw new IntentsWithdrawError(
-          'This quote has expired. Get a new one before withdrawing.',
-          'QUOTE_EXPIRED',
-        );
-      }
+    if (isQuoteExpired(prepared.depositDeadline)) {
+      throw new IntentsWithdrawError(
+        'This quote has expired. Get a new one before withdrawing.',
+        'QUOTE_EXPIRED',
+      );
     }
 
-    // A caller that simulated first passes the signature it checked, so the
-    // payload published is the one the verifier approved.
-    const payload = signed || await signIntentPayload(prepared.payload, secretKey);
-    const intentHash = await publishIntent(payload);
-    const settlement = await waitForIntentSettlement(intentHash);
-
-    if (settlement.status !== 'SETTLED') {
+    const { intentHash, settlement, settled } = await fundOrder(prepared, secretKey, { signed });
+    if (!settled) {
       throw new IntentsWithdrawError(
         `The funding transfer did not settle (${settlement.status})`,
         'FUNDING_FAILED',
@@ -252,27 +213,14 @@ export class IntentsWithdrawService {
   }
 
   /** Poll 1Click until the withdrawal reaches a resting state. */
-  async followStatus(prepared, { onStatus = null, timeoutMs = STATUS_TIMEOUT_MS } = {}) {
-    const deadline = Date.now() + timeoutMs;
-    let last = { status: 'PENDING', detail: null };
-
-    while (Date.now() < deadline) {
-      let response;
-      try {
-        response = await this.getStatus(prepared.depositAddress, prepared.depositMemo);
-      } catch (error) {
-        // A status endpoint hiccup is not a failed withdrawal.
-        await new Promise((resolve) => setTimeout(resolve, STATUS_POLL_MS));
-        continue;
-      }
-
-      last = { status: String(response?.status || 'PENDING'), detail: response };
-      onStatus?.(last);
-      if (SETTLED_STATUSES.has(last.status)) return last;
-
-      await new Promise((resolve) => setTimeout(resolve, STATUS_POLL_MS));
-    }
-    return { ...last, status: last.status === 'PENDING' ? 'TIMED_OUT' : last.status };
+  followStatus(prepared, { onStatus = null, timeoutMs = STATUS_TIMEOUT_MS } = {}) {
+    return followOrder({
+      getStatus: (address, memo) => this.getStatus(address, memo),
+      depositAddress: prepared.depositAddress,
+      depositMemo: prepared.depositMemo,
+      onStatus,
+      timeoutMs,
+    });
   }
 }
 
