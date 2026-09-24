@@ -1,3 +1,21 @@
+import {
+    escapeHtml,
+    escapeHtmlAttribute,
+    normalizeHttpsUrl,
+    normalizeMimeType,
+    normalizeResourceUrl,
+    normalizeTransactionId,
+} from './security-utils.js';
+
+export {
+    escapeHtml,
+    escapeHtmlAttribute,
+    normalizeHttpsUrl,
+    normalizeMimeType,
+    normalizeResourceUrl,
+    normalizeTransactionId,
+};
+
 /**
  * Normalizes a username string. Keeps only letters and numbers; lowercase all letters; limit to 15 characters.
  * @param {string} u - The string to normalize.
@@ -262,12 +280,6 @@ export function linkifyUrls(text) {
         // return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer" onclick="return confirm('${warningMessage}')">${escapedUrl}</a>`;
         return `<a href="${properUrl}" target="_blank" rel="noopener noreferrer">${escapedUrl}</a>`;
     });
-}
-
-export function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
 }
 
 export const BUTTON_COOLDOWN_MS = 2000;

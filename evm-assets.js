@@ -1,6 +1,9 @@
 import {
   BUTTON_COOLDOWN_MS,
   escapeHtml,
+  escapeHtmlAttribute,
+  normalizeHttpsUrl,
+  normalizeResourceUrl,
   normalizeUsername,
   openModal,
   utf82bin,
@@ -1231,10 +1234,20 @@ function formatConnectedUsd(value) {
   });
 }
 
+function normalizeConnectedAssetLogoUrl(value) {
+  if (typeof value !== 'string') return '';
+  const candidate = value.trim();
+  if (candidate.startsWith('./')) {
+    const normalized = normalizeResourceUrl(candidate, window.location.href);
+    return normalized && new URL(normalized).origin === window.location.origin ? normalized : '';
+  }
+  return normalizeHttpsUrl(candidate);
+}
+
 function connectedAssetLogoMarkup(asset, walletNetwork) {
-  const logoUrl = typeof asset.logoUrl === 'string' ? asset.logoUrl : '';
-  if (/^(?:https:\/\/|\.\/)/.test(logoUrl)) {
-    return `<img src="${escapeHtml(logoUrl)}" alt="" class="connected-asset-logo-image">`;
+  const logoUrl = normalizeConnectedAssetLogoUrl(asset.logoUrl);
+  if (logoUrl) {
+    return `<img src="${escapeHtmlAttribute(logoUrl)}" alt="" class="connected-asset-logo-image">`;
   }
   return `<span class="connected-asset-logo-fallback">${escapeHtml(walletNetwork.shortName.slice(0, 3))}</span>`;
 }

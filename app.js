@@ -187,6 +187,11 @@ import {
   bin2hex,
   linkifyUrls,
   escapeHtml,
+  escapeHtmlAttribute,
+  normalizeHttpsUrl,
+  normalizeMimeType,
+  normalizeResourceUrl,
+  normalizeTransactionId,
   debounce,
   installModalTransitionListeners,
   openModal,
@@ -234,6 +239,30 @@ let initialViewportHeight = window.innerHeight;
 
 // parameters to add to the call URL when opening the page
 const callUrlParams = `#config.toolbarButtons=["camera","microphone","desktop","hangup"]&config.disableDeepLinking=true&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&startWithVideoMuted=false&userInfo.displayName=`
+const ALLOWED_CALL_ORIGINS = Object.freeze(['https://meet.liberdus.com']);
+
+function normalizeCallUrl(value) {
+  const normalized = normalizeHttpsUrl(value, ALLOWED_CALL_ORIGINS);
+  if (!normalized) return '';
+  const url = new URL(normalized);
+  url.hash = '';
+  return url.toString();
+}
+
+function buildCallJoinUrl(value, displayName) {
+  const callUrl = normalizeCallUrl(value);
+  if (!callUrl) return '';
+  return `${callUrl}${callUrlParams}"${encodeURIComponent(String(displayName || ''))}"`;
+}
+
+function encodeAttachmentName(value) {
+  const fileName = typeof value === 'string' && value ? value.slice(0, 255) : 'Attachment';
+  try {
+    return encodeURIComponent(fileName);
+  } catch {
+    return encodeURIComponent(fileName.replace(/[\uD800-\uDFFF]/g, '\uFFFD'));
+  }
+}
 
 // Used in getNetworkParams function
 const NETWORK_ACCOUNT_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
@@ -10874,11 +10903,12 @@ class CallsModal {
       showToast(`Call scheduled for ${chatModal.formatLocalDateTime(callGroup.callTime)}`, 2500, 'info');
       return;
     }
-    if (!callGroup.callUrl) {
+    const callJoinUrl = buildCallJoinUrl(callGroup.callUrl, myAccount.username);
+    if (!callJoinUrl) {
       showToast('Call link not found', 0, 'error');
       return;
     }
-    window.open(callGroup.callUrl+`${callUrlParams}"${myAccount.username}"`, '_blank');
+    window.open(callJoinUrl, '_blank', 'noopener,noreferrer');
   }
 
   /**
@@ -22490,10 +22520,10 @@ class ChatModal {
   renderChatMessageHTML(item, { contact, lastReadTs }) {
     const timeString = formatTime(item.timestamp);
     // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
-    const timestampAttribute = `data-message-timestamp="${item.timestamp}"`;
+    const timestampAttribute = `data-message-timestamp="${escapeHtmlAttribute(item.timestamp)}"`;
     // Add txid attribute if available
-    const txidAttribute = item.txid ? `data-txid="${item.txid}"` : '';
-    const statusAttribute = item.status ? `data-status="${item.status}"` : '';
+    const txidAttribute = item.txid ? `data-txid="${escapeHtmlAttribute(item.txid)}"` : '';
+    const statusAttribute = item.status ? `data-status="${escapeHtmlAttribute(item.status)}"` : '';
 
     if (item.type === 'update_toll_required') {
       const statusText = escapeHtml(getUpdateTollRequiredPreviewText(item, contact));
@@ -22510,7 +22540,7 @@ class ChatModal {
       // Format amount correctly using big2str
       const amountStr = big2str(item.amount, 18);
       const amountNum = parseFloat(amountStr);
-      const amountDisplay = `${amountNum.toFixed(6)} ${item.symbol || 'LIB'}`;
+      const amountDisplay = `${amountNum.toFixed(6)} ${escapeHtml(item.symbol || 'LIB')}`;
       const directionText = item.my ? '-' : '+';
       const messageClass = item.my ? 'sent' : 'received';
       const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
@@ -22534,7 +22564,7 @@ class ChatModal {
       // Render deleted message with special styling
       return `
                     <div class="message ${messageClass} deleted-message" ${timestampAttribute} ${txidAttribute} ${statusAttribute}>
-                        <div class="message-content deleted-content">${item.message}</div>
+                        <div class="message-content deleted-content">${escapeHtml(item.message)}</div>
                         <div class="message-time">${timeString}</div>
                     </div>
                 `;
@@ -22544,11 +22574,12 @@ class ChatModal {
 
     let replyHTML = '';
     // --- Render Reply Quote if present ---
-    if (item.replyId) {
+    const replyId = normalizeTransactionId(item.replyId);
+    if (replyId) {
       const replyText = escapeHtml(item.replyMessage || 'View original message');
       // Determine owner label: "You" if the referenced message is ours, else contact name
       const ownerIsMineHint = item.replyOwnerIsMine;
-      const targetMsg = contact.messages.find((message) => message.txid === item.replyId);
+      const targetMsg = contact.messages.find((message) => message.txid === replyId);
       // Use both item.my and replyOwnerIsMine to determine from current viewer's perspective
       // item.my: true if reply is from current user (viewer's perspective)
       // replyOwnerIsMine: true if original message was from sender's perspective
@@ -22561,7 +22592,7 @@ class ChatModal {
       const replyOwnerLabel = `<span class="reply-quote-label ${ownerClass}">${escapeHtml(ownerText)}</span>`;
 
       replyHTML = `
-                <div class="reply-quote ${ownerClass}" data-reply-txid="${escapeHtml(item.replyId)}">
+                <div class="reply-quote ${ownerClass}" data-reply-txid="${escapeHtmlAttribute(replyId)}">
                   ${replyOwnerLabel}
                   <div class="reply-quote-text">${replyText}</div>
                 </div>
@@ -22572,33 +22603,36 @@ class ChatModal {
     let attachmentsHTML = '';
     if (item.xattach && Array.isArray(item.xattach) && item.xattach.length > 0) {
       attachmentsHTML = item.xattach.map(att => {
-        const fileUrl = att.url || '#';
-        const fileName = att.name || 'Attachment';
+        const fileUrl = normalizeResourceUrl(att.url || '#', window.location.href) || '#';
+        const previewUrl = normalizeResourceUrl(att.pUrl || '', window.location.href);
+        const fileName = typeof att.name === 'string' && att.name ? att.name.slice(0, 255) : 'Attachment';
+        const encodedFileName = encodeAttachmentName(fileName);
+        const mimeType = att.type ? normalizeMimeType(att.type) : '';
         const fileSize = att.size ? this.formatFileSize(att.size) : '';
-        const fileType = att.type ? att.type.split('/').pop().toUpperCase() : '';
-        const isImage = att.type && att.type.startsWith('image/');
-        const isVideo = att.type && att.type.startsWith('video/');
+        const fileType = mimeType ? mimeType.split('/').pop().toUpperCase() : '';
+        const isImage = mimeType.startsWith('image/');
+        const isVideo = mimeType.startsWith('video/');
         const hasThumbnail = isImage || isVideo;
-        const fileTypeIcon = this.getFileTypeForIcon(att.type || '', fileName);
+        const fileTypeIcon = this.getFileTypeForIcon(mimeType, fileName);
         const paddingStyle = hasThumbnail ? 'padding: 5px 5px;' : 'padding: 10px 12px;';
         return `
                 <div class="attachment-row" style="display: flex; ${hasThumbnail ? 'flex-direction: column;' : 'align-items: center;'} background: #f5f5f7; border-radius: 12px; ${paddingStyle} margin-bottom: 6px;"
-                  data-url="${fileUrl}"
-                  data-p-url="${att.pUrl || ''}"
-                  data-name="${encodeURIComponent(fileName)}"
-                  data-type="${att.type || ''}"
+                  data-url="${escapeHtmlAttribute(fileUrl)}"
+                  data-p-url="${escapeHtmlAttribute(previewUrl)}"
+                  data-name="${escapeHtmlAttribute(encodedFileName)}"
+                  data-type="${escapeHtmlAttribute(mimeType)}"
                   ${isImage ? 'data-image-attachment="true"' : ''}
                   ${isVideo ? 'data-video-attachment="true"' : ''}
                 >
                   <div class="attachment-icon-container" style="${hasThumbnail ? 'margin-bottom: 10px; flex-direction: column;' : 'margin-right: 14px; flex-shrink: 0;'}">
-                    <div class="attachment-icon" data-file-type="${fileTypeIcon}"></div>
+                    <div class="attachment-icon" data-file-type="${escapeHtmlAttribute(fileTypeIcon)}"></div>
                     ${hasThumbnail ? '<div class="attachment-preview-hint">Click for options</div>' : ''}
                   </div>
                   <div style="min-width:0;">
                     <span class="attachment-label" style="font-weight:500;color:#222;display:block;word-wrap:break-word;">
-                      ${fileName}
+                      ${escapeHtml(fileName)}
                     </span><br>
-                    <span class="attachment-meta" style="color: #888;">${fileType}${fileType && fileSize ? ' · ' : ''}${fileSize}</span>
+                    <span class="attachment-meta" style="color: #888;">${escapeHtml(fileType)}${fileType && fileSize ? ' · ' : ''}${escapeHtml(fileSize)}</span>
                   </div>
                 </div>
               `;
@@ -22631,15 +22665,13 @@ class ChatModal {
         } else {
           // Build scheduled label if in the future
           const scheduleHTML = this.buildCallScheduleHTML(callTimeMs);
+          const callJoinUrl = buildCallJoinUrl(item.message, myAccount.username);
           // Render call message with a left circular phone icon (clickable) and plain text to the right
-          // TODO - remove the href and instead have it call a function which will open the URL and at the time of opening it adds the callUrlParam and username
           messageTextHTML = `
                   <div class="call-message">
-                    <a href='${item.message}${callUrlParams}"${myAccount.username}"' target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call">
-                      <span class="sr-only">Join Video Call</span>
-                    </a>
+                    ${callJoinUrl ? `<a href="${escapeHtmlAttribute(callJoinUrl)}" target="_blank" rel="noopener noreferrer" class="call-message-phone-button" aria-label="Join Video Call"><span class="sr-only">Join Video Call</span></a>` : ''}
                     <div>
-                      <div class="call-message-text">Join Video Call</div>
+                      <div class="call-message-text">${callJoinUrl ? 'Join Video Call' : 'Call link unavailable'}</div>
                       ${scheduleHTML}
                     </div>
                   </div>`;
@@ -22651,9 +22683,10 @@ class ChatModal {
         const durationSeconds = this.getPositiveDurationSeconds(item.duration);
         const currentTime = this.formatVoiceProgressTime(0, durationSeconds);
         const duration = formatVoiceTimer(durationSeconds);
+        const voiceUrl = normalizeResourceUrl(item.url || '', window.location.href);
         // Use audio encryption keys for playback, fall back to message encryption keys if not available
         messageTextHTML = `
-              <div class="voice-message" data-url="${item.url || ''}" data-name="voice-message" data-type="audio/webm" data-duration="${durationSeconds}">
+              <div class="voice-message" data-url="${escapeHtmlAttribute(voiceUrl)}" data-name="voice-message" data-type="audio/webm" data-duration="${escapeHtmlAttribute(durationSeconds)}">
                 <div class="voice-message-controls">
                   <div class="voice-message-top-row">
                     <button class="voice-message-play-button" aria-label="Play voice message">
@@ -22701,7 +22734,7 @@ class ChatModal {
         }
     }
 
-    const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${item.callTime}"` : '';
+    const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${escapeHtmlAttribute(item.callTime)}"` : '';
     const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
     return `
             <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
@@ -26178,27 +26211,14 @@ class ChatModal {
       ? messageRecord.message.trim()
       : '';
     const anchorHref = messageEl.querySelector('.call-message a')?.href?.trim() || '';
-    const callUrl = recordUrl || anchorHref.split('#')[0];
+    const callUrl = normalizeCallUrl(recordUrl || anchorHref);
     if (!callUrl) return '';
 
-    const urlToCopy = callUrl.includes('#') ? callUrl : `${callUrl}${callUrlParams}`;
-    return this.removeCallDisplayNameParam(urlToCopy);
-  }
-
-  removeCallDisplayNameParam(callUrl) {
-    const [baseUrl, hash = ''] = callUrl.split('#');
-    if (!hash) return callUrl;
-
-    const filteredHash = hash
-      .split('&')
-      .filter((param) => !param.startsWith('userInfo.displayName='))
-      .join('&');
-
-    return filteredHash ? `${baseUrl}#${filteredHash}` : baseUrl;
+    return `${callUrl}${callUrlParams}`;
   }
 
     /**
-   * Copies message content to clipboard
+     * Copies message content to clipboard
    * @param {HTMLElement} messageEl - The message element
    */
   async copyMessageContent(messageEl) {
@@ -26273,14 +26293,17 @@ class ChatModal {
       return showToast('This call is being deleted.', 2000, 'warning');
     }
 
-    const callUrl = messageEl.querySelector('.call-message a')?.href;
+    const callUrl = buildCallJoinUrl(
+      messageEl.querySelector('.call-message a')?.href,
+      myAccount.username
+    );
     if (!callUrl) return showToast('Call link not found', 2000, 'error');
     // Gate future scheduled calls (context menu path)
     if (this.gateScheduledCall(messageEl)) {
       this.closeContextMenu();
       return;
     }
-    window.open(callUrl+`${callUrlParams}"${myAccount.username}"`, '_blank');
+    window.open(callUrl, '_blank', 'noopener,noreferrer');
     this.closeContextMenu();
   }
 
@@ -26760,7 +26783,7 @@ class ChatModal {
       
       if (success) {
         if (chosenCallTime === 0) {
-          window.open(callUrl + `${callUrlParams}"${myAccount.username}"`, '_blank');
+          window.open(buildCallJoinUrl(callUrl, myAccount.username), '_blank', 'noopener,noreferrer');
         } else {
           showToast(`Call scheduled for ${this.formatLocalDateTime(chosenCallTime)}`, 3000, 'success');
         }
