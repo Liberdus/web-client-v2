@@ -65,6 +65,10 @@ For an executing project, the contractor or a proposal committee member can prop
 
 The current contractor can claim each completed, unpaid milestone while the project is `executing`, `completed`, or `terminated`. The UI previews the fixed-rate payout and its early, on-time, or late adjustment before submission.
 
+While a project is executing, or after it ends with funds still in escrow, committee members can propose a replacement contractor address and endorse the pending address. A new proposal resets the address endorsements, matching the server transaction contract.
+
+Once every milestone is completed or terminated, a committee member can end the project. The project retains only funds owed to completed, unpaid milestones so the contractor can still claim them. If funds remain 90 days after the project ends, a committee member can reclaim the balance and remove it from circulation.
+
 ## Data model used by the UI
 
 The UI consumes an in-memory “store” shape:
