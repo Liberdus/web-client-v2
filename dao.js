@@ -468,7 +468,8 @@ export function buildDaoProposalCreateDraft({
   };
 }
 
-export function buildDaoProjectProposalPreviewDraft({
+export function buildDaoProjectProposalCreateDraft({
+  from,
   displayTitle,
   description,
   project,
@@ -477,7 +478,8 @@ export function buildDaoProjectProposalPreviewDraft({
   gracePeriodMs,
   maxGracePeriodMs,
 } = {}) {
-  const proposal = {
+  const transaction = {
+    from: requireDaoDraftString(from, 'DAO proposal sender'),
     proposalType: DAO_PROJECT_TYPE,
     emergency: false,
     title: requireDaoDraftString(displayTitle, 'DAO proposal title', DAO_PROPOSAL_TITLE_MAX_LENGTH),
@@ -490,10 +492,10 @@ export function buildDaoProjectProposalPreviewDraft({
   return {
     kind: DAO_PROJECT_PREVIEW_KIND,
     canSubmit: false,
-    displayTitle: proposal.title,
+    displayTitle: transaction.title,
     proposalFeeUsdStr: requireDaoProjectUsdString(proposalFeeUsdStr, 'DAO proposal fee'),
     reviewStartTimeMs: normalizeDaoDraftReviewStartTime(reviewStartTimeMs),
-    proposal,
+    transaction,
   };
 }
 
@@ -511,13 +513,29 @@ export function buildDaoProposalCreateTransaction({
   }
 
   const proposalType = requireDaoDraftString(draftTx.proposalType, 'DAO proposal type');
-  if (!isDaoParameterProposalTypeKey(proposalType)) {
+  const isProject = proposalType === DAO_PROJECT_TYPE;
+  if (!isProject && !isDaoParameterProposalTypeKey(proposalType)) {
     throw new Error('DAO proposal type is not supported');
   }
 
   const emergency = draftTx.emergency === true;
+  if (isProject && emergency) {
+    throw new Error('Project proposals cannot be emergency proposals');
+  }
   const options = normalizeDaoDraftOptions(draftTx.options, emergency);
-  const changes = normalizeDaoDraftChanges(draftTx[proposalType]?.changes, options.length - 1);
+  const hasProjectOptions = options.length === 2
+    && options[0] === 'no'
+    && options[1] === 'Fund project';
+  if (isProject && !hasProjectOptions) {
+    throw new Error('Project proposals must use the no and Fund project options');
+  }
+  const proposalPayload = isProject
+    ? { project: normalizeDaoProjectTransactionPayload(draftTx.project) }
+    : {
+        [proposalType]: {
+          changes: normalizeDaoDraftChanges(draftTx[proposalType]?.changes, options.length - 1),
+        },
+      };
   const proposalId = getDaoProposalAccountId(proposalNumber);
   const txTimestamp = normalizeDaoDraftInteger(timestamp, 'DAO proposal timestamp', 'milliseconds');
   if (txTimestamp <= 0) throw new Error('DAO proposal timestamp is required');
@@ -534,7 +552,7 @@ export function buildDaoProposalCreateTransaction({
     description: requireDaoDraftString(draftTx.description, 'DAO proposal description'),
     options,
     gracePeriod,
-    [proposalType]: { changes },
+    ...proposalPayload,
     proposalId,
     metaId: getDaoProposalsMetaId(),
   };
@@ -914,7 +932,45 @@ function requireDaoProjectUsdString(value, label, {
   return text;
 }
 
-export function normalizeDaoProjectDraft(value) {
+function getDaoUsdUnits(value) {
+  const { whole, fraction } = parseDaoDecimalString(value, 'DAO project USD amount');
+  return BigInt(`${whole}${fraction.padEnd(18, '0')}`);
+}
+
+function normalizeDaoProjectDurationDays(value, label, index) {
+  const durationText = String(value ?? '').trim();
+  if (!/^[1-9]\d*$/.test(durationText)) {
+    throw createDaoProjectValidationError(
+      `${label} duration must be a positive whole number of days`,
+      'durationDays',
+      index,
+    );
+  }
+  const durationDays = Number(durationText);
+  if (!Number.isSafeInteger(durationDays) || durationDays > DAO_PROJECT_DURATION_MAX_DAYS) {
+    throw createDaoProjectValidationError(
+      `${label} duration must not exceed ${DAO_PROJECT_DURATION_MAX_DAYS} days`,
+      'durationDays',
+      index,
+    );
+  }
+  return durationDays * DAO_PROPOSAL_DAY_MS;
+}
+
+function normalizeDaoProjectDurationMs(value, label, index) {
+  const duration = normalizeDaoDraftInteger(value, `${label} duration`, 'milliseconds');
+  const maximumDuration = DAO_PROJECT_DURATION_MAX_DAYS * DAO_PROPOSAL_DAY_MS;
+  if (duration === 0 || duration > maximumDuration) {
+    throw createDaoProjectValidationError(
+      `${label} duration must be between 1 millisecond and ${DAO_PROJECT_DURATION_MAX_DAYS} days`,
+      'duration',
+      index,
+    );
+  }
+  return duration;
+}
+
+function normalizeDaoProject(value, normalizeDuration) {
   const normalizedAddress = normalizeDaoAddress(value?.address);
   if (!normalizedAddress) {
     throw createDaoProjectValidationError(
@@ -938,24 +994,7 @@ export function normalizeDaoProjectDraft(value) {
     address: `${normalizedAddress}${'0'.repeat(24)}`,
     milestones: milestones.map((milestone, index) => {
       const label = `Milestone ${index + 1}`;
-      const durationText = String(milestone?.durationDays ?? '').trim();
-      if (!/^[1-9]\d*$/.test(durationText)) {
-        throw createDaoProjectValidationError(
-          `${label} duration must be a positive whole number of days`,
-          'durationDays',
-          index,
-        );
-      }
-      const durationDays = Number(durationText);
-      if (!Number.isSafeInteger(durationDays) || durationDays > DAO_PROJECT_DURATION_MAX_DAYS) {
-        throw createDaoProjectValidationError(
-          `${label} duration must not exceed ${DAO_PROJECT_DURATION_MAX_DAYS} days`,
-          'durationDays',
-          index,
-        );
-      }
-
-      return {
+      const normalizedMilestone = {
         title: requireDaoProjectText(
           milestone?.title,
           `${label} title`,
@@ -977,7 +1016,7 @@ export function normalizeDaoProjectDraft(value) {
           'deliverable',
           index,
         ),
-        durationDays,
+        duration: normalizeDuration(milestone, label, index),
         costUsdStr: requireDaoProjectUsdString(milestone?.costUsdStr, `${label} cost`, {
           field: 'costUsdStr',
           milestoneIndex: index,
@@ -992,8 +1031,40 @@ export function normalizeDaoProjectDraft(value) {
           milestoneIndex: index,
         }),
       };
+      const costUsdUnits = getDaoUsdUnits(normalizedMilestone.costUsdStr);
+      const penaltyUsdUnits = getDaoUsdUnits(normalizedMilestone.penaltyUsdStr);
+      if (penaltyUsdUnits >= costUsdUnits) {
+        throw createDaoProjectValidationError(
+          `${label} late penalty must be less than its cost`,
+          'penaltyUsdStr',
+          index,
+        );
+      }
+      return normalizedMilestone;
     }),
   };
+}
+
+export function normalizeDaoProjectDraft(value) {
+  return normalizeDaoProject(
+    value,
+    (milestone, label, index) => normalizeDaoProjectDurationDays(
+      milestone?.durationDays,
+      label,
+      index,
+    ),
+  );
+}
+
+function normalizeDaoProjectTransactionPayload(value) {
+  return normalizeDaoProject(
+    value,
+    (milestone, label, index) => normalizeDaoProjectDurationMs(
+      milestone?.duration,
+      label,
+      index,
+    ),
+  );
 }
 
 export function getDaoProposalInfoStateLabel(proposal) {
