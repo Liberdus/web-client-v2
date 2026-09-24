@@ -59,6 +59,8 @@ The UI uses these statuses:
 - `terminated`
 - `canceled`
 
+Accepted project proposals can be started after their grace period by a snapshotted proposal committee member. A confirmed start moves the proposal to `executing` and funds the project escrow at the server's current network rate.
+
 ## Data model used by the UI
 
 The UI consumes an in-memory “store” shape:

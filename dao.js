@@ -181,6 +181,7 @@ export const DAO_ACTION_TYPES = Object.freeze({
   CLAIM_REWARD: 'dao_claim_reward',
   BURN_REWARD: 'dao_burn_reward',
   APPLY_PARAMETERS: 'dao_apply_parameters',
+  PROJECT_START: 'dao_project_start',
 });
 
 const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
@@ -188,6 +189,7 @@ const DAO_LIFECYCLE_KIND_TO_TYPE = Object.freeze({
   claim_reward: DAO_ACTION_TYPES.CLAIM_REWARD,
   burn_reward: DAO_ACTION_TYPES.BURN_REWARD,
   apply_parameters: DAO_ACTION_TYPES.APPLY_PARAMETERS,
+  project_start: DAO_ACTION_TYPES.PROJECT_START,
 });
 
 const DAO_TRANSACTION_MESSAGES = Object.freeze({
@@ -238,6 +240,12 @@ const DAO_TRANSACTION_MESSAGES = Object.freeze({
     success: 'Parameters applied',
     failure: 'Parameter apply failed',
     timeout: 'Parameter apply confirmation is taking longer than expected',
+  },
+  [DAO_ACTION_TYPES.PROJECT_START]: {
+    pending: 'Project start submitted—pending confirmation',
+    success: 'Project started',
+    failure: 'Project start failed',
+    timeout: 'Project start confirmation is taking longer than expected',
   },
 });
 
@@ -759,6 +767,23 @@ export function buildDaoApplyParametersTransaction({
     networkId,
     timestampLabel: 'Apply parameters timestamp',
     fromLabel: 'Apply parameters sender',
+  });
+}
+
+export function buildDaoProjectStartTransaction({
+  from,
+  proposal,
+  timestamp,
+  networkId,
+} = {}) {
+  return buildDaoProposalActionTransaction({
+    type: DAO_ACTION_TYPES.PROJECT_START,
+    from,
+    proposal,
+    timestamp,
+    networkId,
+    timestampLabel: 'Project start timestamp',
+    fromLabel: 'Project start sender',
   });
 }
 
@@ -2083,6 +2108,18 @@ export const daoRepo = {
       networkId,
       submitTransaction,
       errorMessage: 'Apply parameters failed',
+    });
+  },
+
+  async startProject({ from, proposal, timestamp, networkId, submitTransaction } = {}) {
+    return submitDaoProposalAction({
+      buildTransaction: buildDaoProjectStartTransaction,
+      from,
+      proposal,
+      timestamp,
+      networkId,
+      submitTransaction,
+      errorMessage: 'Project start failed',
     });
   },
 };
