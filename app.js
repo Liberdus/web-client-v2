@@ -3,6 +3,11 @@ import {
   recoverAccountMigration,
 } from './account-migration.js';
 
+import {
+  canPersistDecryptedMedia,
+  purgeDecryptedMediaCaches,
+} from './media-cache-security.js';
+
 let accountMigrationRecoveryError = null;
 try {
   recoverAccountMigration();
@@ -10,7 +15,6 @@ try {
   accountMigrationRecoveryError = error;
   console.error('Failed to recover an interrupted account migration:', error);
 }
-
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
 const version = 't'; // Also increment this when you increment version.html
@@ -60,6 +64,9 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
+      'account-migration.js',
+      'lock-security.js',
+      'media-cache-security.js',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -219,6 +226,13 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
+
+import {
+  MIN_LOCK_PASSWORD_LENGTH,
+  createLockRecord,
+  parseLockRecord,
+  unlockLockRecord,
+} from './lock-security.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -776,6 +790,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   await checkVersion(); // version needs to be checked before anything else happens
+  if (!canPersistDecryptedMedia()) {
+    try {
+      // Remove plaintext media left by earlier versions before the account is unlocked.
+      await purgeLocalDecryptedMedia();
+    } catch (error) {
+      console.error('Failed to remove legacy decrypted media:', error);
+      showToast('Close other Liberdus tabs so protected media can be cleared.', 0, 'error');
+    }
+  }
   timeDifference(); // Calculate and log time difference early
 
   setupConnectivityDetection();
@@ -1059,9 +1082,22 @@ function handleVisibilityChange() {
   }
 }
 
-async function encryptAllAccounts(oldPassword, newPassword, nextLock) {
-  const oldEncKey = !oldPassword ? null : await passwordToKey(oldPassword+'liberdusData');
-  const newEncKey = !newPassword ? null : await passwordToKey(newPassword+'liberdusData');
+async function unlockStoredAccountLock(storedLock, password) {
+  if (parseLockRecord(storedLock)) {
+    const credentials = await unlockLockRecord(storedLock, password);
+    return credentials ? { ...credentials, legacy: false } : null;
+  }
+
+  if (!/^[0-9a-f]{64}$/i.test(storedLock || '')) return null;
+  const legacyVerifier = await passwordToKey(password);
+  if (legacyVerifier !== storedLock) return null;
+  return {
+    encryptionKey: await passwordToKey(`${password}liberdusData`),
+    legacy: true,
+  };
+}
+
+async function encryptAllAccounts(oldEncKey, newEncKey, nextLock) {
   // Get all accounts from localStorage
   const accountsObj = parse(localStorage.getItem('accounts') || 'null');
   const changes = [];
@@ -1093,6 +1129,7 @@ async function encryptAllAccounts(oldPassword, newPassword, nextLock) {
       } catch (e) {
         throw new Error(`Failed to decrypt account ${key}`, { cause: e });
       }
+      if (data == null) throw new Error(`Failed to decrypt account ${key}`);
     }
 
     let newData = data;
@@ -1104,6 +1141,7 @@ async function encryptAllAccounts(oldPassword, newPassword, nextLock) {
       } catch (e) {
         throw new Error(`Failed to encrypt account ${key}`, { cause: e });
       }
+      if (newData == null) throw new Error(`Failed to encrypt account ${key}`);
     }
 
     changes.push({ key, value: newData });
@@ -1112,7 +1150,7 @@ async function encryptAllAccounts(oldPassword, newPassword, nextLock) {
   commitAccountMigration({
     storage: localStorage,
     changes,
-    nextLock: newPassword ? nextLock : null,
+    nextLock,
   });
   return newEncKey;
 }
@@ -16226,22 +16264,25 @@ class RemoveAccountsModal {
     this.close();
   }
 
-  handleRemoveAllAccounts() {
+  async handleRemoveAllAccounts() {
     const confirmText = prompt(`WARNING: All accounts and data will be permanently removed from this device.\n\nType "REMOVE ALL" to confirm:`);
     if (confirmText !== "REMOVE ALL") {
       showToast('Remove all cancelled', 2000, 'warning');
       return;
     }
     
-    // Clear all localStorage data
-    localStorage.clear();
-    
-    // Show success message
-    showToast('All data has been removed from this device', 3000, 'success');
-    
-    // Reload the page to redirect to welcome screen
-    clearMyData();
-    window.location.reload();
+    try {
+      // Delete decrypted media before clearing the account registry. If cleanup
+      // fails, keep the account data so the user is not shown a false success.
+      await purgeLocalDecryptedMedia();
+      localStorage.clear();
+      clearMyData();
+      showToast('All data has been removed from this device', 3000, 'success');
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to remove local media:', error);
+      showToast('Could not remove all local data. Close other Liberdus tabs and try again.', 0, 'error');
+    }
   }
 }
 const removeAccountsModal = new RemoveAccountsModal();
@@ -17620,7 +17661,8 @@ class RestoreAccountModal {
         showToast('Backup password required to unlock accounts in the backup file', 0, 'error');
         return false;
       }
-      backupEncKey = await passwordToKey(password + 'liberdusData');
+      const backupCredentials = await unlockStoredAccountLock(backupData.lock, password);
+      backupEncKey = backupCredentials?.encryptionKey || null;
       if (!backupEncKey) {
         showToast('Invalid backup password', 0, 'error');
         return false;
@@ -34553,6 +34595,11 @@ class LockModal {
     const confirmNewPassword = this.confirmNewPasswordInput.value;
     const oldPassword = this.oldPasswordInput.value;
 
+    if (this.mode !== 'remove' && newPassword.length < MIN_LOCK_PASSWORD_LENGTH) {
+      showToast(`Password must be at least ${MIN_LOCK_PASSWORD_LENGTH} characters.`, 0, 'error');
+      return;
+    }
+
     // Check if new passwords match first (for non-remove mode)
     if (newPassword !== confirmNewPassword) {
       showToast('Passwords do not match. Please try again.', 0, 'error');
@@ -34562,6 +34609,7 @@ class LockModal {
     // loading toast
     let waitingToastId = showToast('Updating password...', 0, 'loading');
 
+    let oldCredentials = null;
     // if old password is visible, check if it is correct
     if (this.oldPasswordInput.style.display !== 'none') {
       // check if old password is empty
@@ -34571,15 +34619,8 @@ class LockModal {
         return;
       }
 
-      // decrypt the old password
-      const key = await passwordToKey(oldPassword);
-      if (!key) {
-        // remove the loading toast
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Invalid password. Please try again.', 0, 'error');
-        return;
-      }
-      if (key !== localStorage.lock) {
+      oldCredentials = await unlockStoredAccountLock(localStorage.getItem('lock'), oldPassword);
+      if (!oldCredentials) {
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
         // clear the old password input
@@ -34593,7 +34634,7 @@ class LockModal {
     // once we are here we know the old password is correct
     if (this.mode === 'remove') {
       try {
-        await encryptAllAccounts(oldPassword, newPassword, null)
+        await encryptAllAccounts(oldCredentials.encryptionKey, null, null);
         this.encKey = null;
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
@@ -34608,20 +34649,16 @@ class LockModal {
     }
     
     try {
-      // encryptData will handle the password hashing internally
-      const key = await passwordToKey(newPassword);
-      if (!key) {
-        // remove the loading toast
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Invalid password. Please try again.', 0, 'error');
-        return;
-      }
-
-
-      
-      // Commit every re-encrypted account before switching the lock verifier.
-      const newEncKey = await encryptAllAccounts(oldPassword, newPassword, key)
-      this.encKey = newEncKey
+      const nextLock = await createLockRecord(newPassword);
+      // Existing media is decrypted, so remove it before enabling a lock.
+      // Locked profiles do not repopulate persistent decrypted media caches.
+      await purgeLocalDecryptedMedia();
+      await encryptAllAccounts(
+        oldCredentials?.encryptionKey || null,
+        nextLock.encryptionKey,
+        nextLock.record,
+      );
+      this.encKey = nextLock.encryptionKey;
 
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
@@ -34656,14 +34693,14 @@ class LockModal {
       isValid = oldPassword.length > 0;
     } else { // set or change mode
       // too short
-      if (newPassword.length > 0 && newPassword.length < 4) {
-        warningMessage = 'too short';
+      if (newPassword.length > 0 && newPassword.length < MIN_LOCK_PASSWORD_LENGTH) {
+        warningMessage = `use at least ${MIN_LOCK_PASSWORD_LENGTH} characters`;
       } else if (newPassword && confirmPassword && newPassword !== confirmPassword) {
         warningMessage = 'does not match';
       } else if (this.mode === 'change' && newPassword && oldPassword && newPassword === oldPassword) {
         warningMessage = 'same as current';
       }
-      isValid = !warningMessage && newPassword.length >= 4 && newPassword === confirmPassword;
+      isValid = !warningMessage && newPassword.length >= MIN_LOCK_PASSWORD_LENGTH && newPassword === confirmPassword;
       if (this.mode === 'change') {
         isValid = isValid && oldPassword.length > 0;
       }
@@ -34740,35 +34777,27 @@ class UnlockModal {
     // loading toast
     let waitingToastId = showToast('Checking password...', 0, 'loading');
     const password = this.passwordInput.value;
-    const key = await passwordToKey(password);
-    if (!key) {
+    const credentials = await unlockStoredAccountLock(localStorage.getItem('lock'), password);
+    if (!credentials) {
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
       showToast('Invalid password. Please try again.', 0, 'error');
       return;
     }
-    if (key === localStorage.lock) {
-      // remove the loading toast
-      if (waitingToastId) hideToast(waitingToastId);
-//      showToast('Unlock successful', 2000, 'success');
-      lockModal.encKey = await passwordToKey(password+"liberdusData")
-      this.unlock();
-      this.close();
-      const targetElement = this.openButtonElementUsed;
-      this.openButtonElementUsed = null;
-      if (targetElement && typeof targetElement.click === 'function' && document.contains(targetElement)) {
-        // Defer click to next tick to ensure unlock modal has fully closed
-        setTimeout(() => targetElement.click(), 0);
-      } else {
-        signInModal.open();
-      }
-    } else {
-      if (waitingToastId) hideToast(waitingToastId);
-      showToast('Invalid password. Please try again.', 0, 'error');
-    }
-
     // remove the loading toast
     if (waitingToastId) hideToast(waitingToastId);
+    // showToast('Unlock successful', 2000, 'success');
+    lockModal.encKey = credentials.encryptionKey;
+    this.unlock();
+    this.close();
+    const targetElement = this.openButtonElementUsed;
+    this.openButtonElementUsed = null;
+    if (targetElement && typeof targetElement.click === 'function' && document.contains(targetElement)) {
+      // Defer click to next tick to ensure unlock modal has fully closed
+      setTimeout(() => targetElement.click(), 0);
+    } else {
+      signInModal.open();
+    }
   }
 
   updateButtonState() {
@@ -36679,6 +36708,7 @@ class ContactAvatarCache {
    * @returns {Promise<void>}
    */
   async load() {
+    if (!canPersistDecryptedMedia()) return;
     try {
       await this.init();
     } catch (err) {
@@ -36780,6 +36810,7 @@ class ContactAvatarCache {
    */
   async save(id, avatarBlob) {
     if (!id) throw new Error('avatar id required');
+    if (!canPersistDecryptedMedia()) return false;
     if (!this.db) await this.init();
 
     // Revoke any cached object URL for this id
@@ -36801,7 +36832,7 @@ class ContactAvatarCache {
       };
 
       const putReq = store.put(record);
-      putReq.onsuccess = () => resolve();
+      putReq.onsuccess = () => resolve(true);
       putReq.onerror = () => {
         console.warn('Failed to save avatar blob:', putReq.error);
         reject(putReq.error);
@@ -36816,6 +36847,7 @@ class ContactAvatarCache {
    */
   async get(id) {
     if (!id) return null;
+    if (!canPersistDecryptedMedia()) return null;
     if (!this.db) await this.init();
 
     return new Promise((resolve, reject) => {
@@ -36882,6 +36914,7 @@ class ContactAvatarCache {
    * @returns {Promise<Object>} Object mapping id to { data: base64, type: mimeType, size }
    */
   async exportAll() {
+    if (!canPersistDecryptedMedia()) return {};
     if (!this.db) await this.init();
 
     return new Promise((resolve, reject) => {
@@ -36935,8 +36968,7 @@ class ContactAvatarCache {
         }
         if (avatarInfo.data) {
           const blob = this.base64ToBlob(avatarInfo.data, avatarInfo.type || 'image/jpeg');
-          await this.save(id, blob);
-          importedCount++;
+          if (await this.save(id, blob)) importedCount++;
         }
       } catch (e) {
         console.warn(`Failed to import avatar id ${id}:`, e);
@@ -37002,6 +37034,7 @@ class ThumbnailCache {
    * @returns {Promise<void>}
    */
   async load() {
+    if (!canPersistDecryptedMedia()) return;
     try {
       await this.init();
       // Cleanup by size if cache is too large
@@ -37267,6 +37300,7 @@ class ThumbnailCache {
    * @returns {Promise<void>}
    */
   async save(attachmentUrl, thumbnailBlob, originalType) {
+    if (!canPersistDecryptedMedia()) return false;
     if (!this.db) {
       await this.init();
     }
@@ -37294,7 +37328,7 @@ class ThumbnailCache {
       const request = store.put(data);
 
       request.onsuccess = () => {
-        resolve();
+        resolve(true);
       };
 
       request.onerror = () => {
@@ -37310,6 +37344,7 @@ class ThumbnailCache {
    * @returns {Promise<Blob|null>} The thumbnail blob or null if not found
    */
   async get(attachmentUrl) {
+    if (!canPersistDecryptedMedia()) return null;
     if (!this.db) {
       await this.init();
     }
@@ -37365,6 +37400,7 @@ class ThumbnailCache {
    * @returns {Promise<Object>} Object mapping url to { data: base64, type: mimeType, originalType: string }
    */
   async exportAll() {
+    if (!canPersistDecryptedMedia()) return {};
     if (!this.db) {
       await this.init();
     }
@@ -37433,8 +37469,7 @@ class ThumbnailCache {
 
         // Convert base64 back to blob
         const blob = this.base64ToBlob(thumbInfo.data, thumbInfo.type || 'image/jpeg');
-        await this.save(url, blob, thumbInfo.originalType || thumbInfo.type || 'image/jpeg');
-        importedCount++;
+        if (await this.save(url, blob, thumbInfo.originalType || thumbInfo.type || 'image/jpeg')) importedCount++;
       } catch (e) {
         console.warn(`Failed to import thumbnail for ${url}:`, e);
       }
@@ -38170,11 +38205,13 @@ class FullImageCache {
   }
 
   async get(attachmentUrl) {
+    if (!canPersistDecryptedMedia()) return null;
     const record = await this.getRecord(attachmentUrl);
     return record?.blob || null;
   }
 
   async getRecord(attachmentUrl) {
+    if (!canPersistDecryptedMedia()) return null;
     const db = await this.database.init();
     const transaction = db.transaction(this.database.fullImageStoreName, 'readonly');
     const store = transaction.objectStore(this.database.fullImageStoreName);
@@ -38190,6 +38227,7 @@ class FullImageCache {
   }
 
   async put(attachment, blob, shouldCache) {
+    if (!canPersistDecryptedMedia()) return false;
     const attachmentUrl = attachment?.url;
     const mimeType = attachment?.type || blob?.type || '';
     if (!attachmentUrl) throw new Error('Cannot cache an image without an attachment URL');
@@ -38270,3 +38308,9 @@ class FullImageCache {
 }
 
 const fullImageCache = new FullImageCache(thumbnailCache);
+
+async function purgeLocalDecryptedMedia() {
+  await purgeDecryptedMediaCaches({
+    caches: [contactAvatarCache, thumbnailCache],
+  });
+}
