@@ -5416,10 +5416,6 @@ input[type='file'].form-control::file-selector-button {
   padding: 0;
 }
 
-.assets-portfolio .assets-section-title {
-  margin-bottom: 0;
-}
-
 .assets-portfolio .wallet-network-panel {
   margin-bottom: 1rem;
 }
