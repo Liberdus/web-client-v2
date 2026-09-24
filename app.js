@@ -52,6 +52,7 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
+      'lock-security.js',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -211,6 +212,13 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
+
+import {
+  MIN_LOCK_PASSWORD_LENGTH,
+  createLockRecord,
+  parseLockRecord,
+  unlockLockRecord,
+} from './lock-security.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -1056,9 +1064,22 @@ function handleVisibilityChange() {
   }
 }
 
-async function encryptAllAccounts(oldPassword, newPassword) {
-  const oldEncKey = !oldPassword ? null : await passwordToKey(oldPassword+'liberdusData');
-  const newEncKey = !newPassword ? null : await passwordToKey(newPassword+'liberdusData');
+async function unlockStoredAccountLock(storedLock, password) {
+  if (parseLockRecord(storedLock)) {
+    const credentials = await unlockLockRecord(storedLock, password);
+    return credentials ? { ...credentials, legacy: false } : null;
+  }
+
+  if (!/^[0-9a-f]{64}$/i.test(storedLock || '')) return null;
+  const legacyVerifier = await passwordToKey(password);
+  if (legacyVerifier !== storedLock) return null;
+  return {
+    encryptionKey: await passwordToKey(`${password}liberdusData`),
+    legacy: true,
+  };
+}
+
+async function encryptAllAccounts(oldEncKey, newEncKey) {
   // Get all accounts from localStorage
   const accountsObj = parse(localStorage.getItem('accounts') || 'null');
   if (!accountsObj?.netids) return;
@@ -1073,24 +1094,16 @@ async function encryptAllAccounts(oldPassword, newPassword) {
 
       // If oldEncKey is set, decrypt; otherwise, treat as plaintext
       if (oldEncKey) {
-        try {
-          data = decryptData(data, oldEncKey, true);
-        } catch (e) {
-          console.error(`Failed to decrypt data for ${key}:`, e);
-          continue;
-        }
+        data = decryptData(data, oldEncKey, true);
+        if (data == null) throw new Error(`Failed to decrypt data for ${key}`);
       }
 
       let newData = data;
 
       // If newEncKey is set, encrypt; otherwise, store as plaintext
       if (newEncKey) {
-        try {
-          newData = encryptData(newData, newEncKey, true);
-        } catch (e) {
-          console.error(`Failed to encrypt data for ${key}:`, e);
-          continue;
-        }
+        newData = encryptData(newData, newEncKey, true);
+        if (newData == null) throw new Error(`Failed to encrypt data for ${key}`);
       }
 
       // Save to localStorage (encrypted version uses _ suffix)
@@ -17605,7 +17618,8 @@ class RestoreAccountModal {
         showToast('Backup password required to unlock accounts in the backup file', 0, 'error');
         return false;
       }
-      backupEncKey = await passwordToKey(password + 'liberdusData');
+      const backupCredentials = await unlockStoredAccountLock(backupData.lock, password);
+      backupEncKey = backupCredentials?.encryptionKey || null;
       if (!backupEncKey) {
         showToast('Invalid backup password', 0, 'error');
         return false;
@@ -34538,6 +34552,11 @@ class LockModal {
     const confirmNewPassword = this.confirmNewPasswordInput.value;
     const oldPassword = this.oldPasswordInput.value;
 
+    if (this.mode !== 'remove' && newPassword.length < MIN_LOCK_PASSWORD_LENGTH) {
+      showToast(`Password must be at least ${MIN_LOCK_PASSWORD_LENGTH} characters.`, 0, 'error');
+      return;
+    }
+
     // Check if new passwords match first (for non-remove mode)
     if (newPassword !== confirmNewPassword) {
       showToast('Passwords do not match. Please try again.', 0, 'error');
@@ -34547,6 +34566,7 @@ class LockModal {
     // loading toast
     let waitingToastId = showToast('Updating password...', 0, 'loading');
 
+    let oldCredentials = null;
     // if old password is visible, check if it is correct
     if (this.oldPasswordInput.style.display !== 'none') {
       // check if old password is empty
@@ -34556,15 +34576,8 @@ class LockModal {
         return;
       }
 
-      // decrypt the old password
-      const key = await passwordToKey(oldPassword);
-      if (!key) {
-        // remove the loading toast
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Invalid password. Please try again.', 0, 'error');
-        return;
-      }
-      if (key !== localStorage.lock) {
+      oldCredentials = await unlockStoredAccountLock(localStorage.getItem('lock'), oldPassword);
+      if (!oldCredentials) {
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
         // clear the old password input
@@ -34578,8 +34591,8 @@ class LockModal {
     // once we are here we know the old password is correct
     if (this.mode === 'remove') {
       try {
-        await encryptAllAccounts(oldPassword, newPassword)
-        delete localStorage.lock;
+        await encryptAllAccounts(oldCredentials.encryptionKey, null);
+        localStorage.removeItem('lock');
         this.encKey = null;
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
@@ -34594,25 +34607,13 @@ class LockModal {
     }
     
     try {
-      // encryptData will handle the password hashing internally
-      const key = await passwordToKey(newPassword);
-      if (!key) {
-        // remove the loading toast
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Invalid password. Please try again.', 0, 'error');
-        return;
-      }
-
-
-      
+      const nextLock = await createLockRecord(newPassword);
       // Existing media is decrypted, so remove it before enabling a lock.
       // Locked profiles do not repopulate persistent decrypted media caches.
       await purgeLocalDecryptedMedia();
-
-      // Save the key in localStorage with a key of "lock"
-      localStorage.lock = key;
-      this.encKey = await passwordToKey(newPassword+"liberdusData")
-      await encryptAllAccounts(oldPassword, newPassword)
+      await encryptAllAccounts(oldCredentials?.encryptionKey || null, nextLock.encryptionKey);
+      localStorage.setItem('lock', nextLock.record);
+      this.encKey = nextLock.encryptionKey;
 
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
@@ -34647,14 +34648,14 @@ class LockModal {
       isValid = oldPassword.length > 0;
     } else { // set or change mode
       // too short
-      if (newPassword.length > 0 && newPassword.length < 4) {
-        warningMessage = 'too short';
+      if (newPassword.length > 0 && newPassword.length < MIN_LOCK_PASSWORD_LENGTH) {
+        warningMessage = `use at least ${MIN_LOCK_PASSWORD_LENGTH} characters`;
       } else if (newPassword && confirmPassword && newPassword !== confirmPassword) {
         warningMessage = 'does not match';
       } else if (this.mode === 'change' && newPassword && oldPassword && newPassword === oldPassword) {
         warningMessage = 'same as current';
       }
-      isValid = !warningMessage && newPassword.length >= 4 && newPassword === confirmPassword;
+      isValid = !warningMessage && newPassword.length >= MIN_LOCK_PASSWORD_LENGTH && newPassword === confirmPassword;
       if (this.mode === 'change') {
         isValid = isValid && oldPassword.length > 0;
       }
@@ -34731,35 +34732,27 @@ class UnlockModal {
     // loading toast
     let waitingToastId = showToast('Checking password...', 0, 'loading');
     const password = this.passwordInput.value;
-    const key = await passwordToKey(password);
-    if (!key) {
+    const credentials = await unlockStoredAccountLock(localStorage.getItem('lock'), password);
+    if (!credentials) {
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
       showToast('Invalid password. Please try again.', 0, 'error');
       return;
     }
-    if (key === localStorage.lock) {
-      // remove the loading toast
-      if (waitingToastId) hideToast(waitingToastId);
-//      showToast('Unlock successful', 2000, 'success');
-      lockModal.encKey = await passwordToKey(password+"liberdusData")
-      this.unlock();
-      this.close();
-      const targetElement = this.openButtonElementUsed;
-      this.openButtonElementUsed = null;
-      if (targetElement && typeof targetElement.click === 'function' && document.contains(targetElement)) {
-        // Defer click to next tick to ensure unlock modal has fully closed
-        setTimeout(() => targetElement.click(), 0);
-      } else {
-        signInModal.open();
-      }
-    } else {
-      if (waitingToastId) hideToast(waitingToastId);
-      showToast('Invalid password. Please try again.', 0, 'error');
-    }
-
     // remove the loading toast
     if (waitingToastId) hideToast(waitingToastId);
+    // showToast('Unlock successful', 2000, 'success');
+    lockModal.encKey = credentials.encryptionKey;
+    this.unlock();
+    this.close();
+    const targetElement = this.openButtonElementUsed;
+    this.openButtonElementUsed = null;
+    if (targetElement && typeof targetElement.click === 'function' && document.contains(targetElement)) {
+      // Defer click to next tick to ensure unlock modal has fully closed
+      setTimeout(() => targetElement.click(), 0);
+    } else {
+      signInModal.open();
+    }
   }
 
   updateButtonState() {
