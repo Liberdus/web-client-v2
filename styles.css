@@ -10979,134 +10979,546 @@ small {
 
 
 /* ---------------------------------------------------------------------------
-   Multichain (NEAR Intents)
+   Multichain
 
-   Balances held for the account by the intents verifier rather than on each
-   asset's own chain. Kept visually distinct from the native wallet balance for
-   that reason: the summary row links out to its own screen instead of folding
-   into Total Balance.
+   Balances the verifier holds for the account rather than on each asset's own
+   chain. Follows DESIGN.md: tokens only, the 8/16/32/48 spacing scale, and no
+   tinted rectangle around the balance -- that is the wallet's boxed-balance
+   mistake, and this screen is not the place to repeat it.
+
+   `.container` sets `text-align: center`, which cascades into everything here,
+   so every block that holds a sentence or a value states its own alignment.
    --------------------------------------------------------------------------- */
 
 .multichain-summary {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: calc(100% - 32px);
-  margin: 0 16px 8px;
-  padding: 12px 14px;
-  background: var(--button-background);
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  color: var(--text-color);
-  font-size: 15px;
-  cursor: pointer;
+  background: var(--background-color);
   text-align: left;
+  cursor: pointer;
 }
 
 .multichain-summary:hover {
-  background: var(--button-hover-background);
+  background: var(--hover-background-purple);
 }
 
 .multichain-summary-label {
   flex: 1;
+  font-size: var(--font-size-base);
   font-weight: 500;
+  color: var(--text-color);
 }
 
 .multichain-summary-value {
-  font-variant-numeric: tabular-nums;
-  color: var(--secondary-text-color);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-color);
 }
 
 .multichain-summary-chevron {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  background-color: var(--secondary-text-color);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E") no-repeat center / contain;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E") no-repeat center / contain;
+  color: var(--muted-text-color);
 }
 
-.multichain-custody {
-  margin: 0 16px 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--input-background);
+/* --- asset marks ---------------------------------------------------------- */
+
+/* Filled discs in the asset's brand colour, drawn locally -- see
+   asset-icons.js for why they are not fetched. */
+.asset-mark {
+  flex: 0 0 var(--mark-size, 40px);
+  width: var(--mark-size, 40px);
+  height: var(--mark-size, 40px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--mark-bg, var(--primary-color));
+  color: #fff;
+}
+
+.asset-mark {
+  position: relative;
+  overflow: hidden;
+}
+
+.asset-mark svg {
+  width: 62%;
+  height: 62%;
+}
+
+/* Laid over the drawn disc rather than replacing it: a logo that 404s simply
+   never covers what is already there, so no error handling is needed. */
+.asset-mark-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.asset-mark-label {
+  font-family: var(--font-primary);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  /* Four letters in a 40px disc need to be smaller than two. */
+  font-size: calc(var(--mark-size, 40px) * 0.3);
+}
+
+.asset-mark[data-len='3'] .asset-mark-label { font-size: calc(var(--mark-size, 40px) * 0.26); }
+.asset-mark[data-len='4'] .asset-mark-label { font-size: calc(var(--mark-size, 40px) * 0.21); }
+
+/* --- list screen ---------------------------------------------------------- */
+
+.multichain-hero {
+  padding: 48px 16px 0;
+  text-align: center;
+}
+
+.multichain-hero-total {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.multichain-hero-caption {
+  margin-top: 8px;
+  font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
-  font-size: 13px;
-  line-height: 1.45;
 }
 
-.multichain-custody[data-status="unavailable"] {
-  color: var(--danger-color);
+/* One quiet line, not a boxed alert: custody is a property of these assets,
+   not a warning, and a tinted panel on every visit is decoration. */
+.multichain-custody {
+  margin-top: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--muted-text-color);
 }
 
-.multichain-asset-balance {
+.multichain-custody[data-status='unavailable'] {
+  color: var(--warning-color);
+}
+
+.multichain-assets {
+  margin: 32px 16px 0;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.multichain-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--background-color);
+  text-align: left;
+  cursor: pointer;
+}
+
+.multichain-row:last-child {
+  border-bottom: 0;
+}
+
+.multichain-row:hover {
+  background: var(--hover-background-purple);
+}
+
+/* An asset you hold nothing of is shown so the chain is findable before the
+   first deposit, but it should not compete with the ones that have money. */
+.multichain-row.is-empty {
+  opacity: 0.55;
+}
+
+.multichain-row-main {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px;
+  gap: 2px;
 }
 
-.multichain-asset-amount {
-  font-size: 22px;
+.multichain-row-name {
+  font-size: var(--font-size-base);
   font-weight: 600;
+  color: var(--text-color);
+}
+
+.multichain-row-chain {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+
+.multichain-row-values {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.multichain-row-amount {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.multichain-row-usd {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+
+/* The asset screen's three actions. Spaced apart and given a tinted icon disc,
+   so they read as three choices rather than one grey band. */
+#multichainAssetModal .asset-detail-actions {
+  display: flex;
+  gap: 12px;
+  margin: 32px 16px 0;
+  padding: 0;
+}
+
+#multichainAssetModal .wallet-action-button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--background-color);
+}
+
+#multichainAssetModal .wallet-action-button:hover:not(:disabled) {
+  background: var(--hover-background-purple);
+  border-color: var(--primary-color);
+}
+
+#multichainAssetModal .wallet-action-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#multichainAssetModal .action-icon {
+  color: var(--primary-color);
+}
+
+#multichainAssetModal .action-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+/* --- asset screen --------------------------------------------------------- */
+
+.multichain-asset-hero {
+  padding: 48px 16px 0;
+  text-align: center;
+}
+
+
+
+.multichain-asset-amount {
+  margin-top: 16px;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.multichain-asset-value {
+  margin-top: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+}
+
+/* --- task screens (receive, withdraw, swap) ------------------------------- */
+
+.multichain-screen {
+  padding: 32px 16px 24px;
+  text-align: left;
+}
+
+.multichain-qr {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+/* Left at its natural size: forcing a width puts module edges on fractional
+   pixels, and the module count changes with the payload. */
+.multichain-qr img {
+  image-rendering: pixelated;
+}
+
+/* A value you read and copy, never type into: the search field's filled pill,
+   not an input's clothes. */
+.multichain-address {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--input-background);
+  text-align: left;
+  cursor: pointer;
+}
+
+.multichain-address:hover {
+  filter: brightness(0.97);
+}
+
+.multichain-address-value {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-xs);
+  color: var(--text-color);
+  overflow-wrap: anywhere;
+}
+
+.multichain-address-copy {
+  flex: 0 0 auto;
+  color: var(--primary-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+/* --- confirmation --------------------------------------------------------- */
+
+.multichain-confirm-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 32px;
+  text-align: center;
+}
+
+.multichain-confirm-amount {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-color);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 
-.multichain-asset-value {
+.multichain-confirm-sub {
+  font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
-  font-size: 14px;
 }
 
-.multichain-deposit {
-  padding: 4px 16px 24px;
-}
-
-.multichain-deposit-loading,
-.multichain-deposit-error {
-  padding: 14px 0;
-  color: var(--secondary-text-color);
-  font-size: 14px;
+.multichain-memo {
+  margin-top: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
   text-align: center;
 }
 
-.multichain-deposit-error {
+/* The rules that lose the money if broken. Amber, because they need a decision
+   before sending -- not red, because nothing has gone wrong yet. */
+.multichain-rules {
+  margin: 32px 0 0;
+  padding: 12px 16px;
+  list-style: none;
+  border-left: 2px solid var(--warning-color);
+  background: var(--light-color);
+  border-radius: 0 10px 10px 0;
+}
+
+.multichain-rules li {
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+  margin-bottom: 8px;
+}
+
+.multichain-rules li:last-child {
+  margin-bottom: 0;
+}
+
+.multichain-arrived {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--primary-tint-12);
+  color: var(--success-color);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* --- fields --------------------------------------------------------------- */
+
+.multichain-field {
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.multichain-field-label {
+  display: block;
+  text-align: left;
+  margin-bottom: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+
+/* Max sits in the field rather than beside it, so the amount reads as one
+   control instead of an input with a stray button next to it. */
+.multichain-amount-field {
+  position: relative;
+}
+
+.multichain-amount-field .form-control {
+  width: 100%;
+  padding-right: 72px;
+}
+
+.multichain-max {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hover-background-purple);
+  color: var(--primary-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.multichain-max:hover {
+  filter: brightness(0.96);
+}
+
+.multichain-available {
+  margin-top: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- quote ---------------------------------------------------------------- */
+
+.multichain-quote {
+  margin-top: 32px;
+  text-align: left;
+}
+
+.multichain-quote-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0 0 16px;
+  font-size: var(--font-size-sm);
+}
+
+.multichain-quote-rows dt {
+  color: var(--secondary-text-color);
+}
+
+.multichain-quote-rows dd {
+  margin: 0;
+  text-align: right;
+  color: var(--text-color);
+  overflow-wrap: anywhere;
+}
+
+/* The number actually being agreed to, when the rate can move. */
+.multichain-quote-rows dd.is-guaranteed {
+  font-weight: 600;
+}
+
+.multichain-quote-note {
+  margin-top: 16px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+.multichain-quote-working,
+.multichain-quote-error {
+  padding: 16px 0;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+.multichain-quote-error {
   color: var(--danger-color);
 }
 
-/* A payment inside a conversation. The verification line is part of the
-   bubble, not a decoration: a received payment is a claim until the intent
-   behind it is checked. */
+.multichain-status {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--light-color);
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.multichain-status[data-kind='ok'] {
+  color: var(--success-color);
+}
+
+.multichain-status[data-kind='error'] {
+  color: var(--danger-color);
+}
+
+/* ---------------------------------------------------------------------------
+   Paying inside a conversation
+   --------------------------------------------------------------------------- */
+
 .intents-payment-message {
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   min-width: 160px;
+  text-align: left;
 }
 
 .intents-payment-amount {
-  font-size: 20px;
+  font-size: var(--font-size-lg);
   font-weight: 700;
   line-height: 1.2;
 }
 
 .intents-payment-chain {
-  font-size: 12px;
+  margin-top: 8px;
+  font-size: var(--font-size-xs);
   opacity: 0.75;
-  margin-top: 2px;
 }
 
 .intents-payment-note {
   margin-top: 8px;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
 }
 
+/* A received payment is a claim until the intent behind it is checked, so the
+   verification state is part of the bubble rather than a decoration on it. */
 .intents-payment-verified {
   margin-top: 8px;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   opacity: 0.7;
 }
 
@@ -11121,227 +11533,72 @@ small {
 }
 
 .chat-payment-intro {
+  margin-bottom: 32px;
+  font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
-  font-size: 13px;
   text-align: center;
-  margin-bottom: 1.25rem;
-}
-
-.chat-payment-label {
-  display: block;
-  /* The surrounding dialog body centres its content, which suits a title but
-     not a form label sitting above the field it names. */
-  text-align: left;
-  color: var(--secondary-text-color);
-  font-size: 12px;
-  margin: 0 0 4px;
-}
-
-#chatPaymentPanel .form-control {
-  width: 100%;
-  margin-bottom: 14px;
-}
-
-.chat-payment-amount-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.chat-payment-amount-row .form-control {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.chat-payment-max {
-  flex: 0 0 auto;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--primary-color);
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.chat-payment-status {
-  margin-bottom: 14px;
-  padding: 10px 12px;
-  border-radius: 9px;
-  background: var(--input-background-color, #f4f5f7);
-  color: var(--secondary-text-color);
-  font-size: 13px;
-  text-align: center;
-}
-
-.chat-payment-status[data-kind='error'] {
-  color: var(--danger-color);
 }
 
 .chat-payment-actions {
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.multichain-withdraw {
-  padding: 4px 16px 24px;
-}
-
-.multichain-withdraw-intro {
-  color: var(--secondary-text-color);
-  font-size: 13px;
-  margin-bottom: 14px;
-}
-
-.multichain-withdraw-label {
-  display: block;
-  color: var(--secondary-text-color);
-  font-size: 12px;
-  margin: 12px 0 4px;
-}
-
-.multichain-withdraw-amount-row {
-  display: flex;
   gap: 8px;
-  align-items: center;
-  margin-bottom: 14px;
-}
-
-.multichain-withdraw-max {
-  flex: 0 0 auto;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--primary-color);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.multichain-withdraw-quote {
   margin-top: 16px;
 }
 
-.multichain-withdraw-rows {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px 16px;
-  margin: 0 0 14px;
-  font-size: 13px;
+
+/* Action icons, in the app's own language: diagonals rather than chevrons,
+   matching the asset detail screen. Receive points in, withdraw points out. */
+#multichainAssetReceive .action-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
 }
 
-.multichain-withdraw-rows dt {
-  color: var(--secondary-text-color);
+#multichainAssetWithdraw .action-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
 }
 
-.multichain-withdraw-rows dd {
-  margin: 0;
-  text-align: right;
-  overflow-wrap: anywhere;
+#multichainAssetSwap .action-icon {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 3 21 8 16 13'/%3E%3Cpath d='M21 8H8'/%3E%3Cpolyline points='8 21 3 16 8 11'/%3E%3Cpath d='M3 16h13'/%3E%3C/svg%3E");
 }
 
-.multichain-withdraw-warning {
-  margin-top: 10px;
-  color: var(--danger-color);
-  font-size: 12px;
-  text-align: center;
-}
-
-.multichain-withdraw-working,
-.multichain-withdraw-error {
-  padding: 10px 0;
-  font-size: 13px;
-  color: var(--secondary-text-color);
-  text-align: center;
-}
-
-.multichain-withdraw-error {
-  color: var(--danger-color);
-}
-
-.multichain-withdraw-status {
-  margin-top: 14px;
-  padding: 10px 12px;
-  border-radius: 9px;
-  background: var(--input-background-color, #f4f5f7);
-  color: var(--secondary-text-color);
-  font-size: 13px;
-  text-align: center;
-}
-
-.multichain-withdraw-status[data-kind='ok'] {
-  background: #e8f6ec;
-  color: var(--success-color);
-}
-
-.multichain-withdraw-status[data-kind='error'] {
-  color: var(--danger-color);
-}
-
-.multichain-deposit-arrived {
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #e8f6ec;
-  color: var(--success-color);
-  font-size: 14px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.multichain-deposit-qr {
-  display: flex;
+/* An option's icon in the popup that stands in for a native select. Same
+   shape as .asset-mark: the label is drawn and the image laid over it, so an
+   image that never loads still leaves something readable. */
+.popup-select__option-icon {
+  position: relative;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--mark-bg, var(--primary-color));
+  color: #fff;
+  font-family: var(--font-primary);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
-.multichain-deposit-qr img {
-  image-rendering: pixelated;
-  background: #fff;
-  padding: 8px;
-  border-radius: 8px;
+.popup-select__option-icon img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
-.multichain-deposit-address {
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--input-background);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  text-align: center;
-  overflow-wrap: anywhere;
+.popup-select__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.multichain-deposit-memo {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(239, 108, 0, 0.12);
-  color: var(--warning-color);
-  font-size: 14px;
-  text-align: center;
-}
-
-/* These rules decide whether a deposit arrives at all, so they read as a
-   warning rather than as fine print. */
-.multichain-deposit-rules {
-  margin: 14px 0 0;
-  padding: 12px 14px 12px 30px;
-  border: 1px solid rgba(239, 108, 0, 0.35);
-  border-radius: 8px;
-  background: rgba(239, 108, 0, 0.08);
-  color: var(--text-color);
-  font-size: 13.5px;
-  line-height: 1.5;
-}
-
-.multichain-deposit-rules li {
-  margin-bottom: 5px;
-}
-
-.multichain-deposit-rules li:last-child {
-  margin-bottom: 0;
+/* The trigger shows the same mark beside the chosen value. */
+.popup-select__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }

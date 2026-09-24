@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-8" />
+    <link rel="stylesheet" href="./styles.css?v=1455-15" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-12" type="module"></script>
+    <script src="./app.js?v=1455-19" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -351,47 +351,30 @@
         <div class="modal-header">
           <button class="back-button" id="closeMultichainModal"></button>
           <div class="modal-title">Multichain</div>
+          <button class="refresh-button" id="refreshMultichainBalance">&#8635;</button>
         </div>
-        <div class="modal-content assets-modal-content">
-          <div class="wallet-balance">
-            <div class="balance-label">Total Balance</div>
-            <div class="balance-amount">
-              <span id="multichainTotalBalance">-.--</span>
-              <button class="refresh-button" id="refreshMultichainBalance">&#8635;</button>
-            </div>
-          </div>
-          <div class="wallet-assets assets-portfolio">
-            <div class="multichain-custody" id="multichainStatus">Checking balances&#8230;</div>
-            <div id="multichainAssetsList">
-              <div class="empty-state">
-                <div></div>
-                <div>No multichain assets yet</div>
-                <div>Deposit Bitcoin or Solana to get started</div>
-              </div>
-            </div>
-          </div>
+        <div class="modal-content">
+          <section class="multichain-hero">
+            <div class="multichain-hero-total"><span id="multichainTotalBalance">$0.00</span></div>
+            <div class="multichain-hero-caption" id="multichainHeroCaption">Total value</div>
+            <div class="multichain-custody" id="multichainStatus"></div>
+          </section>
+          <div class="multichain-assets" id="multichainAssetsList"></div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Multichain Asset Detail Modal -->
+      <!-- One asset: what you hold, and the three things you can do with it. -->
       <div class="modal fixed-header" id="multichainAssetModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainAssetModal"></button>
           <div class="modal-title" id="multichainAssetTitle">Asset</div>
         </div>
-        <div class="modal-content asset-details-content">
-          <section class="asset-detail-hero">
-            <div class="asset-detail-symbol" id="multichainAssetSymbol">&#8212;</div>
-            <div class="asset-detail-updated" id="multichainAssetChain">&#8212;</div>
-          </section>
-
-          <section class="asset-detail-section">
-            <h2>Your balance</h2>
-            <div class="multichain-asset-balance">
-              <div class="multichain-asset-amount" id="multichainAssetAmount">&#8212;</div>
-              <div class="multichain-asset-value" id="multichainAssetValue">&#8212;</div>
-            </div>
+        <div class="modal-content">
+          <section class="multichain-asset-hero">
+            <div class="multichain-asset-icon" id="multichainAssetIcon"></div>
+            <div class="multichain-asset-amount" id="multichainAssetAmount">&#8212;</div>
+            <div class="multichain-asset-value" id="multichainAssetValue">&#8212;</div>
           </section>
 
           <div class="wallet-actions asset-detail-actions">
@@ -403,39 +386,103 @@
               <span class="action-icon"></span>
               <span class="action-label">Withdraw</span>
             </button>
+            <button class="wallet-action-button" id="multichainAssetSwap">
+              <span class="action-icon"></span>
+              <span class="action-label">Swap</span>
+            </button>
           </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
 
-          <section class="multichain-deposit" id="multichainDepositPanel" hidden></section>
+      <!-- Receive: the address is the whole screen. -->
+      <div class="modal fixed-header" id="multichainReceiveModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeMultichainReceiveModal"></button>
+          <div class="modal-title" id="multichainReceiveTitle">Receive</div>
+        </div>
+        <div class="modal-content">
+          <div class="multichain-screen" id="multichainReceiveBody"></div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
 
-          <section class="multichain-withdraw" id="multichainWithdrawPanel" hidden>
-            <div class="multichain-withdraw-intro" id="multichainWithdrawIntro">&#8212;</div>
-            <label class="multichain-withdraw-label" for="multichainWithdrawTo">Send to</label>
-            <input
-              class="form-control"
-              id="multichainWithdrawTo"
-              type="text"
-              autocomplete="off"
-              autocapitalize="off"
-              spellcheck="false"
-              placeholder="Address on the destination chain"
-            />
-            <label class="multichain-withdraw-label" for="multichainWithdrawAmount">Amount</label>
-            <div class="multichain-withdraw-amount-row">
-              <input
-                class="form-control"
-                id="multichainWithdrawAmount"
-                type="text"
-                inputmode="decimal"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="0.0"
-              />
-              <button type="button" class="multichain-withdraw-max" id="multichainWithdrawMax">Max</button>
+      <div class="modal fixed-header" id="multichainWithdrawModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeMultichainWithdrawModal"></button>
+          <div class="modal-title" id="multichainWithdrawTitle">Withdraw</div>
+        </div>
+        <div class="modal-content">
+          <div class="multichain-screen">
+            <div class="multichain-field" id="multichainWithdrawNetworkField" hidden>
+              <label class="multichain-field-label" for="multichainWithdrawNetwork">Network</label>
+              <select id="multichainWithdrawNetwork" class="form-control"></select>
             </div>
-            <button class="btn btn--primary btn--full" id="multichainWithdrawPreview">Preview withdrawal</button>
-            <div class="multichain-withdraw-quote" id="multichainWithdrawQuote" hidden></div>
-            <div class="multichain-withdraw-status" id="multichainWithdrawStatus" hidden></div>
-          </section>
+            <div class="multichain-field">
+              <label class="multichain-field-label" for="multichainWithdrawTo">Send to</label>
+              <input class="form-control" id="multichainWithdrawTo" type="text" autocomplete="off"
+                autocapitalize="off" spellcheck="false" placeholder="Address on the destination chain" />
+            </div>
+            <div class="multichain-field">
+              <label class="multichain-field-label" for="multichainWithdrawAmount">Amount</label>
+              <div class="multichain-amount-field">
+                <input class="form-control" id="multichainWithdrawAmount" type="text" inputmode="decimal"
+                  autocomplete="off" spellcheck="false" placeholder="0.0" />
+                <button type="button" class="multichain-max" id="multichainWithdrawMax">Max</button>
+              </div>
+              <div class="multichain-available" id="multichainWithdrawAvailable"></div>
+            </div>
+            <button class="btn btn--primary btn--pill btn--full" id="multichainWithdrawPreview">Preview withdrawal</button>
+            <div class="multichain-status" id="multichainWithdrawStatus" hidden></div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <div class="modal fixed-header" id="multichainSwapModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeMultichainSwapModal"></button>
+          <div class="modal-title" id="multichainSwapTitle">Swap</div>
+        </div>
+        <div class="modal-content">
+          <div class="multichain-screen">
+            <div class="multichain-field">
+              <label class="multichain-field-label" for="multichainSwapNetwork">Network</label>
+              <select id="multichainSwapNetwork" class="form-control"></select>
+            </div>
+            <div class="multichain-field">
+              <label class="multichain-field-label" for="multichainSwapTo">Asset</label>
+              <select id="multichainSwapTo" class="form-control"></select>
+            </div>
+            <div class="multichain-field">
+              <label class="multichain-field-label" for="multichainSwapAmount">Amount</label>
+              <div class="multichain-amount-field">
+                <input class="form-control" id="multichainSwapAmount" type="text" inputmode="decimal"
+                  autocomplete="off" spellcheck="false" placeholder="0.0" />
+                <button type="button" class="multichain-max" id="multichainSwapMax">Max</button>
+              </div>
+              <div class="multichain-available" id="multichainSwapAvailable"></div>
+            </div>
+            <button class="btn btn--primary btn--pill btn--full" id="multichainSwapPreview">Preview swap</button>
+            <div class="multichain-status" id="multichainSwapStatus" hidden></div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <div class="modal fixed-header" id="multichainConfirmModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeMultichainConfirmModal"></button>
+          <div class="modal-title" id="multichainConfirmTitle">Confirm</div>
+        </div>
+        <div class="modal-content">
+          <div class="multichain-screen">
+            <div class="multichain-confirm-hero" id="multichainConfirmHero"></div>
+            <dl class="multichain-quote-rows" id="multichainConfirmRows"></dl>
+            <button class="btn btn--primary btn--pill btn--full" id="multichainConfirmAction">Confirm</button>
+            <div class="multichain-quote-note" id="multichainConfirmNote"></div>
+            <div class="multichain-status" id="multichainConfirmStatus" hidden></div>
+          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>
@@ -1711,18 +1758,24 @@
               </div>
               <div class="voice-recording-body">
                 <div class="chat-payment-intro" id="chatPaymentIntro">&#8212;</div>
-                <label class="chat-payment-label" for="chatPaymentAsset">Asset</label>
-                <select id="chatPaymentAsset" class="form-control"></select>
-                <label class="chat-payment-label" for="chatPaymentAmount">Amount</label>
-                <div class="chat-payment-amount-row">
-                  <input class="form-control" id="chatPaymentAmount" type="text" inputmode="decimal"
-                    autocomplete="off" spellcheck="false" placeholder="0.0" />
-                  <button type="button" class="chat-payment-max" id="chatPaymentMax">Max</button>
+                <div class="multichain-field">
+                  <label class="multichain-field-label" for="chatPaymentAsset">Asset</label>
+                  <select id="chatPaymentAsset" class="form-control"></select>
                 </div>
-                <label class="chat-payment-label" for="chatPaymentNote">Note (optional)</label>
-                <input class="form-control" id="chatPaymentNote" type="text" maxlength="140"
-                  autocomplete="off" placeholder="What is it for?" />
-                <div class="chat-payment-status" id="chatPaymentStatus" hidden></div>
+                <div class="multichain-field">
+                  <label class="multichain-field-label" for="chatPaymentAmount">Amount</label>
+                  <div class="multichain-amount-field">
+                    <input class="form-control" id="chatPaymentAmount" type="text" inputmode="decimal"
+                      autocomplete="off" spellcheck="false" placeholder="0.0" />
+                    <button type="button" class="multichain-max" id="chatPaymentMax">Max</button>
+                  </div>
+                </div>
+                <div class="multichain-field">
+                  <label class="multichain-field-label" for="chatPaymentNote">Note (optional)</label>
+                  <input class="form-control" id="chatPaymentNote" type="text" maxlength="140"
+                    autocomplete="off" placeholder="What is it for?" />
+                </div>
+                <div class="multichain-status" id="chatPaymentStatus" hidden></div>
                 <div class="voice-recording-controls chat-payment-actions">
                   <button type="button" class="voice-btn voice-btn-secondary" id="cancelChatPaymentButton">Cancel</button>
                   <button type="button" class="voice-btn voice-btn-primary" id="sendChatPaymentButton">Send</button>

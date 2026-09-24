@@ -215,6 +215,24 @@ export class IntentsDiscoveryService {
     return this.network.assets.find((asset) => asset.key === assetKey) || null;
   }
 
+  /**
+   * Every asset the catalog knows, held or not.
+   *
+   * The portfolio deliberately shows only what you hold; swapping needs the
+   * opposite, because you swap into things you do not have yet.
+   */
+  listCatalogAssets() {
+    return this.tokens
+      .map((token) => normalizeIntentsToken(token, this.balances?.[token.assetId]))
+      .sort((left, right) => left.tokenSymbol.localeCompare(right.tokenSymbol)
+        || left.chainName.localeCompare(right.chainName));
+  }
+
+  /** Look one up by key, whether or not there is a balance behind it. */
+  getCatalogAsset(assetKey) {
+    return this.listCatalogAssets().find((asset) => asset.key === assetKey) || null;
+  }
+
   getTotalUsd() {
     const total = Number(this.network.totalValueUsd);
     return Number.isFinite(total) ? total : 0;

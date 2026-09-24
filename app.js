@@ -33232,6 +33232,9 @@ const receiveModal = new ReceiveModal();
 
 multichain.configure({
   getAccount: () => myAccount,
+  // A select populated in code never fires `change`, so the popup that stands
+  // in for it has to be told -- otherwise its trigger renders blank.
+  syncSelect: (select) => PopupSelect.sync(select),
 });
 
 chatPaymentPanel.configure({
@@ -37325,6 +37328,10 @@ const modalCloseHandlers = new Map([
   ['assetDetailsModal', () => evmAssets.close('assetDetailsModal')],
   ['multichainModal', () => multichain.close('multichainModal')],
   ['multichainAssetModal', () => multichain.close('multichainAssetModal')],
+  ['multichainReceiveModal', () => multichain.close('multichainReceiveModal')],
+  ['multichainWithdrawModal', () => multichain.close('multichainWithdrawModal')],
+  ['multichainSwapModal', () => multichain.close('multichainSwapModal')],
+  ['multichainConfirmModal', () => multichain.close('multichainConfirmModal')],
   ['sendAssetConfirmModal', () => {
     evmAssets.confirmationModal.reset();
     sendAssetConfirmModal.close();
@@ -37540,6 +37547,9 @@ class PopupSelect {
       item.setAttribute('aria-selected', String(index === select.selectedIndex));
       if (option.disabled) item.setAttribute('aria-disabled', 'true');
 
+      const icon = PopupSelect.buildOptionIcon(option);
+      if (icon) item.append(icon);
+
       const label = document.createElement('span');
       label.className = 'popup-select__option-label';
       label.textContent = option.textContent;
@@ -37548,12 +37558,41 @@ class PopupSelect {
     });
   }
 
+  /**
+   * An option may carry `data-icon-label`, optionally with `data-icon-url` and
+   * `data-icon-color`. The label is drawn and the image laid over it, so an
+   * image that never loads leaves something readable rather than a gap.
+   */
+  static buildOptionIcon(option) {
+    const label = option.dataset.iconLabel;
+    if (!label) return null;
+
+    const mark = document.createElement('span');
+    mark.className = 'popup-select__option-icon';
+    if (option.dataset.iconColor) mark.style.setProperty('--mark-bg', option.dataset.iconColor);
+    mark.textContent = label;
+
+    if (option.dataset.iconUrl) {
+      const image = document.createElement('img');
+      image.src = option.dataset.iconUrl;
+      image.alt = '';
+      image.loading = 'lazy';
+      mark.append(image);
+    }
+    return mark;
+  }
+
   static sync(select) {
     const trigger = PopupSelect.getTrigger(select);
     if (!trigger) return;
 
-    const selectedText = select.options[select.selectedIndex]?.textContent || '';
-    trigger.querySelector('.popup-select__value').textContent = selectedText;
+    const selected = select.options[select.selectedIndex];
+    const selectedText = selected?.textContent || '';
+    const value = trigger.querySelector('.popup-select__value');
+    value.replaceChildren();
+    const triggerIcon = selected ? PopupSelect.buildOptionIcon(selected) : null;
+    if (triggerIcon) value.append(triggerIcon);
+    value.append(document.createTextNode(selectedText));
     const accessibleName = select.getAttribute('aria-label');
     if (accessibleName) trigger.setAttribute('aria-label', `${accessibleName}: ${selectedText}`);
     trigger.disabled = select.disabled;
