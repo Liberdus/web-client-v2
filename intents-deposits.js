@@ -112,6 +112,11 @@ export class IntentsDepositService {
     });
   }
 
+  /** Whether the bridge takes deposits of this asset at all. */
+  isDepositable(assetId) {
+    return Boolean(this.describeDepositTarget(assetId)?.chain);
+  }
+
   /** Chains this account can be funded on at all. */
   listDepositChains() {
     const chains = new Map();

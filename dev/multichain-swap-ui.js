@@ -2,6 +2,9 @@
 // confirm button is pressed.
 import { multichain } from '../intents-ui.js';
 import { intentsAssets, buildIntentsNetwork } from '../intents-assets.js';
+import { mountMultichainScreens } from './mount-multichain.js';
+
+await mountMultichainScreens();
 
 const log = (m) => { document.getElementById('log').textContent += m + '\n'; };
 const SOL = { assetId: 'nep141:sol.omft.near', decimals: 9, blockchain: 'sol', symbol: 'SOL', price: 118 };
@@ -18,31 +21,45 @@ intentsAssets.network = buildIntentsNetwork(intentsAssets.tokens, intentsAssets.
 intentsAssets.refresh = async () => intentsAssets.network;
 
 const swap = multichain.swapModal;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const text = (id) => document.getElementById(id).textContent.trim();
+
 swap.open('intents:nep141:sol.omft.near');
-log('title: ' + document.getElementById('multichainSwapTitle').textContent);
-log('available: ' + document.getElementById('multichainSwapAvailable').textContent);
-log('networks: ' + JSON.stringify([...document.getElementById('multichainSwapNetwork').options].map(o => o.textContent)));
-log('assets on that network: ' + JSON.stringify([...document.getElementById('multichainSwapTo').options].map(o => o.textContent)));
+log('title: ' + text('multichainSwapTitle'));
+log('balance: ' + text('multichainSwapAvailable'));
+log('to chip before choosing: ' + text('multichainSwapTo'));
+log('review disabled before choosing: ' + document.getElementById('multichainSwapPreview').disabled);
+
+// Choose through the real picker, the way a person does. openModal holds a
+// lock until the swap screen's slide-in ends.
+await sleep(1100);
+document.getElementById('multichainSwapTo').click();
+const search = document.getElementById('multichainTokenSearch');
+search.value = 'usdc';
+search.dispatchEvent(new Event('input'));
+const rows = [...document.querySelectorAll('#multichainTokenResults [data-asset-key]')];
+log('picker rows for "usdc": ' + JSON.stringify(rows.map((r) => r.innerText.replace(/\s+/g, ' ').trim())));
+rows[0]?.click();
+log('picker closed on pick: ' + !document.getElementById('multichainTokenPickerModal').classList.contains('active'));
+log('to chip: ' + text('multichainSwapTo') + ' ' + text('multichainSwapToChain'));
 
 document.getElementById('multichainSwapMax').click();
 log('max: ' + document.getElementById('multichainSwapAmount').value);
+const amount = document.getElementById('multichainSwapAmount');
+amount.value = '0.005';
+amount.dispatchEvent(new Event('input'));
+await sleep(6000);
+log('\nlive estimate: ' + text('multichainSwapOut') + ' (' + text('multichainSwapOutUsd') + ')');
+log('floor: ' + text('multichainSwapFloor'));
+const status = document.getElementById('multichainSwapStatus');
+if (!status.hidden) log('status: ' + status.textContent);
 
-// Pick a network then an asset, the way the placeholders require.
-const net = document.getElementById('multichainSwapNetwork');
-net.value = [...net.options].find(o => o.value)?.value || '';
-net.dispatchEvent(new Event('change'));
-const assetSel = document.getElementById('multichainSwapTo');
-assetSel.value = [...assetSel.options].find(o => o.value)?.value || '';
-log('chosen network: ' + net.value + ' | asset: ' + assetSel.selectedOptions[0]?.textContent);
-
-document.getElementById('multichainSwapAmount').value = '0.005';
 document.getElementById('multichainSwapPreview').click();
-await new Promise((r) => setTimeout(r, 9000));
+await sleep(8000);
 
 const sheet = document.getElementById('multichainConfirmModal');
-log('confirm screen open: ' + sheet.classList.contains('active'));
-log('\nconfirm:\n' + document.getElementById('multichainConfirmHero').innerText
+log('\nconfirm screen open: ' + sheet.classList.contains('active'));
+log('confirm:\n' + document.getElementById('multichainConfirmHero').innerText
   + '\n' + document.getElementById('multichainConfirmRows').innerText);
-const action = document.getElementById('multichainConfirmAction');
-log('action: ' + action.textContent.trim());
+log('action: ' + text('multichainConfirmAction'));
 document.title = sheet.classList.contains('active') ? 'SWAP UI OK' : 'SWAP UI FAILED';

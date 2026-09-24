@@ -20,6 +20,7 @@
     "test:intents-withdraw": "node test/intents-withdraw.mjs",
     "test:intents-chat": "node test/intents-chat.mjs",
     "test:intents-swap": "node test/intents-swap.mjs",
-    "test:all": "npm run test:asset-icons && npm run test:intents && npm run test:intents-assets && npm run test:intents-deposits && npm run test:intents-transfer && npm run test:intents-withdraw && npm run test:intents-chat && npm run test:intents-swap"
+    "test:intents-activity": "node test/intents-activity.mjs",
+    "test:all": "npm run test:asset-icons && npm run test:intents && npm run test:intents-assets && npm run test:intents-deposits && npm run test:intents-transfer && npm run test:intents-withdraw && npm run test:intents-chat && npm run test:intents-swap && npm run test:intents-activity"
   }
 }

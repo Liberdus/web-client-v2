@@ -118,6 +118,23 @@ export async function verifyTransferClaim(claim, { getStatus = getIntentStatus }
   }
 }
 
+/**
+ * What a payment bubble says about the transfer behind it. One table, read by
+ * the renderer and by the verifier that updates bubbles in place, so the two
+ * cannot drift.
+ *
+ * Outcomes, not mechanism: "Confirmed", never "confirmed on chain".
+ */
+export function paymentStatusLabel(state) {
+  return {
+    settled: 'Confirmed',
+    pending: 'Confirming…',
+    failed: 'Not confirmed',
+    unverifiable: 'Could not check yet',
+    unchecked: 'Checking…',
+  }[state] || 'Could not check yet';
+}
+
 export class IntentsChatPayments {
   constructor({ getAccount = () => null, transfers = null } = {}) {
     this.getAccount = getAccount;

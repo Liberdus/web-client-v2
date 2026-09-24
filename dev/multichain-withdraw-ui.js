@@ -2,6 +2,9 @@
 // the confirm button is pressed.
 import { multichain } from '../intents-ui.js';
 import { intentsAssets, buildIntentsNetwork } from '../intents-assets.js';
+import { mountMultichainScreens } from './mount-multichain.js';
+
+await mountMultichainScreens();
 
 const log = (m) => { document.getElementById('log').textContent += m + '\n'; };
 const SOL = { assetId: 'nep141:sol.omft.near', decimals: 9, blockchain: 'sol', symbol: 'SOL', price: 118 };
