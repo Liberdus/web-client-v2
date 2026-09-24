@@ -255,6 +255,14 @@ export async function signMessage(message, privateKey) {
     return await secp.signAsync(message, privateKey);
 }
 
+export function verifyMessage(signature, message, publicKey) {
+    try {
+        return secp.verify(signature, message, publicKey);
+    } catch {
+        return false;
+    }
+}
+
 export function generatePQKeys(pqSeed) {
     return ml_kem1024.keygen(hex2bin(pqSeed));
 }
