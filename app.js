@@ -1,3 +1,16 @@
+import {
+  commitAccountMigration,
+  recoverAccountMigration,
+} from './account-migration.js';
+
+let accountMigrationRecoveryError = null;
+try {
+  recoverAccountMigration();
+} catch (error) {
+  accountMigrationRecoveryError = error;
+  console.error('Failed to recover an interrupted account migration:', error);
+}
+
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
 const version = 't'; // Also increment this when you increment version.html
@@ -758,6 +771,10 @@ function lockRapidMenuClicks(menuList) {
 document.addEventListener('DOMContentLoaded', async () => {
   installModalTransitionListeners();
   markConnectivityDependentElements();
+  if (accountMigrationRecoveryError) {
+    showToast('Account password recovery failed. Reload before signing in.', 0, 'error');
+    return;
+  }
   await checkVersion(); // version needs to be checked before anything else happens
   timeDifference(); // Calculate and log time difference early
 
@@ -1042,47 +1059,62 @@ function handleVisibilityChange() {
   }
 }
 
-async function encryptAllAccounts(oldPassword, newPassword) {
+async function encryptAllAccounts(oldPassword, newPassword, nextLock) {
   const oldEncKey = !oldPassword ? null : await passwordToKey(oldPassword+'liberdusData');
   const newEncKey = !newPassword ? null : await passwordToKey(newPassword+'liberdusData');
   // Get all accounts from localStorage
   const accountsObj = parse(localStorage.getItem('accounts') || 'null');
-  if (!accountsObj?.netids) return;
+  const changes = [];
+  const accountKeys = new Set();
 
-  for (const netid in accountsObj.netids) {
+  for (const netid in accountsObj?.netids || {}) {
     const usernamesObj = accountsObj.netids[netid]?.usernames;
     if (!usernamesObj) continue;
     for (const username in usernamesObj) {
-      const key = `${username}_${netid}`;
-      let data = localStorage.getItem(key);
-      if (!data) continue;
-
-      // If oldEncKey is set, decrypt; otherwise, treat as plaintext
-      if (oldEncKey) {
-        try {
-          data = decryptData(data, oldEncKey, true);
-        } catch (e) {
-          console.error(`Failed to decrypt data for ${key}:`, e);
-          continue;
-        }
-      }
-
-      let newData = data;
-
-      // If newEncKey is set, encrypt; otherwise, store as plaintext
-      if (newEncKey) {
-        try {
-          newData = encryptData(newData, newEncKey, true);
-        } catch (e) {
-          console.error(`Failed to encrypt data for ${key}:`, e);
-          continue;
-        }
-      }
-
-      // Save to localStorage (encrypted version uses _ suffix)
-      localStorage.setItem(`${key}`, newData);
+      accountKeys.add(`${username}_${netid}`);
     }
   }
+
+  // Include valid orphaned account records so a lock change cannot leave them
+  // under a different password generation from the registered accounts.
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (/^[^_]+_[0-9a-fA-F]{64}$/.test(key || '')) accountKeys.add(key);
+  }
+
+  for (const key of accountKeys) {
+    let data = localStorage.getItem(key);
+    if (!data) continue;
+
+    // If oldEncKey is set, decrypt; otherwise, treat as plaintext
+    if (oldEncKey) {
+      try {
+        data = decryptData(data, oldEncKey, true);
+      } catch (e) {
+        throw new Error(`Failed to decrypt account ${key}`, { cause: e });
+      }
+    }
+
+    let newData = data;
+
+    // If newEncKey is set, encrypt; otherwise, store as plaintext
+    if (newEncKey) {
+      try {
+        newData = encryptData(newData, newEncKey, true);
+      } catch (e) {
+        throw new Error(`Failed to encrypt account ${key}`, { cause: e });
+      }
+    }
+
+    changes.push({ key, value: newData });
+  }
+
+  commitAccountMigration({
+    storage: localStorage,
+    changes,
+    nextLock: newPassword ? nextLock : null,
+  });
+  return newEncKey;
 }
 
 function saveState() {
@@ -34561,8 +34593,7 @@ class LockModal {
     // once we are here we know the old password is correct
     if (this.mode === 'remove') {
       try {
-        await encryptAllAccounts(oldPassword, newPassword)
-        delete localStorage.lock;
+        await encryptAllAccounts(oldPassword, newPassword, null)
         this.encKey = null;
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
@@ -34588,10 +34619,9 @@ class LockModal {
 
 
       
-      // Save the key in localStorage with a key of "lock"
-      localStorage.lock = key;
-      this.encKey = await passwordToKey(newPassword+"liberdusData")
-      await encryptAllAccounts(oldPassword, newPassword)
+      // Commit every re-encrypted account before switching the lock verifier.
+      const newEncKey = await encryptAllAccounts(oldPassword, newPassword, key)
+      this.encKey = newEncKey
 
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
