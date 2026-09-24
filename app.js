@@ -62,6 +62,7 @@ async function checkVersion() {
       'crypto.js',
       'encryption.worker.js',
       'offline.html',
+      'bridge/index.html',
       'meet/index.html',
     ]);
     window.location.replace(newUrl);
@@ -205,6 +206,7 @@ import {
   normalizeUnsignedFloat,
   getVerifiedUsername,
   EthNum,
+  openSecureBridge,
   MIN_LOCK_PASSWORD_LENGTH,
   createLockRecord,
   parseLockRecord,
@@ -34036,7 +34038,15 @@ class BridgeModal {
   
   openBridgePage() {
     const bridgeUrl = network && network.bridgeUrl ? network.bridgeUrl : './bridge';
-    window.open(bridgeUrl, '_blank');
+    try {
+      openSecureBridge(bridgeUrl, {
+        windowObject: window,
+        allowedOrigins: [window.location.origin],
+      });
+    } catch (error) {
+      console.error('Blocked bridge navigation:', error);
+      showToast('The secure bridge is currently unavailable.', 0, 'error');
+    }
   }
 }
 
