@@ -1,8 +1,3 @@
-import {
-  canPersistDecryptedMedia,
-  purgeDecryptedMediaCaches,
-} from './media-cache-security.js';
-
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
 const version = 't'; // Also increment this when you increment version.html
@@ -52,8 +47,6 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
-      'lock-security.js',
-      'media-cache-security.js',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -204,6 +197,12 @@ import {
   normalizeUnsignedFloat,
   getVerifiedUsername,
   EthNum,
+  MIN_LOCK_PASSWORD_LENGTH,
+  createLockRecord,
+  parseLockRecord,
+  unlockLockRecord,
+  canPersistDecryptedMedia,
+  purgeDecryptedMediaCaches,
 } from './lib.js';
 
 import {
@@ -213,13 +212,6 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
-
-import {
-  MIN_LOCK_PASSWORD_LENGTH,
-  createLockRecord,
-  parseLockRecord,
-  unlockLockRecord,
-} from './lock-security.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
