@@ -49,7 +49,6 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
-      'lock-security.js',
       'evm-assets.js',
       'near-assets.js',
       'dao.js',
@@ -211,6 +210,10 @@ import {
   getExpectedChatId,
   isPublicKeyForAddress,
   validateChatTransaction,
+  MIN_LOCK_PASSWORD_LENGTH,
+  createLockRecord,
+  parseLockRecord,
+  unlockLockRecord,
 } from './lib.js';
 
 import {
@@ -238,13 +241,6 @@ import {
   intentsActivity,
   intentsAccountIdForAddress,
 } from './near-assets.js';
-
-import {
-  MIN_LOCK_PASSWORD_LENGTH,
-  createLockRecord,
-  parseLockRecord,
-  unlockLockRecord,
-} from './lock-security.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
