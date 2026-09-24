@@ -1,3 +1,5 @@
+import { openSecureBridge } from './bridge-security.js';
+
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
 const version = 't'; // Also increment this when you increment version.html
@@ -47,6 +49,8 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
+      'bridge-security.js',
+      'bridge/index.html',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -33900,7 +33904,15 @@ class BridgeModal {
   
   openBridgePage() {
     const bridgeUrl = network && network.bridgeUrl ? network.bridgeUrl : './bridge';
-    window.open(bridgeUrl, '_blank');
+    try {
+      openSecureBridge(bridgeUrl, {
+        windowObject: window,
+        allowedOrigins: [window.location.origin],
+      });
+    } catch (error) {
+      console.error('Blocked bridge navigation:', error);
+      showToast('The secure bridge is currently unavailable.', 0, 'error');
+    }
   }
 }
 
