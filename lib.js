@@ -898,6 +898,400 @@ export class EthNum {
   }
 }
 
+export const LOCK_RECORD_VERSION = 2;
+export const LOCK_KDF_ITERATIONS = 600_000;
+export const MIN_LOCK_PASSWORD_LENGTH = 12;
+
+const LOCK_SALT_BYTES = 16;
+const DERIVED_KEY_BYTES = 64;
+const MAX_KDF_ITERATIONS = 2_000_000;
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  try {
+    const binary = atob(value);
+    return Uint8Array.from(binary, character => character.charCodeAt(0));
+  } catch {
+    return null;
+  }
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function constantTimeEqual(left, right) {
+  if (!(left instanceof Uint8Array) || !(right instanceof Uint8Array) || left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) difference |= left[index] ^ right[index];
+  return difference === 0;
+}
+
+async function deriveLockMaterial(password, salt, iterations) {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new Error('Secure password derivation is unavailable in this browser');
+
+  const keyMaterial = await subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
+    keyMaterial,
+    DERIVED_KEY_BYTES * 8
+  );
+  const derived = new Uint8Array(bits);
+  return {
+    verifier: derived.slice(0, 32),
+    encryptionKey: bytesToHex(derived.slice(32)),
+  };
+}
+
+export function parseLockRecord(storedValue) {
+  if (typeof storedValue !== 'string' || !storedValue.startsWith('{')) return null;
+  try {
+    const record = JSON.parse(storedValue);
+    const salt = base64ToBytes(record.salt);
+    const verifier = base64ToBytes(record.verifier);
+    if (
+      record.version !== LOCK_RECORD_VERSION
+      || record.kdf !== 'PBKDF2-SHA-256'
+      || !Number.isInteger(record.iterations)
+      || record.iterations < 100_000
+      || record.iterations > MAX_KDF_ITERATIONS
+      || salt?.length !== LOCK_SALT_BYTES
+      || verifier?.length !== 32
+    ) {
+      return null;
+    }
+    return record;
+  } catch {
+    return null;
+  }
+}
+
+export async function createLockRecord(password, options = {}) {
+  if (typeof password !== 'string' || password.length < MIN_LOCK_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_LOCK_PASSWORD_LENGTH} characters`);
+  }
+  const iterations = options.iterations ?? LOCK_KDF_ITERATIONS;
+  if (!Number.isInteger(iterations) || iterations < 100_000 || iterations > MAX_KDF_ITERATIONS) {
+    throw new Error('Invalid lock KDF work factor');
+  }
+  const salt = options.salt || globalThis.crypto.getRandomValues(new Uint8Array(LOCK_SALT_BYTES));
+  if (!(salt instanceof Uint8Array) || salt.length !== LOCK_SALT_BYTES) {
+    throw new Error('Invalid lock salt');
+  }
+
+  const derived = await deriveLockMaterial(password, salt, iterations);
+  const record = JSON.stringify({
+    version: LOCK_RECORD_VERSION,
+    kdf: 'PBKDF2-SHA-256',
+    iterations,
+    salt: bytesToBase64(salt),
+    verifier: bytesToBase64(derived.verifier),
+  });
+  return { record, encryptionKey: derived.encryptionKey };
+}
+
+export async function unlockLockRecord(storedValue, password) {
+  const record = parseLockRecord(storedValue);
+  if (!record || typeof password !== 'string') return null;
+  const salt = base64ToBytes(record.salt);
+  const expectedVerifier = base64ToBytes(record.verifier);
+  const derived = await deriveLockMaterial(password, salt, record.iterations);
+  return constantTimeEqual(derived.verifier, expectedVerifier)
+    ? { encryptionKey: derived.encryptionKey }
+    : null;
+}
+
+export const DECRYPTED_MEDIA_DATABASES = Object.freeze([
+  'liberdus_contact_avatars',
+  'liberdus_thumbnails',
+]);
+
+export function canPersistDecryptedMedia(storage = globalThis.localStorage) {
+  return storage?.getItem('lock') === null;
+}
+
+export function closeMediaCache(cache, urlApi = globalThis.URL) {
+  if (!cache) return;
+
+  if (cache.blobUrlCache instanceof Map) {
+    for (const blobUrl of cache.blobUrlCache.values()) {
+      try {
+        urlApi?.revokeObjectURL(blobUrl);
+      } catch (_) {
+        // Continue closing the cache even if a stale URL cannot be revoked.
+      }
+    }
+    cache.blobUrlCache.clear();
+  }
+
+  try {
+    cache.db?.close();
+  } finally {
+    cache.db = null;
+    if ('openPromise' in cache) cache.openPromise = null;
+  }
+}
+
+function deleteDatabase(indexedDb, databaseName) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDb.deleteDatabase(databaseName);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error || new Error(`Failed to delete ${databaseName}`));
+    request.onblocked = () => reject(new Error(`Deletion of ${databaseName} was blocked by another tab`));
+  });
+}
+
+export async function purgeDecryptedMediaCaches({
+  indexedDb = globalThis.indexedDB,
+  caches = [],
+  databaseNames = DECRYPTED_MEDIA_DATABASES,
+  urlApi = globalThis.URL,
+} = {}) {
+  if (!indexedDb?.deleteDatabase) {
+    throw new Error('IndexedDB is unavailable');
+  }
+
+  for (const cache of caches) closeMediaCache(cache, urlApi);
+  await Promise.all(databaseNames.map((name) => deleteDatabase(indexedDb, name)));
+}
+
+export const ACCOUNT_MIGRATION_JOURNAL_KEY = '__liberdus_account_migration_v1';
+
+const ACCOUNT_KEY_PATTERN = /^[^_]+_[0-9a-fA-F]{64}$/;
+
+function assertJournal(journal) {
+  if (
+    journal?.version !== 1 ||
+    !Array.isArray(journal.previousRecords) ||
+    typeof journal.previousLock !== 'object' ||
+    journal.previousLock === null
+  ) {
+    throw new Error('Account migration journal is invalid');
+  }
+
+  const seen = new Set();
+  for (const record of journal.previousRecords) {
+    if (
+      typeof record?.key !== 'string' ||
+      !ACCOUNT_KEY_PATTERN.test(record.key) ||
+      seen.has(record.key) ||
+      (record.value !== null && typeof record.value !== 'string')
+    ) {
+      throw new Error('Account migration journal contains an invalid record');
+    }
+    seen.add(record.key);
+  }
+
+  if (journal.previousLock.value !== null && typeof journal.previousLock.value !== 'string') {
+    throw new Error('Account migration journal contains an invalid lock');
+  }
+}
+
+function restorePreviousState(storage, journal) {
+  for (const record of journal.previousRecords) {
+    if (record.value === null) storage.removeItem(record.key);
+    else storage.setItem(record.key, record.value);
+  }
+
+  if (journal.previousLock.value === null) storage.removeItem('lock');
+  else storage.setItem('lock', journal.previousLock.value);
+}
+
+export function recoverAccountMigration(storage = globalThis.localStorage) {
+  const serialized = storage.getItem(ACCOUNT_MIGRATION_JOURNAL_KEY);
+  if (serialized === null) return false;
+
+  let journal;
+  try {
+    journal = JSON.parse(serialized);
+  } catch (_) {
+    throw new Error('Account migration journal cannot be parsed');
+  }
+  assertJournal(journal);
+  restorePreviousState(storage, journal);
+  storage.removeItem(ACCOUNT_MIGRATION_JOURNAL_KEY);
+  return true;
+}
+
+export function commitAccountMigration({
+  storage = globalThis.localStorage,
+  changes,
+  nextLock,
+}) {
+  if (!Array.isArray(changes)) throw new TypeError('Account changes must be an array');
+  if (nextLock !== null && typeof nextLock !== 'string') {
+    throw new TypeError('The next lock must be a string or null');
+  }
+
+  // Finish rolling back any interrupted migration before taking a fresh snapshot.
+  recoverAccountMigration(storage);
+
+  const seen = new Set();
+  const normalizedChanges = changes.map((change) => {
+    if (
+      typeof change?.key !== 'string' ||
+      !ACCOUNT_KEY_PATTERN.test(change.key) ||
+      typeof change.value !== 'string' ||
+      seen.has(change.key)
+    ) {
+      throw new Error('Account migration contains an invalid record');
+    }
+    seen.add(change.key);
+    return { key: change.key, value: change.value };
+  });
+
+  const journal = {
+    version: 1,
+    previousRecords: normalizedChanges.map(({ key }) => ({
+      key,
+      value: storage.getItem(key),
+    })),
+    previousLock: { value: storage.getItem('lock') },
+  };
+  assertJournal(journal);
+
+  // localStorage writes are individually atomic. Persisting the rollback journal
+  // first makes the group recoverable if a write fails or the browser exits.
+  storage.setItem(ACCOUNT_MIGRATION_JOURNAL_KEY, JSON.stringify(journal));
+
+  try {
+    for (const change of normalizedChanges) {
+      storage.setItem(change.key, change.value);
+    }
+    if (nextLock === null) storage.removeItem('lock');
+    else storage.setItem('lock', nextLock);
+    storage.removeItem(ACCOUNT_MIGRATION_JOURNAL_KEY);
+  } catch (error) {
+    try {
+      restorePreviousState(storage, journal);
+      storage.removeItem(ACCOUNT_MIGRATION_JOURNAL_KEY);
+    } catch (rollbackError) {
+      // Keep the journal for recoverAccountMigration() on the next page load.
+      try { error.rollbackError = rollbackError; } catch (_) {}
+    }
+    throw error;
+  }
+}
+
+const SUPPORTED_CHAT_TRANSACTION_TYPES = new Set([
+  'message',
+  'transfer',
+  'update_toll_required',
+]);
+
+export function getUnsignedTransactionId(transaction, { stringify, hashBytes }) {
+  const unsignedTransaction = { ...transaction };
+  delete unsignedTransaction.sign;
+  return hashBytes(utf82bin(stringify(unsignedTransaction)));
+}
+
+export function getExpectedChatId(firstAddress, secondAddress, hashBytes) {
+  return hashBytes([longAddress(firstAddress), longAddress(secondAddress)].sort().join(''));
+}
+
+export function isPublicKeyForAddress(publicKey, address, generateAddress) {
+  if (typeof publicKey !== 'string' || !/^(?:0x)?[0-9a-f]{130}$/i.test(publicKey)) return false;
+  try {
+    const normalizedPublicKey = publicKey.replace(/^0x/i, '');
+    return bin2hex(generateAddress(hex2bin(normalizedPublicKey))) === normalizeAddress(address);
+  } catch {
+    return false;
+  }
+}
+
+function getCompactSignature(signature) {
+  if (typeof signature !== 'string' || !/^0x[0-9a-f]{130}$/i.test(signature)) return null;
+  const recovery = Number.parseInt(signature.slice(-2), 16);
+  if (recovery !== 27 && recovery !== 28) return null;
+  return hex2bin(signature.slice(2, 130));
+}
+
+function hasRequiredPrivateMessageEnvelope(transaction, currentAddress) {
+  const payload = transaction.xmessage;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  if (payload.encrypted !== true || payload.encryptionMethod !== 'xchacha20poly1305') return false;
+  if (typeof payload.message !== 'string' || !payload.message) return false;
+
+  const transactionFrom = normalizeAddress(transaction.from);
+  const keyField = transactionFrom === normalizeAddress(currentAddress)
+    ? payload.selfKey
+    : payload.pqEncSharedKey;
+  return typeof keyField === 'string' && keyField.length > 0;
+}
+
+export function validateChatTransaction(transaction, context, crypto) {
+  if (!transaction || typeof transaction !== 'object' || Array.isArray(transaction)) {
+    return { ok: false, reason: 'invalid_transaction' };
+  }
+  if (!SUPPORTED_CHAT_TRANSACTION_TYPES.has(transaction.type)) {
+    return { ok: false, reason: 'unsupported_type' };
+  }
+
+  let transactionFrom;
+  let transactionTo;
+  let currentAddress;
+  let contactAddress;
+  try {
+    transactionFrom = normalizeAddress(transaction.from);
+    transactionTo = normalizeAddress(transaction.to);
+    currentAddress = normalizeAddress(context.currentAddress);
+    contactAddress = normalizeAddress(context.contactAddress);
+  } catch {
+    return { ok: false, reason: 'invalid_participant' };
+  }
+
+  const hasExpectedParticipants = (
+    transactionFrom === currentAddress && transactionTo === contactAddress
+  ) || (
+    transactionFrom === contactAddress && transactionTo === currentAddress
+  );
+  if (!hasExpectedParticipants) return { ok: false, reason: 'participant_mismatch' };
+  if (transaction.chatId !== context.expectedChatId) return { ok: false, reason: 'chat_mismatch' };
+  if (transaction.networkId !== context.networkId) return { ok: false, reason: 'network_mismatch' };
+  if (!Number.isFinite(Number(transaction.timestamp)) || Number(transaction.timestamp) <= 0) {
+    return { ok: false, reason: 'invalid_timestamp' };
+  }
+  if (transaction.type === 'message' && !hasRequiredPrivateMessageEnvelope(transaction, currentAddress)) {
+    return { ok: false, reason: 'unencrypted_message' };
+  }
+
+  const signatureOwner = transaction.sign?.owner;
+  try {
+    if (normalizeAddress(signatureOwner) !== transactionFrom) {
+      return { ok: false, reason: 'signature_owner_mismatch' };
+    }
+  } catch {
+    return { ok: false, reason: 'missing_signature' };
+  }
+  if (!isPublicKeyForAddress(context.publicKey, transactionFrom, crypto.generateAddress)) {
+    return { ok: false, reason: 'public_key_mismatch' };
+  }
+
+  const compactSignature = getCompactSignature(transaction.sign?.sig);
+  if (!compactSignature) return { ok: false, reason: 'invalid_signature_format' };
+
+  const txid = getUnsignedTransactionId(transaction, crypto);
+  const signedHash = hex2bin(crypto.ethHashMessage(txid));
+  const publicKey = hex2bin(context.publicKey.replace(/^0x/i, ''));
+  if (!crypto.verifyMessage(compactSignature, signedHash, publicKey)) {
+    return { ok: false, reason: 'invalid_signature' };
+  }
+
+  return { ok: true, txid };
+}
+
 export function resolveSecureBridgeUrl(configuredUrl, {
   baseUrl = globalThis.location?.href,
   allowedOrigins = [globalThis.location?.origin].filter(Boolean),
