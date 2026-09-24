@@ -162,6 +162,7 @@ import {
   dhkeyCombined,
   decryptChacha,
   generateUUIDv4,
+  verifyMessage,
 } from './crypto.js';
 
 // Put standalone conversion function in lib.js
@@ -197,6 +198,9 @@ import {
   normalizeUnsignedFloat,
   getVerifiedUsername,
   EthNum,
+  getExpectedChatId,
+  isPublicKeyForAddress,
+  validateChatTransaction,
 } from './lib.js';
 
 import {
@@ -11344,6 +11348,27 @@ async function ensureContactKeys(address) {
   }
 }
 
+async function getVerifiedChatContactKeys(address) {
+  const existingContact = myData.contacts[address];
+  const existingPublicKey = existingContact?.public;
+  if (isPublicKeyForAddress(existingPublicKey, address, generateAddress) && existingContact?.pqPublic) {
+    return { public: existingPublicKey, pqPublic: existingContact.pqPublic };
+  }
+
+  try {
+    const accountInfo = await queryNetwork(`/account/${longAddress(address)}`);
+    const publicKey = accountInfo?.account?.publicKey;
+    if (!isPublicKeyForAddress(publicKey, address, generateAddress)) return null;
+    return {
+      public: publicKey,
+      pqPublic: accountInfo?.account?.pqPublicKey || existingContact?.pqPublic || null,
+    };
+  } catch (error) {
+    console.warn('Unable to resolve authenticated chat participant keys', error);
+    return null;
+  }
+}
+
 /**
  * @typedef {{ sender: string, reactId: string, action: 'remove', timestamp: number, reactionTxId?: string, targetReactionTxId?: string } | { sender: string, reactId: string, action: 'set', emoji: string, timestamp: number, reactionTxId?: string }} ReactionUpdate
  */
@@ -12358,17 +12383,68 @@ async function processChats(chats, keys) {
   let hasAnyTransfer = false;
   let needsUpcomingCallsUiRefresh = false;
   const currentUserAddress = normalizeAddress(keys.address);
+  const currentUserPublicKey = isPublicKeyForAddress(keys.public, currentUserAddress, generateAddress)
+    ? keys.public
+    : bin2hex(getPublicKey(hex2bin(keys.secret)));
 
   for (let sender in chats) {
+    let from;
+    let expectedChatId;
+    try {
+      from = normalizeAddress(sender);
+      expectedChatId = getExpectedChatId(currentUserAddress, from, hashBytes);
+    } catch {
+      console.warn('Ignoring chat entry with an invalid participant address');
+      continue;
+    }
+    if (chats[sender] !== expectedChatId) {
+      console.warn('Ignoring chat entry with a mismatched chat identifier');
+      continue;
+    }
+
     // Fetch messages using the adjusted timestamp
-    const res = await queryNetwork(`/messages/${chats[sender]}/${messageQueryTimestamp}`);
+    const res = await queryNetwork(`/messages/${expectedChatId}/${messageQueryTimestamp}`);
     if (res && res.messages) {
-      const from = normalizeAddress(sender);
+      const contactKeys = await getVerifiedChatContactKeys(from);
+      const verifiedMessages = [];
+      for (const [order, tx] of Object.entries(res.messages)) {
+        let transactionFrom = '';
+        try {
+          transactionFrom = normalizeAddress(tx?.from);
+        } catch {
+          // validateChatTransaction returns the specific participant error below.
+        }
+        const publicKey = transactionFrom === currentUserAddress
+          ? currentUserPublicKey
+          : contactKeys?.public;
+        const validation = validateChatTransaction(tx, {
+          currentAddress: currentUserAddress,
+          contactAddress: from,
+          expectedChatId,
+          networkId: network.netid,
+          publicKey,
+        }, {
+          ethHashMessage,
+          generateAddress,
+          hashBytes,
+          stringify,
+          verifyMessage,
+        });
+        if (!validation.ok) {
+          console.warn(`Ignoring unauthenticated chat transaction: ${validation.reason}`);
+          continue;
+        }
+        verifiedMessages.push({ order, tx, txid: validation.txid });
+      }
+      if (verifiedMessages.length === 0) continue;
+
       if (!myData.contacts[from]) {
         // New inbound chat (not previously in contacts): create as tolled + allow one-time tolled deposit toast
         createNewContact(from, undefined, 1, false);
       }
       const contact = myData.contacts[from];
+      if (contactKeys?.public) contact.public = contactKeys.public;
+      if (contactKeys?.pqPublic) contact.pqPublic = contactKeys.pqPublic;
       // Set username to "Liberdus Faucet" if there is no username for the faucet address contact
       if (isFaucetAddress(from) && !contact.username) {
         contact.username = 'Liberdus Faucet';
@@ -12393,14 +12469,12 @@ async function processChats(chats, keys) {
       const inActiveChatWithSender =
         chatModal.address === from && chatModal.isActive();
 
-      for (let i in res.messages) {
-        const tx = res.messages[i]; // the messages are actually the whole tx
-        // compute the transaction id (txid)
-        const txidHex = getTxid(tx);
+      for (const verifiedMessage of verifiedMessages) {
+        const { order: i, tx, txid: txidHex } = verifiedMessage;
         let useTxTimestamp = false;
 
         newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
-        mine = tx.from == longAddress(keys.address) ? true : false;
+        mine = normalizeAddress(tx.from) === currentUserAddress;
         // timestamp-skew check for incoming messages/transfers (ensures we don't use out of range sent_timestamp)
         if (!mine && (tx.type === 'message' || tx.type === 'transfer')) {
           const sentTs = Number(((tx.type === 'message' ? tx.xmessage : tx.xmemo) || {}).sent_timestamp || 0);
