@@ -1,5 +1,3 @@
-import { openSecureBridge } from './bridge-security.js';
-
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
 const version = 't'; // Also increment this when you increment version.html
@@ -49,8 +47,6 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
-      'bridge-security.js',
-      'bridge/index.html',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -59,6 +55,8 @@ async function checkVersion() {
       'crypto.js',
       'encryption.worker.js',
       'offline.html',
+      'bridge-security.js',
+      'bridge/index.html',
       'meet/index.html',
     ]);
     window.location.replace(newUrl);
@@ -147,6 +145,8 @@ import {
   shouldOpenDaoProjectMilestoneByDefault,
   shouldShowDaoProjectRuntime,
 } from './dao.js';
+
+import { openSecureBridge } from './bridge-security.js';
 
 // Import crypto functions from crypto.js
 import {
