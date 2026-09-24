@@ -1,3 +1,10 @@
+let accountMigrationRecoveryError = null;
+try {
+  recoverAccountMigration();
+} catch (error) {
+  accountMigrationRecoveryError = error;
+  console.error('Failed to recover an interrupted account migration:', error);
+}
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
 const version = 't'; // Also increment this when you increment version.html
@@ -204,6 +211,8 @@ import {
   unlockLockRecord,
   canPersistDecryptedMedia,
   purgeDecryptedMediaCaches,
+  commitAccountMigration,
+  recoverAccountMigration,
   getExpectedChatId,
   isPublicKeyForAddress,
   validateChatTransaction,
@@ -768,6 +777,10 @@ function lockRapidMenuClicks(menuList) {
 document.addEventListener('DOMContentLoaded', async () => {
   installModalTransitionListeners();
   markConnectivityDependentElements();
+  if (accountMigrationRecoveryError) {
+    showToast('Account password recovery failed. Reload before signing in.', 0, 'error');
+    return;
+  }
   await checkVersion(); // version needs to be checked before anything else happens
   if (!canPersistDecryptedMedia()) {
     try {
@@ -1076,37 +1089,62 @@ async function unlockStoredAccountLock(storedLock, password) {
   };
 }
 
-async function encryptAllAccounts(oldEncKey, newEncKey) {
+async function encryptAllAccounts(oldEncKey, newEncKey, nextLock) {
   // Get all accounts from localStorage
   const accountsObj = parse(localStorage.getItem('accounts') || 'null');
-  if (!accountsObj?.netids) return;
+  const changes = [];
+  const accountKeys = new Set();
 
-  for (const netid in accountsObj.netids) {
+  for (const netid in accountsObj?.netids || {}) {
     const usernamesObj = accountsObj.netids[netid]?.usernames;
     if (!usernamesObj) continue;
     for (const username in usernamesObj) {
-      const key = `${username}_${netid}`;
-      let data = localStorage.getItem(key);
-      if (!data) continue;
-
-      // If oldEncKey is set, decrypt; otherwise, treat as plaintext
-      if (oldEncKey) {
-        data = decryptData(data, oldEncKey, true);
-        if (data == null) throw new Error(`Failed to decrypt data for ${key}`);
-      }
-
-      let newData = data;
-
-      // If newEncKey is set, encrypt; otherwise, store as plaintext
-      if (newEncKey) {
-        newData = encryptData(newData, newEncKey, true);
-        if (newData == null) throw new Error(`Failed to encrypt data for ${key}`);
-      }
-
-      // Save to localStorage (encrypted version uses _ suffix)
-      localStorage.setItem(`${key}`, newData);
+      accountKeys.add(`${username}_${netid}`);
     }
   }
+
+  // Include valid orphaned account records so a lock change cannot leave them
+  // under a different password generation from the registered accounts.
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (/^[^_]+_[0-9a-fA-F]{64}$/.test(key || '')) accountKeys.add(key);
+  }
+
+  for (const key of accountKeys) {
+    let data = localStorage.getItem(key);
+    if (!data) continue;
+
+    // If oldEncKey is set, decrypt; otherwise, treat as plaintext
+    if (oldEncKey) {
+      try {
+        data = decryptData(data, oldEncKey, true);
+      } catch (e) {
+        throw new Error(`Failed to decrypt account ${key}`, { cause: e });
+      }
+      if (data == null) throw new Error(`Failed to decrypt account ${key}`);
+    }
+
+    let newData = data;
+
+    // If newEncKey is set, encrypt; otherwise, store as plaintext
+    if (newEncKey) {
+      try {
+        newData = encryptData(newData, newEncKey, true);
+      } catch (e) {
+        throw new Error(`Failed to encrypt account ${key}`, { cause: e });
+      }
+      if (newData == null) throw new Error(`Failed to encrypt account ${key}`);
+    }
+
+    changes.push({ key, value: newData });
+  }
+
+  commitAccountMigration({
+    storage: localStorage,
+    changes,
+    nextLock,
+  });
+  return newEncKey;
 }
 
 function saveState() {
@@ -34658,8 +34696,7 @@ class LockModal {
     // once we are here we know the old password is correct
     if (this.mode === 'remove') {
       try {
-        await encryptAllAccounts(oldCredentials.encryptionKey, null);
-        localStorage.removeItem('lock');
+        await encryptAllAccounts(oldCredentials.encryptionKey, null, null);
         this.encKey = null;
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
@@ -34678,8 +34715,11 @@ class LockModal {
       // Existing media is decrypted, so remove it before enabling a lock.
       // Locked profiles do not repopulate persistent decrypted media caches.
       await purgeLocalDecryptedMedia();
-      await encryptAllAccounts(oldCredentials?.encryptionKey || null, nextLock.encryptionKey);
-      localStorage.setItem('lock', nextLock.record);
+      await encryptAllAccounts(
+        oldCredentials?.encryptionKey || null,
+        nextLock.encryptionKey,
+        nextLock.record,
+      );
       this.encKey = nextLock.encryptionKey;
 
       // remove the loading toast
