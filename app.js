@@ -201,18 +201,18 @@ import {
 } from './lib.js';
 
 import {
+  getExpectedChatId,
+  isPublicKeyForAddress,
+  validateChatTransaction,
+} from './chat-security.js';
+
+import {
   CHAT_REACTION_SHEET_CATEGORIES,
   CHAT_REACTION_SHEET_DEFAULT_COMMON_EMOJIS,
   CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY,
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
-
-import {
-  getExpectedChatId,
-  isPublicKeyForAddress,
-  validateChatTransaction,
-} from './chat-security.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
