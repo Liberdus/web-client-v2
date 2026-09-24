@@ -1,13 +1,3 @@
-import {
-  commitAccountMigration,
-  recoverAccountMigration,
-} from './account-migration.js';
-
-import {
-  canPersistDecryptedMedia,
-  purgeDecryptedMediaCaches,
-} from './media-cache-security.js';
-
 let accountMigrationRecoveryError = null;
 try {
   recoverAccountMigration();
@@ -64,9 +54,6 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
-      'account-migration.js',
-      'lock-security.js',
-      'media-cache-security.js',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -217,6 +204,14 @@ import {
   normalizeUnsignedFloat,
   getVerifiedUsername,
   EthNum,
+  MIN_LOCK_PASSWORD_LENGTH,
+  createLockRecord,
+  parseLockRecord,
+  unlockLockRecord,
+  canPersistDecryptedMedia,
+  purgeDecryptedMediaCaches,
+  commitAccountMigration,
+  recoverAccountMigration,
 } from './lib.js';
 
 import {
@@ -226,13 +221,6 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
-
-import {
-  MIN_LOCK_PASSWORD_LENGTH,
-  createLockRecord,
-  parseLockRecord,
-  unlockLockRecord,
-} from './lock-security.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
