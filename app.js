@@ -47,7 +47,6 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
-      'lock-security.js',
       'evm-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
@@ -198,6 +197,10 @@ import {
   normalizeUnsignedFloat,
   getVerifiedUsername,
   EthNum,
+  MIN_LOCK_PASSWORD_LENGTH,
+  createLockRecord,
+  parseLockRecord,
+  unlockLockRecord,
 } from './lib.js';
 
 import {
@@ -207,13 +210,6 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
-
-import {
-  MIN_LOCK_PASSWORD_LENGTH,
-  createLockRecord,
-  parseLockRecord,
-  unlockLockRecord,
-} from './lock-security.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
