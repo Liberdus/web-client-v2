@@ -15,7 +15,7 @@ This document describes the DAO / proposals feature as currently implemented in 
 1. **DAO Modal**
    - Shows a list of proposals.
    - Includes proposal lifecycle filters and a separate **Projects:** row for **Executing**, **Terminated**, and **Completed**, with counts for every filter.
-   - Project `started` maps to **Executing**. Once a project enters an execution status, it leaves the proposal lifecycle filter; **Applied** is reserved for parameter-change proposals.
+   - Project execution uses the top-level proposal states `executing`, `terminated`, and `completed`; **Applied** is reserved for parameter-change proposals.
    - There is no Archived filter.
    - The **All** status filter paginates every proposal in the complete metadata index.
    - The proposal list is filtered by the selected option.
@@ -54,6 +54,10 @@ The UI uses these statuses:
 - `rejected`
 - `accepted`
 - `applied`
+- `executing`
+- `completed`
+- `terminated`
+- `canceled`
 
 ## Data model used by the UI
 
@@ -94,7 +98,7 @@ Important implementation detail:
 
 - Sign-in notification detection requests only the complete metadata index and combines it with the current account's locally tracked vote schedules. It does not request proposal details.
 - The DAO UI requests the complete metadata index whenever the DAO is refreshed; proposal metadata is not persisted.
-- Proposal details are not persisted. Opening the DAO first fetches Accepted and Applied details so nested project statuses can be classified, then status filters fetch fresh details for the visible 10 entries, “Load more” fetches the next 10, and opening a proposal refreshes that proposal again.
+- Proposal details are not persisted. Status filters fetch fresh details for the visible 10 entries, “Load more” fetches the next 10, and opening a proposal refreshes that proposal again.
 - The Claimable filter queries only proposals from the current account's confirmed vote history whose authoritative reward-claim window is currently open. It does not scan every finalized proposal, and it renders a candidate only when fresh details report that it is claimable.
 - Account changes and sign-out clear the in-memory proposal details.
 - Failed detail fetches are retried the next time their filter page or proposal is opened.
@@ -130,7 +134,7 @@ Important implementation detail:
 - Proposal list loading uses:
   - `GET /dao/proposals/meta` on every DAO refresh
   - `GET /dao/proposals/:number` for each entry on the visible filter page
-- Project-filter counts also request Accepted and Applied proposal details because execution status is stored in `proposal.project.status`, not in the metadata index.
+- Project-filter membership and counts use the top-level `executing`, `terminated`, and `completed` statuses in the metadata index.
 - The Claimable filter requests details only for locally tracked proposal numbers with an open saved claim window that are found in the metadata index, then renders only details whose reward status is `Claimable`.
 - Status, emergency flag, and status-transition ordering always come from the metadata index overlay, not the detail payload.
 - The fetcher skips an unavailable detail response so it does not block the remaining indexed proposals from rendering.

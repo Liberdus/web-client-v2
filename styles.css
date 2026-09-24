@@ -3094,6 +3094,7 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .dao-project-info-funding .proposal-info-grid {
   display: grid;
   gap: 0;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 #proposalInfoModal .dao-project-info-funding .proposal-info-row {
@@ -3129,12 +3130,6 @@ input[type='file'].form-control::file-selector-button {
 #proposalInfoModal .dao-project-info-funding .proposal-info-value {
   justify-self: end;
   text-align: right;
-}
-
-#proposalInfoModal .dao-project-info-funding .proposal-info-row:first-child .proposal-info-value {
-  font-size: clamp(10px, 2.2vw, 13px);
-  letter-spacing: -0.02em;
-  white-space: nowrap;
 }
 
 #proposalInfoModal .dao-project-info-runtime {

@@ -4,13 +4,21 @@ import { normalizeAddress, utf82bin } from './lib.js';
 // Shared DAO constants and light helper functions.
 // Kept here so UI + repo can share one import surface.
 
-const DAO_REWARD_STATE_KEYS = ['accepted', 'rejected', 'applied'];
+const DAO_REWARD_STATE_KEYS = [
+  'accepted',
+  'rejected',
+  'applied',
+  'canceled',
+  'executing',
+  'completed',
+  'terminated',
+];
 
 export const DAO_PROJECT_TYPE = 'project';
 export const DAO_PROJECT_PREVIEW_KIND = 'project-preview';
-export const DAO_PROJECT_MAX_MILESTONES = 10;
+export const DAO_PROJECT_MAX_MILESTONES = 20;
 export const DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH = 100;
-export const DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH = 1000;
+export const DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH = 2000;
 export const DAO_PROJECT_DURATION_MAX_DAYS = 3650;
 
 export const DAO_TYPE_OPTIONS = [
@@ -155,12 +163,6 @@ export const DAO_PROJECT_FILTERS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-const DAO_PROJECT_STATUS_FILTER_KEYS = new Map([
-  ['started', 'executing'],
-  ['terminated', 'terminated'],
-  ['completed', 'completed'],
-]);
-
 const DAO_NON_FILTER_STATE_LABELS = new Map([
   ['canceled', 'Canceled'],
 ]);
@@ -287,6 +289,7 @@ export function getDaoProposalOptionLabels(proposal) {
 
 export function getDaoStateLabel(key) {
   return DAO_STATES.find((state) => state.key === key)?.label
+    || DAO_PROJECT_FILTERS.find((state) => state.key === key)?.label
     || DAO_NON_FILTER_STATE_LABELS.get(key)
     || key;
 }
@@ -296,16 +299,7 @@ export function getEffectiveDaoState(proposal) {
 }
 
 export function getDaoProposalListFilterKey(proposal) {
-  const proposalState = getEffectiveDaoState(proposal);
-  if (proposal?.proposalType !== DAO_PROJECT_TYPE) return proposalState;
-
-  const projectStatus = String(proposal?.project?.status || '').trim().toLowerCase();
-  const projectFilterKey = DAO_PROJECT_STATUS_FILTER_KEYS.get(projectStatus);
-  if (projectFilterKey) return projectFilterKey;
-
-  // Applied is reserved for parameter changes. A malformed or not-yet-started
-  // Project remains available through All instead of appearing as Applied.
-  return proposalState === 'applied' ? '' : proposalState;
+  return getEffectiveDaoState(proposal);
 }
 
 function requireDaoDraftString(value, label, maxLength) {
@@ -1002,31 +996,24 @@ export function normalizeDaoProjectDraft(value) {
   };
 }
 
-const DAO_PROJECT_STATUS_LABELS = Object.freeze({
-  pending: 'Pending',
-  started: 'Started',
-  completed: 'Completed',
-  terminated: 'Terminated',
-});
-
 export function getDaoProposalInfoStateLabel(proposal) {
   const proposalState = getEffectiveDaoState(proposal);
-  const proposalStateLabel = getDaoStateLabel(proposalState) || proposalState || 'Proposal';
-  if (proposal?.proposalType !== DAO_PROJECT_TYPE || proposalState !== 'applied') {
-    return proposalStateLabel;
-  }
-
-  const projectStatus = String(proposal?.project?.status || '').trim().toLowerCase();
-  return DAO_PROJECT_STATUS_LABELS[projectStatus] || proposalStateLabel;
+  return getDaoStateLabel(proposalState) || proposalState || 'Proposal';
 }
 
-const DAO_PROJECT_RUNTIME_STATUS_KEYS = new Set(['started', 'terminated', 'completed']);
+const DAO_PROJECT_RUNTIME_STATUS_KEYS = new Set(['executing', 'terminated', 'completed']);
 
 const DAO_PROJECT_MILESTONE_STATUS_LABELS = Object.freeze({
   pending: 'Pending',
-  started: 'Started',
+  executing: 'Executing',
   completed: 'Completed',
+  terminated: 'Terminated',
 });
+const DAO_PROJECT_PROPOSAL_STATUS_KEYS = new Set([
+  ...DAO_STATES.map(({ key }) => key),
+  ...DAO_PROJECT_FILTERS.map(({ key }) => key),
+  'canceled',
+]);
 
 function normalizeDaoProjectPresentationText(value, maxLength, issues, label) {
   if (typeof value !== 'string') {
@@ -1084,25 +1071,44 @@ function normalizeDaoProjectPresentationWei(value, issues, label, required = fal
   return amount;
 }
 
+function normalizeDaoProjectPresentationAddresses(value, issues, label) {
+  if (!Array.isArray(value)) {
+    issues.push(`${label} are unavailable`);
+    return [];
+  }
+  const addresses = value.map(normalizeDaoAddress).filter(Boolean);
+  if (addresses.length !== value.length) issues.push(`${label} include an invalid address`);
+  return addresses;
+}
+
+function normalizeDaoProjectTerminationVotes(value, issues, label) {
+  if (!Array.isArray(value)) {
+    issues.push(`${label} are unavailable`);
+    return [];
+  }
+  const votes = value
+    .map((vote) => {
+      const address = normalizeDaoAddress(vote?.address);
+      const reason = String(vote?.reason || '').trim();
+      const timestamp = normalizeDaoTimestamp(vote?.timestamp);
+      if (!address || !reason || !timestamp) return null;
+      return { address, reason, timestamp };
+    })
+    .filter(Boolean);
+  if (votes.length !== value.length) issues.push(`${label} include an invalid vote`);
+  return votes;
+}
+
 function normalizeDaoProjectPresentationMilestone(value, index, issues) {
   const milestone = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const label = `Milestone ${index + 1}`;
   if (milestone !== value) issues.push(`${label} is malformed`);
 
-  const durationDays = Number(milestone.durationDays);
-  const normalizedDurationDays = Number.isSafeInteger(durationDays)
-    && durationDays > 0
-    && durationDays <= DAO_PROJECT_DURATION_MAX_DAYS
-    ? durationDays
+  const durationMs = Number(milestone.duration);
+  const normalizedDurationMs = Number.isFinite(durationMs) && durationMs > 0
+    ? durationMs
     : null;
-  if (normalizedDurationDays === null) issues.push(`${label} duration is unavailable`);
-
-  let paid = null;
-  if (typeof milestone.paid === 'boolean') {
-    paid = milestone.paid;
-  } else {
-    issues.push(`${label} paid state is unavailable`);
-  }
+  if (normalizedDurationMs === null) issues.push(`${label} duration is unavailable`);
 
   return {
     title: normalizeDaoProjectPresentationText(
@@ -1123,7 +1129,7 @@ function normalizeDaoProjectPresentationMilestone(value, index, issues) {
       issues,
       `${label} deliverable`,
     ),
-    durationDays: normalizedDurationDays,
+    durationMs: normalizedDurationMs,
     costUsdStr: normalizeDaoProjectPresentationUsd(milestone.costUsdStr, issues, `${label} cost`),
     penaltyUsdStr: normalizeDaoProjectPresentationUsd(milestone.penaltyUsdStr, issues, `${label} penalty`),
     bonusUsdStr: normalizeDaoProjectPresentationUsd(milestone.bonusUsdStr, issues, `${label} bonus`),
@@ -1133,11 +1139,12 @@ function normalizeDaoProjectPresentationMilestone(value, index, issues) {
       issues,
       `${label} status`,
     ),
-    startedAt: normalizeDaoProjectPresentationTimestamp(milestone.startedAt, issues, `${label} start time`),
-    completedAt: normalizeDaoProjectPresentationTimestamp(milestone.completedAt, issues, `${label} completion time`),
-    paid,
-    paidAt: normalizeDaoProjectPresentationTimestamp(milestone.paidAt, issues, `${label} paid time`),
-    payoutWei: normalizeDaoProjectPresentationWei(milestone.payoutWei, issues, `${label} payout`),
+    startTime: normalizeDaoProjectPresentationTimestamp(milestone.startTime, issues, `${label} start time`),
+    endTime: normalizeDaoProjectPresentationTimestamp(milestone.endTime, issues, `${label} end time`),
+    proposedTime: normalizeDaoProjectPresentationTimestamp(milestone.proposedTime, issues, `${label} proposed time`),
+    endorsedTime: normalizeDaoProjectPresentationAddresses(milestone.endorsedTime, issues, `${label} time endorsements`),
+    terminateVotes: normalizeDaoProjectTerminationVotes(milestone.terminateVotes, issues, `${label} termination votes`),
+    paidWei: normalizeDaoProjectPresentationWei(milestone.paid, issues, `${label} paid amount`, true),
   };
 }
 
@@ -1171,18 +1178,24 @@ export function getDaoProjectPresentation(proposal) {
     && milestones.every((milestone) => (
       milestone.costUsdStr !== null && milestone.bonusUsdStr !== null
     ));
-  const status = normalizeDaoProjectPresentationStatus(
-    project.status,
-    DAO_PROJECT_STATUS_LABELS,
-    issues,
-    'Project status',
-  );
+  const proposalStatus = getEffectiveDaoState(proposal);
+  const statusLabel = getDaoStateLabel(proposalStatus);
+  const status = DAO_PROJECT_PROPOSAL_STATUS_KEYS.has(proposalStatus) && statusLabel
+    ? { key: proposalStatus, label: statusLabel }
+    : null;
+  if (!status) issues.push('Project status is unavailable');
   const balanceWei = normalizeDaoProjectPresentationWei(project.balance, issues, 'Project balance', true);
-  const claimableBalanceWei = normalizeDaoProjectPresentationWei(
-    project.claimableBalance,
+  const rateUsdStr = normalizeDaoProjectPresentationUsd(project.rateUsdStr, issues, 'Project rate');
+  const startTime = normalizeDaoProjectPresentationTimestamp(project.startTime, issues, 'Project start time');
+  const endTime = normalizeDaoProjectPresentationTimestamp(project.endTime, issues, 'Project end time');
+  const proposedAddress = project.proposedAddress === undefined
+    ? null
+    : normalizeDaoAddress(project.proposedAddress) || null;
+  if (project.proposedAddress !== undefined && !proposedAddress) issues.push('Proposed project recipient is unavailable');
+  const endorsedAddress = normalizeDaoProjectPresentationAddresses(
+    project.endorsedAddress,
     issues,
-    'Project claimable balance',
-    true,
+    'Project recipient endorsements',
   );
 
   return Object.freeze({
@@ -1192,7 +1205,11 @@ export function getDaoProjectPresentation(proposal) {
     address: address || null,
     status,
     balanceWei,
-    claimableBalanceWei,
+    rateUsdStr,
+    startTime,
+    endTime,
+    proposedAddress,
+    endorsedAddress,
     budget: canCalculateBudget ? getDaoProjectBudgetSummary(milestones) : null,
     milestones,
   });
@@ -1200,8 +1217,8 @@ export function getDaoProjectPresentation(proposal) {
 
 export function shouldOpenDaoProjectMilestoneByDefault(project, proposalState, milestoneIndex) {
   if (proposalState === 'review' || proposalState === 'voting') return true;
-  if (project?.status?.key !== 'started' || !Array.isArray(project.milestones)) return false;
-  return project.milestones.findIndex((milestone) => milestone?.status?.key === 'started') === milestoneIndex;
+  if (project?.status?.key !== 'executing' || !Array.isArray(project.milestones)) return false;
+  return project.milestones.findIndex((milestone) => milestone?.status?.key === 'executing') === milestoneIndex;
 }
 
 export function shouldShowDaoProjectRuntime(project) {
