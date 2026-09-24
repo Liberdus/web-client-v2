@@ -55,7 +55,6 @@ async function checkVersion() {
       'crypto.js',
       'encryption.worker.js',
       'offline.html',
-      'bridge-security.js',
       'bridge/index.html',
       'meet/index.html',
     ]);
@@ -146,8 +145,6 @@ import {
   shouldShowDaoProjectRuntime,
 } from './dao.js';
 
-import { openSecureBridge } from './bridge-security.js';
-
 // Import crypto functions from crypto.js
 import {
   encryptChacha,
@@ -201,6 +198,7 @@ import {
   normalizeUnsignedFloat,
   getVerifiedUsername,
   EthNum,
+  openSecureBridge,
 } from './lib.js';
 
 import {
