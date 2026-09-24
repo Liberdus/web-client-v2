@@ -1,12 +1,28 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>multichain-withdraw-ui — harness</title>
-<link rel="stylesheet" href="../styles.css" /></head>
+<title>Multichain screens — harness</title>
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  /* The app stylesheet makes body a flex row; the harness stacks instead. */
+  body { margin:0 !important; background:#eef0f3 !important; display:block !important; padding:1px 0 40px; }
+  .stage { max-width: 420px; margin: 0 auto 28px; background: white;
+           box-shadow: 0 4px 20px rgba(0,0,0,.12); position: relative;
+           height: 720px; overflow: hidden; }
+  /* Modals slide in from off-screen in the app; pin them in place here. */
+  .stage .modal { position:absolute !important; inset:0 !important; transform:none !important; }
+  .stage-label { max-width:420px; margin: 18px auto 6px; font: 600 12px system-ui;
+                 letter-spacing:.08em; text-transform:uppercase; color:#65676b; }
+</style>
+</head>
 <body>
-<!-- Every multichain screen, extracted verbatim from index.html at build time,
-     because the controller wires all of them in load(). -->
-      <div class="modal fixed-header" id="multichainModal">
+<div class="stage-label">List</div><div class="stage" id="stage-list"></div>
+<div class="stage-label">Asset</div><div class="stage" id="stage-asset"></div>
+<div class="stage-label">Receive</div><div class="stage" id="stage-receive"></div>
+<div class="stage-label">Withdraw</div><div class="stage" id="stage-withdraw"></div>
+<div class="stage-label">Swap</div><div class="stage" id="stage-swap"></div>
+<div class="stage-label">Confirm</div><div class="stage" id="stage-confirm"></div>
+<template id="markup">      <div class="modal fixed-header active" id="multichainModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainModal"></button>
           <div class="modal-title">Multichain</div>
@@ -24,7 +40,7 @@
       </div>
 
       <!-- One asset: what you hold, and the three things you can do with it. -->
-      <div class="modal fixed-header" id="multichainAssetModal">
+      <div class="modal fixed-header active" id="multichainAssetModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainAssetModal"></button>
           <div class="modal-title" id="multichainAssetTitle">Asset</div>
@@ -55,7 +71,7 @@
       </div>
 
       <!-- Receive: the address is the whole screen. -->
-      <div class="modal fixed-header" id="multichainReceiveModal">
+      <div class="modal fixed-header active" id="multichainReceiveModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainReceiveModal"></button>
           <div class="modal-title" id="multichainReceiveTitle">Receive</div>
@@ -66,7 +82,7 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <div class="modal fixed-header" id="multichainWithdrawModal">
+      <div class="modal fixed-header active" id="multichainWithdrawModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainWithdrawModal"></button>
           <div class="modal-title" id="multichainWithdrawTitle">Withdraw</div>
@@ -98,7 +114,7 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <div class="modal fixed-header" id="multichainSwapModal">
+      <div class="modal fixed-header active" id="multichainSwapModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainSwapModal"></button>
           <div class="modal-title" id="multichainSwapTitle">Swap</div>
@@ -129,7 +145,7 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <div class="modal fixed-header" id="multichainConfirmModal">
+      <div class="modal fixed-header active" id="multichainConfirmModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainConfirmModal"></button>
           <div class="modal-title" id="multichainConfirmTitle">Confirm</div>
@@ -146,10 +162,7 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-
-<button id="openMultichain"></button>
-<button id="multichainSummary"><span id="multichainSummaryValue"></span></button>
-<pre id="log" style="font-family:monospace;font-size:12px;padding:12px"></pre>
+</template>
 <script src="../external/qr.js"></script>
-<script type="module" src="./multichain-withdraw-ui.js"></script>
+<script type="module" src="./multichain-screens.js"></script>
 </body></html>
