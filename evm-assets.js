@@ -1259,6 +1259,7 @@ function formatConnectedTokenType(asset) {
 class AssetsModal {
   constructor(controller) {
     this.controller = controller;
+    this.loadingToastId = null;
   }
 
   load() {
@@ -1292,12 +1293,27 @@ class AssetsModal {
   }
 
   async open() {
-    openModal(this.modal);
-    await this.update();
+    if (!openModal(this.modal)) return;
+
+    // A recently closed toast may still be fading out when the modal reopens.
+    const toastId = this.controller.showToast('Loading EVM assets...', 0, 'loading', false, { dedupe: false });
+    this.loadingToastId = toastId;
+    try {
+      await this.update();
+    } finally {
+      if (this.loadingToastId === toastId) this.hideLoadingToast();
+    }
   }
 
   close() {
     this.modal.classList.remove('active');
+    this.hideLoadingToast();
+  }
+
+  hideLoadingToast() {
+    if (!this.loadingToastId) return;
+    this.controller.hideToast(this.loadingToastId);
+    this.loadingToastId = null;
   }
 
   isActive() {
@@ -1885,6 +1901,7 @@ class EvmAssetsController {
     this.openSend = () => {};
     this.openReceive = () => {};
     this.showToast = () => {};
+    this.hideToast = () => {};
     this.syncSelect = () => {};
     this.confirmationModal = new EvmSendConfirmationModal();
     this.confirmTransfer = (...args) => this.confirmationModal.confirm(...args);
@@ -1914,6 +1931,7 @@ class EvmAssetsController {
     openSend,
     openReceive,
     showToast,
+    hideToast,
     confirmTransfer,
     syncSelect,
   } = {}) {
@@ -1922,6 +1940,7 @@ class EvmAssetsController {
     if (typeof openSend === 'function') this.openSend = openSend;
     if (typeof openReceive === 'function') this.openReceive = openReceive;
     if (typeof showToast === 'function') this.showToast = showToast;
+    if (typeof hideToast === 'function') this.hideToast = hideToast;
     if (typeof confirmTransfer === 'function') this.confirmTransfer = confirmTransfer;
     if (typeof syncSelect === 'function') this.syncSelect = syncSelect;
   }

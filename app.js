@@ -33612,6 +33612,7 @@ evmAssets.configure({
   openSend: (options) => sendAssetFormModal.open(options),
   openReceive: (options) => receiveModal.open(options),
   showToast,
+  hideToast,
   syncSelect: (select) => PopupSelect.sync(select),
 });
 
