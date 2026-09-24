@@ -9483,6 +9483,11 @@ small {
   text-overflow: clip;
 }
 
+#daoModal .dao-filter-chip[data-filter-key='terminated'] .dao-filter-chip-label,
+#daoModal .dao-filter-chip[data-filter-key='completed'] .dao-filter-chip-label {
+  font-size: clamp(9px, 2.2vw, 11px);
+}
+
 #daoModal .dao-filter-chip.has-notification::after {
   background: var(--primary-color);
   border-radius: 50%;
@@ -9539,6 +9544,16 @@ small {
   #daoModal .dao-filter-chip {
     padding-left: 2px;
     padding-right: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  #daoModal .dao-project-filter-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #daoModal .dao-filter-row-label {
+    grid-column: 1 / -1;
   }
 }
 

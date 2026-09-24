@@ -2688,6 +2688,7 @@ function formatDaoProposalTitle(proposal) {
 
 class DaoModal {
   constructor() {
+    this.loadingToastId = null;
     this.selectedFilterKey = 'voting';
     this.refreshState = 'loading';
     this.refreshSequence = 0;
@@ -2765,6 +2766,9 @@ class DaoModal {
     this.render();
 
     const notificationCutoff = getCorrectedTimestamp();
+    this.hideLoadingToast();
+    const toastId = showToast('Loading DAO proposals...', 0, 'loading', false, { dedupe: false });
+    this.loadingToastId = toastId;
     try {
       await daoRepo.refresh({ force: true });
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
@@ -2783,6 +2787,8 @@ class DaoModal {
       this.refreshState = 'error';
       console.warn('Failed to refresh DAO proposals:', e);
       showToast('Failed to load proposals', 2500, 'error');
+    } finally {
+      if (this.loadingToastId === toastId) this.hideLoadingToast();
     }
 
     this.render();
@@ -2790,6 +2796,7 @@ class DaoModal {
 
   close() {
     this.openRefreshId = ++this.refreshSequence;
+    this.hideLoadingToast();
     this.proposalOpenSequence += 1;
     this.detailsRequest = null;
     this.modal.classList.remove('active');
@@ -2808,6 +2815,12 @@ class DaoModal {
 
   isActive() {
     return this.modal.classList.contains('active');
+  }
+
+  hideLoadingToast() {
+    if (!this.loadingToastId) return;
+    hideToast(this.loadingToastId);
+    this.loadingToastId = null;
   }
 
   resetNotificationState() {
