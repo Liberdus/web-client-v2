@@ -15,7 +15,6 @@ const DAO_REWARD_STATE_KEYS = [
 ];
 
 export const DAO_PROJECT_TYPE = 'project';
-export const DAO_PROJECT_PREVIEW_KIND = 'project-preview';
 export const DAO_PROJECT_MAX_MILESTONES = 20;
 export const DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH = 100;
 export const DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH = 2000;
@@ -25,7 +24,7 @@ export const DAO_TYPE_OPTIONS = [
   { key: 'governance', label: 'Governance', group: 'Server proposal types' },
   { key: 'economic', label: 'Economic', group: 'Server proposal types' },
   { key: 'protocol', label: 'Protocol', group: 'Server proposal types' },
-  { key: DAO_PROJECT_TYPE, label: 'Project', group: 'Preview proposal types' },
+  { key: DAO_PROJECT_TYPE, label: 'Project', group: 'Server proposal types' },
 ];
 
 export const DAO_PARAMETER_MAX_WHOLE_DIGITS = 15;
@@ -490,8 +489,6 @@ export function buildDaoProjectProposalCreateDraft({
   };
 
   return {
-    kind: DAO_PROJECT_PREVIEW_KIND,
-    canSubmit: false,
     displayTitle: transaction.title,
     proposalFeeUsdStr: requireDaoProjectUsdString(proposalFeeUsdStr, 'DAO proposal fee'),
     reviewStartTimeMs: normalizeDaoDraftReviewStartTime(reviewStartTimeMs),

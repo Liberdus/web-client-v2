@@ -105,7 +105,6 @@ import {
   DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
   DAO_PROJECT_MILESTONE_TITLE_MAX_LENGTH,
   DAO_PROJECT_FILTERS,
-  DAO_PROJECT_PREVIEW_KIND,
   DAO_PROJECT_TYPE,
   DAO_PARAMETER_MAX_WHOLE_DIGITS,
   buildDaoProjectProposalCreateDraft,
@@ -4862,22 +4861,15 @@ class ConfirmProposalModal {
 
   setSubmitting(isSubmitting) {
     this.isSubmitting = Boolean(isSubmitting);
-    const isProjectPreview = this.currentDraft?.kind === DAO_PROJECT_PREVIEW_KIND;
     if (this.closeButton) this.closeButton.disabled = this.isSubmitting;
     if (this.backButton) this.backButton.disabled = this.isSubmitting;
     if (this.signButton) {
-      this.signButton.disabled = this.isSubmitting || isProjectPreview;
-      this.signButton.textContent = isProjectPreview
-        ? 'Project submission unavailable'
-        : (this.isSubmitting ? 'Signing...' : this.signButtonLabel);
+      this.signButton.disabled = this.isSubmitting;
+      this.signButton.textContent = this.isSubmitting ? 'Signing...' : this.signButtonLabel;
     }
   }
 
   async handleSign() {
-    if (this.currentDraft?.kind === DAO_PROJECT_PREVIEW_KIND) {
-      showToast('Project submission is unavailable until backend support is implemented', 3000, 'info');
-      return;
-    }
     if (this.isSubmitting) return;
     if (!this.currentDraft?.transaction?.from) {
       showToast('Proposal draft is unavailable', 3000, 'warning');
@@ -4966,8 +4958,8 @@ class ConfirmProposalModal {
   render() {
     if (!this.content) return;
     const draft = this.currentDraft;
-    if (draft?.kind === DAO_PROJECT_PREVIEW_KIND) {
-      this.renderProjectPreview(draft);
+    if (draft?.transaction?.proposalType === DAO_PROJECT_TYPE) {
+      this.renderProjectProposal(draft);
       return;
     }
     if (!draft?.transaction?.from) {
@@ -5000,12 +4992,12 @@ class ConfirmProposalModal {
     ].join('');
   }
 
-  renderProjectPreview(draft) {
+  renderProjectProposal(draft) {
     const proposal = draft.transaction;
     const project = proposal?.project;
     if (!project) {
-      this.setTitle('Review Project Draft');
-      this.content.innerHTML = '<section class="proposal-info-section"><h3>Review Project Draft</h3><p class="proposal-info-muted">Project draft is unavailable.</p></section>';
+      this.setTitle('Review Project Proposal');
+      this.content.innerHTML = '<section class="proposal-info-section"><h3>Review Project Proposal</h3><p class="proposal-info-muted">Project proposal is unavailable.</p></section>';
       return;
     }
 
@@ -5013,10 +5005,9 @@ class ConfirmProposalModal {
     const reviewDelayIfSubmittedNowMs = draft.reviewStartTimeMs > 0
       ? Math.max(0, draft.reviewStartTimeMs - getTransactionTimestamp())
       : 0;
-    this.setTitle('Review Project Draft');
+    this.setTitle('Review Project Proposal');
     this.content.innerHTML = [
       renderDaoProposalHeading(proposal),
-      '<div class="dao-project-review-notice" role="status"><strong>Project UI preview</strong><span>Project submission is unavailable until backend support is implemented.</span></div>',
       renderDaoProposalOptions(proposal),
       renderDaoProposalSection('Project Funding', [
         ['Recipient', normalizeDaoAddress(project.address)],
@@ -5028,7 +5019,7 @@ class ConfirmProposalModal {
       renderDaoProposalSection('Overview', [
         ['Type', getDaoTypeLabel(proposal.proposalType)],
         ['Proposal fee', `${draft.proposalFeeUsdStr || '0'} USD`],
-        ['Initial state', 'Not submitted (preview only)'],
+        ['Initial state', 'Review after submission'],
       ]),
       renderDaoProposalSection('Review Timeline', [
         ['Scheduled review start', draft.reviewStartTimeMs
@@ -5037,7 +5028,7 @@ class ConfirmProposalModal {
         ['Time until start if submitted now', formatDaoDurationSummary(reviewDelayIfSubmittedNowMs)],
         ['Grace period', formatDaoDurationSummary(proposal.gracePeriod)],
       ]),
-      '<p class="proposal-info-muted">The proposal fee is derived from DAO params. This preview cannot be signed, submitted, or saved to the DAO.</p>',
+      '<p class="proposal-info-muted">The proposal fee is derived from DAO params and seeds the voter reward pool. Signing submits this project proposal for review.</p>',
     ].join('');
   }
 
