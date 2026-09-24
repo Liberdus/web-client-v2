@@ -11074,39 +11074,421 @@ small {
 
 /* --- list screen ---------------------------------------------------------- */
 
+/* Mirrors the back button, which is positioned out of the flow. In the flow,
+   this took 40px from the title's box and pulled "Multichain" 20px left of
+   the balance centred beneath it. */
+.modal-header > .refresh-button {
+  position: absolute;
+  right: 16px;
+}
+
 .multichain-hero {
-  padding: 48px 16px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px 0;
   text-align: center;
 }
 
+/* A label above the figure, so the number reads as a stated value rather
+   than one floating under the title. */
+.multichain-hero-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--secondary-text-color);
+}
+
 .multichain-hero-total {
-  font-size: 40px;
+  /* Held open while it loads, so the screen does not jump when it lands. */
+  min-height: 48px;
+  font-size: 44px;
   font-weight: 700;
   line-height: 1.1;
+  letter-spacing: -0.02em;
   color: var(--text-color);
   font-variant-numeric: tabular-nums;
 }
 
 .multichain-hero-caption {
-  margin-top: 8px;
   font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
 }
 
-/* One quiet line, not a boxed alert: custody is a property of these assets,
-   not a warning, and a tinted panel on every visit is decoration. */
-.multichain-custody {
-  margin-top: 8px;
-  font-size: var(--font-size-xs);
-  color: var(--muted-text-color);
+.multichain-hero-caption:empty,
+.multichain-hero-warning:empty {
+  display: none;
 }
 
-.multichain-custody[data-status='unavailable'] {
+.multichain-hero-warning {
+  font-size: var(--font-size-sm);
   color: var(--warning-color);
+}
+
+/* Two equal choices, tinted rather than solid: neither moves money on its
+   own, so neither is the screen's one blue action (DESIGN.md §5). One class
+   for both, so they cannot come out different widths (§6). */
+.multichain-hero-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 32px 16px 0;
+}
+
+.multichain-hero-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--hover-background-purple);
+  color: var(--primary-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.multichain-hero-action:hover:not(:disabled) {
+  background: var(--primary-tint-20);
+}
+
+/* Not an action while it is unavailable, so not in the accent. */
+.multichain-hero-action:disabled {
+  background: var(--input-background);
+  color: var(--muted-text-color);
+  opacity: 1;
+  cursor: default;
+}
+
+.multichain-hero-action .action-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* The list's own heading, holding the one setting that shapes it. */
+.multichain-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 32px 16px 8px;
+  text-align: left;
+}
+
+.multichain-list-head[hidden] {
+  display: none;
+}
+
+.multichain-list-head .multichain-section-title {
+  margin: 0;
+}
+
+/* The heading takes the gap the list would otherwise open with. */
+.multichain-list-head:not([hidden]) ~ .multichain-assets {
+  margin-top: 0;
+}
+
+/* A switch drawn over a real checkbox: the input stays for state, keyboard
+   and screen readers, and is only made invisible. */
+.multichain-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+  cursor: pointer;
+}
+
+.multichain-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+}
+
+.multichain-switch-track {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--input-background);
+  transition: background-color 0.15s ease;
+}
+
+.multichain-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--background-color);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.multichain-switch input:checked + .multichain-switch-track {
+  background: var(--primary-color);
+}
+
+.multichain-switch input:checked + .multichain-switch-track::after {
+  transform: translateX(12px);
+}
+
+.multichain-switch input:focus-visible + .multichain-switch-track {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+/* Nothing held: where to start, rather than a list of zeros. */
+.multichain-empty {
+  margin: 32px 16px 0;
+  text-align: center;
+}
+
+.multichain-empty[hidden] {
+  display: none;
+}
+
+.multichain-empty-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.multichain-empty-text {
+  margin: 8px 0 16px;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+}
+
+/* Rows of three: more across leaves each chip too narrow to name its network,
+   and "BNB C…" is exactly the part that must not be cut. */
+.multichain-quick {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.multichain-quick-chip {
+  flex: 0 0 calc((100% - 16px) / 3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--background-color);
+  font-family: var(--font-primary);
+  cursor: pointer;
+}
+
+.multichain-quick-chip:hover {
+  border-color: var(--primary-color);
+  background: var(--hover-background-purple);
+}
+
+.multichain-quick-chip .asset-mark {
+  margin-bottom: 4px;
+}
+
+.multichain-quick-symbol {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+/* The network is part of the answer, not decoration: it says where the
+   address below the chip will accept this coin. */
+.multichain-quick-network {
+  max-width: 100%;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Custody is a standing fact about every row above it, so it sits under the
+   list as a footnote rather than in the hero on every visit. */
+.multichain-footnote {
+  margin: 16px 16px 32px;
+  font-size: var(--font-size-xs);
+  color: var(--muted-text-color);
+  text-align: center;
+}
+
+/* --- activity ------------------------------------------------------------- */
+
+.multichain-activity {
+  margin: 32px 16px 32px;
+  text-align: left;
+}
+
+/* A row you read, not one you tap: no pointer, no hover. */
+.multichain-row.is-static {
+  cursor: default;
+}
+
+.multichain-row.is-static:hover {
+  background: var(--background-color);
+}
+
+/* The glyph on a tinted disc, as a mask so it takes the accent (DESIGN.md
+   §6 -- currentColor does not reach inside the data-URI artwork). */
+.multichain-activity-icon {
+  position: relative;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--hover-background-purple);
+}
+
+.multichain-activity-icon::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  background-color: var(--primary-color);
+  -webkit-mask: var(--action-icon) center / contain no-repeat;
+  mask: var(--action-icon) center / contain no-repeat;
+}
+
+.multichain-activity-status {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+
+.multichain-activity-status:empty {
+  display: none;
+}
+
+/* Money that did not move: a failed or refunded order, a claim that did not
+   check out. The amount is struck so it cannot be read as a balance change. */
+.multichain-row[data-status='failed'] .multichain-row-amount,
+.multichain-row[data-status='refunded'] .multichain-row-amount,
+.multichain-row[data-status='unconfirmed'] .multichain-row-amount {
+  color: var(--secondary-text-color);
+  text-decoration: line-through;
+}
+
+.multichain-row[data-status='failed'] .multichain-activity-status,
+.multichain-row[data-status='unconfirmed'] .multichain-activity-status {
+  color: var(--danger-color);
+}
+
+.multichain-row[data-status='failed'] .multichain-activity-icon::after,
+.multichain-row[data-status='refunded'] .multichain-activity-icon::after,
+.multichain-row[data-status='unconfirmed'] .multichain-activity-icon::after {
+  background-color: var(--muted-text-color);
+}
+
+.multichain-activity-note {
+  margin: 0;
+  padding: 16px 0;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+  text-align: center;
+}
+
+.multichain-list + .multichain-activity-note {
+  padding-bottom: 0;
+}
+
+/* --- loading -------------------------------------------------------------- */
+
+.multichain-skeleton {
+  display: inline-block;
+  border-radius: 6px;
+  background: linear-gradient(90deg,
+    var(--input-background) 25%, var(--light-color) 45%, var(--input-background) 65%);
+  background-size: 400% 100%;
+  animation: multichain-shimmer 1.4s ease-in-out infinite;
+}
+
+.multichain-skeleton.is-figure {
+  width: 144px;
+  height: 44px;
+  border-radius: 10px;
+  vertical-align: middle;
+}
+
+.multichain-skeleton.is-caption {
+  width: 112px;
+  height: 14px;
+}
+
+.multichain-skeleton.is-mark {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.multichain-skeleton.is-name {
+  width: 64px;
+  height: 14px;
+}
+
+.multichain-skeleton.is-sub {
+  width: 44px;
+  height: 10px;
+}
+
+.multichain-row-values .multichain-skeleton {
+  align-self: flex-end;
+}
+
+.multichain-row.is-skeleton {
+  cursor: default;
+}
+
+.multichain-row.is-skeleton:hover {
+  background: var(--background-color);
+}
+
+@keyframes multichain-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+
+/* A refresh with balances already on screen: they stay, the icon turns.
+   The button turns, not its ::before -- the glyph is what shows, and giving
+   ::before a box would draw its artwork as a second icon beside it. */
+.refresh-button.is-loading {
+  animation: multichain-turn 0.9s linear infinite;
+}
+
+@keyframes multichain-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .multichain-skeleton,
+  .refresh-button.is-loading {
+    animation: none;
+  }
 }
 
 .multichain-assets {
   margin: 32px 16px 0;
+}
+
+
+
+/* The bordered list, shared by the balance screen and the token picker. */
+:is(.multichain-assets, .multichain-list) {
   border: 1px solid var(--border-color);
   border-radius: 10px;
   overflow: hidden;
@@ -11151,6 +11533,20 @@ small {
   font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--text-color);
+}
+
+/* Every row is one line (DESIGN.md §4.3): a long name or detail ends in an
+   ellipsis rather than wrapping the row taller than its neighbours, and the
+   figures on the right never give up their room to it. */
+.multichain-row-name,
+.multichain-row-chain {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.multichain-row-values {
+  flex: 0 0 auto;
 }
 
 .multichain-row-chain {
@@ -11249,6 +11645,23 @@ small {
   text-align: left;
 }
 
+/* A disabled action is not an action, so it is not blue (DESIGN.md §5). The
+   app-wide rule only fades the accent, which still reads as a button to press. */
+.multichain-screen .btn.btn--primary:disabled {
+  background: var(--input-background);
+  border-color: transparent;
+  color: var(--muted-text-color);
+  opacity: 1;
+}
+
+/* The global pill insets itself 16px each side for screens with no padding of
+   their own. This one has padding, so the inset doubled and the button came
+   out 32px narrower than the fields above it. */
+.multichain-screen .btn--pill.btn--full {
+  width: 100%;
+  margin: 16px 0 0;
+}
+
 .multichain-qr {
   display: flex;
   justify-content: center;
@@ -11284,9 +11697,13 @@ small {
   flex: 1;
   min-width: 0;
   font-family: var(--font-monospace);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--text-color);
-  overflow-wrap: anywhere;
+  /* One line, cut in the middle by the renderer (DESIGN.md §4.3); the
+     ellipsis only guards a pill narrower than any phone. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .multichain-address-copy {
@@ -11322,11 +11739,35 @@ small {
   color: var(--secondary-text-color);
 }
 
-.multichain-memo {
-  margin-top: 8px;
-  font-size: var(--font-size-sm);
-  color: var(--text-color);
+.multichain-deposit-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
   text-align: center;
+}
+
+.multichain-deposit-minimum {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-color);
+  overflow-wrap: anywhere;
+}
+
+.multichain-deposit-sub {
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+}
+
+.multichain-address + .multichain-address {
+  margin-top: 8px;
+}
+
+.multichain-address-label {
+  flex: 0 0 auto;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
 }
 
 /* The rules that lose the money if broken. Amber, because they need a decision
@@ -11354,7 +11795,9 @@ small {
   margin-bottom: 16px;
   padding: 12px 16px;
   border-radius: 10px;
-  background: var(--primary-tint-12);
+  /* Neutral ground: the accent tint would make "it worked" look like a
+     control (DESIGN.md §3). The green carries the meaning. */
+  background: var(--light-color);
   color: var(--success-color);
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -11413,6 +11856,195 @@ small {
   color: var(--secondary-text-color);
   text-align: left;
   font-variant-numeric: tabular-nums;
+}
+
+/* --- swap ----------------------------------------------------------------- */
+
+/* Two stacked panels, pay and get, each reading as one line: the amount on
+   the left, the token on the right, the dollar value and detail beneath. */
+.multichain-swap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* An author display beats the hidden attribute; restate it. */
+.multichain-swap[hidden] {
+  display: none;
+}
+
+/* Flex children do not collapse margins, so the shared 16px would stack on
+   top of the gap. */
+.multichain-swap .btn--pill.btn--full {
+  margin: 8px 0 0;
+}
+
+.multichain-swap .multichain-status {
+  margin-top: 8px;
+}
+
+.multichain-swap-leg {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  text-align: left;
+}
+
+.multichain-swap-leg:focus-within {
+  border-color: var(--primary-color);
+}
+
+.multichain-swap-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+
+.multichain-swap-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 32px;
+}
+
+.multichain-swap-amount {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.multichain-swap-amount:focus {
+  outline: none;
+}
+
+.multichain-swap-amount::placeholder,
+.multichain-swap-amount.is-empty {
+  color: var(--muted-text-color);
+}
+
+.multichain-token-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--input-background);
+  color: var(--text-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+button.multichain-token-chip {
+  cursor: pointer;
+}
+
+button.multichain-token-chip:hover {
+  filter: brightness(0.97);
+}
+
+/* Nothing chosen yet: the next thing to do, so it carries the accent -- as
+   text on a tint, since choosing is not yet the consequential step. */
+.multichain-token-chip.is-empty {
+  padding-left: 12px;
+  background: var(--hover-background-purple);
+  color: var(--primary-color);
+}
+
+.multichain-chip-caret {
+  width: 16px;
+  height: 16px;
+  margin-left: -4px;
+}
+
+.multichain-swap-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.multichain-swap-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Max sits inside the amount field on the withdraw screen; here it sits
+   beside the balance it fills in. */
+.multichain-swap-balance .multichain-max {
+  position: static;
+  transform: none;
+}
+
+.multichain-swap-floor {
+  padding: 0 4px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+  text-align: left;
+}
+
+.multichain-swap-floor:empty {
+  display: none;
+}
+
+/* --- token picker --------------------------------------------------------- */
+
+.multichain-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 16px 24px;
+  text-align: left;
+}
+
+/* The shared search bar is styled for a read-only field that opens a search
+   screen; this one is typed into directly. */
+.multichain-picker-search,
+.multichain-picker-search .search-input {
+  cursor: text;
+}
+
+.multichain-section-title {
+  margin-bottom: 8px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--secondary-text-color);
+}
+
+.multichain-list + .multichain-section-title {
+  margin-top: 32px;
+}
+
+.multichain-picker-none {
+  margin: 0;
+  padding: 16px 0;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
+  text-align: center;
 }
 
 /* --- quote ---------------------------------------------------------------- */
@@ -11489,7 +12121,9 @@ small {
 
 .intents-payment-message {
   border-radius: 12px;
-  padding: 12px 16px;
+  /* The bubble already pads its content; a second inset pushed the amount
+     well in from the time below it. */
+  padding: 0;
   min-width: 160px;
   text-align: left;
 }
@@ -11513,50 +12147,173 @@ small {
 }
 
 /* A received payment is a claim until the intent behind it is checked, so the
-   verification state is part of the bubble rather than a decoration on it. */
+   verification state is part of the bubble rather than a decoration on it.
+
+   In the bubble's own colour, sentence case: green or red text on the indigo
+   sent bubble was unreadable, and uppercase turned a status into a shout. */
 .intents-payment-verified {
   margin-top: 8px;
   font-size: var(--font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
-.intents-payment-message[data-verified='settled'] .intents-payment-verified {
-  color: var(--success-color);
-  opacity: 1;
+.intents-payment-message[data-verified='settled'] .intents-payment-verified::before {
+  content: '✓ ';
 }
 
+/* Failure is the one state worth weight. Red only where it reads -- on the
+   light received bubble; on the sent bubble, weight and a mark carry it. */
 .intents-payment-message[data-verified='failed'] .intents-payment-verified {
-  color: var(--danger-color);
+  font-weight: 600;
   opacity: 1;
 }
 
-.chat-payment-intro {
-  margin-bottom: 32px;
-  font-size: var(--font-size-sm);
+.intents-payment-message[data-verified='failed'] .intents-payment-verified::before {
+  content: '⚠ ';
+}
+
+.message.received .intents-payment-message[data-verified='failed'] .intents-payment-verified {
+  color: var(--danger-color);
+}
+
+/* --- sending in a conversation -------------------------------------------- */
+
+.context-menu-option[data-icon="send-money"] .context-menu-icon {
+  background-image: var(--icon-send-money);
+}
+
+/* Typing in dollars: the sign sits in the field's own type, before the
+   figure, so "$10" reads as one amount. */
+.multichain-amount-currency {
+  flex: 0 0 auto;
+  margin-right: -8px;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-color);
+}
+
+.multichain-amount-currency[hidden] {
+  display: none;
+}
+
+/* The other unit's figure is also the switch to typing in it -- the figure
+   people look at to check the conversion is where they reach to change it. */
+.multichain-amount-flip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
   color: var(--secondary-text-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.multichain-amount-flip:hover:not(:disabled) {
+  color: var(--primary-color);
+}
+
+.multichain-amount-flip[hidden] {
+  display: none;
+}
+
+.multichain-amount-flip-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.chat-send-contact-avatar {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--input-background);
+}
+
+/* An avatar fills its frame (DESIGN.md §6). */
+.chat-send-contact-avatar > * {
+  width: 100%;
+  height: 100%;
+}
+
+/* One quiet row until someone wants a note (DESIGN.md §1.7). */
+.chat-send-note-toggle {
+  align-self: flex-start;
+  padding: 8px 4px;
+  border: 0;
+  background: none;
+  color: var(--primary-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-send-note-toggle::before {
+  content: '+ ';
+}
+
+.chat-send-note-toggle[hidden],
+.chat-send-note[hidden] {
+  display: none;
+}
+
+.chat-send-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 48px;
   text-align: center;
 }
 
-.chat-payment-actions {
-  gap: 8px;
-  margin-top: 16px;
+.chat-send-empty[hidden] {
+  display: none;
+}
+
+.chat-send-empty-text {
+  margin: 0 0 16px;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
 }
 
 
 /* Action icons, in the app's own language: diagonals rather than chevrons,
-   matching the asset detail screen. Receive points in, withdraw points out. */
-#multichainAssetReceive .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
+   matching the asset detail screen. Receive points in, withdraw points out.
+
+   Painted as masks: `currentColor` does not reach inside a data-URI SVG, so as
+   background images these drew black whatever colour the icon was given
+   (DESIGN.md §6). Each rule publishes its artwork; the mask takes the colour. */
+:is(#multichainAssetModal, #multichainModal) .action-icon {
+  background-color: currentColor;
+  background-image: none;
+  -webkit-mask: var(--action-icon) center / contain no-repeat;
+  mask: var(--action-icon) center / contain no-repeat;
 }
 
-#multichainAssetWithdraw .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
+:is(#multichainAssetReceive, #multichainReceiveAny) .action-icon,
+.multichain-activity-icon[data-icon='in'] {
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
 }
 
-#multichainAssetSwap .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 3 21 8 16 13'/%3E%3Cpath d='M21 8H8'/%3E%3Cpolyline points='8 21 3 16 8 11'/%3E%3Cpath d='M3 16h13'/%3E%3C/svg%3E");
+#multichainAssetWithdraw .action-icon,
+.multichain-activity-icon[data-icon='out'] {
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
+}
+
+:is(#multichainAssetSend, #multichainSendAny) .action-icon,
+.multichain-activity-icon[data-icon='send'] {
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13'/%3E%3Cpath d='M22 2 15 22l-4-9-9-4z'/%3E%3C/svg%3E");
+}
+
+#multichainAssetSwap .action-icon,
+.multichain-activity-icon[data-icon='swap'] {
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 3 21 8 16 13'/%3E%3Cpath d='M21 8H8'/%3E%3Cpolyline points='8 21 3 16 8 11'/%3E%3Cpath d='M3 16h13'/%3E%3C/svg%3E");
 }
 
 /* An option's icon in the popup that stands in for a native select. Same

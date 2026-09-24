@@ -210,13 +210,15 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
-import { multichain } from './intents-ui.js';
+import { formatDisplayAmount, multichain } from './intents-ui.js';
 import {
   INTENTS_CHAT_MESSAGE_TYPE,
+  paymentStatusLabel,
   parseTransferMessage,
   verifyTransferClaim,
 } from './intents-chat.js';
 import { chatPaymentPanel } from './intents-chat-ui.js';
+import { intentsActivity } from './intents-activity.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -1920,9 +1922,17 @@ class ChatsScreen {
       } else if (latestActivity.type === 'location') {
         previewHTML = `<span><i>Shared location</i></span>`;
       } else if (latestActivity.type === INTENTS_CHAT_MESSAGE_TYPE) {
-        previewHTML = latestActivity.payment
-          ? `<span><i>${escapeHtml(latestActivity.payment.amount)} ${escapeHtml(latestActivity.payment.symbol)}</i></span>`
-          : `<span><i>Payment</i></span>`;
+        // The same shape as a LIB payment's preview: signed amount, then note.
+        const payment = latestActivity.payment;
+        if (payment) {
+          const directionText = latestActivity.my ? '-' : '+';
+          previewHTML = `<span class="payment-preview">${directionText} ${escapeHtml(formatDisplayAmount(payment.amount))} ${escapeHtml(payment.symbol)}</span>`;
+          if (payment.note) {
+            previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(payment.note), 50)}</span>`;
+          }
+        } else {
+          previewHTML = `<span><i>Payment</i></span>`;
+        }
       } else if (latestActivity.type === 'update_toll_required') {
         previewHTML = truncateMessage(escapeHtml(getUpdateTollRequiredPreviewText(latestActivity, contact)), 50);
       } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
@@ -11706,12 +11716,7 @@ async function verifyVisibleChatPayments() {
     const label = bubble.querySelector('.intents-payment-verified');
     if (!label) continue;
     bubble.dataset.verified = result.state;
-    label.textContent = {
-      settled: 'Confirmed on chain',
-      pending: 'Confirming…',
-      failed: 'Not confirmed',
-      unverifiable: 'Could not check yet',
-    }[result.state] || 'Could not check yet';
+    label.textContent = paymentStatusLabel(result.state);
   }
 }
 
@@ -21788,10 +21793,15 @@ class ChatModal {
     const keys = myAccount.keys;
     assert(keys, 'Keys not found for sender address');
 
+    // The recipient's own toll, from their contact record -- not this.toll,
+    // which belongs to whichever conversation is open. A payment sent from the
+    // wallet may go to someone whose chat was never opened this session.
+    const recipient = myData.contacts[currentAddress];
+    const { libWei: recipientTollLib } = this.formatTollDisplay(recipient.toll, recipient.tollUnit);
     const tollInLib =
-      myData.contacts[currentAddress].tollRequiredToSend == 0
+      recipient.tollRequiredToSend == 0
         ? 0n
-        : getEffectiveTollLibWei(this.toll);
+        : getEffectiveTollLibWei(typeof recipientTollLib === 'bigint' ? recipientTollLib : 0n);
     const sufficientBalance = await validateBalance(tollInLib);
     if (!sufficientBalance) {
       throw new Error('Not enough LIB for the message fee.');
@@ -22259,21 +22269,17 @@ class ChatModal {
           // checked, so the bubble says what was claimed and carries its
           // verification state rather than asserting money arrived.
           const verified = item.paymentVerified || 'unchecked';
-          const verifiedLabel = {
-            settled: 'Confirmed on chain',
-            pending: 'Confirming…',
-            failed: 'Not confirmed',
-            unverifiable: 'Could not check yet',
-            unchecked: 'Checking…',
-          }[verified];
+          // Signed like a LIB payment, so a run of payments reads as money in
+          // and money out without checking which side each bubble sits on.
+          const direction = item.my ? '−' : '+';
           messageTextHTML = `
               <div class="intents-payment-message" data-verified="${escapeHtml(verified)}" data-intent-hash="${escapeHtml(payment.intentHash)}">
-                <div class="intents-payment-amount">
-                  ${escapeHtml(payment.amount)} ${escapeHtml(payment.symbol)}
+                <div class="intents-payment-amount" title="${escapeHtml(payment.amount)} ${escapeHtml(payment.symbol)}">
+                  ${direction}${escapeHtml(formatDisplayAmount(payment.amount))} ${escapeHtml(payment.symbol)}
                 </div>
                 ${payment.chainName ? `<div class="intents-payment-chain">${escapeHtml(payment.chainName)}</div>` : ''}
                 ${payment.note ? `<div class="intents-payment-note">${escapeHtml(payment.note)}</div>` : ''}
-                <div class="intents-payment-verified">${escapeHtml(verifiedLabel)}</div>
+                <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
               </div>`;
         }
         break;
@@ -33231,6 +33237,14 @@ class ReceiveModal {
 const receiveModal = new ReceiveModal();
 
 multichain.configure({
+  // Which assets this account has held, and whether empty ones are hidden,
+  // travel with the account's saved state.
+  getSettings: () => myData?.multichain,
+  saveSettings: (settings) => {
+    if (!myData) return;
+    myData.multichain = settings;
+    saveState();
+  },
   getAccount: () => myAccount,
   // A select populated in code never fires `change`, so the popup that stands
   // in for it has to be told -- otherwise its trigger renders blank.
@@ -33242,6 +33256,50 @@ chatPaymentPanel.configure({
   onSent: (recipientAddress, messageObj) =>
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
   showToast,
+  // Who a payment from the wallet can go to: people a message can reach.
+  // Blocked contacts and ones with no public key would take the money and
+  // never get the receipt. Recent conversations first.
+  listContacts: () => {
+    const recency = new Map((myData?.chats || []).map((chat, index) => [chat.address, index]));
+    return Object.values(myData?.contacts || {})
+      .filter((contact) => contact.address && !isFaucetAddress(contact.address))
+      .filter((contact) => contact.friend !== 0 && contact.public)
+      .sort((a, b) => (recency.get(a.address) ?? Infinity) - (recency.get(b.address) ?? Infinity)
+        || getContactDisplayName(a).localeCompare(getContactDisplayName(b)))
+      .map((contact) => ({
+        address: contact.address,
+        name: getContactDisplayName(contact),
+        username: contact.username || null,
+      }));
+  },
+  renderAvatar: (address, size) => getContactAvatarHtml(myData.contacts[address] || address, size),
+  // The toll may be stale when the chat was never opened; refresh it, and
+  // say whether a message can reach them at all.
+  prepareRecipient: async (address) => {
+    await chatModal.refreshRecipientTollState(address);
+    return { blocked: Number(myData.contacts[address]?.tollRequiredToSend) === 2 };
+  },
+});
+
+// The asset screen's activity. Swaps and withdrawals this device placed are
+// kept with the account's own saved state, so a backup carries them; chat
+// payments are read from the conversations that already hold them.
+intentsActivity.configure({
+  getOrders: () => (Array.isArray(myData?.intentsOrders) ? myData.intentsOrders : []),
+  saveOrders: (orders) => {
+    if (!myData) return;
+    myData.intentsOrders = orders;
+    saveState();
+  },
+  listPayments: () => Object.values(myData?.contacts || {}).flatMap((contact) => (contact.messages || [])
+    .filter((message) => message.type === INTENTS_CHAT_MESSAGE_TYPE && message.payment)
+    .map((message) => ({
+      ...message.payment,
+      my: Boolean(message.my),
+      peer: getContactDisplayName(contact),
+      time: message.timestamp,
+      verified: message.paymentVerified,
+    }))),
 });
 
 evmAssets.configure({
@@ -37331,6 +37389,9 @@ const modalCloseHandlers = new Map([
   ['multichainReceiveModal', () => multichain.close('multichainReceiveModal')],
   ['multichainWithdrawModal', () => multichain.close('multichainWithdrawModal')],
   ['multichainSwapModal', () => multichain.close('multichainSwapModal')],
+  ['multichainTokenPickerModal', () => multichain.close('multichainTokenPickerModal')],
+  ['chatSendModal', () => chatPaymentPanel.close()],
+  ['chatSendContactModal', () => chatPaymentPanel.contactPicker.close()],
   ['multichainConfirmModal', () => multichain.close('multichainConfirmModal')],
   ['sendAssetConfirmModal', () => {
     evmAssets.confirmationModal.reset();

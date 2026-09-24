@@ -25,12 +25,6 @@ export const INTENTS_NETWORK_ID = 'intents';
 const BALANCE_CACHE_TTL_MS = 5_000;
 const TOKEN_CATALOG_TTL_MS = 300_000;
 
-// Shown even at a zero balance, so the two chains this route exists for are
-// visible before the first deposit rather than after it.
-const ALWAYS_SHOWN_ASSET_IDS = Object.freeze([
-  'nep141:btc.omft.near',
-  'nep141:sol.omft.near',
-]);
 
 const CHAIN_NAMES = Object.freeze({
   btc: 'Bitcoin', sol: 'Solana', eth: 'Ethereum', near: 'NEAR', base: 'Base',
@@ -134,18 +128,20 @@ function sortAssets(assets) {
 }
 
 /**
- * Keep an asset when it holds something, or when it is one of the assets we
- * always show. Everything else would be 190-odd zero rows.
+ * Keep an asset when it holds something, or when it was held before and has
+ * since gone to zero -- that row explains where the money went. Nothing is
+ * listed for its own sake: two pinned zero rows on a new account read as a
+ * balance sheet with nothing on it, and 190-odd would be worse.
  */
-function isWorthShowing(asset) {
-  return asset.rawAmount !== '0' || ALWAYS_SHOWN_ASSET_IDS.includes(asset.assetId);
+function isWorthShowing(asset, alsoShow) {
+  return asset.rawAmount !== '0' || alsoShow.includes(asset.assetId);
 }
 
-export function buildIntentsNetwork(tokens, balances) {
+export function buildIntentsNetwork(tokens, balances, { alsoShow = [] } = {}) {
   const assets = sortAssets(
     tokens
       .map((token) => normalizeIntentsToken(token, balances?.[token.assetId]))
-      .filter(isWorthShowing),
+      .filter((asset) => isWorthShowing(asset, alsoShow)),
   );
 
   const totalValueUsd = assets.reduce((total, asset) => {
@@ -186,8 +182,34 @@ export class IntentsDiscoveryService {
     this.reset();
   }
 
-  configure({ getAccount } = {}) {
+  /**
+   * `getHeldBefore`/`saveHeldBefore` keep the ids of every asset this
+   * account has held, with the account's own saved state. The verifier only
+   * reports balances, so an asset spent to zero is otherwise indistinguishable
+   * from one never touched.
+   */
+  configure({ getAccount, getHeldBefore, saveHeldBefore } = {}) {
     if (typeof getAccount === 'function') this.getAccount = getAccount;
+    if (typeof getHeldBefore === 'function') this.getHeldBefore = getHeldBefore;
+    if (typeof saveHeldBefore === 'function') this.saveHeldBefore = saveHeldBefore;
+  }
+
+  heldBefore() {
+    try {
+      const ids = this.getHeldBefore?.();
+      return Array.isArray(ids) ? ids : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Note any asset held now that was not held before. */
+  rememberHeld() {
+    const known = this.heldBefore();
+    const fresh = Object.entries(this.balances || {})
+      .filter(([assetId, raw]) => String(raw) !== '0' && !known.includes(assetId))
+      .map(([assetId]) => assetId);
+    if (fresh.length) this.saveHeldBefore?.([...known, ...fresh]);
   }
 
   reset() {
@@ -200,7 +222,7 @@ export class IntentsDiscoveryService {
   }
 
   rebuildNetwork() {
-    this.network = buildIntentsNetwork(this.tokens, this.balances || {});
+    this.network = buildIntentsNetwork(this.tokens, this.balances || {}, { alsoShow: this.heldBefore() });
     return this.network;
   }
 
@@ -310,6 +332,7 @@ export class IntentsDiscoveryService {
       this.balances = balances;
       this.status = 'connected';
       this.updatedAt = Date.now();
+      this.rememberHeld();
       return this.rebuildNetwork();
     } catch (error) {
       if (this.accountId === accountId) {

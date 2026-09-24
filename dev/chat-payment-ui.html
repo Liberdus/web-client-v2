@@ -1,20 +1,11 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8" />
-<title>Chat payment UI — harness</title><link rel="stylesheet" href="../styles.css" /></head>
-<body style="padding:16px">
-<div class="location-share-panel" id="chatPaymentPanel" style="display:none">
-  <div class="location-share-dialog">
-    <div id="chatPaymentIntro"></div>
-    <select id="chatPaymentAsset"></select>
-    <input id="chatPaymentAmount" /><button id="chatPaymentMax">Max</button>
-    <input id="chatPaymentNote" />
-    <div id="chatPaymentStatus" hidden></div>
-    <button id="cancelChatPaymentButton">Cancel</button>
-    <button id="sendChatPaymentButton">Send</button>
-  </div>
-</div>
-<h3>Rendered bubbles</h3>
-<div id="bubbles"></div>
-<pre id="log" style="font-family:monospace;font-size:12px"></pre>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chat send — harness</title><link rel="stylesheet" href="../styles.css" /></head>
+<body>
+<!-- The send screen is mounted from index.html at load time by
+     mount-multichain.js, so this page cannot drift from what ships. -->
+<pre id="log" style="font-family:monospace;font-size:12px;padding:12px"></pre>
+<script src="../external/qr.js"></script>
 <script type="module" src="./chat-payment-ui.js"></script>
 </body></html>

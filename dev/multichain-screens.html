@@ -4,165 +4,22 @@
 <title>Multichain screens — harness</title>
 <link rel="stylesheet" href="../styles.css" />
 <style>
-  /* The app stylesheet makes body a flex row; the harness stacks instead. */
-  body { margin:0 !important; background:#eef0f3 !important; display:block !important; padding:1px 0 40px; }
-  .stage { max-width: 420px; margin: 0 auto 28px; background: white;
-           box-shadow: 0 4px 20px rgba(0,0,0,.12); position: relative;
-           height: 720px; overflow: hidden; }
-  /* Modals slide in from off-screen in the app; pin them in place here. */
-  .stage .modal { position:absolute !important; inset:0 !important; transform:none !important; }
-  .stage-label { max-width:420px; margin: 18px auto 6px; font: 600 12px system-ui;
+  /* Gallery: one phone-width frame per state, stacked. */
+  body.gallery { margin:0 !important; background:#eef0f3 !important; display:block !important; padding:1px 0 40px; }
+  .stage-label { width:375px; max-width:100%; margin: 18px auto 6px; font: 600 12px system-ui;
                  letter-spacing:.08em; text-transform:uppercase; color:#65676b; }
+  .stage { display:block; width:375px; max-width:100%; height:720px; margin:0 auto 28px; border:0;
+           background:white; box-shadow: 0 4px 20px rgba(0,0,0,.12); }
+
+  /* Frame: the app's own layout, with the slide-in switched off so a screen
+     is where it will settle rather than mid-transition. */
+  body.frame { margin:0 !important; }
+  body.frame .container { width:100%; height:100dvh; border-radius:0; box-shadow:none; }
+  body.frame .modal { transition:none !important; }
+  .harness-error { padding:16px; color:#c00; font: 13px/1.5 ui-monospace, monospace; white-space:pre-wrap; }
 </style>
 </head>
 <body>
-<div class="stage-label">List</div><div class="stage" id="stage-list"></div>
-<div class="stage-label">Asset</div><div class="stage" id="stage-asset"></div>
-<div class="stage-label">Receive</div><div class="stage" id="stage-receive"></div>
-<div class="stage-label">Withdraw</div><div class="stage" id="stage-withdraw"></div>
-<div class="stage-label">Swap</div><div class="stage" id="stage-swap"></div>
-<div class="stage-label">Confirm</div><div class="stage" id="stage-confirm"></div>
-<template id="markup">      <div class="modal fixed-header active" id="multichainModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeMultichainModal"></button>
-          <div class="modal-title">Multichain</div>
-          <button class="refresh-button" id="refreshMultichainBalance">&#8635;</button>
-        </div>
-        <div class="modal-content">
-          <section class="multichain-hero">
-            <div class="multichain-hero-total"><span id="multichainTotalBalance">$0.00</span></div>
-            <div class="multichain-hero-caption" id="multichainHeroCaption">Total value</div>
-            <div class="multichain-custody" id="multichainStatus"></div>
-          </section>
-          <div class="multichain-assets" id="multichainAssetsList"></div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-      <!-- One asset: what you hold, and the three things you can do with it. -->
-      <div class="modal fixed-header active" id="multichainAssetModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeMultichainAssetModal"></button>
-          <div class="modal-title" id="multichainAssetTitle">Asset</div>
-        </div>
-        <div class="modal-content">
-          <section class="multichain-asset-hero">
-            <div class="multichain-asset-icon" id="multichainAssetIcon"></div>
-            <div class="multichain-asset-amount" id="multichainAssetAmount">&#8212;</div>
-            <div class="multichain-asset-value" id="multichainAssetValue">&#8212;</div>
-          </section>
-
-          <div class="wallet-actions asset-detail-actions">
-            <button class="wallet-action-button" id="multichainAssetReceive">
-              <span class="action-icon"></span>
-              <span class="action-label">Receive</span>
-            </button>
-            <button class="wallet-action-button" id="multichainAssetWithdraw">
-              <span class="action-icon"></span>
-              <span class="action-label">Withdraw</span>
-            </button>
-            <button class="wallet-action-button" id="multichainAssetSwap">
-              <span class="action-icon"></span>
-              <span class="action-label">Swap</span>
-            </button>
-          </div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-      <!-- Receive: the address is the whole screen. -->
-      <div class="modal fixed-header active" id="multichainReceiveModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeMultichainReceiveModal"></button>
-          <div class="modal-title" id="multichainReceiveTitle">Receive</div>
-        </div>
-        <div class="modal-content">
-          <div class="multichain-screen" id="multichainReceiveBody"></div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-      <div class="modal fixed-header active" id="multichainWithdrawModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeMultichainWithdrawModal"></button>
-          <div class="modal-title" id="multichainWithdrawTitle">Withdraw</div>
-        </div>
-        <div class="modal-content">
-          <div class="multichain-screen">
-            <div class="multichain-field" id="multichainWithdrawNetworkField" hidden>
-              <label class="multichain-field-label" for="multichainWithdrawNetwork">Network</label>
-              <select id="multichainWithdrawNetwork" class="form-control"></select>
-            </div>
-            <div class="multichain-field">
-              <label class="multichain-field-label" for="multichainWithdrawTo">Send to</label>
-              <input class="form-control" id="multichainWithdrawTo" type="text" autocomplete="off"
-                autocapitalize="off" spellcheck="false" placeholder="Address on the destination chain" />
-            </div>
-            <div class="multichain-field">
-              <label class="multichain-field-label" for="multichainWithdrawAmount">Amount</label>
-              <div class="multichain-amount-field">
-                <input class="form-control" id="multichainWithdrawAmount" type="text" inputmode="decimal"
-                  autocomplete="off" spellcheck="false" placeholder="0.0" />
-                <button type="button" class="multichain-max" id="multichainWithdrawMax">Max</button>
-              </div>
-              <div class="multichain-available" id="multichainWithdrawAvailable"></div>
-            </div>
-            <button class="btn btn--primary btn--pill btn--full" id="multichainWithdrawPreview">Preview withdrawal</button>
-            <div class="multichain-status" id="multichainWithdrawStatus" hidden></div>
-          </div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-      <div class="modal fixed-header active" id="multichainSwapModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeMultichainSwapModal"></button>
-          <div class="modal-title" id="multichainSwapTitle">Swap</div>
-        </div>
-        <div class="modal-content">
-          <div class="multichain-screen">
-            <div class="multichain-field">
-              <label class="multichain-field-label" for="multichainSwapNetwork">Network</label>
-              <select id="multichainSwapNetwork" class="form-control"></select>
-            </div>
-            <div class="multichain-field">
-              <label class="multichain-field-label" for="multichainSwapTo">Asset</label>
-              <select id="multichainSwapTo" class="form-control"></select>
-            </div>
-            <div class="multichain-field">
-              <label class="multichain-field-label" for="multichainSwapAmount">Amount</label>
-              <div class="multichain-amount-field">
-                <input class="form-control" id="multichainSwapAmount" type="text" inputmode="decimal"
-                  autocomplete="off" spellcheck="false" placeholder="0.0" />
-                <button type="button" class="multichain-max" id="multichainSwapMax">Max</button>
-              </div>
-              <div class="multichain-available" id="multichainSwapAvailable"></div>
-            </div>
-            <button class="btn btn--primary btn--pill btn--full" id="multichainSwapPreview">Preview swap</button>
-            <div class="multichain-status" id="multichainSwapStatus" hidden></div>
-          </div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-      <div class="modal fixed-header active" id="multichainConfirmModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeMultichainConfirmModal"></button>
-          <div class="modal-title" id="multichainConfirmTitle">Confirm</div>
-        </div>
-        <div class="modal-content">
-          <div class="multichain-screen">
-            <div class="multichain-confirm-hero" id="multichainConfirmHero"></div>
-            <dl class="multichain-quote-rows" id="multichainConfirmRows"></dl>
-            <button class="btn btn--primary btn--pill btn--full" id="multichainConfirmAction">Confirm</button>
-            <div class="multichain-quote-note" id="multichainConfirmNote"></div>
-            <div class="multichain-status" id="multichainConfirmStatus" hidden></div>
-          </div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-</template>
 <script src="../external/qr.js"></script>
 <script type="module" src="./multichain-screens.js"></script>
 </body></html>

@@ -49,7 +49,15 @@ ck('xrp is ripple', assetLogoUrl({ blockchain: 'xrp', symbol: 'XRP' }), `${TW}/r
 ck('a token with no address gets no chain logo',
   assetLogoUrl({ blockchain: 'base', symbol: 'USDC' }), null);
 ck('  while the chain coin still does',
-  assetLogoUrl({ blockchain: 'base', symbol: 'ETH' }), `${TW}/base/info/logo.png`);
+  assetLogoUrl({ blockchain: 'sol', symbol: 'SOL' }), `${TW}/solana/info/logo.png`);
+// A rollup's own folder carries the rollup's logo, not ETH's: ETH on Base
+// rendered as Base's blue square.
+ck('ETH on a rollup is the ETH logo',
+  assetLogoUrl({ blockchain: 'base', symbol: 'ETH' }), `${TW}/ethereum/info/logo.png`);
+ck('  on every rollup',
+  ['arb', 'op', 'scroll'].map((chain) => assetLogoUrl({ blockchain: chain, symbol: 'ETH' })),
+  Array(3).fill(`${TW}/ethereum/info/logo.png`));
+ck('  while the network picker still shows the rollup', chainLogoUrl('base'), `${TW}/base/info/logo.png`);
 ck('a token is checksummed into the path',
   assetLogoUrl({ blockchain: 'base', contractAddress: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913' }),
   `${TW}/base/assets/0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913/logo.png`);

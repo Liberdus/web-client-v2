@@ -22,9 +22,9 @@ const TRUSTWALLET = 'https://raw.githubusercontent.com/trustwallet/assets/master
 // the obvious guesses are wrong for three of them -- Dogecoin is `doge`,
 // Gnosis is `xdai`, XRP is `ripple`. Chains absent here have no folder, and
 // fall through to the drawn mark.
-// What each chain's own coin is called. A chain's `info/logo.png` is the logo
-// of that coin, so it may only be used when the asset *is* that coin --
-// otherwise USDC held on Base would render with the Base logo.
+// What each chain's own coin is called. The coin's logo may only be used when
+// the asset *is* that coin -- otherwise USDC held on Base would render with a
+// logo that is not USDC's.
 const CHAIN_NATIVE = Object.freeze({
   btc: 'BTC', eth: 'ETH', sol: 'SOL', bsc: 'BNB', pol: 'POL', avax: 'AVAX',
   arb: 'ETH', op: 'ETH', base: 'ETH', scroll: 'ETH', zec: 'ZEC', ltc: 'LTC',
@@ -41,6 +41,11 @@ const CHAIN_FOLDER = Object.freeze({
   cardano: 'cardano', aptos: 'aptos', sui: 'sui', stellar: 'stellar',
   xrp: 'ripple', gnosis: 'xdai', near: 'near', scroll: 'scroll',
 });
+
+// A chain's `info/logo.png` is usually its coin's logo, but a rollup's folder
+// carries the rollup's own mark: `base/info/logo.png` is Base's blue square,
+// not ETH. Coins that run on chains other than their own are drawn from home.
+const COIN_FOLDER = Object.freeze({ ETH: 'ethereum' });
 
 const BRAND = Object.freeze({
   BTC: '#f7931a', WBTC: '#f09242', CBBTC: '#0052ff', NBTC: '#f7931a',
@@ -114,7 +119,7 @@ export function assetLogoUrl({ blockchain, contractAddress, symbol } = {}) {
   // only when that is what this asset is; a wrong logo is worse than none.
   const native = CHAIN_NATIVE[chain];
   if (!native || native !== String(symbol || '').toUpperCase()) return null;
-  return `${TRUSTWALLET}/${folder}/info/logo.png`;
+  return `${TRUSTWALLET}/${COIN_FOLDER[native] || folder}/info/logo.png`;
 }
 
 /**
@@ -155,6 +160,8 @@ export function assetIconMarkup(asset, { size = 40, escape = (v) => v } = {}) {
     ? `<img class="asset-mark-image" src="${escape(url)}" alt="" loading="lazy" decoding="async">`
     : '';
 
-  return `<span class="asset-mark" style="--mark-bg:${assetBrandColor(key)};--mark-size:${size}px"`
+  // Hidden from assistive tech: a mark always sits beside the name it shows,
+  // and its fallback label would otherwise be read out a second time.
+  return `<span class="asset-mark" aria-hidden="true" style="--mark-bg:${assetBrandColor(key)};--mark-size:${size}px"`
     + ` data-len="${label.length}">${base}${image}</span>`;
 }

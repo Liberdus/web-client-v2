@@ -71,8 +71,8 @@ section('what the network shows');
 {
   const tokens = [BTC, SOL, USDC, ODD];
   const empty = buildIntentsNetwork(tokens, {});
-  ck('with nothing held, BTC and SOL are still listed',
-    empty.assets.map((a) => a.tokenSymbol), ['BTC', 'SOL']);
+  ck('with nothing held, nothing is listed',
+    empty.assets.map((a) => a.tokenSymbol), []);
   ck('  and it does not claim to be connected', empty.connected, false);
   ck('  total is zero', empty.totalValueUsd, '0');
   ck('  custody is labelled', empty.custody, 'verifier');
@@ -81,10 +81,10 @@ section('what the network shows');
     'nep141:usdc.omft.near': '2500000',
     'nep141:odd.omft.near': '1000000',
   });
-  ck('a held asset appears even when it is not always-shown',
+  ck('a held asset appears',
     held.assets.some((a) => a.tokenSymbol === 'USDC'), true);
-  ck('  held assets sort above empty ones',
-    held.assets[0].tokenSymbol, 'USDC');
+  ck('  and nothing unheld beside it',
+    held.assets.map((a) => a.tokenSymbol).sort(), ['ODD', 'USDC']);
   ck('  an unpriced holding still appears',
     held.assets.some((a) => a.tokenSymbol === 'ODD'), true);
   ck('  it is connected now', held.connected, true);
@@ -94,7 +94,12 @@ section('what the network shows');
     'nep141:btc.omft.near': '100000',      // 0.001 BTC = ~$86.69
     'nep141:usdc.omft.near': '2500000',    // $2.50
   });
-  ck('bigger holdings sort first', ranked.assets.map((a) => a.tokenSymbol), ['BTC', 'USDC', 'SOL']);
+  ck('bigger holdings sort first', ranked.assets.map((a) => a.tokenSymbol), ['BTC', 'USDC']);
+
+  const spent = buildIntentsNetwork(tokens, { 'nep141:usdc.omft.near': '2500000' },
+    { alsoShow: ['nep141:sol.omft.near'] });
+  ck('an asset held before and now at zero stays listed',
+    spent.assets.map((a) => [a.tokenSymbol, a.rawAmount]), [['USDC', '2500000'], ['SOL', '0']]);
   ck('  the network is frozen', Object.isFrozen(ranked), true);
   ck('  and so is its asset list', Object.isFrozen(ranked.assets), true);
 }
@@ -130,6 +135,32 @@ section('service lifecycle');
 
   service.reset();
   ck('reset clears the account', service.getAccountId(), null);
+}
+
+section('remembering what was held');
+{
+  let heldBefore = [];
+  const service = new IntentsDiscoveryService({ getAccount: () => null });
+  service.configure({ getHeldBefore: () => heldBefore, saveHeldBefore: (ids) => { heldBefore = ids; } });
+  service.tokens = [BTC, SOL];
+
+  service.balances = { 'nep141:sol.omft.near': '5000000', 'nep141:btc.omft.near': '0' };
+  service.rememberHeld();
+  ck('a held asset is remembered, an empty one is not', heldBefore, ['nep141:sol.omft.near']);
+
+  service.balances = { 'nep141:sol.omft.near': '0' };
+  service.rememberHeld();
+  service.rebuildNetwork();
+  ck('spent to zero, it stays listed',
+    service.getNetwork().assets.map((a) => [a.tokenSymbol, a.rawAmount]), [['SOL', '0']]);
+  ck('  and is still found by key', service.getAsset('intents:nep141:sol.omft.near')?.tokenAmount, '0');
+
+  service.balances = { 'nep141:sol.omft.near': '7', 'nep141:btc.omft.near': '9' };
+  service.rememberHeld();
+  ck('remembered once, added to over time', heldBefore, ['nep141:sol.omft.near', 'nep141:btc.omft.near']);
+
+  service.configure({ getHeldBefore: () => { throw new Error('no saved state'); } });
+  ck('an unreadable store is treated as empty', service.heldBefore(), []);
 }
 
 console.log(`\n${fail ? 'FAIL' : 'PASS'}  ${pass} passed, ${fail} failed`);
