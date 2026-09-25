@@ -1,8 +1,8 @@
 # DAO Screen Flow
 
-This reference includes the DAO project lifecycle from `feat/dao-projects-7-closeout-actions` at `cd9aad46`. The interactive reference is [`mock/index.html`](mock/index.html).
+This reference follows the DAO project lifecycle on `main` at `d6228bf0`. The interactive reference is [`mock/index.html`](mock/index.html).
 
-Its device frames use the iPhone 17 Pro logical viewport (`402 × 874`) and load the production stylesheet. The mock overrides milestone info cards to use two columns inside its device frames. Layout experiments belong in the mock, leaving the app stylesheet and behavior unchanged.
+Its device frames use the iPhone 17 Pro logical viewport (`402 × 874`) and load the production stylesheet. Proposal previews use the production responsive layout without milestone style overrides.
 
 ## Entry and list
 
@@ -54,7 +54,7 @@ DAO list
 
 ## Shared Proposal modal
 
-Every proposal row opens `proposalInfoModal`. The modal title reflects the effective proposal state, and the body always starts with the proposal heading and option cards. State-, role-, account-, and time-dependent sections are added below them.
+Every proposal row opens `proposalInfoModal`. The modal title reflects the effective proposal state, and the body starts with the proposal heading. Project proposals show funding and milestones first, with option cards in the expandable details. State-, role-, account-, and time-dependent sections are added below them.
 
 | Effective state | Always visible | Contextual actions |
 | --- | --- | --- |
@@ -122,7 +122,7 @@ illustrate available actions without submitting transactions.
 
 - Committee endorsements: start time, completion time, and contractor changes,
   each with one endorsement, two endorsements, and an already-endorsed account.
-  This first group opens and scrolls to the recorded counts and available actions.
+  Expand the milestone or action cards to inspect recorded counts; their initial disclosure state matches the app.
 - Proposal statuses: Review, Voting, Accepted, Withheld, Rejected, Canceled,
   Applied, Executing, Completed, and Terminated. Applied is for parameter proposals.
 - Milestone statuses: Pending, Executing, Completed, and Terminated. Proposed
@@ -139,3 +139,18 @@ independently from action cards; payment claims open by default.
 Fixtures and rendering live in `mock/proposal-states.js`. Run
 `node mock/generate-modal-catalog.mjs` after changing production modal markup, then
 `node mock/validate-current-flow.mjs` to check the catalog and state coverage.
+
+## Project proposal visual parity
+
+The stage gallery uses the production stylesheet without milestone layout overrides.
+Mobile milestone metrics stack at the production breakpoint; desktop retains the
+production columns. Only review/voting milestones and the first executing milestone
+start expanded, and only payment-claim actions open automatically.
+
+Visual references are the mobile/desktop Playwright captures from proposals #70
+(completed flow) and #72 (terminated flow), recorded on 2026-09-24. The original
+images remain local under `tests/browser/dao/artifacts/transactions-QVATz0/` and
+`transactions-asIoW4/` in the test worktree. Compare layout, section order, and
+action placement; the gallery intentionally uses illustrative titles, amounts,
+and accounts. Expanded test screenshots open every disclosure for inspection,
+so they do not represent the application's default open/closed state.

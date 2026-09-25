@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { shouldOpenDaoProjectMilestoneByDefault } from '../dao.js';
 
 const [productionHtml, productionJs, productionCss, mockHtml, catalogData, stateData, daoJs] = await Promise.all([
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
@@ -244,6 +245,33 @@ for (const [, state] of milestoneLabels.matchAll(/(\w+):/g)) {
 assert.equal(new Set(stateExamples.map(({ id }) => id)).size, stateExamples.length, 'State example IDs must be unique');
 assert.equal([...stateMarkup.matchAll(/data-app-modal="proposalInfoModal"/g)].length, stateExamples.length);
 assert.equal([...stateMarkup.matchAll(/<details class="proposal-more">/g)].length, stateExamples.length);
+// Compare every stage's disclosure defaults to the real application policy.
+for (const example of stateExamples) {
+  const screen = stateMarkup.match(new RegExp(`data-state-example="${example.id}"[\\s\\S]*?</article>`))[0];
+  const milestoneTags = [...screen.matchAll(/<details class="dao-project-review-milestone dao-project-info-milestone" data-milestone-state="([^"\s]+)"([^>]*)>/g)];
+  const project = {
+    status: { key: example.state },
+    milestones: milestoneTags.map(([, key]) => ({ status: { key } })),
+  };
+  milestoneTags.forEach(([, , attributes], index) => {
+    assert.equal(attributes.includes(' open'), shouldOpenDaoProjectMilestoneByDefault(project, example.state, index),
+      `${example.id}: milestone ${index + 1} must use the production disclosure default`);
+  });
+  for (const [, className, attributes] of screen.matchAll(/<details class="(proposal-lifecycle-action[^"]*)"([^>]*)>/g)) {
+    assert.equal(attributes.includes(' open'), className.includes('proposal-lifecycle-action--claim'),
+      `${example.id}: only milestone payment claims open automatically`);
+  }
+  assert.ok(screen.includes('proposal-info-description'), `${example.id}: missing proposal description`);
+  assert.ok(screen.includes('1048: '), `${example.id}: missing proposal number in title`);
+  assert.ok(screen.includes('class="last-item"'), `${example.id}: missing production modal footer`);
+  if (['accepted', 'rejected', 'executing', 'completed', 'terminated'].includes(example.state)) {
+    assert.ok(screen.includes('<h3>Rewards</h3>'), `${example.id}: missing reward accounting`);
+  }
+}
+const deviceStyle = mockHtml.match(/<link rel="stylesheet" href="\$\{productionStylesUrl\}" \/>[\s\S]*?<style>([\s\S]*?)<\/style>/)[1];
+assert.ok(!deviceStyle.includes('#proposalInfoModal'), 'Device previews must not override production proposal styling');
+assert.ok(stateMarkup.includes('proposal-vote-preview--idle'), 'Empty vote forms must use the production idle presentation');
+
 for (const label of ['Propose start now', 'Endorse proposed start', 'Propose completion now', 'Endorse proposed completion', 'Submit termination vote', 'Claim milestone payment', 'Start project', 'End project', 'Propose contractor address', 'Endorse proposed address', 'Reclaim remaining balance']) {
   const productionLabel = label.replace(/start|completion/, '${verb}');
   assert.ok(productionJs.includes(label) || productionJs.includes(productionLabel), `Unavailable production project action: ${label}`);

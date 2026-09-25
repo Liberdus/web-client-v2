@@ -881,7 +881,7 @@
                 <div class="proposal-info" id="confirmProposalContent">
                   <div class="proposal-info-heading"><h2 class="proposal-info-title">Community documentation sprint</h2><p class="proposal-type-indicator">Standard Project proposal</p><p class="proposal-info-description">Fund a focused documentation sprint with reviewed onboarding guides and API examples.</p></div>
                   <section class="proposal-info-section"><h3>Proposal Options</h3><div class="proposal-option-cards dao-project-ballot"><div class="proposal-option-section"><span class="proposal-option-label">Reject</span><div class="proposal-option-changes"><p class="proposal-info-muted">Project is not funded.</p></div></div><div class="proposal-option-section"><span class="proposal-option-label">Fund project</span><div class="proposal-option-changes"><p class="proposal-info-muted">Approve the recipient, milestones, and maximum budget below.</p></div></div></div></section>
-                  <section class="proposal-info-section dao-project-review-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">0x8f2a19c13ae97c71d8202d59e31f7c82d7a10000</span></div><div class="proposal-info-row"><span>Base cost</span><span class="proposal-info-value">4,200 USD</span></div><div class="proposal-info-row"><span>Maximum bonuses</span><span class="proposal-info-value">250 USD</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">4,450 USD</span></div></div></section>
+                  <section class="proposal-info-section dao-project-review-funding"><h3>Project Funding</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Recipient</span><span class="proposal-info-value">8f2a19c13ae97c71d8202d59e31f7c82d7a10000</span></div><div class="proposal-info-row"><span>Base cost</span><span class="proposal-info-value">4,200 USD</span></div><div class="proposal-info-row"><span>Maximum bonuses</span><span class="proposal-info-value">250 USD</span></div><div class="proposal-info-row"><span>Maximum authorized</span><span class="proposal-info-value">4,450 USD</span></div></div></section>
                   <section class="proposal-info-section dao-project-review-milestones"><h3>Milestones</h3><div class="dao-project-review-milestone-list"><article class="dao-project-review-milestone"><h4><span>Milestone 1</span><strong>Write onboarding guides</strong></h4><div class="dao-project-review-copy"><div><span>Description</span><p>Draft installation, account, messaging, and wallet guides.</p></div><div><span>Deliverable</span><p>Four reviewed guides published in the documentation site.</p></div></div><div class="proposal-info-grid"><div class="proposal-info-row"><span>Duration</span><span class="proposal-info-value">14 days</span></div><div class="proposal-info-row"><span>Cost</span><span class="proposal-info-value">2,400 USD</span></div><div class="proposal-info-row"><span>Late penalty</span><span class="proposal-info-value">200 USD</span></div><div class="proposal-info-row"><span>Early bonus</span><span class="proposal-info-value">150 USD</span></div></div></article><article class="dao-project-review-milestone"><h4><span>Milestone 2</span><strong>Publish API examples</strong></h4><div class="dao-project-review-copy"><div><span>Description</span><p>Add tested request and response examples.</p></div><div><span>Deliverable</span><p>Examples pass CI and are linked from the API reference.</p></div></div><div class="proposal-info-grid"><div class="proposal-info-row"><span>Duration</span><span class="proposal-info-value">10 days</span></div><div class="proposal-info-row"><span>Cost</span><span class="proposal-info-value">1,800 USD</span></div><div class="proposal-info-row"><span>Late penalty</span><span class="proposal-info-value">150 USD</span></div><div class="proposal-info-row"><span>Early bonus</span><span class="proposal-info-value">100 USD</span></div></div></article></div></section>
                   <section class="proposal-info-section"><h3>Overview</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Type</span><span class="proposal-info-value">Project</span></div><div class="proposal-info-row"><span>Proposal fee</span><span class="proposal-info-value">50 USD</span></div><div class="proposal-info-row"><span>Initial state</span><span class="proposal-info-value">Review after submission</span></div></div></section>
                   <section class="proposal-info-section"><h3>Review Timeline</h3><div class="proposal-info-grid"><div class="proposal-info-row"><span>Scheduled review start</span><span class="proposal-info-value">Start now</span></div><div class="proposal-info-row"><span>Time until start if submitted now</span><span class="proposal-info-value">0 sec (0 ms)</span></div><div class="proposal-info-row"><span>Grace period</span><span class="proposal-info-value">1 day (86400000 ms)</span></div></div></section>
@@ -1266,10 +1266,6 @@
                 body { min-height: 0; padding: 0; }
                 .container { border-radius: 0; box-shadow: none; height: 100dvh; width: 100%; }
                 .modal { transition: none; }
-                /* Preview the two-column milestone layout without changing the app stylesheet. */
-                #proposalInfoModal .dao-project-review-milestone .proposal-info-row {
-                  flex-basis: calc((100% - 8px) / 2);
-                }
               </style>
             </head>
             <body><div class="container">${rootMarkup}</div>`;
@@ -1277,17 +1273,6 @@
         const getScrollSurface = (frameDocument) => frameDocument.querySelector(
           ".modal-dialog.active .modal-content, #daoModal .dao-list-pane, #chatModal .messages-container, .app-screen.active, .modal.active .modal-content",
         );
-
-        const positionEndorsementPreview = (frame) => {
-          const screen = frame.closest("[data-endorsement-preview]");
-          if (!screen || frame.dataset.endorsementPositioned || !frame.getClientRects().length) return;
-          const target = frame.contentDocument?.querySelector(screen.dataset.endorsementPreview === "contractor"
-            ? ".dao-project-info-recipient-change" : ".dao-project-info-runtime");
-          if (!target) return;
-          const surface = getScrollSurface(frame.contentDocument);
-          surface.scrollTop += target.getBoundingClientRect().top - surface.getBoundingClientRect().top - 12;
-          frame.dataset.endorsementPositioned = "true";
-        };
 
         const setFocusedPreview = (preview) => {
           if (focusedPreview === preview) return;
@@ -1399,7 +1384,6 @@
             frame.title = `${label} interactive phone preview`;
             frame.addEventListener("load", () => {
               wireDeviceFrame(frame);
-              positionEndorsementPreview(frame);
               resolve();
             }, { once: true });
             const rootMarkup = deviceRoot.matches("[data-device-root]")
@@ -1744,9 +1728,6 @@
           });
           requestAnimationFrame(() => {
             if (panelName === "dao") renderArrows();
-            if (panelName === "projects") {
-              canvas.querySelectorAll("[data-endorsement-preview] iframe").forEach(positionEndorsementPreview);
-            }
           });
         };
 
