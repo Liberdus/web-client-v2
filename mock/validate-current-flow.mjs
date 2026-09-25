@@ -83,6 +83,15 @@ assert.ok(
   mockHtml.includes('<link rel="stylesheet" href="${productionStylesUrl}" />'),
   'Device documents must load the production stylesheet',
 );
+assert.ok(
+  productionCss.includes('#proposalInfoModal .proposal-review-result-actions + .proposal-lifecycle-actions'),
+  'Production lifecycle spacing selector is unavailable',
+);
+assert.match(
+  stateMarkup,
+  /<section class="proposal-review-result-actions hidden"[^>]*><\/section>\s*<section class="proposal-lifecycle-actions(?: hidden)?"[^>]*>/,
+  'Proposal state previews must preserve the production action-section sibling layout',
+);
 
 for (const productionAddProposalHook of [
   'id="addProposalModal"',

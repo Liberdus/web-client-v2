@@ -185,6 +185,17 @@
     const title = example.title || `${labels[example.state]} proposal`;
     const optionsMarkup = renderOptions(isProject);
     const resultsMarkup = ['review', 'voting', 'canceled'].includes(example.state) ? '' : renderTallies(example.state, isProject);
+    const lifecycleMarkup = [
+      example.contractorChange
+        ? section('Pending Contractor Change', [
+          ['Proposed recipient', '0x71ce19c13ae97c71d8202d59e31f7c82d7a183b2'],
+          ['Endorsements', `${example.contractorEndorsements} of 3 required`],
+        ], 'dao-project-info-recipient-change')
+        : '',
+      example.actions
+        ? `<div class="proposal-lifecycle-action-group"><h3>Project actions</h3>${example.actions}</div>`
+        : '',
+    ].filter(Boolean).join('');
     return `<article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="${example.state}" data-state-example="${example.id}"${example.endorsementPreview ? ` data-endorsement-preview="${example.endorsementPreview}"` : ''}>
       <div class="screen-label-row"><div class="screen-label">${title}</div><div class="screen-badges"><span class="screen-badge">${labels[example.state]}</span></div></div>
       <div class="screen-note">${example.note}</div>
@@ -203,10 +214,9 @@
           ${example.state === 'review' ? renderTallies('review', isProject) : ''}
           ${example.state === 'voting' ? renderTallies('voting', isProject) : ''}
         </div>
-        ${example.actions || example.contractorChange ? `<section class="proposal-lifecycle-actions">
-          ${example.contractorChange ? section('Pending Contractor Change', [['Proposed recipient', '0x71ce19c13ae97c71d8202d59e31f7c82d7a183b2'], ['Endorsements', `${example.contractorEndorsements} of 3 required`]], 'dao-project-info-recipient-change') : ''}
-          ${example.actions ? `<div class="proposal-lifecycle-action-group"><h3>Project actions</h3>${example.actions}</div>` : ''}
-        </section>` : ''}
+        <section class="proposal-committee-actions hidden" aria-label="Committee review actions"></section>
+        <section class="proposal-review-result-actions hidden" aria-label="Review result action"></section>
+        <section class="proposal-lifecycle-actions${lifecycleMarkup ? '' : ' hidden'}" aria-label="Proposal lifecycle actions">${lifecycleMarkup}</section>
         ${example.state === 'voting' ? renderVoteForm() : ''}
         <div class="proposal-details"><details class="proposal-more"><summary><span class="proposal-more-title">Show proposal details</span><span class="proposal-more-note">${isProject ? 'Proposal options, results, overview, review timeline' : 'Overview, review timeline'}${example.state === 'review' ? ', committee review' : ''}</span></summary><div class="proposal-more-content">
           ${isProject ? optionsMarkup + resultsMarkup : ''}
