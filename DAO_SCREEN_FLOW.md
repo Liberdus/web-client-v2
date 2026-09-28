@@ -160,3 +160,18 @@ images remain local under `tests/browser/dao/artifacts/transactions-QVATz0/` and
 action placement; the gallery intentionally uses illustrative titles, amounts,
 and accounts. Expanded test screenshots open every disclosure for inspection,
 so they do not represent the application's default open/closed state.
+
+
+## Chat message gallery
+
+Open `mock/index.html?tab=chat`. The message-type filter offers All, Text, Replies,
+Images, Files, LIB payments, Multichain, Calls, Voice, Location, Reactions, Edits,
+Deleted, Failed, and Toll changes. Each type has a phone preview using production
+chat markup and styles; related viewers and overlays follow the same filter.
+The selection is retained when switching tabs.
+
+Multichain examples show a confirmed outgoing payment and incoming payments in
+all six verification states: Checking…, Confirming…, Confirmed, Not confirmed,
+Too old to check, and Could not check yet. Amount signs, chain names, optional
+notes, and status styling follow the production renderer. These fixed previews
+do not verify payments, access wallets, or submit transfers.

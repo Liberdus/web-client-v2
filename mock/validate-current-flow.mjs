@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { shouldOpenDaoProjectMilestoneByDefault } from '../dao.js';
 
-const [productionHtml, productionJs, productionCss, mockHtml, catalogData, stateData, daoJs] = await Promise.all([
+const [productionHtml, productionJs, productionCss, mockHtml, catalogData, stateData, daoJs, nearAssetsJs] = await Promise.all([
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../app.js', import.meta.url), 'utf8'),
   readFile(new URL('../styles.css', import.meta.url), 'utf8'),
@@ -11,6 +11,7 @@ const [productionHtml, productionJs, productionCss, mockHtml, catalogData, state
   readFile(new URL('./modal-catalog-data.js', import.meta.url), 'utf8'),
   readFile(new URL('./proposal-states.js', import.meta.url), 'utf8'),
   readFile(new URL('../dao.js', import.meta.url), 'utf8'),
+  readFile(new URL('../near-assets.js', import.meta.url), 'utf8'),
 ]);
 
 const stateWindow = {};
@@ -340,6 +341,11 @@ const chatMessageHooks = [
   'reply-quote',
   'attachment-row',
   'payment-info',
+  'intents-payment-message',
+  'intents-payment-amount',
+  'intents-payment-chain',
+  'intents-payment-note',
+  'intents-payment-verified',
   'call-message',
   'call-message-schedule',
   'voice-message',
@@ -357,11 +363,28 @@ for (const messageHook of chatMessageHooks) {
   );
   assert.ok(mockHtml.includes(messageHook), `Mock chat message hook is unavailable: ${messageHook}`);
 }
+const multichainBubbles = [...mockHtml.matchAll(/<div data-chat-message-types="multichain" class="message (sent|received)"><div class="intents-payment-message" data-verified="([^"]+)"[\s\S]*?<div class="message-time">/g)];
+assert.equal(multichainBubbles.length, 7, 'Show one sent multichain payment and all six received verification states');
+for (const [state, label] of Object.entries({
+  settled: 'Confirmed', pending: 'Confirming…', failed: 'Not confirmed',
+  expired: 'Too old to check', unverifiable: 'Could not check yet', unchecked: 'Checking…',
+})) {
+  assert.ok(nearAssetsJs.includes(`${state}: '${label}'`), `Production payment status label changed: ${state}`);
+  const received = multichainBubbles.find(([, direction, verified]) => direction === 'received' && verified === state);
+  assert.ok(received, `Missing received multichain status: ${state}`);
+  assert.ok(received[0].includes(`class="intents-payment-verified">${label}</div>`), `Incorrect multichain label: ${state}`);
+  assert.ok(received[0].includes('>+'), 'Received multichain amounts must be positive');
+}
+const sentPayment = multichainBubbles.find(([, direction]) => direction === 'sent');
+assert.ok(sentPayment, 'Missing sent multichain payment');
+assert.equal(sentPayment[2], 'settled', 'Published outgoing payments are already settled');
+assert.ok(sentPayment[0].includes('>−'), 'Sent multichain amounts must be negative');
+
 assert.ok(productionCss.includes(".message.sent[data-status='failed']"), 'Production failed-message style is unavailable');
 assert.ok(mockHtml.includes('data-status="failed"'), 'Mock failed-message example is unavailable');
 assert.ok(productionJs.includes("const directionText = item.my ? '-' : '+';"), 'Production payment direction logic is unavailable');
 assert.ok(
-  mockHtml.includes('<div class="message received payment-info"><div class="payment-header"><span class="payment-direction">+</span><span class="payment-amount">18.400000 LIB</span>'),
+  mockHtml.includes('<div data-chat-message-types="payments" class="message received payment-info"><div class="payment-header"><span class="payment-direction">+</span><span class="payment-amount">18.400000 LIB</span>'),
   'Mock received payment must retain the production payment bubble structure',
 );
 assert.ok(mockHtml.includes('class="attachment-thumbnail"'), 'Mock loaded image thumbnail is unavailable');
