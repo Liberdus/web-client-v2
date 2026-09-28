@@ -92,6 +92,7 @@ ck('ours: to whom, money out, settled', [sent.title, sent.direction, sent.status
 const received = paymentEntry({ assetId: SOL, amount: '0.002', my: false, peer: 'Dana', time: 6, intentHash: 'h2' });
 ck('theirs: a claim until checked', [received.title, received.direction, received.status], ['From Dana', 1, 'checking']);
 ck('a claim that failed its check', paymentEntry({ ...received, my: false, verified: 'failed' }).status, 'unconfirmed');
+ck('a claim too old to check is neither', paymentEntry({ ...received, my: false, verified: 'expired' }).status, 'expired');
 
 section('an order, from each side');
 const swap = { id: 's1', kind: 'swap', fromAssetId: SOL, toAssetId: USDC, fromSymbol: 'SOL', toSymbol: 'USDC', amount: '0.005', amountOut: '0.57', time: 7, status: 'pending' };
@@ -169,10 +170,18 @@ ck('capped so saved state cannot grow without bound', orders.length, 200);
 
 section('checking a received claim');
 activity.configure({ verifyClaim: async () => ({ state: 'settled' }) });
-ck('settled reads as done', await activity.verifyPayment('h9'), 'done');
+const row = (intentHash, extra = {}) => ({ intentHash, time: 5, peerAccount: '0xpeer', claim: { intentHash }, ...extra });
+ck('settled reads as done', await activity.verifyPayment(row('h9'), '0xme'), 'done');
 activity.configure({ verifyClaim: async () => { throw new Error('offline'); } });
-ck('remembered once settled', await activity.verifyPayment('h9'), 'done');
-ck('offline is not a verdict', await activity.verifyPayment('h10'), 'checking');
+ck('remembered once settled', await activity.verifyPayment(row('h9'), '0xme'), 'done');
+ck('offline is not a verdict', await activity.verifyPayment(row('h10'), '0xme'), 'checking');
+let askedWith = null;
+activity.configure({ verifyClaim: async (claim, options) => { askedWith = { claim, options }; return { state: 'expired' }; } });
+ck('too old to check, when the relay has forgotten', await activity.verifyPayment(row('h11', { time: 1234 }), '0xme'), 'expired');
+ck('  judged by the payment\'s own time', askedWith?.options.sentAt, 1234);
+ck('  checked as from the contact, to this account',
+  [askedWith?.options.expectedFrom, askedWith?.options.expectedTo], ['0xpeer', '0xme']);
+ck('  against the whole claim, not just its hash', askedWith?.claim, { intentHash: 'h11' });
 
 console.log(`\n${fail ? 'FAIL' : 'PASS'}  ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

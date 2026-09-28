@@ -67,6 +67,15 @@ ck('  but still has an amount', normalizeIntentsToken(ODD, '1000000').tokenAmoun
 ck('an unknown chain still gets a label', chainDisplayName('weirdchain'), 'WEIRDCHAIN');
 ck('a missing chain does not crash', chainDisplayName(undefined), 'Unknown');
 
+section('a token named for the chain it comes from');
+{
+  const nbtc = normalizeIntentsToken(
+    { assetId: 'nep141:nbtc.bridge.near', decimals: 8, blockchain: 'near', symbol: 'BTC', price: 83277 }, '10803');
+  ck('nBTC is shown as Bitcoin, where deposits come from', nbtc.chainName, 'Bitcoin');
+  ck('  but stays on NEAR, which decides where a payout lands', nbtc.blockchain, 'near');
+  ck('  and chainDisplayName of its real chain still says so', chainDisplayName(nbtc.blockchain), 'NEAR');
+}
+
 section('what the network shows');
 {
   const tokens = [BTC, SOL, USDC, ODD];

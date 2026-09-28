@@ -115,8 +115,18 @@ export function paymentEntry(payment) {
     direction: mine ? -1 : 1,
     time: Number(payment.time) || 0,
     status: mine || payment.verified === 'settled' ? 'done'
-      : payment.verified === 'failed' ? 'unconfirmed' : 'checking',
+      : payment.verified === 'failed' ? 'unconfirmed'
+        : payment.verified === 'expired' ? 'expired' : 'checking',
     intentHash: payment.intentHash,
+    // What the check compares against the verifier's record of the transfer.
+    claim: {
+      intentHash: payment.intentHash,
+      transactionHash: payment.transactionHash || null,
+      assetId: payment.assetId,
+      amount: String(payment.amount),
+      decimals: payment.decimals ?? null,
+    },
+    peerAccount: payment.peerAccount || null,
   };
 }
 
@@ -291,13 +301,20 @@ export class IntentsActivity {
    * Check a received payment's claim. Only resting answers are remembered;
    * "pending" and "unverifiable" are asked again next time.
    */
-  async verifyPayment(intentHash) {
+  /** Check a received payment row: its claim against the logged transfer. */
+  async verifyPayment(entry, accountId = null) {
+    const intentHash = entry?.intentHash;
     const known = this.claims.get(intentHash);
     if (known) return known;
     try {
-      const result = await this.verifyClaim({ intentHash });
+      const result = await this.verifyClaim(entry.claim || { intentHash }, {
+        sentAt: entry.time,
+        expectedFrom: entry.peerAccount,
+        expectedTo: accountId,
+      });
       const status = result?.state === 'settled' ? 'done'
-        : result?.state === 'failed' ? 'unconfirmed' : 'checking';
+        : result?.state === 'failed' ? 'unconfirmed'
+          : result?.state === 'expired' ? 'expired' : 'checking';
       if (status !== 'checking') this.claims.set(intentHash, status);
       return status;
     } catch {

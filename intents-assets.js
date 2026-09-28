@@ -35,6 +35,17 @@ const CHAIN_NAMES = Object.freeze({
   bera: 'Berachain', monad: 'Monad', plasma: 'Plasma', dash: 'Dash', aleo: 'Aleo',
 });
 
+// Tokens held on NEAR that stand for another chain's coin -- deposited from
+// that chain and withdrawn back to it. They are named for that chain, the one
+// people actually send from: "BTC · NEAR" named a network the person had
+// never touched. Bitcoin deposits are credited to nBTC, not to btc.omft.near
+// (seen on a real deposit, 2026-09-28).
+//
+// Only the name moves. `blockchain` stays NEAR, because it is what decides
+// where a payout lands: choosing nBTC as a withdrawal's destination pays out
+// on NEAR, and the Withdraw network list must say so.
+const HOME_CHAIN = Object.freeze({ 'nep141:nbtc.bridge.near': 'btc' });
+
 export function chainDisplayName(blockchain) {
   const key = String(blockchain || '').toLowerCase();
   return CHAIN_NAMES[key] || (key ? key.toUpperCase() : 'Unknown');
@@ -108,7 +119,7 @@ export function normalizeIntentsToken(token, rawBalance) {
     rawAmount: rawAmount.toString(),
     logoUrl: null,
     blockchain: String(token?.blockchain || '').toLowerCase(),
-    chainName: chainDisplayName(token?.blockchain),
+    chainName: chainDisplayName(HOME_CHAIN[token?.assetId] || token?.blockchain),
     source: 'intents',
     walletAsset: null,
   });

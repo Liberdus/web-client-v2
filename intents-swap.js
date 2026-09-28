@@ -183,7 +183,12 @@ export class IntentsSwapService {
   }
 
   /** Fund the swap and follow it until it fills, refunds or fails. */
-  async execute(prepared, secretKey, { onStatus = null, signed = null } = {}) {
+  /**
+   * `onFunded` fires once the funding transfer has settled -- the moment the
+   * asset has left the account. What follows is 1Click's payout, which can
+   * take minutes; a caller need not hold the person on a spinner through it.
+   */
+  async execute(prepared, secretKey, { onStatus = null, onFunded = null, signed = null } = {}) {
     if (isQuoteExpired(prepared.depositDeadline)) {
       throw new IntentsSwapError(
         'This quote has expired. Get a new one before swapping.',
@@ -199,6 +204,7 @@ export class IntentsSwapService {
         { intentHash, settlement },
       );
     }
+    onFunded?.({ intentHash });
 
     const final = await this.followStatus(prepared, { onStatus });
     return {

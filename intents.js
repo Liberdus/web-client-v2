@@ -27,6 +27,13 @@ const DEFAULT_NEAR_RPC_URLS = Object.freeze([
   'https://free.rpc.fastnear.com',
   'https://rpc.mainnet.near.org',
 ]);
+// Archival nodes keep every transaction; ordinary ones drop them after a few
+// days. A payment receipt is checked against its settlement transaction for
+// as long as the chat keeps it, so it has to be read from one of these.
+const DEFAULT_NEAR_ARCHIVAL_RPC_URLS = Object.freeze([
+  'https://archival-rpc.mainnet.fastnear.com',
+  'https://archival-rpc.mainnet.near.org',
+]);
 const DEFAULT_ONECLICK_BASE_URL = 'https://1click.chaindefuser.com/v0';
 const DEFAULT_BRIDGE_RPC_URL = 'https://bridge.chaindefuser.com/rpc';
 const DEFAULT_SOLVER_RELAY_URL = 'https://solver-relay-v2.chaindefuser.com/rpc';
@@ -58,6 +65,10 @@ function overrideList(name) {
 
 export function getNearRpcUrls() {
   return overrideList('LIBERDUS_NEAR_RPC_URL') || [...DEFAULT_NEAR_RPC_URLS];
+}
+
+export function getNearArchivalRpcUrls() {
+  return overrideList('LIBERDUS_NEAR_ARCHIVAL_RPC_URL') || [...DEFAULT_NEAR_ARCHIVAL_RPC_URLS];
 }
 
 export function getOneClickBaseUrl() {
@@ -492,11 +503,88 @@ export async function getIntentStatus(intentHash) {
 }
 
 /**
+ * The transfers a settlement transaction carried, as the verifier logged them.
+ *
+ * The verifier emits a dip4 `transfer` event per transfer intent it executes:
+ * the intent's hash, who sent, who received, and the tokens with their raw
+ * amounts. That one event is what binds a chat receipt to what actually
+ * moved -- and unlike the relay, which forgets an intent within days, an
+ * archival node keeps the transaction for good.
+ *
+ * Resolves with [] for a transaction that exists but carries no transfers;
+ * throws when no endpoint could answer, which is not evidence either way.
+ */
+export async function fetchIntentTransfers(transactionHash, {
+  signerId = INTENTS_VERIFYING_CONTRACT,
+  rpcUrls = null,
+} = {}) {
+  const endpoints = rpcUrls || getNearArchivalRpcUrls();
+  const errors = [];
+  for (const endpoint of endpoints) {
+    try {
+      const body = await fetchJson(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: ++viewRequestId,
+          method: 'tx',
+          params: { tx_hash: transactionHash, sender_account_id: signerId, wait_until: 'FINAL' },
+        }),
+      });
+      if (body?.error) {
+        throw new IntentsError(body.error.data?.message || body.error.message || 'NEAR RPC rejected the lookup',
+          'RPC_RESPONSE_ERROR', { error: body.error });
+      }
+      return intentTransfersFromOutcomes(body?.result?.receipts_outcome || []);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  throw new IntentsError('No NEAR archival endpoint could read the transaction', 'ALL_RPC_ENDPOINTS_FAILED',
+    { cause: new AggregateError(errors) });
+}
+
+/** Pull the verifier's dip4 transfer events out of receipt outcomes. */
+export function intentTransfersFromOutcomes(outcomes) {
+  const transfers = [];
+  for (const receipt of outcomes) {
+    // Only the verifier's own logs count: any contract can print JSON.
+    if (receipt?.outcome?.executor_id !== INTENTS_VERIFYING_CONTRACT) continue;
+    for (const log of receipt.outcome.logs || []) {
+      if (!log.startsWith('EVENT_JSON:')) continue;
+      let event;
+      try {
+        event = JSON.parse(log.slice('EVENT_JSON:'.length));
+      } catch {
+        continue;
+      }
+      if (event?.standard !== 'dip4' || event.event !== 'transfer' || !Array.isArray(event.data)) continue;
+      for (const entry of event.data) {
+        transfers.push({
+          intentHash: String(entry.intent_hash || ''),
+          from: String(entry.account_id || ''),
+          to: String(entry.receiver_id || ''),
+          tokens: entry.tokens && typeof entry.tokens === 'object' ? { ...entry.tokens } : {},
+          memo: entry.memo ?? null,
+        });
+      }
+    }
+  }
+  return transfers;
+}
+
+/**
  * Poll until the intent settles or stops being pending.
  *
  * Resolves with the final status rather than throwing on failure: a settled
  * failure is an outcome the caller has to show, not an exception.
  */
+// Relay states that mean "not landed yet". TX_BROADCASTED -- sent to NEAR,
+// not yet settled -- is one of them; treating it as final would report a
+// transfer that is about to land as one that did not.
+export const INTENT_IN_FLIGHT = Object.freeze(['PENDING', 'TX_BROADCASTED']);
+
 export async function waitForIntentSettlement(intentHash, {
   timeoutMs = 60_000,
   pollMs = 2_000,
@@ -506,10 +594,10 @@ export async function waitForIntentSettlement(intentHash, {
 
   while (Date.now() < deadline) {
     last = await getIntentStatus(intentHash);
-    if (last.status !== 'PENDING') return last;
+    if (!INTENT_IN_FLIGHT.includes(last.status)) return last;
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
-  return { ...last, status: last.status === 'PENDING' ? 'TIMED_OUT' : last.status };
+  return { ...last, status: INTENT_IN_FLIGHT.includes(last.status) ? 'TIMED_OUT' : last.status };
 }
 
 // ---------------------------------------------------------------------------

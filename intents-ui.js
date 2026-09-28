@@ -21,8 +21,10 @@ import { intentsWithdrawals } from './intents-withdraw.js';
 import { intentsSwaps } from './intents-swap.js';
 import { parseTokenAmount } from './intents-transfer.js';
 import { signIntentPayload } from './intents.js';
-import { assetIconMarkup, chainBrandColor, chainLogoUrl } from './asset-icons.js';
-import { formatUnits } from './intents-assets.js';
+import {
+  assetIconMarkup, chainBrandColor, chainLogoUrl, installLogoFallback,
+} from './asset-icons.js';
+import { chainDisplayName, formatUnits } from './intents-assets.js';
 import { intentsActivity, orderStatusFrom } from './intents-activity.js';
 
 // What a new account is offered first: the largest coins, each on the one
@@ -32,13 +34,31 @@ import { intentsActivity, orderStatusFrom } from './intents-activity.js';
 // chip -- carries its network, and its receive screen says the same: USDT on
 // Tron sent to this address is lost.
 const QUICK_RECEIVE = Object.freeze([
-  'nep141:btc.omft.near',
+  'nep141:nbtc.bridge.near', // BTC, shown as Bitcoin; see DEPOSIT_CREDITS
   'nep141:eth.omft.near',
   'nep141:sol.omft.near',
   'nep141:xrp.omft.near',
   'nep245:v2_1.omni.hot.tg:56_11111111111111111111', // BNB on BNB Chain
   'nep141:eth-0xdac17f958d2ee523a2206206994597c13d831ec7.omft.near', // USDT on Ethereum
 ]);
+
+// Where a deposit to an asset's address is actually credited, when that is
+// not the asset itself. Bitcoin sent to the btc:mainnet address lands as nBTC
+// -- both real test deposits did, 2026-09-28 -- so receiving "BTC" must mean
+// nBTC: the screen whose balance will move, and whose Activity will show it.
+const DEPOSIT_CREDITS = Object.freeze({
+  'nep141:btc.omft.near': 'nep141:nbtc.bridge.near',
+});
+
+/** The asset a deposit for `assetKey` will credit. */
+function receivingKey(assetKey) {
+  const assetId = String(assetKey || '').replace(/^intents:/, '');
+  return DEPOSIT_CREDITS[assetId] ? `intents:${DEPOSIT_CREDITS[assetId]}` : assetKey;
+}
+
+/** Superseded for receiving, and a duplicate "BTC · Bitcoin" row anywhere
+ *  else it is not already held. */
+const isSuperseded = (asset) => Boolean(DEPOSIT_CREDITS[asset.assetId]) && asset.rawAmount === '0';
 
 // The hero total: thousands separated, always two decimals. formatUsd has
 // neither separator nor grouping, and "$12345.67" is hard to read at 44px.
@@ -530,6 +550,7 @@ const ACTIVITY_STATUS = {
   failed: 'Failed',
   refunded: 'Refunded',
   unconfirmed: 'Not confirmed',
+  expired: 'Too old to check',
 };
 
 const dayFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
@@ -612,7 +633,7 @@ class MultichainAssetModal {
     // and update their rows in place.
     for (const entry of entries) {
       if (entry.status !== 'checking' || !entry.intentHash) continue;
-      intentsActivity.verifyPayment(entry.intentHash).then((status) => {
+      intentsActivity.verifyPayment(entry, intentsAssets.getAccountId()).then((status) => {
         if (seq !== this.activitySeq) return;
         const row = [...this.activity.querySelectorAll('[data-entry-id]')]
           .find((element) => element.dataset.entryId === entry.id);
@@ -707,7 +728,10 @@ class MultichainReceiveModal {
       .addEventListener('click', () => this.close());
   }
 
-  async open(assetKey) {
+  async open(requestedKey) {
+    // Where the deposit will actually land -- the screen must describe that
+    // asset, not the one that was tapped.
+    const assetKey = receivingKey(requestedKey);
     // From the catalog, not the portfolio: receiving is how an asset you do
     // not hold yet becomes one you do.
     const asset = intentsAssets.getCatalogAsset(assetKey);
@@ -761,7 +785,10 @@ class MultichainReceiveModal {
     if (target.memo) {
       rules.unshift('Include the memo. A deposit without it is lost.');
     }
-    if (target.siblings > 0) {
+    // Known now for the assets in DEPOSIT_CREDITS; still a live question for
+    // any other network carrying two tokens under one name.
+    const knownDestination = Object.values(DEPOSIT_CREDITS).includes(asset.assetId);
+    if (target.siblings > 0 && !knownDestination) {
       rules.push(`This network carries more than one ${escapeHtml(name)} token; check your balance after the first deposit.`);
     }
 
@@ -906,6 +933,10 @@ class MultichainConfirmModal {
   }
 
   open({ title, hero, rows, actionLabel, note, run }) {
+    // Each opening is a session. An order's payout can resolve minutes later,
+    // after this sheet was left or reopened for something else; only the
+    // session that started it may still write to it.
+    this.session = (this.session || 0) + 1;
     this.run = run;
     this.done = false;
     this.title.textContent = title;
@@ -919,6 +950,7 @@ class MultichainConfirmModal {
     this.action.disabled = false;
     this.note.textContent = note || '';
     this.status.hidden = true;
+    this.status.textContent = '';
     this.show();
   }
 
@@ -990,6 +1022,11 @@ class MultichainConfirmModal {
   isActive() {
     return this.modal.classList.contains('active');
   }
+
+  /** Whether this sheet is still on screen for the session given. */
+  shows(session) {
+    return this.session === session && this.isActive();
+  }
 }
 
 class MultichainWithdrawModal {
@@ -1049,7 +1086,10 @@ class MultichainWithdrawModal {
     for (const candidate of destinations) {
       this.networkSelect.append(chainOption({
         value: candidate.key,
-        chainName: candidate.chainName,
+        // The chain the payout lands on, never a display name borrowed from
+        // elsewhere: nBTC is "Bitcoin" in lists, but as a destination it
+        // pays out on NEAR, and this list is where that difference matters.
+        chainName: chainDisplayName(candidate.blockchain),
         blockchain: candidate.blockchain,
       }));
     }
@@ -1087,7 +1127,7 @@ class MultichainWithdrawModal {
   }
 
   openConfirm(asset, destinationAsset, quote) {
-    const chain = (destinationAsset || asset).chainName;
+    const chain = chainDisplayName((destinationAsset || asset).blockchain);
     const symbol = asset.tokenSymbol;
 
     this.controller.confirmModal.open({
@@ -1179,14 +1219,32 @@ class MultichainWithdrawModal {
       assetId: asset.assetId,
       symbol: asset.tokenSymbol,
       amount: prepared.amount,
-      destinationChain: (destinationAsset || asset).chainName,
+      destinationChain: chainDisplayName((destinationAsset || asset).blockchain),
       destinationAddress: prepared.destinationAddress,
       depositAddress: prepared.depositAddress,
       depositMemo: prepared.depositMemo,
     });
+    const chain = chainDisplayName((destinationAsset || asset).blockchain);
+    const symbol = asset.tokenSymbol;
+    const session = sheet.session;
+    let funded = false;
     let outcome;
     try {
-      outcome = await intentsWithdrawals.execute(prepared, secretKey, { signed });
+      outcome = await intentsWithdrawals.execute(prepared, secretKey, {
+        signed,
+        // The asset has left the account; what remains is 1Click's payout,
+        // which took minutes on a real BNB Chain withdrawal against a quoted
+        // 13 seconds. Say so and let the person go -- Activity follows it.
+        onFunded: () => {
+          funded = true;
+          this.clearForm();
+          sheet.finish(
+            `Your ${symbol} is on its way to ${chain}. It can take a few minutes; follow it in Activity.`,
+            'ok',
+          );
+          void this.controller.refreshAfterMove();
+        },
+      });
     } catch (error) {
       // Expiry is checked before anything is published; every other failure
       // may come after it.
@@ -1200,17 +1258,20 @@ class MultichainWithdrawModal {
       outcome = null;
     }
     if (outcome) intentsActivity.updateOrder(orderId, { status: orderStatusFrom(outcome.status) });
+    if (!funded) this.clearForm();
 
-    const chain = (destinationAsset || asset).chainName;
-    this.clearForm();
-    if (!outcome) sheet.finish(UNCONFIRMED, 'error');
-    else if (outcome.status === 'SUCCESS') {
-      sheet.finish(
-        `Withdrawn. About ${formatDisplayAmount(prepared.amountOut)} ${asset.tokenSymbol} is on its way to ${chain}.`,
-        'ok',
-      );
-    } else if (outcome.status === 'FAILED') sheet.finish(NOT_THROUGH, 'error');
-    else sheet.finish(SLOW);
+    // The payout's end, told only to the sheet that is still waiting for it.
+    // Still running after the screen stopped watching is not news: Activity
+    // keeps following it, as "on its way" already said.
+    if (sheet.shows(session)) {
+      if (!outcome) sheet.finish(UNCONFIRMED, 'error');
+      else if (outcome.status === 'SUCCESS') {
+        sheet.finish(`Withdrawn. About ${formatDisplayAmount(prepared.amountOut)} ${symbol} reached ${chain}.`, 'ok');
+      } else if (outcome.status === 'REFUNDED') {
+        sheet.finish(`This withdrawal could not complete, so your ${symbol} was returned.`);
+      } else if (outcome.status === 'FAILED') sheet.finish(NOT_THROUGH, 'error');
+      else if (!funded) sheet.finish(SLOW);
+    }
 
     await this.controller.refreshAfterMove();
     this.renderAvailable();
@@ -1405,7 +1466,7 @@ class MultichainSwapModal {
     this.toChip.addEventListener('click', () => {
       const from = intentsAssets.getAsset(this.assetKey);
       this.controller.tokenPicker.open({
-        accepts: (asset) => asset.assetId !== from?.assetId,
+        accepts: (asset) => asset.assetId !== from?.assetId && !isSuperseded(asset),
         onPick: (key) => {
           this.toKey = key;
           this.renderTo();
@@ -1613,9 +1674,24 @@ class MultichainSwapModal {
       depositAddress: prepared.depositAddress,
       depositMemo: prepared.depositMemo,
     });
+    const session = sheet.session;
+    let funded = false;
     let outcome;
     try {
-      outcome = await intentsSwaps.execute(prepared, secretKey, { signed });
+      outcome = await intentsSwaps.execute(prepared, secretKey, {
+        signed,
+        // Paid in; the fill is 1Click's. As with a withdrawal, say so and let
+        // the person go rather than hold them on a spinner through it.
+        onFunded: () => {
+          funded = true;
+          this.clearForm();
+          sheet.finish(
+            `Swapping your ${fromAsset.tokenSymbol} for ${toAsset.tokenSymbol}. It can take a few minutes; follow it in Activity.`,
+            'ok',
+          );
+          void this.controller.refreshAfterMove();
+        },
+      });
     } catch (error) {
       // Expiry is checked before anything is published; every other failure
       // may come after it.
@@ -1636,15 +1712,19 @@ class MultichainSwapModal {
       });
     }
 
-    this.clearForm();
-    if (!outcome) sheet.finish(UNCONFIRMED, 'error');
-    else if (outcome.status === 'SUCCESS') {
-      sheet.finish(`Swapped. Your ${toAsset.tokenSymbol} is in your wallet.`, 'ok');
-    } else if (outcome.refunded) {
-      // Not a failure: the floor protected the person from a worse fill.
-      sheet.finish(`Could not fill at the agreed rate, so your ${fromAsset.tokenSymbol} was returned.`);
-    } else if (outcome.status === 'FAILED') sheet.finish(NOT_THROUGH, 'error');
-    else sheet.finish(SLOW);
+    if (!funded) this.clearForm();
+
+    // Told only to the sheet still waiting for it; see the withdrawal.
+    if (sheet.shows(session)) {
+      if (!outcome) sheet.finish(UNCONFIRMED, 'error');
+      else if (outcome.status === 'SUCCESS') {
+        sheet.finish(`Swapped. Your ${toAsset.tokenSymbol} is in your wallet.`, 'ok');
+      } else if (outcome.refunded) {
+        // Not a failure: the floor protected the person from a worse fill.
+        sheet.finish(`Could not fill at the agreed rate, so your ${fromAsset.tokenSymbol} was returned.`);
+      } else if (outcome.status === 'FAILED') sheet.finish(NOT_THROUGH, 'error');
+      else if (!funded) sheet.finish(SLOW);
+    }
 
     await this.controller.refreshAfterMove();
     this.renderAvailable();
@@ -1722,6 +1802,7 @@ class MultichainController {
 
   load() {
     if (this.loaded) return;
+    installLogoFallback();
     this.assetsModal.load();
     this.assetModal.load();
     this.receiveModal.load();
@@ -1786,7 +1867,8 @@ class MultichainController {
     }
     this.tokenPicker.open({
       title: 'Receive',
-      accepts: (asset) => intentsDeposits.isDepositable(asset.assetId),
+      // Not an asset deposits never land on, whatever the bridge lists.
+      accepts: (asset) => intentsDeposits.isDepositable(asset.assetId) && !DEPOSIT_CREDITS[asset.assetId],
       onPick: (key) => this.receiveModal.open(key),
     });
   }

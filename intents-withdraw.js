@@ -18,6 +18,7 @@
 
 import { getSwapStatus, requestSwapQuote } from './intents.js';
 import { parseTokenAmount } from './intents-transfer.js';
+import { chainDisplayName } from './intents-assets.js';
 import {
   buildFundingTransfer,
   buildQuoteRequest,
@@ -114,7 +115,8 @@ export class IntentsWithdrawService {
       timeEstimateSeconds: quote.timeEstimate,
       symbol: asset.tokenSymbol,
       destinationAddress,
-      destinationChain: (destinationAsset || asset).chainName,
+      // Where the payout lands, not an asset's display name (see HOME_CHAIN).
+      destinationChain: chainDisplayName((destinationAsset || asset).blockchain),
     });
   }
 
@@ -164,7 +166,8 @@ export class IntentsWithdrawService {
       amount: String(amount).trim(),
       rawAmount,
       destinationAddress,
-      destinationChain: (destinationAsset || asset).chainName,
+      // Where the payout lands, not an asset's display name (see HOME_CHAIN).
+      destinationChain: chainDisplayName((destinationAsset || asset).blockchain),
       depositAddress,
       depositMemo: quote.depositMemo || null,
       depositDeadline: quote.deadline || null,
@@ -186,7 +189,12 @@ export class IntentsWithdrawService {
    * The deposit address expires; past that 1Click says funds sent to it may be
    * lost, so an expired quote is refused here rather than published hopefully.
    */
-  async execute(prepared, secretKey, { onStatus = null, signed = null } = {}) {
+  /**
+   * `onFunded` fires once the funding transfer has settled -- the moment the
+   * asset has left the account. What follows is 1Click's payout, which can
+   * take minutes; a caller need not hold the person on a spinner through it.
+   */
+  async execute(prepared, secretKey, { onStatus = null, onFunded = null, signed = null } = {}) {
     if (isQuoteExpired(prepared.depositDeadline)) {
       throw new IntentsWithdrawError(
         'This quote has expired. Get a new one before withdrawing.',
@@ -202,6 +210,7 @@ export class IntentsWithdrawService {
         { intentHash, settlement },
       );
     }
+    onFunded?.({ intentHash });
 
     const final = await this.followStatus(prepared, { onStatus });
     return {
