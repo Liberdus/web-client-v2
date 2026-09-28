@@ -45,6 +45,8 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
   ]),
 });
 
+const EVM_CHAT_PAYMENTS_ENABLED = false;
+
 export const EVM_CHAT_MESSAGE_TYPE = 'evm_transfer';
 
 /** Validate untrusted chat claims once; amount remains an exact base-unit string. */
@@ -1182,6 +1184,7 @@ export class EvmTransactionService {
       `Network: ${network.name}`,
       `Recipient: ${recipientLabel || validation.recipient}`,
       `Maximum network fee: ${formatUnits(maximumFee, 18)} ${network.nativeSymbol}`,
+      prepared.chat ? `Chat message fee and toll: ${formatUnits(prepared.chat.totalRequired)} LIB` : 'Wallet transfer only; no chat message.',
       '',
       'The transaction will be signed locally with this account.',
     ].join('\n');
@@ -1201,15 +1204,20 @@ export class EvmTransactionService {
     return null;
   }
 
-  async send({ network, asset, recipient, recipientLabel = null, amount }) {
+  async send({ network, asset, recipient, recipientLabel = null, amount, chat = null, beforeBroadcast = async () => {} }) {
     const prepared = await this.prepare({ network, asset, recipient, amount });
     prepared.recipientLabel = recipientLabel || prepared.validation.recipient;
+    prepared.chat = chat;
     const confirmed = await this.confirmTransfer(
       this.confirmationText(prepared, amount, recipientLabel),
       prepared,
     );
     if (!confirmed) return { status: 'cancelled', transactionHash: null };
 
+    await beforeBroadcast();
+    if (this.getAccount() !== prepared.validation.account) {
+      throw new EvmTransferError('Account changed. Review the transfer again.', 'ACCOUNT_CHANGED');
+    }
     const rawTransaction = await signEvmTransaction(
       prepared.transaction,
       prepared.validation.privateKey,
@@ -1690,7 +1698,9 @@ export class EvmSendConfirmationModal {
     this.asset.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
     this.networkValue.textContent = `${network.name} (Chain ID ${network.chainId})`;
     this.feeValue.textContent = `${formatUnits(maximumFee, 18)} ${network.nativeSymbol}`;
-    this.signingNotice.textContent = 'Signature: your wallet key signs locally and never leaves this device.';
+    this.signingNotice.textContent = prepared.chat
+      ? `Includes a chat payment message. Message fee and toll: ${formatUnits(prepared.chat.totalRequired)} LIB.`
+      : 'Wallet transfer only; no chat message. Your key signs locally on this device.';
 
     const price = Number(asset.tokenPriceUsd);
     const amount = Number(displayAmount);
@@ -1945,6 +1955,8 @@ class EvmAssetsController {
     this.confirmationModal = new EvmSendConfirmationModal();
     this.confirmTransfer = (...args) => this.confirmationModal.confirm(...args);
     this.loaded = false;
+    this.sending = false;
+    this.prepareChatPayment = null;
     this.discovery = new WalletDiscoveryService({
       getAccount: () => this.getAccount(),
       getLiberdusAsset: () => this.getLiberdusAsset(),
@@ -1967,6 +1979,7 @@ class EvmAssetsController {
   configure({
     getAccount,
     getLiberdusAsset,
+    prepareChatPayment,
     openSend,
     openReceive,
     showToast,
@@ -1976,6 +1989,7 @@ class EvmAssetsController {
   } = {}) {
     if (typeof getAccount === 'function') this.getAccount = getAccount;
     if (typeof getLiberdusAsset === 'function') this.getLiberdusAsset = getLiberdusAsset;
+    if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openSend === 'function') this.openSend = openSend;
     if (typeof openReceive === 'function') this.openReceive = openReceive;
     if (typeof showToast === 'function') this.showToast = showToast;
@@ -2043,7 +2057,7 @@ class EvmAssetsController {
       amount,
     });
   }
-  async sendTransfer({ networkId, assetKey, recipient, recipientLabel = null, amount }) {
+  async sendTransfer({ networkId, assetKey, recipient, recipientLabel = null, amount, chat, beforeBroadcast }) {
     const { walletNetwork, asset } = this.findAsset(networkId, assetKey, { evmOnly: true });
     return this.transactions.send({
       network: walletNetwork,
@@ -2051,6 +2065,8 @@ class EvmAssetsController {
       recipient,
       recipientLabel,
       amount,
+      chat,
+      beforeBroadcast,
     });
   }
   openContextualSend(options) {
@@ -2072,9 +2088,14 @@ class EvmAssetsController {
       : { valid: false, message: '' };
     form.balanceWarning.textContent = !validation.valid ? validation.message : '';
     form.balanceWarning.style.display = validation.message ? 'inline' : 'none';
-    form.submitButton.disabled = !validation.valid;
+    form.submitButton.disabled = this.sending || !validation.valid;
   }
   async handleSendFormSubmit(form) {
+    if (this.sending) return;
+    this.sending = true;
+    const account = this.getAccount();
+    const input = form.usernameInput.value;
+    const selection = { networkId: form.networkSelect.value, assetKey: form.assetSelectDropdown.value, amount: form.amountInput.value.trim() };
     form.submitButton.disabled = true;
     try {
       const previousResolution = form.getResolvedRecipient();
@@ -2085,7 +2106,7 @@ class EvmAssetsController {
         );
       }
 
-      const resolution = await this.recipients.resolve(form.usernameInput.value, {
+      const resolution = await this.recipients.resolve(input, {
         force: previousResolution.kind === 'username',
       });
       if (
@@ -2099,12 +2120,25 @@ class EvmAssetsController {
       }
       form.recipientResolution = resolution;
 
+      const chat = EVM_CHAT_PAYMENTS_ENABLED && resolution.kind === 'username'
+        ? await this.prepareChatPayment(resolution, account) : null;
+      const beforeBroadcast = async () => {
+        if (this.getAccount() !== account) throw new Error('Account changed. Review the transfer again.');
+        if (resolution.kind === 'username') {
+          const current = await this.recipients.resolve(resolution.username, { force: true });
+          if (current.address !== resolution.address) throw new EvmTransferError('Recipient changed. Review the username.', 'USERNAME_ASSOCIATION_CHANGED');
+        }
+        if (chat) {
+          const current = await this.prepareChatPayment(resolution, account);
+          if (BigInt(current.totalRequired) > BigInt(chat.totalRequired)) throw new Error('Message cost increased. Review the transfer again.');
+        }
+      };
       const result = await this.sendTransfer({
-        networkId: form.networkSelect.value,
-        assetKey: form.assetSelectDropdown.value,
+        ...selection,
+        chat,
+        beforeBroadcast,
         recipient: resolution.address,
         recipientLabel: resolution.username || resolution.display,
-        amount: form.amountInput.value.trim(),
       });
       if (result.status === 'confirmed' || result.status === 'pending') {
         await form.close();
@@ -2119,6 +2153,7 @@ class EvmAssetsController {
       this.showToast(error?.message || 'EVM transfer failed', 5000, 'error');
       return { status: 'failed', error };
     } finally {
+      this.sending = false;
       await form.refreshSendButtonDisabledState();
     }
   }

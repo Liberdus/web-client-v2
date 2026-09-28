@@ -22455,6 +22455,51 @@ class ChatModal {
    * money moved and the receipt did not. It throws rather than swallowing
    * that, so the caller can say exactly which of the two happened.
    */
+  /** Check the actual recipient and live LIB funds before an external payment. */
+  async prepareEvmPaymentRecipient(resolution, account) {
+    const requireAccount = () => {
+      if (myAccount !== account) throw new Error('Account changed. Review the transfer again.');
+    };
+    requireAccount();
+    const address = normalizeAddress(resolution.address);
+    const sorted = [longAddress(account.keys.address), longAddress(address)].sort();
+    const chatId = hashBytes(sorted.join(''));
+    const [recipientInfo, tollInfo, balanceInfo, paramsOk] = await Promise.all([
+      queryNetwork(`/account/${longAddress(address)}`),
+      queryNetwork(`/messages/${chatId}/toll`),
+      queryNetwork(`/account/${longAddress(account.keys.address)}/balance`),
+      getNetworkParams(true),
+    ]);
+    requireAccount();
+    const recipient = recipientInfo?.account;
+    const fee = paramsOk ? getTransactionFeeWei({ allowNull: true }) : null;
+    if (!recipient?.data || balanceInfo?.balance == null || fee === null) {
+      throw new Error('Cannot check LIB balance, message fee, or recipient toll. Try again.');
+    }
+    const required = tollInfo?.error === 'No account with the given chatId'
+      ? 1 : tollInfo?.toll?.required?.[sorted.indexOf(longAddress(address))];
+    if (![0, 1, 2].includes(required)) throw new Error('Cannot check recipient toll. Try again.');
+    if (required === 2) throw new Error('This recipient has blocked messages.');
+    if (typeof recipient.data.toll !== 'bigint' || !['LIB', 'USD'].includes(recipient.data.tollUnit || 'LIB')) {
+      throw new Error('Cannot determine recipient toll.');
+    }
+    const toll = required === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(recipient.data.toll, recipient.data.tollUnit));
+    const totalRequired = fee + toll;
+    const available = BigInt(balanceInfo.balance);
+    if (available < totalRequired) {
+      throw new Error(`Not enough LIB for the chat message. Required: ${big2str(totalRequired, 18)} LIB; available: ${big2str(available, 18)} LIB; add ${big2str(totalRequired - available, 18)} LIB.`);
+    }
+    createNewContact(address, resolution.username);
+    const contact = myData.contacts[address];
+    contact.toll = recipient.data.toll;
+    contact.tollUnit = recipient.data.tollUnit || 'LIB';
+    contact.tollRequiredToSend = required;
+    await this.prepareEncryptedChatContext(address, account.keys);
+    requireAccount();
+    saveState();
+    return { address, username: resolution.username, toll: toll.toString(), totalRequired: totalRequired.toString() };
+  }
+
   async sendIntentsPaymentMessage(recipientAddress, messageObj) {
     const currentAddress = normalizeAddress(recipientAddress);
     const keys = myAccount.keys;
@@ -33983,6 +34028,7 @@ intentsActivity.configure({
 
 evmAssets.configure({
   getAccount: () => myAccount,
+  prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
     || myData?.wallet?.assets?.[0]
     || null,
