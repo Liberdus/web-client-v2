@@ -51,9 +51,6 @@ async function checkVersion() {
       'app.js',
       'evm-assets.js',
       'intents.js',
-      'intents-assets.js',
-      'intents-deposits.js',
-      'intents-ui.js',
       'dao.js',
       'data/emoji-picker-data.js',
       'lib.js',
@@ -212,16 +209,17 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
-import { formatDisplayAmount, multichain } from './intents-ui.js';
 import {
+  formatDisplayAmount,
+  multichain,
   INTENTS_CHAT_MESSAGE_TYPE,
   paymentStatusLabel,
   parseTransferMessage,
   verifyTransferClaim,
-} from './intents-chat.js';
-import { chatPaymentPanel } from './intents-chat-ui.js';
-import { intentsActivity } from './intents-activity.js';
-import { intentsAccountIdForAddress } from './intents-assets.js';
+  chatPaymentPanel,
+  intentsActivity,
+  intentsAccountIdForAddress,
+} from './intents.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
