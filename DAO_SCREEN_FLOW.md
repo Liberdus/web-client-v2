@@ -120,7 +120,11 @@ The **Proposals** tab starts with 36 independent state examples, followed by pro
 creation and signing previews. All phones load the production stylesheet; controls
 illustrate available actions without submitting transactions. A second filter row beneath
 the main tabs selects All, Project, Governance, Economic, or Protocol previews.
-Empty types show a message, and the selection is retained when switching tabs.
+A phase row below it narrows those results to Authoring, Review, Voting, Accepted,
+Executing, Completed, Terminated, Withheld, Rejected, Canceled, or Applied.
+Phases refer to the proposal status, independent of individual milestone statuses;
+Authoring includes the editor and signing preview. Empty combinations show a
+message, and both selections are retained when switching tabs.
 
 - Committee endorsements: start time, completion time, and contractor changes,
   each with one endorsement, two endorsements, and an already-endorsed account.

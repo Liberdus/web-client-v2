@@ -168,6 +168,10 @@
         width: fit-content;
       }
 
+      [data-proposal-phases] {
+        max-width: 1000px;
+      }
+
       .showcase-tab {
         background: transparent;
         border: 0;
@@ -864,6 +868,20 @@
             <button class="showcase-tab" type="button" data-proposal-filter="economic" aria-pressed="false">Economic</button>
             <button class="showcase-tab" type="button" data-proposal-filter="protocol" aria-pressed="false">Protocol</button>
           </div>
+          <div class="showcase-tabs" role="group" aria-label="Proposal phase" data-proposal-phases>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="all" aria-pressed="true">All phases</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="authoring" aria-pressed="false">Authoring</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="review" aria-pressed="false">Review</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="voting" aria-pressed="false">Voting</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="accepted" aria-pressed="false">Accepted</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="executing" aria-pressed="false">Executing</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="completed" aria-pressed="false">Completed</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="terminated" aria-pressed="false">Terminated</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="withheld" aria-pressed="false">Withheld</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="rejected" aria-pressed="false">Rejected</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="canceled" aria-pressed="false">Canceled</button>
+            <button class="showcase-tab" type="button" data-proposal-phase-filter="applied" aria-pressed="false">Applied</button>
+          </div>
           <p class="section-note" data-proposal-filter-status role="status"></p>
           <div class="current-note">
             <strong>Proposal and milestone states</strong>
@@ -873,7 +891,7 @@
           <div class="preview-subsection">
           <div class="section-heading"><h2 class="section-title">Project authoring and review</h2><div class="section-note">Scroll each phone to inspect the live form and proposal components.</div></div>
           <div class="preview-grid">
-            <article class="screen" data-proposal-type="project" data-app-modal="addProposalModal">
+            <article class="screen" data-proposal-type="project" data-proposal-phase="authoring" data-app-modal="addProposalModal">
               <div class="screen-label-row"><div class="screen-label">Project proposal</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div></div>
               <div class="screen-note"><strong>Project editor</strong>Milestones, recipient, budget, and fixed ballot choices replace parameter options.</div>
               <div class="modal fixed-header active" id="addProposalModal">
@@ -910,7 +928,7 @@
               </div>
             </article>
 
-            <article class="screen" data-proposal-type="project" data-app-modal="confirmProposalModal">
+            <article class="screen" data-proposal-type="project" data-proposal-phase="authoring" data-app-modal="confirmProposalModal">
               <div class="screen-label-row"><div class="screen-label">Review Project Proposal</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div></div>
               <div class="screen-note"><strong>Review before submission</strong>Review funding, milestones, and timing before signing the proposal.</div>
               <div class="modal fixed-header active" id="confirmProposalModal"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Review Project Proposal</div></div><div class="modal-content"><div class="form-container">
@@ -1763,28 +1781,39 @@
 
         const proposalPanel = document.getElementById("showcase-panel-projects");
         const proposalFilters = [...proposalPanel.querySelectorAll("[data-proposal-filter]")];
+        const proposalPhaseFilters = [...proposalPanel.querySelectorAll("[data-proposal-phase-filter]")];
         const proposalScreens = [...proposalPanel.querySelectorAll("[data-proposal-type]")];
         const proposalGroups = [...proposalPanel.querySelectorAll(".preview-subsection")];
         const proposalFilterStatus = proposalPanel.querySelector("[data-proposal-filter-status]");
 
-        const filterProposals = (selectedFilter) => {
+        const filterProposals = () => {
           setFocusedPreview(null);
-          const type = selectedFilter.dataset.proposalFilter;
-          proposalFilters.forEach((button) => button.setAttribute("aria-pressed", button === selectedFilter));
+          const selectedType = proposalFilters.find((button) => button.getAttribute("aria-pressed") === "true");
+          const selectedPhase = proposalPhaseFilters.find((button) => button.getAttribute("aria-pressed") === "true");
+          const type = selectedType.dataset.proposalFilter;
+          const phase = selectedPhase.dataset.proposalPhaseFilter;
           proposalScreens.forEach((screen) => {
-            screen.hidden = type !== "all" && screen.dataset.proposalType !== type;
+            const screenPhase = screen.dataset.proposalPhase || screen.dataset.proposalState;
+            screen.hidden = (type !== "all" && screen.dataset.proposalType !== type)
+              || (phase !== "all" && screenPhase !== phase);
           });
           proposalGroups.forEach((group) => {
             group.hidden = !group.querySelector(".screen:not([hidden])");
           });
           const count = proposalScreens.filter((screen) => !screen.hidden).length;
+          const description = [type === "all" ? "All types" : selectedType.textContent, selectedPhase.textContent].join(" · ");
           proposalFilterStatus.textContent = count
-            ? `${count} ${type === "all" ? "proposal" : selectedFilter.textContent} preview${count === 1 ? "" : "s"}`
-            : `No ${selectedFilter.textContent} previews yet. Choose another type or All.`;
+            ? `${description}: ${count} preview${count === 1 ? "" : "s"}`
+            : `${description}: No previews yet. Choose another type or phase.`;
           updateScrollArea();
         };
-        proposalFilters.forEach((button) => button.addEventListener("click", () => filterProposals(button)));
-        filterProposals(proposalFilters[0]);
+        [proposalFilters, proposalPhaseFilters].forEach((buttons) => {
+          buttons.forEach((button) => button.addEventListener("click", () => {
+            buttons.forEach((filter) => filter.setAttribute("aria-pressed", filter === button));
+            filterProposals();
+          }));
+        });
+        filterProposals();
 
         const activateShowcasePanel = (panelName) => {
           setFocusedPreview(null);
