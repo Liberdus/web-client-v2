@@ -52,9 +52,33 @@
           var(--board-background);
         cursor: grab;
         height: 100%;
-        overflow: hidden;
+        overflow: scroll;
+        overscroll-behavior: none;
+        scrollbar-color: #9292a8 #e2e2eb;
+        scrollbar-gutter: stable;
         touch-action: none;
         width: 100%;
+      }
+
+      .mock-viewport::-webkit-scrollbar {
+        height: 14px;
+        width: 14px;
+      }
+
+      .mock-viewport::-webkit-scrollbar-track,
+      .mock-viewport::-webkit-scrollbar-corner {
+        background: #e2e2eb;
+      }
+
+      .mock-viewport::-webkit-scrollbar-thumb {
+        background: #9292a8;
+        border: 3px solid #e2e2eb;
+        border-radius: 7px;
+      }
+
+      .mock-scroll-area {
+        overflow: hidden;
+        position: relative;
       }
 
       .mock-viewport.is-dragging {
@@ -395,7 +419,7 @@
         gap: 6px;
         padding: 6px;
         position: fixed;
-        right: 18px;
+        right: 28px;
         top: 18px;
         z-index: 20;
       }
@@ -438,7 +462,7 @@
         }
 
         .zoom-controls {
-          bottom: 18px;
+          bottom: 28px;
           top: auto;
         }
 
@@ -449,14 +473,15 @@
     </style>
   </head>
   <body>
-    <div class="mock-viewport" data-pan-viewport>
+    <div class="mock-viewport" data-pan-viewport tabindex="0" role="region" aria-label="Scrollable UI preview board">
       <div class="zoom-controls" aria-label="Mock board zoom controls">
-        <span class="zoom-help">Scroll to pan · click a device to interact · click outside, Escape, or zoom to exit · Ctrl/Cmd + scroll to zoom</span>
+        <span class="zoom-help">Scroll, use scrollbars, or drag to pan · click a device to interact · click outside, Escape, or zoom to exit · Ctrl/Cmd + scroll to zoom</span>
         <button class="zoom-button" type="button" data-zoom-out aria-label="Zoom out">−</button>
         <button class="zoom-reset" type="button" data-zoom-reset aria-label="Reset zoom and position">100%</button>
         <button class="zoom-button" type="button" data-zoom-in aria-label="Zoom in">+</button>
       </div>
 
+      <div class="mock-scroll-area" data-scroll-area>
       <main class="mock-canvas" data-pan-canvas>
         <header class="mock-header">
           <div class="mock-brand">
@@ -1086,6 +1111,7 @@
           <div data-modal-catalog></div>
         </section>
       </main>
+      </div>
     </div>
 
     <script src="./modal-catalog-data.js"></script>
@@ -1094,6 +1120,7 @@
       (() => {
         const viewport = document.querySelector("[data-pan-viewport]");
         const canvas = document.querySelector("[data-pan-canvas]");
+        const scrollArea = document.querySelector("[data-scroll-area]");
         const board = document.querySelector("[data-flow-board]");
         const arrows = document.querySelector("[data-flow-arrows]");
         const zoomIn = document.querySelector("[data-zoom-in]");
@@ -1105,8 +1132,6 @@
         const maxScale = 1.8;
         const zoomStep = 0.12;
         let scale = 1;
-        let offsetX = 0;
-        let offsetY = 0;
         let dragging = false;
         let lastX = 0;
         let lastY = 0;
@@ -1417,8 +1442,14 @@
 
         const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
+        const updateScrollArea = () => {
+          scrollArea.style.width = `${Math.ceil(canvas.offsetWidth * scale)}px`;
+          scrollArea.style.height = `${Math.ceil(canvas.offsetHeight * scale)}px`;
+        };
+
         const updateTransform = () => {
-          canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+          canvas.style.transform = `scale(${scale})`;
+          updateScrollArea();
           zoomReset.textContent = `${Math.round(scale * 100)}%`;
           zoomOut.disabled = scale <= minScale + 0.001;
           zoomIn.disabled = scale >= maxScale - 0.001;
@@ -1427,12 +1458,12 @@
         const zoomAt = (nextScale, anchorX, anchorY) => {
           setFocusedPreview(null);
           const clampedScale = clamp(nextScale, minScale, maxScale);
-          const canvasX = (anchorX - offsetX) / scale;
-          const canvasY = (anchorY - offsetY) / scale;
+          const canvasX = (anchorX + viewport.scrollLeft) / scale;
+          const canvasY = (anchorY + viewport.scrollTop) / scale;
           scale = clampedScale;
-          offsetX = anchorX - canvasX * scale;
-          offsetY = anchorY - canvasY * scale;
           updateTransform();
+          viewport.scrollLeft = canvasX * scale - anchorX;
+          viewport.scrollTop = canvasY * scale - anchorY;
         };
 
         zoomIn.addEventListener("click", () => zoomAt(scale + zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2));
@@ -1440,9 +1471,8 @@
         zoomReset.addEventListener("click", () => {
           setFocusedPreview(null);
           scale = 1;
-          offsetX = 0;
-          offsetY = 0;
           updateTransform();
+          viewport.scrollTo(0, 0);
         });
 
         viewport.addEventListener("wheel", (event) => {
@@ -1458,15 +1488,20 @@
           // Wheel deltas can be pixels, lines, or pages depending on the device.
           const unitX = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientWidth : 1;
           const unitY = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
-          offsetX -= event.deltaX * unitX;
-          offsetY -= event.deltaY * unitY;
-          updateTransform();
+          if (event.shiftKey && event.deltaX === 0) {
+            viewport.scrollLeft += event.deltaY * unitY;
+          } else {
+            viewport.scrollLeft += event.deltaX * unitX;
+            viewport.scrollTop += event.deltaY * unitY;
+          }
         }, { passive: false });
 
         const isInteractive = (target) => target.closest(".screen, button, input, select, textarea, summary, [data-flow-source], .transition-connector, .zoom-controls");
 
         viewport.addEventListener("pointerdown", (event) => {
           if (event.button !== 0 || isInteractive(event.target)) return;
+          // Leave native scrollbar presses to the browser.
+          if (event.clientX >= viewport.clientWidth || event.clientY >= viewport.clientHeight) return;
           dragging = true;
           lastX = event.clientX;
           lastY = event.clientY;
@@ -1477,11 +1512,10 @@
 
         viewport.addEventListener("pointermove", (event) => {
           if (!dragging) return;
-          offsetX += event.clientX - lastX;
-          offsetY += event.clientY - lastY;
+          viewport.scrollLeft -= event.clientX - lastX;
+          viewport.scrollTop -= event.clientY - lastY;
           lastX = event.clientX;
           lastY = event.clientY;
-          updateTransform();
         });
 
         const stopDragging = (event) => {
@@ -1755,6 +1789,7 @@
           activateFlowSource(source, event);
         });
 
+        new ResizeObserver(updateScrollArea).observe(canvas);
         window.addEventListener("resize", renderArrows);
         const frameMounts = mountDeviceFrames();
         requestAnimationFrame(() => {

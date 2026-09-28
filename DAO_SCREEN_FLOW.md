@@ -105,7 +105,7 @@ Their functions now live in the filter bar, proposal-row preview badges, and the
 
 ## Interactive mock controls
 
-- Scroll vertically or horizontally to pan the canvas, including while hovering over an unfocused device. Dragging the board background also pans.
+- Scroll vertically or horizontally to pan the canvas, including while hovering over an unfocused device. Dragging the board background also pans. Visible horizontal and vertical scrollbars provide direct navigation; Shift + scroll pans horizontally. Scrolling stops at the board edges so the header and tabs remain reachable.
 - Click a device once to focus it; its outline turns purple and subsequent clicks and scrolling interact with its content.
 - Click outside the device, press **Escape**, switch tabs, or zoom the canvas to leave device focus. Expanding or collapsing a milestone keeps focus.
 - Use **+**, **−**, the percentage button, or **Ctrl/Cmd + scroll** outside a device to control zoom.
