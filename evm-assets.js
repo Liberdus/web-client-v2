@@ -873,6 +873,7 @@ export class EvmTransactionService {
     showToast,
     confirmTransfer,
     getManagedRpcUrl = () => null,
+    savePayment = () => {},
     fetchFn = (...args) => fetch(...args),
   }) {
     this.getAccount = getAccount;
@@ -880,6 +881,7 @@ export class EvmTransactionService {
     this.showToast = showToast;
     this.confirmTransfer = confirmTransfer;
     this.getManagedRpcUrl = getManagedRpcUrl;
+    this.savePayment = savePayment;
     this.fetchFn = fetchFn;
     this.requestId = 0;
     this.verifiedRpcEndpoints = new Map();
@@ -1149,33 +1151,53 @@ export class EvmTransactionService {
       prepared.transaction,
       prepared.validation.privateKey,
     );
-    const broadcast = await this.request(
-      network,
-      'eth_sendRawTransaction',
-      [rawTransaction],
-    );
-    if (!EVM_HASH_PATTERN.test(broadcast || '')) {
-      throw new EvmTransferError('RPC returned an invalid transaction hash', 'INVALID_TX_HASH');
+    if (this.getAccount() !== prepared.validation.account) throw new Error('Account changed before broadcast.');
+    const transactionHash = bytesToHex(keccak256(hexToBytes(rawTransaction)));
+    const payment = parseEvmTransferMessage({
+      type: EVM_CHAT_MESSAGE_TYPE, version: 1, chainId: network.chainId, transactionHash,
+      from: prepared.validation.from, to: prepared.validation.recipient,
+      assetKind: asset.contractAddress ? 'erc20' : 'native', contractAddress: asset.contractAddress || null,
+      rawAmount: prepared.validation.amountRaw.toString(), decimals: asset.tokenDecimals, symbol: asset.tokenSymbol,
+    });
+    if (!payment) throw new Error('Cannot record this asset transfer.');
+    const record = {
+      payment, networkId: network.id, username: chat?.username || null,
+      createdAt: Date.now(), assetState: 'broadcasting', messageState: chat ? 'ready' : 'none',
+    };
+    const account = prepared.validation.account;
+    // This write must succeed before the irreversible network request. Never save the signed EVM bytes.
+    this.savePayment(record, account);
+    let status = 'unknown';
+    let receipt = null;
+    try {
+      const broadcast = await this.request(network, 'eth_sendRawTransaction', [rawTransaction]);
+      if (typeof broadcast !== 'string' || broadcast.toLowerCase() !== transactionHash) throw new Error('Unexpected transaction hash');
+      status = 'pending';
+    } catch {
+      // A lost response is not a rejection. Reconcile the locally known hash, without resending.
+      try {
+        if (await this.request(network, 'eth_getTransactionByHash', [transactionHash])) status = 'pending';
+      } catch { /* Keep the uncertain outcome for recovery. */ }
     }
+    if (status === 'pending') {
+      try {
+        receipt = await this.waitForReceipt(network, transactionHash);
+        if (receipt) status = parseHexQuantity(receipt.status, 'receipt status') === 1n ? 'confirmed' : 'reverted';
+      } catch { /* Receipt lookup failure leaves the broadcast pending. */ }
+    }
+    record.assetState = status;
+    try {
+      this.savePayment(record, account);
+    } catch {
+      this.showToast('Transfer may be sent. Its saved hash can be checked after reopening EVM Assets.', 0, 'warning');
+    }
+    if (status === 'confirmed' && this.getAccount() === account) {
+      try { await this.refreshAssets({ force: true }); }
+      catch { this.showToast('Asset sent; balance refresh is temporarily unavailable.', 5000, 'warning'); }
+    }
+    this.showToast(`EVM transfer ${status}: ${transactionHash}`, 5000, status === 'reverted' ? 'error' : 'info');
+    return { status, transactionHash, receipt, record };
 
-    const transactionHash = broadcast.toLowerCase();
-    this.showToast(`EVM transaction submitted: ${transactionHash}`, 5000, 'info');
-    const receipt = await this.waitForReceipt(network, transactionHash);
-    if (!receipt) {
-      this.showToast('Transaction is pending. Balances will update after confirmation.', 5000, 'info');
-      return { status: 'pending', transactionHash, receipt: null };
-    }
-    if (parseHexQuantity(receipt.status, 'receipt status') !== 1n) {
-      throw new EvmTransferError(
-        'The EVM transaction reverted',
-        'TRANSACTION_REVERTED',
-        { transactionHash },
-      );
-    }
-
-    await this.refreshAssets({ force: true });
-    this.showToast(`Transaction confirmed: ${transactionHash}`, 5000, 'success');
-    return { status: 'confirmed', transactionHash, receipt };
   }
 }
 
@@ -1862,6 +1884,8 @@ class EvmAssetsController {
     this.loaded = false;
     this.sending = false;
     this.prepareChatPayment = null;
+    this.getPayments = () => [];
+    this.savePayment = () => { throw new Error('Payment storage is unavailable'); };
     this.discovery = new WalletDiscoveryService({
       getAccount: () => this.getAccount(),
       getLiberdusAsset: () => this.getLiberdusAsset(),
@@ -1876,6 +1900,7 @@ class EvmAssetsController {
       showToast: (...args) => this.showToast(...args),
       confirmTransfer: (...args) => this.confirmTransfer(...args),
       getManagedRpcUrl: (network) => this.discovery.getRpcUrl(network.id),
+      savePayment: (record, account) => this.savePayment(record, account),
     });
     this.assetsModal = new AssetsModal(this);
     this.assetDetailsModal = new AssetDetailsModal(this);
@@ -1887,6 +1912,8 @@ class EvmAssetsController {
     getLiberdusAsset,
     findContact,
     prepareChatPayment,
+    getPayments,
+    savePayment,
     openSend,
     openReceive,
     showToast,
@@ -1897,6 +1924,8 @@ class EvmAssetsController {
     if (typeof getAccount === 'function') this.getAccount = getAccount;
     if (typeof getLiberdusAsset === 'function') this.getLiberdusAsset = getLiberdusAsset;
     if (typeof findContact === 'function') this.findContact = findContact;
+    if (typeof getPayments === 'function') this.getPayments = getPayments;
+    if (typeof savePayment === 'function') this.savePayment = savePayment;
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openSend === 'function') this.openSend = openSend;
     if (typeof openReceive === 'function') this.openReceive = openReceive;
@@ -2045,7 +2074,7 @@ class EvmAssetsController {
         recipient: resolution.address,
         recipientLabel: resolution.username || resolution.display,
       });
-      if (result.status === 'confirmed' || result.status === 'pending') {
+      if (result.transactionHash) {
         await form.close();
       }
       return result;

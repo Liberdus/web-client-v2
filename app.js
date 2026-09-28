@@ -34042,11 +34042,38 @@ intentsActivity.configure({
     }))),
 });
 
+// Recovery has its own account-scoped entry so another tab's ordinary saveState
+// cannot overwrite it. Encrypt metadata and signed chat attempts with the account key.
+function evmPaymentStorageKey(account) {
+  return `evm-payments:${account.netid}:${normalizeAddress(account.keys.address)}`;
+}
+
+function loadEvmPayments(account) {
+  const saved = localStorage.getItem(evmPaymentStorageKey(account));
+  if (!saved) return [];
+  const records = parse(decryptData(saved, account.keys.secret + account.keys.pqSeed, true));
+  if (!Array.isArray(records) || records.some((record) => !parseEvmTransferMessage(record.payment))) {
+    throw new Error('Saved EVM payment records could not be read.');
+  }
+  return records;
+}
+
+function saveEvmPayment(record, account) {
+  const records = loadEvmPayments(account);
+  const index = records.findIndex((item) => evmPaymentId(item.payment) === evmPaymentId(record.payment));
+  if (index < 0) records.push(record);
+  else records[index] = record;
+  const encrypted = encryptData(stringify(records), account.keys.secret + account.keys.pqSeed, true);
+  localStorage.setItem(evmPaymentStorageKey(account), encrypted);
+}
+
 evmAssets.configure({
   getAccount: () => myAccount,
   findContact: (username) => getMessagePaymentContacts()
     .find((contact) => normalizeUsername(contact.username || '') === username) || null,
   prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
+  getPayments: (account) => loadEvmPayments(account),
+  savePayment: (record, account) => saveEvmPayment(record, account),
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
     || myData?.wallet?.assets?.[0]
     || null,
