@@ -12516,6 +12516,7 @@ async function processChats(chats, keys) {
   const messageQueryTimestamp = Math.max(0, timestamp+1);
   let hasAnyTransfer = false;
   let needsUpcomingCallsUiRefresh = false;
+  let syncedEvmPayment = false;
   const currentUserAddress = normalizeAddress(keys.address);
 
   for (let sender in chats) {
@@ -12543,6 +12544,7 @@ async function processChats(chats, keys) {
       let didChangeReactionPreview = false;
       let didApplyStatusChange = false;
       let needsStatusChatRefresh = false;
+      let syncedOwnEvmPayment = false;
       let myStatusUpdate = null;
       let contactStatusUpdate = null;
       const touchedReactionTargetTxids = new Set();
@@ -13024,6 +13026,21 @@ async function processChats(chats, keys) {
               continue
             }
           }
+          if (payload.type === EVM_CHAT_MESSAGE_TYPE) {
+            // A queried message proves Liberdus delivery, not EVM settlement.
+            payload.paymentMessageConfirmed = true;
+            payload.status = 'sent';
+            syncedEvmPayment = true;
+            syncedOwnEvmPayment ||= mine;
+            const existing = contact.messages.find((message) => message.type === EVM_CHAT_MESSAGE_TYPE
+              && message.my === mine && stringify(message.payment) === stringify(payload.payment));
+            if (existing) {
+              existing.paymentMessageConfirmed = true;
+              existing.status = 'sent';
+              existing.txid = txidHex;
+              continue;
+            }
+          }
           //  skip if this tx was processed before and is already in contact.messages;
           //    messages are the same if the messages[x].sent_timestamp is the same as the tx.timestamp,
           //    and messages[x].my is false and messages[x].message == payload.message
@@ -13073,9 +13090,6 @@ async function processChats(chats, keys) {
             delete payload.attachments;
           }
           
-          if (payload.type === EVM_CHAT_MESSAGE_TYPE && contact.messages.some((message) =>
-            message.type === EVM_CHAT_MESSAGE_TYPE && message.my === mine
-            && stringify(message.payment) === stringify(payload.payment))) continue;
           insertSorted(contact.messages, payload, 'timestamp');
           if (payload.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) {
             needsUpcomingCallsUiRefresh = true;
@@ -13333,7 +13347,11 @@ async function processChats(chats, keys) {
         chatsScreen.updateChatList();
       }
 
-      if (didApplyStatusChange && chatsScreen.isActive()) {
+      if (syncedOwnEvmPayment) {
+        syncChatLatestActivityTimestamp(from, contact);
+        if (inActiveChatWithSender) chatModal.appendChatModal();
+      }
+      if ((didApplyStatusChange || syncedOwnEvmPayment) && chatsScreen.isActive()) {
         chatsScreen.updateChatList();
       }
 
@@ -13387,6 +13405,8 @@ async function processChats(chats, keys) {
     // Update the timestamp
     myAccount.chatTimestamp = newTimestamp;
   }
+  // Save the synced card and remove its recovery record in the same write.
+  if (syncedEvmPayment) saveState();
 }
 
 /**
@@ -22549,6 +22569,8 @@ class ChatModal {
     const contact = myData.contacts[address];
     const existing = contact.messages.find((message) => message.my && message.type === EVM_CHAT_MESSAGE_TYPE
       && evmPaymentId(message.payment) === evmPaymentId(record.payment));
+    // Message sync can finish while injectTx is still waiting for a response.
+    if (existing?.paymentMessageConfirmed) return;
     const message = existing || { message: '', type: EVM_CHAT_MESSAGE_TYPE, payment: record.payment, my: true, paymentVerified: 'unchecked' };
     message.txid = record.attempt.txid;
     message.timestamp = record.attempt.timestamp;
