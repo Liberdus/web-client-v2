@@ -47,8 +47,6 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
 
 const ERC20_TRANSFER_TOPIC = bytesToHex(keccak256(utf82bin('Transfer(address,address,uint256)')));
 
-const EVM_CHAT_PAYMENTS_ENABLED = false;
-
 export const EVM_CHAT_MESSAGE_TYPE = 'evm_transfer';
 
 /** Validate untrusted chat claims once; amount remains an exact base-unit string. */
@@ -1486,6 +1484,15 @@ class AssetsModal {
     this.networkSelect = document.getElementById('assetsNetwork');
     this.connectionSummary = document.getElementById('assetsConnectionSummary');
     this.assetsList = document.getElementById('connectedAssetsList');
+    this.recovery = document.getElementById('evmPaymentRecovery');
+    this.recoveryList = document.getElementById('evmPaymentRecoveryList');
+    this.recoveryList.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-recover-payment]');
+      if (!button) return;
+      button.disabled = true;
+      try { await this.controller.recoverPayment(button.dataset.recoverPayment); }
+      finally { this.renderRecovery(); }
+    });
 
     document.getElementById('closeAssetsModal').addEventListener('click', () => this.close());
     this.networkSelect.addEventListener('change', () => this.render());
@@ -1538,6 +1545,7 @@ class AssetsModal {
   }
 
   async update({ force = false } = {}) {
+    this.renderRecovery();
     this.connectionSummary.textContent = 'Connecting wallet networks…';
     this.connectionSummary.dataset.status = 'loading';
     await this.controller.refresh({ force });
@@ -1550,6 +1558,29 @@ class AssetsModal {
     this.connectionSummary.textContent = this.controller.getConnectionText();
     this.connectionSummary.dataset.status = this.controller.getStatus();
     this.render();
+  }
+
+  renderRecovery() {
+    const account = this.controller.getAccount();
+    if (!account) { this.recovery.hidden = true; return; }
+    try {
+      const records = this.controller.getPayments(account).filter((record) => record.assetState !== 'reverted'
+        && (['broadcasting', 'unknown', 'pending'].includes(record.assetState)
+          || !['none', 'delivered'].includes(record.messageState)));
+      this.recovery.hidden = records.length === 0;
+      const assetLabels = { broadcasting: 'Checking submission', unknown: 'Checking submission', pending: 'Confirming', confirmed: 'Confirmed' };
+      const messageLabels = { ready: 'Not sent', submitting: 'Checking submission', submitted: 'Submitted', rejected: 'Needs retry', uncertain: 'Checking submission' };
+      this.recoveryList.innerHTML = records.map((record) => `
+        <div class="evm-payment-recovery-item">
+          <div>${escapeHtml(evmPaymentAmount(record.payment))} ${escapeHtml(record.payment.symbol)} → ${escapeHtml(record.username || record.payment.to)}</div>
+          <div class="evm-payment-reference">${escapeHtml(record.payment.transactionHash)}</div>
+          <div>Asset: ${escapeHtml(assetLabels[record.assetState] || record.assetState)}${record.username ? ` · Chat message: ${escapeHtml(messageLabels[record.messageState] || record.messageState)}` : ''}</div>
+          <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}">${record.username && ['pending', 'confirmed'].includes(record.assetState) && record.messageState !== 'submitted' ? 'Retry chat message' : 'Check payment'}</button>
+        </div>`).join('');
+    } catch (error) {
+      this.recovery.hidden = false;
+      this.recoveryList.textContent = error.message;
+    }
   }
 
   render() {
@@ -1896,10 +1927,10 @@ export class EvmSendConfirmationModal {
     }
     if (this.pending) this.settle(false);
 
+    if (!openModal(this.modal)) throw new EvmTransferError('Please wait for the current modal to open, then try again.', 'MODAL_BUSY');
     this.render(prepared);
     this.confirmButton.disabled = false;
     this.cancelButton.disabled = false;
-    openModal(this.modal);
     return new Promise((resolve) => {
       this.pending = { resolve };
     });
@@ -2239,6 +2270,9 @@ class EvmAssetsController {
   }
   async sendTransfer({ networkId, assetKey, recipient, recipientLabel = null, amount, chat, beforeBroadcast }) {
     const { walletNetwork, asset } = this.findAsset(networkId, assetKey, { evmOnly: true });
+    if (chat && !this.transactions.paymentNetwork(walletNetwork.chainId)) {
+      throw new Error('Chat payments are not supported on this network yet.');
+    }
     return this.transactions.send({
       network: walletNetwork,
       asset,
@@ -2270,7 +2304,55 @@ class EvmAssetsController {
     form.balanceWarning.style.display = validation.message ? 'inline' : 'none';
     form.submitButton.disabled = this.sending || !validation.valid;
   }
+  async withPaymentLock(account, operation) {
+    if (!account?.keys) throw new Error('Sign in before sending a payment.');
+    if (!globalThis.navigator?.locks) throw new Error('Safe payment recovery requires a browser with Web Locks support.');
+    const key = `evm-payment:${account.netid}:${walletProbeAddress(account.keys.address)}`;
+    return navigator.locks.request(key, { ifAvailable: true }, async (lock) => {
+      if (!lock) throw new Error('An EVM payment is already being processed in another tab.');
+      if (this.getAccount() !== account) throw new Error('Account changed. Reopen EVM Assets.');
+      return operation();
+    });
+  }
+
+  async recoverPayment(id) {
+    const account = this.getAccount();
+    try {
+      await this.withPaymentLock(account, async () => {
+        const record = this.getPayments(account).find((item) => evmPaymentId(item.payment) === id);
+        if (!record) throw new Error('Saved payment not found on this device.');
+        const network = this.transactions.paymentNetwork(record.payment.chainId) || this.getNetwork(record.networkId);
+        if (!network) throw new Error('This network is not supported for payment recovery.');
+        this.transactions.paymentEvidence.clear();
+        const { transaction, receipt, block } = await this.transactions.getPaymentEvidence(network, record.payment.transactionHash);
+        if (this.getAccount() !== account) throw new Error('Account changed. Reopen EVM Assets.');
+        if (!transaction) throw new Error('Transfer not found yet. Check again later; do not send the asset again.');
+        if (transaction.hash?.toLowerCase() !== record.payment.transactionHash
+          || (receipt && receipt.transactionHash?.toLowerCase() !== record.payment.transactionHash)) {
+          throw new Error('The network returned inconsistent payment data. Try again later.');
+        }
+        record.assetState = receipt && block?.hash === receipt.blockHash
+          ? (parseHexQuantity(receipt.status, 'status') === 1n ? 'confirmed' : 'reverted') : 'pending';
+        this.savePayment(record, account);
+        if (record.assetState === 'reverted') throw new Error('The EVM transfer reverted. No new chat message will be sent.');
+        if (record.username) await this.sendChatPayment(record, account);
+        this.showToast(record.username ? 'Payment message checked/submitted.' : `Transfer ${record.assetState}.`, 5000, 'info');
+      });
+    } catch (error) {
+      this.showToast(error.message, 0, 'warning');
+    }
+  }
+
   async handleSendFormSubmit(form) {
+    try {
+      return await this.withPaymentLock(this.getAccount(), () => this.submitSendForm(form));
+    } catch (error) {
+      this.showToast(error.message, 0, 'warning');
+      return { status: 'failed', error };
+    }
+  }
+
+  async submitSendForm(form) {
     if (this.sending) return;
     this.sending = true;
     const account = this.getAccount();
@@ -2313,7 +2395,7 @@ class EvmAssetsController {
       }
       form.recipientResolution = resolution;
 
-      const chat = EVM_CHAT_PAYMENTS_ENABLED && resolution.kind === 'username'
+      const chat = resolution.kind === 'username'
         ? await this.prepareChatPayment(resolution, account) : null;
       const beforeBroadcast = async () => {
         if (this.getAccount() !== account) throw new Error('Account changed. Review the transfer again.');

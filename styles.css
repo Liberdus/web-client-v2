@@ -12612,3 +12612,11 @@ button.multichain-token-chip:hover {
   gap: 10px;
   min-width: 0;
 }
+
+/* EVM payment recovery shares the existing assets modal. */
+.evm-payment-recovery { margin: 16px; text-align: left; }
+.evm-payment-recovery h3 { margin: 0 0 8px; font-size: var(--font-size-base); }
+.evm-payment-recovery p { line-height: 1.45; }
+.evm-payment-recovery p, .evm-payment-reference { color: var(--secondary-text-color); font-size: var(--font-size-sm); }
+.evm-payment-recovery-item { padding: 12px 0; border-bottom: 1px solid var(--border-color); overflow-wrap: anywhere; }
+.evm-payment-recovery-item button { margin-top: 8px; }

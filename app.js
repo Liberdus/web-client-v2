@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 't'; // Also increment this when you increment version.html
+const version = 'u'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -208,7 +208,13 @@ import {
   CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY,
 } from './data/emoji-picker-data.js';
 
-import { evmAssets, EVM_CHAT_MESSAGE_TYPE, parseEvmTransferMessage, evmPaymentId, evmPaymentAmount } from './evm-assets.js';
+import {
+  evmAssets,
+  EVM_CHAT_MESSAGE_TYPE,
+  parseEvmTransferMessage,
+  evmPaymentId,
+  evmPaymentAmount,
+} from './evm-assets.js';
 import {
   formatDisplayAmount,
   multichain,
@@ -22632,13 +22638,6 @@ class ChatModal {
     }
   }
 
-  /**
-   * Send the chat receipt for a payment that has already settled on NEAR.
-   *
-   * Called only after the transfer is published, so a failure here means the
-   * money moved and the receipt did not. It throws rather than swallowing
-   * that, so the caller can say exactly which of the two happened.
-   */
   /** Check the actual recipient and live LIB funds before an external payment. */
   async prepareEvmPaymentRecipient(resolution, account) {
     const requireAccount = () => {
@@ -22677,6 +22676,7 @@ class ChatModal {
     const toll = required === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(recipient.data.toll, recipient.data.tollUnit));
     const totalRequired = fee + toll;
     const available = BigInt(balanceInfo.balance);
+    if (toll < 0n || fee < 0n || available < 0n) throw new Error('Invalid LIB balance or message cost.');
     if (available < totalRequired) {
       throw new Error(`Not enough LIB for the chat message. Required: ${big2str(totalRequired, 18)} LIB; available: ${big2str(available, 18)} LIB; add ${big2str(totalRequired - available, 18)} LIB.`);
     }
@@ -22790,6 +22790,13 @@ class ChatModal {
     chatsScreen.updateChatList();
   }
 
+  /**
+   * Send the chat receipt for a payment that has already settled on NEAR.
+   *
+   * Called only after the transfer is published, so a failure here means the
+   * money moved and the receipt did not. It throws rather than swallowing
+   * that, so the caller can say exactly which of the two happened.
+   */
   async sendIntentsPaymentMessage(recipientAddress, messageObj) {
     const currentAddress = normalizeAddress(recipientAddress);
     const keys = myAccount.keys;
@@ -31130,6 +31137,11 @@ class FailedMessageMenu {
     const message = (txid && contact && Array.isArray(contact.messages))
       ? contact.messages.find(msg => msg.txid === txid)
       : null;
+
+    if (message?.type === EVM_CHAT_MESSAGE_TYPE) {
+      void evmAssets.recoverPayment(evmPaymentId(message.payment));
+      return;
+    }
 
     // Voice message retry: resend the same voice message (no re-upload)
     if (voiceEl) {
