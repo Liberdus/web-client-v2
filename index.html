@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-26" />
+    <link rel="stylesheet" href="./styles.css?v=1455-28" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-31" type="module"></script>
+    <script src="./app.js?v=1455-32" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -1766,26 +1766,53 @@
           <div class="modal-title" id="multichainWithdrawTitle">Withdraw</div>
         </div>
         <div class="modal-content">
-          <div class="multichain-screen">
-            <div class="multichain-field" id="multichainWithdrawNetworkField" hidden>
-              <label class="multichain-field-label" for="multichainWithdrawNetwork">Network</label>
-              <select id="multichainWithdrawNetwork" class="form-control"></select>
-            </div>
-            <div class="multichain-field">
-              <label class="multichain-field-label" for="multichainWithdrawTo">Send to</label>
-              <input class="form-control" id="multichainWithdrawTo" type="text" autocomplete="off"
-                autocapitalize="off" spellcheck="false" placeholder="Address on the destination chain" />
-            </div>
-            <div class="multichain-field">
-              <label class="multichain-field-label" for="multichainWithdrawAmount">Amount</label>
-              <div class="multichain-amount-field">
-                <input class="form-control" id="multichainWithdrawAmount" type="text" inputmode="decimal"
-                  autocomplete="off" spellcheck="false" placeholder="0.0" />
-                <button type="button" class="multichain-max" id="multichainWithdrawMax">Max</button>
+          <div class="multichain-screen multichain-swap">
+            <!-- Where: the network, when there is a choice, and the address on
+                 it. One question, so one panel. -->
+            <section class="multichain-swap-leg">
+              <label class="multichain-swap-label" for="multichainWithdrawTo">To</label>
+              <div class="multichain-network-chips" id="multichainWithdrawNetworks" role="radiogroup"
+                aria-label="Network" hidden></div>
+              <!-- A textarea so a long address wraps: head and tail are what
+                   people check, and a single line cuts the tail off. -->
+              <textarea class="multichain-address-input" id="multichainWithdrawTo" rows="1" autocomplete="off"
+                autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+              <div class="multichain-recent" id="multichainWithdrawRecent"></div>
+              <div class="multichain-field-note" id="multichainWithdrawToNote"></div>
+            </section>
+
+            <section class="multichain-swap-leg">
+              <label class="multichain-swap-label" for="multichainWithdrawAmount">Amount</label>
+              <div class="multichain-swap-line">
+                <span class="multichain-amount-currency" id="multichainWithdrawCurrency" hidden>$</span>
+                <input class="multichain-swap-amount" id="multichainWithdrawAmount" type="text" inputmode="decimal"
+                  autocomplete="off" spellcheck="false" placeholder="0" />
+                <span class="multichain-token-chip" id="multichainWithdrawToken"></span>
               </div>
-              <div class="multichain-available" id="multichainWithdrawAvailable"></div>
-            </div>
-            <button class="btn btn--primary btn--pill btn--full" id="multichainWithdrawPreview">Preview withdrawal</button>
+              <div class="multichain-swap-meta">
+                <!-- The other unit, and the way to type in it instead. -->
+                <button type="button" class="multichain-amount-flip" id="multichainWithdrawFlip" hidden></button>
+                <span class="multichain-swap-balance">
+                  <span id="multichainWithdrawAvailable"></span>
+                  <button type="button" class="multichain-max" id="multichainWithdrawMax">Max</button>
+                </span>
+              </div>
+            </section>
+
+            <section class="multichain-swap-leg">
+              <div class="multichain-swap-label">Arrives (estimated)</div>
+              <div class="multichain-swap-line">
+                <div class="multichain-swap-amount is-output is-empty" id="multichainWithdrawOut">0</div>
+                <span class="multichain-token-chip" id="multichainWithdrawOutToken"></span>
+              </div>
+              <div class="multichain-swap-meta">
+                <span id="multichainWithdrawOutUsd"></span>
+                <span id="multichainWithdrawOutChain"></span>
+              </div>
+            </section>
+
+            <div class="multichain-swap-floor" id="multichainWithdrawFee"></div>
+            <button class="btn btn--primary btn--pill btn--full" id="multichainWithdrawPreview" disabled>Review withdrawal</button>
             <div class="multichain-status" id="multichainWithdrawStatus" hidden></div>
           </div>
         </div>
@@ -1907,7 +1934,7 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Choosing a token: search, what you hold, then everything else. -->
+      <!-- Choosing a token: search, what you hold, the popular coins, then everything else. -->
       <div class="modal fixed-header" id="multichainTokenPickerModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainTokenPickerModal"></button>

@@ -18,7 +18,8 @@
 
 import { getSwapStatus, requestSwapQuote } from './intents.js';
 import { parseTokenAmount } from './intents-transfer.js';
-import { chainDisplayName } from './intents-assets.js';
+import { chainDisplayName, formatUnits } from './intents-assets.js';
+import { checkAddress } from './intents-addresses.js';
 import {
   buildFundingTransfer,
   buildQuoteRequest,
@@ -36,6 +37,45 @@ export class IntentsWithdrawError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+/**
+ * 1Click's refusals, in the person's units and words.
+ *
+ * Its minimum arrives as a raw integer -- "Amount is too low for bridge, try
+ * at least 988022" -- in the units of the asset being withdrawn (checked on
+ * dry quotes: 10256106572808952 for USDT on BNB Chain is 0.0103 at its 18
+ * decimals). The figure is live and moves between quotes.
+ *
+ * Shown to four significant digits, rounded up: eighteen decimals of minimum
+ * is not a number anyone types, and rounding up is the one direction that is
+ * safe here -- an amount typed from it clears the minimum, where one rounded
+ * down would be refused again. It also leaves room for the figure to creep up
+ * before the next quote.
+ */
+export function roundUpRaw(raw, significant = 4) {
+  const value = BigInt(raw);
+  const digits = value.toString().length;
+  if (digits <= significant) return value;
+  const step = 10n ** BigInt(digits - significant);
+  return ((value + step - 1n) / step) * step;
+}
+
+export function explainRefusal(error, asset, chain) {
+  if (error?.code !== 'QUOTE_REFUSED') return error;
+  const message = String(error.message || '');
+  const minimum = /try at least (\d+)/i.exec(message)?.[1];
+  if (minimum) {
+    return new IntentsWithdrawError(
+      `The smallest amount you can withdraw to ${chain} right now is ${formatUnits(roundUpRaw(minimum), asset.tokenDecimals)} ${asset.tokenSymbol}.`,
+      'BELOW_MINIMUM',
+      { cause: error, minimumRaw: minimum },
+    );
+  }
+  if (/recipient is not valid/i.test(message)) {
+    return new IntentsWithdrawError(`That address cannot receive on ${chain}.`, 'INVALID_ADDRESS', { cause: error });
+  }
+  return error;
 }
 
 export class IntentsWithdrawService {
@@ -83,6 +123,27 @@ export class IntentsWithdrawService {
   }
 
   /**
+   * Checked before any quote, and again before the one that commits: an
+   * address this can tell is wrong for the chain never reaches 1Click.
+   */
+  checkDestination({ asset, destinationAsset = null, destinationAddress }) {
+    const chain = (destinationAsset || asset).blockchain;
+    const problem = checkAddress(chain, destinationAddress);
+    if (problem === '') {
+      throw new IntentsWithdrawError('Enter an address to withdraw to', 'NO_DESTINATION');
+    }
+    if (problem) throw new IntentsWithdrawError(problem, 'INVALID_ADDRESS');
+  }
+
+  async quote(request, { asset, destinationAsset = null }) {
+    try {
+      return await this.requestQuote(request);
+    } catch (error) {
+      throw explainRefusal(error, asset, chainDisplayName((destinationAsset || asset).blockchain));
+    }
+  }
+
+  /**
    * What this withdrawal would cost, without creating one.
    *
    * Also the validation step: a dry quote is where 1Click rejects a malformed
@@ -92,12 +153,11 @@ export class IntentsWithdrawService {
    */
   async preview({ accountId, asset, destinationAsset = null, destinationAddress, amount }) {
     const rawAmount = parseTokenAmount(amount, asset.tokenDecimals).toString();
-    if (!destinationAddress) {
-      throw new IntentsWithdrawError('Enter an address to withdraw to', 'NO_DESTINATION');
-    }
+    this.checkDestination({ asset, destinationAsset, destinationAddress });
 
-    const response = await this.requestQuote(
+    const response = await this.quote(
       this.quoteFor({ accountId, asset, destinationAsset, destinationAddress, rawAmount, dry: true }),
+      { asset, destinationAsset },
     );
 
     const quote = response?.quote;
@@ -136,9 +196,11 @@ export class IntentsWithdrawService {
         'INSUFFICIENT_BALANCE',
       );
     }
+    this.checkDestination({ asset, destinationAsset, destinationAddress });
 
-    const response = await this.requestQuote(
+    const response = await this.quote(
       this.quoteFor({ accountId, asset, destinationAsset, destinationAddress, rawAmount, dry: false }),
+      { asset, destinationAsset },
     );
 
     const quote = response?.quote;

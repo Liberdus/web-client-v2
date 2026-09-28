@@ -18,7 +18,7 @@
 
 import { fetchRecentDeposits, getSwapStatus } from './intents.js';
 import { intentsDeposits } from './intents-deposits.js';
-import { formatUnits } from './intents-assets.js';
+import { chainDisplayName, formatUnits } from './intents-assets.js';
 import { verifyTransferClaim } from './intents-chat.js';
 
 // A record per order is small, but a long-lived account would otherwise grow
@@ -215,6 +215,29 @@ export class IntentsActivity {
     const next = orders.slice();
     next[index] = { ...orders[index], ...patch };
     this.saveOrders(next);
+  }
+
+  /**
+   * Addresses this account has withdrawn to on `blockchain`, newest first and
+   * each once. Orders recorded before the chain id was kept carry only its
+   * display name, so those are matched on that.
+   */
+  recentDestinations(blockchain, { limit = 3 } = {}) {
+    const chain = String(blockchain || '').toLowerCase();
+    const name = chainDisplayName(chain);
+    const seen = new Set();
+    const recent = [];
+    for (const order of this.getOrders()) {
+      if (order.kind !== 'withdraw' || !order.destinationAddress) continue;
+      const onChain = order.destinationBlockchain
+        ? order.destinationBlockchain === chain
+        : order.destinationChain === name;
+      if (!onChain || seen.has(order.destinationAddress)) continue;
+      seen.add(order.destinationAddress);
+      recent.push({ address: order.destinationAddress, time: order.time });
+      if (recent.length >= limit) break;
+    }
+    return recent;
   }
 
   /** For an order that was never sent after all -- a quote that expired first. */

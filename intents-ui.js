@@ -21,9 +21,8 @@ import { intentsWithdrawals } from './intents-withdraw.js';
 import { intentsSwaps } from './intents-swap.js';
 import { parseTokenAmount } from './intents-transfer.js';
 import { signIntentPayload } from './intents.js';
-import {
-  assetIconMarkup, chainBrandColor, chainLogoUrl, installLogoFallback,
-} from './asset-icons.js';
+import { assetIconMarkup, chainIconMarkup, installLogoFallback } from './asset-icons.js';
+import { checkAddress, tagNeededBy } from './intents-addresses.js';
 import { chainDisplayName, formatUnits } from './intents-assets.js';
 import { intentsActivity, orderStatusFrom } from './intents-activity.js';
 
@@ -33,14 +32,21 @@ import { intentsActivity, orderStatusFrom } from './intents-activity.js';
 // USDT is the one that exists on many chains, so its chip -- like every
 // chip -- carries its network, and its receive screen says the same: USDT on
 // Tron sent to this address is lost.
-const QUICK_RECEIVE = Object.freeze([
+//
+// The same coins head the token picker's Popular section, with a few more:
+// one list, so the two screens cannot disagree about what the big coins are.
+// 1Click publishes prices but no volume, so this is chosen, not computed.
+const POPULAR = Object.freeze([
   'nep141:nbtc.bridge.near', // BTC, shown as Bitcoin; see DEPOSIT_CREDITS
   'nep141:eth.omft.near',
   'nep141:sol.omft.near',
   'nep141:xrp.omft.near',
   'nep245:v2_1.omni.hot.tg:56_11111111111111111111', // BNB on BNB Chain
   'nep141:eth-0xdac17f958d2ee523a2206206994597c13d831ec7.omft.near', // USDT on Ethereum
+  'nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near', // USDC on Ethereum
+  'nep141:zec.omft.near',
 ]);
+const QUICK_RECEIVE = POPULAR.slice(0, 6);
 
 // Where a deposit to an asset's address is actually credited, when that is
 // not the asset itself. Bitcoin sent to the btc:mainnet address lands as nBTC
@@ -325,31 +331,29 @@ export class AmountField {
   }
 }
 
+// Where a screen shows a sum -- send, fee, receive -- four digits is not
+// enough for it to add up; see the withdrawal's confirm screen.
+const CONFIRM_DIGITS = 6;
+
+/**
+ * The fee as the difference between two figures already cut for display, so
+ * the three lines add up exactly. Falls back to the fee itself if either
+ * figure cannot be read.
+ */
+export function feeShown(send, receive, decimals, rawFee) {
+  try {
+    const difference = parseTokenAmount(send, decimals) - parseTokenAmount(receive, decimals);
+    if (difference >= 0n) return formatDisplayAmount(formatUnits(difference, decimals), CONFIRM_DIGITS);
+  } catch {
+    // Not a readable pair; show what 1Click said instead.
+  }
+  return formatRawAmount(rawFee, decimals, CONFIRM_DIGITS);
+}
+
 /** Head and tail are what anyone checks; the middle is what can go. */
 function truncateAddress(address) {
   const text = String(address ?? '');
   return text.length <= 24 ? text : `${text.slice(0, 10)}…${text.slice(-8)}`;
-}
-
-/** An <option> for a network, carrying that chain's own mark. */
-function chainOption({ value, chainName, blockchain }) {
-  const option = document.createElement('option');
-  option.value = value;
-  option.textContent = chainName;
-  option.dataset.iconLabel = chainName.slice(0, 3).toUpperCase();
-  option.dataset.iconColor = chainBrandColor(blockchain);
-  const url = chainLogoUrl(blockchain);
-  if (url) option.dataset.iconUrl = url;
-  return option;
-}
-
-function placeholderOption(label) {
-  const option = document.createElement('option');
-  option.value = '';
-  option.textContent = label;
-  option.disabled = true;
-  option.selected = true;
-  return option;
 }
 
 /** "SOL (Solana)" -- the title says both, so no screen repeats it underneath. */
@@ -1029,124 +1033,345 @@ class MultichainConfirmModal {
   }
 }
 
+// Long enough that a number being typed is not priced at every digit, short
+// enough that the estimate reads as following the typing.
+const ESTIMATE_DELAY_MS = 400;
+
+/**
+ * Withdraw: where to, how much, and what arrives -- live as you type, like
+ * Swap and Send.
+ *
+ * Where is one panel: the network, when the symbol lives on several chains,
+ * and the address on it. None is chosen for you. An address cannot tell EVM
+ * chains apart, so a default would be a guess about where money goes.
+ *
+ * The estimate is a dry quote, which is free, and it waits until the address
+ * fits the chain: a quote for an address that cannot receive is a number
+ * describing nothing.
+ */
 class MultichainWithdrawModal {
   constructor(controller) {
     this.controller = controller;
     this.assetKey = null;
+    this.destinationKey = null;
+    this.estimateTimer = null;
+    // A reply that is not the latest request's is dropped; see the swap.
+    this.estimateSeq = 0;
+    // What Review was pressed on: the amount in tokens (the field may show
+    // dollars), the address, and the chain. The confirm screen spends this,
+    // whatever the form behind it says by then.
+    this.reviewed = null;
   }
 
   load() {
     this.modal = document.getElementById('multichainWithdrawModal');
     this.title = document.getElementById('multichainWithdrawTitle');
-    this.networkField = document.getElementById('multichainWithdrawNetworkField');
-    this.networkSelect = document.getElementById('multichainWithdrawNetwork');
+    this.networks = document.getElementById('multichainWithdrawNetworks');
     this.to = document.getElementById('multichainWithdrawTo');
-    this.amount = document.getElementById('multichainWithdrawAmount');
-    this.max = document.getElementById('multichainWithdrawMax');
-    this.available = document.getElementById('multichainWithdrawAvailable');
+    this.toNote = document.getElementById('multichainWithdrawToNote');
+    this.recent = document.getElementById('multichainWithdrawRecent');
+    this.token = document.getElementById('multichainWithdrawToken');
+    this.amountField = new AmountField({
+      input: document.getElementById('multichainWithdrawAmount'),
+      currency: document.getElementById('multichainWithdrawCurrency'),
+      flip: document.getElementById('multichainWithdrawFlip'),
+      balance: document.getElementById('multichainWithdrawAvailable'),
+      max: document.getElementById('multichainWithdrawMax'),
+      getAsset: () => this.asset(),
+      onChange: () => this.scheduleEstimate(),
+    });
+    this.out = document.getElementById('multichainWithdrawOut');
+    this.outToken = document.getElementById('multichainWithdrawOutToken');
+    this.outUsd = document.getElementById('multichainWithdrawOutUsd');
+    this.outChain = document.getElementById('multichainWithdrawOutChain');
+    this.fee = document.getElementById('multichainWithdrawFee');
     this.previewButton = document.getElementById('multichainWithdrawPreview');
     this.status = document.getElementById('multichainWithdrawStatus');
 
     document.getElementById('closeMultichainWithdrawModal')
       .addEventListener('click', () => this.close());
     this.previewButton.addEventListener('click', () => this.preview());
-    this.max.addEventListener('click', () => {
-      const asset = intentsAssets.getAsset(this.assetKey);
-      if (asset) this.amount.value = asset.tokenAmount;
+    this.networks.addEventListener('click', (event) => {
+      const chip = event.target.closest('[data-asset-key]');
+      if (chip) this.chooseDestination(chip.dataset.assetKey);
     });
+    // One line of text: Enter is not part of an address.
+    this.to.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') event.preventDefault();
+    });
+    this.to.addEventListener('input', () => {
+      this.fitAddress();
+      // A paste arrives whole, so it is judged at once; typing is judged
+      // when the field is left, rather than calling every prefix wrong.
+      const length = this.to.value.length;
+      if (Math.abs(length - this.lastAddressLength) > 1) this.addressJudged = true;
+      this.lastAddressLength = length;
+      this.scheduleEstimate();
+    });
+    this.recent.addEventListener('click', (event) => {
+      const row = event.target.closest('[data-address]');
+      if (!row) return;
+      this.to.value = row.dataset.address;
+      this.fitAddress();
+      this.lastAddressLength = this.to.value.length;
+      this.addressJudged = true;
+      this.scheduleEstimate();
+      // The address is settled; the amount is next.
+      this.amountField.input.focus({ preventScroll: true });
+    });
+    this.to.addEventListener('blur', () => {
+      if (!this.to.value.trim()) return;
+      this.addressJudged = true;
+      this.renderAddressNote();
+    });
+  }
+
+  asset() { return intentsAssets.getAsset(this.assetKey); }
+
+  /** As tall as the address it holds. */
+  fitAddress() {
+    this.to.style.height = 'auto';
+    if (this.to.value) this.to.style.height = `${this.to.scrollHeight}px`;
   }
 
   /** Where this symbol can land. One chain means no question to ask. */
   destinations() {
-    const asset = intentsAssets.getAsset(this.assetKey);
+    const asset = this.asset();
     if (!asset) return [];
     return intentsAssets.listCatalogAssets()
       .filter((candidate) => candidate.tokenSymbol === asset.tokenSymbol);
   }
 
-  selectedDestination() {
-    return this.destinations().find((asset) => asset.key === this.networkSelect.value) || null;
+  choosing() { return this.destinations().length > 1; }
+
+  /** The asset paid out, or null for "the one held" -- which the service reads the same way. */
+  destinationAsset() {
+    return this.destinations().find((asset) => asset.key === this.destinationKey) || null;
+  }
+
+  /** The chain the payout lands on; null while there is a choice not yet made. */
+  destinationChain() {
+    if (this.choosing() && !this.destinationAsset()) return null;
+    return (this.destinationAsset() || this.asset())?.blockchain || null;
   }
 
   open(assetKey) {
     const asset = intentsAssets.getAsset(assetKey);
     if (!asset) return;
     this.assetKey = assetKey;
+    this.destinationKey = null;
     this.title.textContent = `Withdraw ${asset.tokenSymbol}`;
+    this.token.innerHTML = `${assetMark(asset, 24)}<span>${escapeHtml(asset.tokenSymbol)}</span>`;
     this.clearForm();
-    this.status.hidden = true;
-
-    // Only ask when there is a choice: a single-chain asset has one answer,
-    // and the field stays hidden rather than posing a question with one option.
-    const destinations = this.destinations();
-    const several = destinations.length > 1;
-    this.networkField.hidden = !several;
-    this.networkSelect.replaceChildren();
-    if (several) this.networkSelect.append(placeholderOption('Choose a network'));
-    for (const candidate of destinations) {
-      this.networkSelect.append(chainOption({
-        value: candidate.key,
-        // The chain the payout lands on, never a display name borrowed from
-        // elsewhere: nBTC is "Bitcoin" in lists, but as a destination it
-        // pays out on NEAR, and this list is where that difference matters.
-        chainName: chainDisplayName(candidate.blockchain),
-        blockchain: candidate.blockchain,
-      }));
-    }
-    if (!several) this.networkSelect.value = assetKey;
-    this.controller.syncSelect(this.networkSelect);
+    this.renderNetworks();
     openModal(this.modal);
-    // A modal is still off-screen when this runs; focusing without
-    // preventScroll parks it there (DESIGN.md §6).
-    setTimeout(() => this.to.focus({ preventScroll: true }), 350);
+    // With a network to choose, that comes first; otherwise the address. A
+    // modal is still off-screen when this runs (DESIGN.md §6).
+    if (!this.choosing()) setTimeout(() => this.to.focus({ preventScroll: true }), 350);
   }
 
-  async preview() {
-    const asset = intentsAssets.getAsset(this.assetKey);
-    const accountId = intentsAssets.getAccountId();
-    if (!asset || !accountId) return;
+  chooseDestination(key) {
+    this.destinationKey = key;
+    this.renderNetworks();
+    this.scheduleEstimate();
+    this.to.focus({ preventScroll: true });
+  }
 
-    const destinationAsset = this.selectedDestination();
-    this.status.hidden = true;
+  renderNetworks() {
+    const choosing = this.choosing();
+    this.networks.hidden = !choosing;
+    this.networks.innerHTML = choosing ? this.destinations().map((candidate) => {
+      // The chain the payout lands on, never a display name borrowed from
+      // elsewhere: nBTC is "Bitcoin" in lists, but as a destination it pays
+      // out on NEAR, and this is where that difference matters.
+      const name = chainDisplayName(candidate.blockchain);
+      const chosen = candidate.key === this.destinationKey;
+      return `<button type="button" class="multichain-network-chip" role="radio"
+        aria-checked="${chosen}" data-asset-key="${escapeHtml(candidate.key)}">
+        ${chainIconMarkup(candidate.blockchain, { name, size: 20, escape: escapeHtml })}
+        <span>${escapeHtml(name)}</span>
+      </button>`;
+    }).join('') : '';
+
+    const chain = this.destinationChain();
+    // Disabled rather than hidden: it is the next thing, once a network is picked.
+    this.to.disabled = !chain;
+    this.to.placeholder = chain ? `${chainDisplayName(chain)} address` : 'Choose a network first';
+    const out = this.destinationAsset() || this.asset();
+    this.outToken.innerHTML = out ? `${assetMark(out, 24)}<span>${escapeHtml(out.tokenSymbol)}</span>` : '';
+    this.outChain.textContent = chain ? `on ${chainDisplayName(chain)}` : '';
+    this.renderAddressNote();
+    this.renderRecent();
+  }
+
+  /**
+   * Where this account has withdrawn to on the chosen chain, while the field
+   * is empty. An address that no longer passes the check is left out rather
+   * than offered.
+   */
+  renderRecent() {
+    const chain = this.destinationChain();
+    const recent = chain && !this.to.value.trim()
+      ? intentsActivity.recentDestinations(chain).filter(({ address }) => checkAddress(chain, address) === null)
+      : [];
+    this.recent.innerHTML = recent.length ? `
+      <div class="multichain-recent-title">Recent</div>
+      ${recent.map(({ address, time }) => `
+        <button type="button" class="multichain-recent-row" data-address="${escapeHtml(address)}"
+          aria-label="Use ${escapeHtml(address)}">
+          <span class="multichain-recent-address">${escapeHtml(truncateAddress(address))}</span>
+          <span class="multichain-recent-time">${escapeHtml(activityTime(time))}</span>
+        </button>`).join('')}` : '';
+  }
+
+  /** '' while there is nothing to judge, a sentence when it cannot receive, null when it can. */
+  addressProblem() {
+    const chain = this.destinationChain();
+    return chain ? checkAddress(chain, this.to.value) : '';
+  }
+
+  /**
+   * One line under the address: what is wrong with it, or, on chains where
+   * exchanges expect a tag this cannot send, the warning about that.
+   */
+  renderAddressNote(message = null) {
+    const problem = message ?? (this.addressJudged ? this.addressProblem() : null);
+    const tag = tagNeededBy(this.destinationChain());
+    if (problem) {
+      this.toNote.textContent = problem;
+      this.toNote.dataset.kind = 'error';
+    } else if (tag) {
+      this.toNote.textContent = `Exchanges often need a ${tag} for ${chainDisplayName(this.destinationChain())}, `
+        + 'and a withdrawal cannot include one. Send to a wallet you control.';
+      this.toNote.dataset.kind = 'warning';
+    } else {
+      this.toNote.textContent = '';
+      delete this.toNote.dataset.kind;
+    }
+  }
+
+  /** Back to "nothing estimated": the figures on screen must never describe
+   *  a different withdrawal from the one in the fields. */
+  resetEstimate() {
+    clearTimeout(this.estimateTimer);
+    this.estimateSeq += 1;
+    this.out.textContent = '0';
+    this.out.classList.add('is-empty');
+    this.outUsd.textContent = '';
+    this.fee.textContent = '';
     this.previewButton.disabled = true;
-    this.setStatus('Pricing…');
+    this.status.hidden = true;
+  }
+
+  scheduleEstimate() {
+    this.resetEstimate();
+    this.renderAddressNote();
+    this.renderRecent();
+    const amountProblem = this.amountField.problem();
+    if (amountProblem) this.setStatus(amountProblem, 'error');
+    // '' is "nothing to price yet"; a message is a reason not to; null is go.
+    if (amountProblem !== null || this.addressProblem() !== null) return;
+
+    this.out.textContent = '…';
+    const seq = this.estimateSeq;
+    this.estimateTimer = setTimeout(() => this.estimate(seq), ESTIMATE_DELAY_MS);
+  }
+
+  request() {
+    return {
+      accountId: intentsAssets.getAccountId(),
+      asset: this.asset(),
+      destinationAsset: this.destinationAsset(),
+      destinationAddress: this.to.value.trim(),
+      amount: this.amountField.tokenAmount(),
+    };
+  }
+
+  async estimate(seq) {
+    const request = this.request();
+    if (!request.asset || !request.accountId) return;
+    try {
+      const quote = await intentsWithdrawals.preview(request);
+      if (seq !== this.estimateSeq) return;
+      this.showEstimate(quote);
+      this.previewButton.disabled = false;
+    } catch (error) {
+      if (seq !== this.estimateSeq) return;
+      this.out.textContent = '—';
+      this.showRefusal(error);
+    }
+  }
+
+  showEstimate(quote) {
+    const asset = this.asset();
+    this.out.classList.remove('is-empty');
+    this.out.textContent = formatDisplayAmount(quote.amountOut);
+    this.outUsd.textContent = quote.amountOutUsd ? formatUsd(quote.amountOutUsd) : '';
+    this.fee.textContent = quote.withdrawFee && quote.withdrawFee !== '0'
+      ? `Network fee ${formatRawAmount(quote.withdrawFee, asset.tokenDecimals)} ${asset.tokenSymbol}, taken from the amount`
+      : '';
+  }
+
+  /** An address refused by 1Click belongs under the address, not under the button. */
+  showRefusal(error) {
+    if (error?.code === 'INVALID_ADDRESS') this.renderAddressNote(error.message);
+    else this.setStatus(error?.message || 'Could not price that withdrawal.', 'error');
+  }
+
+  /** A fresh quote for the confirmation, rather than the estimate on screen,
+   *  which may be minutes old by the time Review is pressed. */
+  async preview() {
+    const request = this.request();
+    if (!request.asset || !request.accountId) return;
+    this.previewButton.disabled = true;
+    this.status.hidden = true;
+    this.reviewed = request;
 
     try {
-      const quote = await intentsWithdrawals.preview({
-        accountId, asset, destinationAsset,
-        destinationAddress: this.to.value.trim(),
-        amount: this.amount.value.trim(),
-      });
-      this.status.hidden = true;
-      this.openConfirm(asset, destinationAsset, quote);
+      const quote = await intentsWithdrawals.preview(request);
+      this.openConfirm(request.asset, request.destinationAsset, quote);
     } catch (error) {
-      this.setStatus(error.message || 'Could not price that withdrawal.', 'error');
+      this.showRefusal(error);
     } finally {
       this.previewButton.disabled = false;
     }
   }
 
+  /**
+   * The three figures are a sum -- you send, less the fee, is what arrives --
+   * so they are shown as one: six significant digits, enough that the sum
+   * reads, and the fee as the difference of the two figures shown. At four
+   * digits a real 0.2 USDT withdrawal read 0.2, 0.01, 0.1899.
+   *
+   * 1Click takes the fee out of the amount, so that difference is the fee;
+   * where cutting makes it differ, it is higher by one in the last digit,
+   * which is the side a cost should err on. The payout estimate says a few
+   * minutes, not 1Click's seconds: real payouts have taken minutes against a
+   * quoted 13s.
+   */
   openConfirm(asset, destinationAsset, quote) {
     const chain = chainDisplayName((destinationAsset || asset).blockchain);
     const symbol = asset.tokenSymbol;
+    const send = formatDisplayAmount(quote.amountIn, CONFIRM_DIGITS);
+    const receive = formatDisplayAmount(quote.amountOut, CONFIRM_DIGITS);
 
     this.controller.confirmModal.open({
       title: 'Confirm withdrawal',
       hero: `${assetMark(asset, 56)}
-        <div class="multichain-confirm-amount">${escapeHtml(formatDisplayAmount(quote.amountOut))} ${escapeHtml(symbol)}</div>
+        <div class="multichain-confirm-amount">${escapeHtml(receive)} ${escapeHtml(symbol)}</div>
         <div class="multichain-confirm-sub">estimated, arriving on ${escapeHtml(chain)}</div>`,
       rows: [
-        ['You send', `${formatDisplayAmount(quote.amountIn)} ${symbol}`],
-        ['Network fee', `${formatRawAmount(quote.withdrawFee, asset.tokenDecimals)} ${symbol}`],
-        ['You receive', `${formatDisplayAmount(quote.amountOut)} ${symbol}`],
+        ['You send', `${send} ${symbol}`],
+        ['Network fee', `${feeShown(send, receive, asset.tokenDecimals, quote.withdrawFee)} ${symbol}`],
+        ['You receive', `${receive} ${symbol}`],
         ['To', truncateAddress(quote.destinationAddress)],
-        ['Arrives in about', `${quote.timeEstimateSeconds}s`],
+        ['Arrives in', 'A few minutes'],
       ],
       // The figures are directly above; repeating one in the button only makes
       // the label wrap.
       actionLabel: `Withdraw ${symbol}`,
       note: 'This cannot be undone.',
-      run: (sheet) => this.run(sheet, destinationAsset),
+      run: (sheet) => this.run(sheet),
     });
   }
 
@@ -1157,24 +1382,28 @@ class MultichainWithdrawModal {
   }
 
   renderAvailable() {
-    const asset = intentsAssets.getAsset(this.assetKey);
-    this.available.textContent = asset
-      ? `Available ${formatDisplayAmount(asset.tokenAmount, 6)} ${asset.tokenSymbol}`
-      : '';
+    this.amountField.render();
   }
 
   /** Emptied once an order is out, so Back cannot preview the same one again. */
   clearForm() {
+    this.reviewed = null;
     this.to.value = '';
-    this.amount.value = '';
-    this.renderAvailable();
+    this.fitAddress();
+    this.lastAddressLength = 0;
+    this.addressJudged = false;
+    this.amountField.reset();
+    this.resetEstimate();
+    this.renderAddressNote();
+    this.renderRecent();
   }
 
-  async run(sheet, destinationAsset) {
-    const asset = intentsAssets.getAsset(this.assetKey);
+  async run(sheet) {
+    const reviewed = this.reviewed;
+    const asset = this.asset();
     const accountId = intentsAssets.getAccountId();
     const secretKey = this.controller.getSecretKey();
-    if (!asset) {
+    if (!asset || !reviewed) {
       sheet.finish('That balance is no longer available.', 'error');
       return;
     }
@@ -1182,6 +1411,7 @@ class MultichainWithdrawModal {
       sheet.finish('Your account is not available. Sign in again to continue.', 'error');
       return;
     }
+    const { destinationAsset } = reviewed;
 
     let prepared;
     let signed;
@@ -1189,8 +1419,8 @@ class MultichainWithdrawModal {
       sheet.setStatus('Getting a live quote…');
       prepared = await intentsWithdrawals.prepare({
         accountId, asset, destinationAsset,
-        destinationAddress: this.to.value.trim(),
-        amount: this.amount.value.trim(),
+        destinationAddress: reviewed.destinationAddress,
+        amount: reviewed.amount,
       });
 
       // Rehearse before spending the relay's gas, and publish the signature
@@ -1220,6 +1450,9 @@ class MultichainWithdrawModal {
       symbol: asset.tokenSymbol,
       amount: prepared.amount,
       destinationChain: chainDisplayName((destinationAsset || asset).blockchain),
+      // The chain's id as well as its name, so a later withdrawal can offer
+      // this address again on the same chain (recentDestinations).
+      destinationBlockchain: (destinationAsset || asset).blockchain,
       destinationAddress: prepared.destinationAddress,
       depositAddress: prepared.depositAddress,
       depositMemo: prepared.depositMemo,
@@ -1278,6 +1511,7 @@ class MultichainWithdrawModal {
   }
 
   close() {
+    this.resetEstimate();
     this.modal.classList.remove('active');
   }
 
@@ -1287,7 +1521,7 @@ class MultichainWithdrawModal {
 }
 
 /**
- * Choosing a token: search, what you hold, then everything else.
+ * Choosing a token: search, what you hold, the popular coins, then everything else.
  *
  * The catalog is hundreds of assets, and the same symbol sits on several
  * chains. A row per asset with the chain as its second line settles which
@@ -1349,9 +1583,16 @@ class MultichainTokenPicker {
     const rest = all.filter((asset) => asset.rawAmount === '0');
 
     if (!query) {
+      // Popular leaves out what is already under Your tokens, so no coin
+      // appears twice on one screen.
+      const popular = POPULAR
+        .map((assetId) => rest.find((asset) => asset.assetId === assetId))
+        .filter(Boolean);
+      const others = rest.filter((asset) => !popular.includes(asset));
       this.results.innerHTML = [
         held.length ? this.section('Your tokens', held) : '',
-        this.section(held.length ? 'All tokens' : '', rest),
+        this.section('Popular', popular),
+        this.section(held.length || popular.length ? 'All tokens' : '', others),
       ].join('');
       return;
     }
@@ -1414,10 +1655,6 @@ class MultichainTokenPicker {
     return this.modal.classList.contains('active');
   }
 }
-
-// Long enough that a number being typed is not priced at every digit, short
-// enough that the estimate reads as following the typing.
-const ESTIMATE_DELAY_MS = 400;
 
 /**
  * Swap: what you pay and what you get, with the estimate live as you type.
@@ -1744,7 +1981,6 @@ class MultichainController {
   constructor() {
     this.loaded = false;
     this.getAccount = () => null;
-    this.syncSelect = () => {};
     // Sending to a contact lives with the chat payment code, which registers
     // itself here rather than being imported: it already imports this module.
     this.onSend = () => {};
@@ -1783,7 +2019,7 @@ class MultichainController {
     return this.getAccount()?.keys?.secret || null;
   }
 
-  configure({ getAccount, syncSelect, onSend, getSettings, saveSettings } = {}) {
+  configure({ getAccount, onSend, getSettings, saveSettings } = {}) {
     if (typeof onSend === 'function') this.onSend = onSend;
     if (typeof getSettings === 'function') this.getSettings = getSettings;
     if (typeof saveSettings === 'function') {
@@ -1797,7 +2033,6 @@ class MultichainController {
       this.getAccount = getAccount;
       intentsAssets.configure({ getAccount });
     }
-    if (typeof syncSelect === 'function') this.syncSelect = syncSelect;
   }
 
   load() {

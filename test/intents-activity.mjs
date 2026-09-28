@@ -183,5 +183,27 @@ ck('  checked as from the contact, to this account',
   [askedWith?.options.expectedFrom, askedWith?.options.expectedTo], ['0xpeer', '0xme']);
 ck('  against the whole claim, not just its hash', askedWith?.claim, { intentHash: 'h11' });
 
+section('addresses withdrawn to before');
+{
+  const recentActivity = new IntentsActivity();
+  recentActivity.configure({
+    getOrders: () => [
+      // Newest first, as recordOrder keeps them.
+      { kind: 'withdraw', destinationBlockchain: 'bsc', destinationChain: 'BNB Chain', destinationAddress: '0xaaa', time: 5 },
+      { kind: 'swap', destinationAddress: '0xswap', time: 4 },
+      { kind: 'withdraw', destinationBlockchain: 'eth', destinationChain: 'Ethereum', destinationAddress: '0xeth', time: 3 },
+      { kind: 'withdraw', destinationBlockchain: 'bsc', destinationChain: 'BNB Chain', destinationAddress: '0xaaa', time: 2 },
+      // Recorded before the chain id was kept: matched on its name.
+      { kind: 'withdraw', destinationChain: 'BNB Chain', destinationAddress: '0xold', time: 1 },
+      { kind: 'withdraw', destinationChain: 'BNB Chain', destinationAddress: '0xolder', time: 0 },
+    ],
+  });
+  ck('newest first, each once, only that chain', recentActivity.recentDestinations('bsc'),
+    [{ address: '0xaaa', time: 5 }, { address: '0xold', time: 1 }, { address: '0xolder', time: 0 }]);
+  ck('  at most the limit', recentActivity.recentDestinations('bsc', { limit: 1 }).length, 1);
+  ck('  never a swap', recentActivity.recentDestinations('eth'), [{ address: '0xeth', time: 3 }]);
+  ck('  nothing for a chain never used', recentActivity.recentDestinations('sol'), []);
+}
+
 console.log(`\n${fail ? 'FAIL' : 'PASS'}  ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
