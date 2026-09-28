@@ -1974,6 +1974,7 @@ class EvmAssetsController {
     this.loaded = false;
     this.sending = false;
     this.prepareChatPayment = null;
+    this.sendChatPayment = null;
     this.getPayments = () => [];
     this.savePayment = () => { throw new Error('Payment storage is unavailable'); };
     this.saveSubmission = () => { throw new Error('Payment storage is unavailable'); };
@@ -2004,6 +2005,7 @@ class EvmAssetsController {
     getLiberdusAsset,
     findContact,
     prepareChatPayment,
+    sendChatPayment,
     getPayments,
     savePayment,
     saveSubmission,
@@ -2020,6 +2022,7 @@ class EvmAssetsController {
     if (typeof getPayments === 'function') this.getPayments = getPayments;
     if (typeof savePayment === 'function') this.savePayment = savePayment;
     if (typeof saveSubmission === 'function') this.saveSubmission = saveSubmission;
+    if (typeof sendChatPayment === 'function') this.sendChatPayment = sendChatPayment;
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openSend === 'function') this.openSend = openSend;
     if (typeof openReceive === 'function') this.openReceive = openReceive;
@@ -2183,6 +2186,13 @@ class EvmAssetsController {
         recipient: resolution.address,
         recipientLabel: resolution.username || resolution.display,
       });
+      if (chat && ['confirmed', 'pending'].includes(result.status)) {
+        try {
+          await this.sendChatPayment(result.record, account);
+        } catch (error) {
+          this.showToast(`Asset transfer submitted; chat message needs retry: ${error.message}`, 0, 'warning');
+        }
+      }
       if (['pending', 'confirmed', 'reverted'].includes(result.status) && this.getAccount() === account) {
         await form.close();
       }
