@@ -33293,9 +33293,6 @@ multichain.configure({
     saveState();
   },
   getAccount: () => myAccount,
-  // A select populated in code never fires `change`, so the popup that stands
-  // in for it has to be told -- otherwise its trigger renders blank.
-  syncSelect: (select) => PopupSelect.sync(select),
 });
 
 chatPaymentPanel.configure({

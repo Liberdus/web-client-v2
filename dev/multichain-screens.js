@@ -90,6 +90,15 @@ const WITHDRAW_QUOTE = Object.freeze({
   destinationAddress: '0xC5CD2Abfe6b3b0Df1b8e2E1D0c7f2b9f1a2Cf5d2',
 });
 
+const SOL_WITHDRAW_QUOTE = Object.freeze({
+  amountIn: '0.005',
+  amountOut: '0.004911741',
+  amountOutUsd: '0.5806',
+  withdrawFee: '88259',
+  timeEstimateSeconds: 7,
+  destinationAddress: '9NVKzbnbTJ2wx8C26DoRvZMssqpgtd4EExMGEAGuv2uj',
+});
+
 const SWAP_QUOTE = Object.freeze({
   amountIn: '0.005',
   amountOut: '0.589412',
@@ -201,10 +210,66 @@ const STAGES = [
 
   ['receive-memo', 'Receive — a memo chain', ({ multichain }) => multichain.receiveModal.open(key(XLM))],
 
-  ['withdraw', 'Withdraw', ({ multichain }) => {
+  // One chain for this symbol: no network question, straight to the address.
+  ['withdraw', 'Withdraw — just opened', ({ multichain }) => multichain.withdrawModal.open(key(SOL))],
+
+  // The fixture's refunded withdrawal went to this Solana address before, and
+  // one to BNB Chain must not be offered here.
+  ['withdraw-recent', 'Withdraw — addresses used before', ({ multichain, intentsActivity }) => {
+    intentsActivity.recordOrder({
+      kind: 'withdraw', assetId: SOL.assetId, amount: '0.001', destinationChain: 'Solana',
+      destinationBlockchain: 'sol', destinationAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    });
+    intentsActivity.recordOrder({
+      kind: 'withdraw', assetId: USDC.assetId, amount: '1', destinationChain: 'BNB Chain',
+      destinationBlockchain: 'bsc', destinationAddress: '0xEc33aDc8A175DCc44f809909B9aae9F4F5760818',
+    });
     multichain.withdrawModal.open(key(SOL));
-    document.getElementById('multichainWithdrawTo').value = '9NVKzbnbTJ2wx8C26DoRvZMssqpgtd4EExMGEAGuv2uj';
-    document.getElementById('multichainWithdrawAmount').value = '0.005';
+  }],
+
+  ['withdraw-estimate', 'Withdraw — estimate showing', async ({ multichain, services }) => {
+    services.intentsWithdrawals.preview = async () => SOL_WITHDRAW_QUOTE;
+    multichain.withdrawModal.open(key(SOL));
+    type(document.getElementById('multichainWithdrawTo'), SOL_WITHDRAW_QUOTE.destinationAddress);
+    type(document.getElementById('multichainWithdrawAmount'), '0.005');
+    await new Promise((resolve) => setTimeout(resolve, 600));
+  }],
+
+  ['withdraw-usd', 'Withdraw — typing in dollars', async ({ multichain, services }) => {
+    services.intentsWithdrawals.preview = async () => SOL_WITHDRAW_QUOTE;
+    multichain.withdrawModal.open(key(SOL));
+    type(document.getElementById('multichainWithdrawTo'), SOL_WITHDRAW_QUOTE.destinationAddress);
+    document.getElementById('multichainWithdrawFlip').click();
+    type(document.getElementById('multichainWithdrawAmount'), '0.50');
+    await new Promise((resolve) => setTimeout(resolve, 600));
+  }],
+
+  // USDC lives on Base and Solana here: the chain is asked, none preselected.
+  ['withdraw-networks', 'Withdraw — choosing a network', ({ multichain }) =>
+    multichain.withdrawModal.open(key(USDC))],
+
+  ['withdraw-bad-address', 'Withdraw — an address for another chain', async ({ multichain }) => {
+    multichain.withdrawModal.open(key(USDC));
+    document.querySelector(`#multichainWithdrawNetworks [data-asset-key="${key(USDC)}"]`).click();
+    type(document.getElementById('multichainWithdrawTo'), '9NVKzbnbTJ2wx8C26DoRvZMssqpgtd4EExMGEAGuv2uj');
+  }],
+
+  ['withdraw-minimum', 'Withdraw — under the minimum', async ({ multichain, services }) => {
+    services.intentsWithdrawals.preview = async () => {
+      throw Object.assign(new Error('The smallest amount you can withdraw to Solana right now is 0.0009881 SOL.'),
+        { code: 'BELOW_MINIMUM' });
+    };
+    multichain.withdrawModal.open(key(SOL));
+    type(document.getElementById('multichainWithdrawTo'), SOL_WITHDRAW_QUOTE.destinationAddress);
+    type(document.getElementById('multichainWithdrawAmount'), '0.0001');
+    await new Promise((resolve) => setTimeout(resolve, 600));
+  }],
+
+  // Exchanges on XRP expect a destination tag this cannot send.
+  ['withdraw-tag-chain', 'Withdraw — a chain exchanges tag', ({ multichain, intentsAssets }) => {
+    intentsAssets.balances = { ...BALANCES, [XRP.assetId]: '12000000' };
+    intentsAssets.rebuildNetwork();
+    multichain.withdrawModal.open(key(XRP));
   }],
 
   ['swap', 'Swap — just opened', ({ multichain }) => multichain.swapModal.open(key(SOL))],
@@ -261,6 +326,20 @@ const STAGES = [
   ['confirm-withdraw', 'Confirm withdrawal', ({ multichain, intentsAssets }) => {
     multichain.withdrawModal.assetKey = key(ETH);
     multichain.withdrawModal.openConfirm(intentsAssets.getAsset(key(ETH)), null, WITHDRAW_QUOTE);
+  }],
+
+  // A real 1Click quote for 0.2 USDT on BNB Chain (18 decimals): at four
+  // digits this read 0.2 - 0.01 = 0.1899.
+  ['confirm-withdraw-sum', 'Confirm withdrawal — the figures add up', async ({ multichain }) => {
+    const { normalizeIntentsToken } = await import('../intents-assets.js');
+    const usdt = normalizeIntentsToken({
+      assetId: 'nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g', decimals: 18, blockchain: 'bsc',
+      symbol: 'USDT', price: 1, contractAddress: '0x55d398326f99059fF775485246999027B3197955',
+    }, '250059000000000000');
+    multichain.withdrawModal.openConfirm(usdt, null, {
+      amountIn: '0.2', amountOut: '0.189953989953989953', withdrawFee: '10046010046010047',
+      timeEstimateSeconds: 13, destinationAddress: '0xEc33aDc8A175DCc44f809909B9aae9F4F5760818',
+    });
   }],
 
   ['confirm-swap', 'Confirm swap', ({ multichain, intentsAssets }) => {
@@ -369,8 +448,11 @@ async function pressConfirm({ multichain, intentsAssets, services }, kind, resul
   if (kind === 'withdraw') {
     const form = multichain.withdrawModal;
     form.assetKey = key(ETH);
-    form.to.value = WITHDRAW_QUOTE.destinationAddress;
-    form.amount.value = WITHDRAW_QUOTE.amountIn;
+    // What Review would have captured.
+    form.reviewed = {
+      accountId: ACCOUNT, asset: intentsAssets.getAsset(key(ETH)), destinationAsset: null,
+      destinationAddress: WITHDRAW_QUOTE.destinationAddress, amount: WITHDRAW_QUOTE.amountIn,
+    };
     form.openConfirm(intentsAssets.getAsset(key(ETH)), null, WITHDRAW_QUOTE);
   } else {
     const form = multichain.swapModal;

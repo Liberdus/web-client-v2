@@ -148,11 +148,30 @@ export function chainBrandColor(blockchain) {
 }
 
 /**
- * Take a logo that failed to load off the page, leaving the drawn disc.
+ * A network's mark as markup, for choosing between chains: the chain's logo
+ * over a disc lettered with the start of its name, as assetIconMarkup does
+ * for an asset.
+ */
+export function chainIconMarkup(blockchain, { name = '', size = 20, escape = (v) => v } = {}) {
+  const label = String(name || blockchain || '').slice(0, 3).toUpperCase();
+  const url = chainLogoUrl(blockchain);
+  const image = url
+    ? `<img class="asset-mark-image" src="${escape(url)}" alt="" loading="lazy" decoding="async">`
+    : '';
+  return `<span class="asset-mark" aria-hidden="true" style="--mark-bg:${chainBrandColor(blockchain)};--mark-size:${size}px"`
+    + ` data-len="${label.length}"><span class="asset-mark-label">${escape(label)}</span>${image}</span>`;
+}
+
+/**
+ * Take a logo that failed to load off the page, leaving the drawn disc; and
+ * mark one that loaded, so the disc and letters beneath it stop showing.
  *
  * With alt="" Chrome draws nothing for a broken image, but Safari and some
  * WebViews draw a thin grey frame -- a dark ring bleeding round the disc.
- * Error events do not bubble, so this listens in the capture phase, once.
+ * A logo that loaded is the whole mark: most cover the disc anyway, but
+ * Base's is a small square in transparent padding, and it sat on a purple
+ * disc with "BAS" showing round it. Neither event bubbles, so both are heard
+ * in the capture phase, once.
  */
 let logoFallbackInstalled = false;
 export function installLogoFallback(root = globalThis.document) {
@@ -161,6 +180,10 @@ export function installLogoFallback(root = globalThis.document) {
   root.addEventListener('error', (event) => {
     const image = event.target;
     if (image?.matches?.('.asset-mark-image, .popup-select__option-icon img')) image.remove();
+  }, true);
+  root.addEventListener('load', (event) => {
+    const image = event.target;
+    if (image?.matches?.('.asset-mark-image')) image.parentElement?.classList.add('has-logo');
   }, true);
 }
 

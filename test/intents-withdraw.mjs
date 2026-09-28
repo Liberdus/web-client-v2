@@ -7,7 +7,7 @@
  *
  *   node test/intents-withdraw.mjs
  */
-import { IntentsWithdrawService } from '../intents-withdraw.js';
+import { IntentsWithdrawService, roundUpRaw } from '../intents-withdraw.js';
 import { normalizeIntentsToken } from '../intents-assets.js';
 
 let pass = 0, fail = 0;
@@ -163,6 +163,60 @@ section('an expired deposit address');
     depositDeadline: new Date(Date.now() + 5_000).toISOString(),
   });
   ck('nor is one about to expire', await failsWith(() => service.execute(closing, 'ab'.repeat(32))), 'QUOTE_EXPIRED');
+}
+
+section('an address wrong for the chain');
+{
+  lastQuoteRequest = null;
+  const refused = await failsWith(() => service.preview({
+    accountId: ACCOUNT, asset, destinationAddress: '0x0551f7c9a91ee579c9e40444ffc490001c323108', amount: '0.01',
+  }));
+  ck('an EVM address for Solana is refused', refused, 'INVALID_ADDRESS');
+  ck('  before anything is asked of 1Click', lastQuoteRequest, null);
+  ck('and again before the quote that commits', await failsWith(() => service.prepare({
+    accountId: ACCOUNT, asset, destinationAddress: '0x0551f7c9a91ee579c9e40444ffc490001c323108', amount: '0.01',
+  })), 'INVALID_ADDRESS');
+}
+
+section("1Click's refusals, in the person's units");
+{
+  const refusing = (message) => new IntentsWithdrawService({
+    requestQuote: async () => { throw Object.assign(new Error(message), { code: 'QUOTE_REFUSED' }); },
+  });
+  const minimum = await refusing('Amount is too low for bridge, try at least 988022')
+    .preview({ accountId: ACCOUNT, asset, destinationAddress: SOL_ADDRESS, amount: '0.0001' })
+    .catch((error) => error);
+  // Rounded up, never down: an amount typed from it must clear the minimum.
+  ck('a minimum is stated in SOL, rounded up', minimum.message,
+    'The smallest amount you can withdraw to Solana right now is 0.0009881 SOL.');
+  ck('  with its own code', minimum.code, 'BELOW_MINIMUM');
+  ck('  and the raw figure kept', minimum.details.minimumRaw, '988022');
+
+  const usdtBsc = normalizeIntentsToken(
+    { assetId: 'nep245:v2_1.omni.hot.tg:56_2CMMyVTGZkeyNZTSvS5sarzfir6g', decimals: 18, blockchain: 'bsc', symbol: 'USDT', price: 1 },
+    '1000000000000000000',
+  );
+  const long = await refusing('Amount is too low for bridge, try at least 10256106572808952')
+    .preview({ accountId: ACCOUNT, asset: usdtBsc, destinationAddress: '0x0551f7c9a91ee579c9e40444ffc490001c323108', amount: '0.001' })
+    .catch((error) => error);
+  ck('eighteen decimals of minimum become four digits', long.message,
+    'The smallest amount you can withdraw to BNB Chain right now is 0.01026 USDT.');
+
+  ck('round up: a remainder lifts the last digit', roundUpRaw('988022').toString(), '988100');
+  ck('  an exact figure stays put', roundUpRaw('988000').toString(), '988000');
+  ck('  a short figure is left alone', roundUpRaw('987').toString(), '987');
+  ck('  a carry rolls over', roundUpRaw('99991').toString(), '100000');
+
+  const recipient = await refusing('recipient is not valid')
+    .preview({ accountId: ACCOUNT, asset, destinationAddress: SOL_ADDRESS, amount: '0.01' })
+    .catch((error) => error);
+  ck('an address 1Click refuses is named as such', [recipient.code, recipient.message],
+    ['INVALID_ADDRESS', 'That address cannot receive on Solana.']);
+
+  const other = await refusing('No liquidity available')
+    .preview({ accountId: ACCOUNT, asset, destinationAddress: SOL_ADDRESS, amount: '0.01' })
+    .catch((error) => error);
+  ck('anything else is passed on as 1Click said it', other.message, 'No liquidity available');
 }
 
 console.log(`\n${fail ? 'FAIL' : 'PASS'}  ${pass} passed, ${fail} failed`);

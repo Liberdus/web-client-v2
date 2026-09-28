@@ -11061,6 +11061,16 @@ small {
   border-radius: 50%;
 }
 
+/* A logo that loaded brings its own background; the disc and letters were
+   only ever its fallback (installLogoFallback). */
+.asset-mark.has-logo {
+  background: transparent;
+}
+
+.asset-mark.has-logo > :not(.asset-mark-image) {
+  visibility: hidden;
+}
+
 .asset-mark-label {
   font-family: var(--font-primary);
   font-weight: 700;
@@ -11804,37 +11814,8 @@ small {
   text-align: center;
 }
 
-/* --- fields --------------------------------------------------------------- */
-
-.multichain-field {
-  margin-bottom: 16px;
-  text-align: left;
-}
-
-.multichain-field-label {
-  display: block;
-  text-align: left;
-  margin-bottom: 8px;
-  font-size: var(--font-size-xs);
-  color: var(--secondary-text-color);
-}
-
-/* Max sits in the field rather than beside it, so the amount reads as one
-   control instead of an input with a stray button next to it. */
-.multichain-amount-field {
-  position: relative;
-}
-
-.multichain-amount-field .form-control {
-  width: 100%;
-  padding-right: 72px;
-}
-
+/* Max sits beside the balance it fills in. */
 .multichain-max {
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
   padding: 4px 12px;
   border: 0;
   border-radius: 999px;
@@ -11848,14 +11829,6 @@ small {
 
 .multichain-max:hover {
   filter: brightness(0.96);
-}
-
-.multichain-available {
-  margin-top: 8px;
-  font-size: var(--font-size-xs);
-  color: var(--secondary-text-color);
-  text-align: left;
-  font-variant-numeric: tabular-nums;
 }
 
 /* --- swap ----------------------------------------------------------------- */
@@ -11991,13 +11964,6 @@ button.multichain-token-chip:hover {
   margin-left: auto;
 }
 
-/* Max sits inside the amount field on the withdraw screen; here it sits
-   beside the balance it fills in. */
-.multichain-swap-balance .multichain-max {
-  position: static;
-  transform: none;
-}
-
 .multichain-swap-floor {
   padding: 0 4px;
   font-size: var(--font-size-xs);
@@ -12007,6 +11973,153 @@ button.multichain-token-chip:hover {
 
 .multichain-swap-floor:empty {
   display: none;
+}
+
+/* --- withdraw ------------------------------------------------------------- */
+
+/* Which chain the payout lands on. Wraps rather than scrolls: every option
+   has to be seen to be chosen, and there are rarely more than a handful. */
+.multichain-network-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.multichain-network-chips[hidden] {
+  display: none;
+}
+
+.multichain-network-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--background-color);
+  color: var(--text-color);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.multichain-network-chip:hover {
+  background: var(--hover-background-purple);
+}
+
+/* Chosen is a selection, which is what the accent is for. */
+.multichain-network-chip[aria-checked='true'] {
+  border-color: var(--primary-color);
+  background: var(--hover-background-purple);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* An address is a machine value (DESIGN.md §3), typed or pasted into the
+   panel itself rather than a box inside the box. */
+.multichain-address-input {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--text-color);
+  resize: none;
+  overflow: hidden;
+  word-break: break-all;
+}
+
+.multichain-address-input:focus {
+  outline: none;
+}
+
+.multichain-address-input::placeholder {
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  color: var(--muted-text-color);
+}
+
+.multichain-address-input:disabled {
+  background: transparent;
+  cursor: not-allowed;
+}
+
+/* Where this account has withdrawn to on the chosen network before. Shown
+   only while the address is empty: it is a way to fill the field, not a
+   second answer beside it. */
+.multichain-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.multichain-recent:empty {
+  display: none;
+}
+
+.multichain-recent-title {
+  margin-bottom: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+
+.multichain-recent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--light-color);
+  text-align: left;
+  cursor: pointer;
+}
+
+.multichain-recent-row:hover {
+  background: var(--hover-background-purple);
+}
+
+.multichain-recent-address {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-monospace);
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.multichain-recent-time {
+  flex: 0 0 auto;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+
+/* What is wrong with the address, or what to know before sending on this
+   chain. Hidden by :empty, so no caller has to remember to (DESIGN.md §6). */
+.multichain-field-note {
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--secondary-text-color);
+}
+
+.multichain-field-note:empty {
+  display: none;
+}
+
+.multichain-field-note[data-kind='error'] {
+  color: var(--danger-color);
+}
+
+.multichain-field-note[data-kind='warning'] {
+  color: var(--warning-color);
 }
 
 /* --- token picker --------------------------------------------------------- */
