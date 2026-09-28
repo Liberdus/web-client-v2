@@ -50,7 +50,7 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'evm-assets.js',
-      'intents.js',
+      'near-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
       'lib.js',
@@ -219,7 +219,7 @@ import {
   chatPaymentPanel,
   intentsActivity,
   intentsAccountIdForAddress,
-} from './intents.js';
+} from './near-assets.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);

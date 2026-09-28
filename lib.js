@@ -753,7 +753,7 @@ export function bin2hex(bin){
 }
 
 // Base58 with the Bitcoin alphabet. NEAR writes keys and signatures as
-// "<curve>:<base58>", so intents.js needs it to hand a signature to the
+// "<curve>:<base58>", so near-assets.js needs it to hand a signature to the
 // intents verifier contract. Byte-wise carry rather than BigInt, so the
 // leading zeros a key or signature may start with survive the round trip.
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
