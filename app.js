@@ -2,6 +2,8 @@
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
 const version = 't'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
+const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
+const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
 let myVersion = '0';
 
 function getComparableVersion(value) {
@@ -48,6 +50,7 @@ async function checkVersion() {
       'styles.css',
       'app.js',
       'evm-assets.js',
+      'near-assets.js',
       'dao.js',
       'data/emoji-picker-data.js',
       'lib.js',
@@ -206,6 +209,17 @@ import {
 } from './data/emoji-picker-data.js';
 
 import { evmAssets } from './evm-assets.js';
+import {
+  formatDisplayAmount,
+  multichain,
+  INTENTS_CHAT_MESSAGE_TYPE,
+  paymentStatusLabel,
+  parseTransferMessage,
+  verifyTransferClaim,
+  chatPaymentPanel,
+  intentsActivity,
+  intentsAccountIdForAddress,
+} from './near-assets.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -497,6 +511,7 @@ function clearMyData() {
   myData = null;
   myAccount = null;
   evmAssets.reset();
+  multichain.reset();
   daoRepo.reset();
   daoModal.resetNotificationState();
   resetDaoNotificationSummary();
@@ -799,6 +814,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Connected EVM assets
   evmAssets.load();
+
+  // Sending an intents balance inside a conversation
+  chatPaymentPanel.load();
+
+  // Multichain (NEAR Intents) assets
+  multichain.load();
 
   // About and Contact Modals
   sourceModal.load();
@@ -1174,6 +1195,12 @@ class WelcomeScreen {
   }
 
   async revealHydratedWelcome() {
+    // A hidden tab paints nothing, so it stalls image decoding and animation frames.
+    if (document.visibilityState === 'hidden') {
+      this.showHydratedWelcome();
+      return;
+    }
+
     await this.waitForBootSplashImages();
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -1196,17 +1223,36 @@ class WelcomeScreen {
       this.waitForImage(splashLogo),
       this.waitForImage(welcomeLogo),
     ]);
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await this.waitForBootSplashFrame();
+    await this.waitForBootSplashFrame();
+  }
+
+  // A hidden tab runs no animation frames, so never block boot on one.
+  waitForBootSplashFrame() {
+    return Promise.race([
+      new Promise((resolve) => requestAnimationFrame(resolve)),
+      new Promise((resolve) => setTimeout(resolve, BOOT_SPLASH_FRAME_TIMEOUT_MS)),
+    ]);
   }
 
   async waitForImage(image) {
     if (!image.complete) {
-      await new Promise((resolve) => image.addEventListener('load', resolve, { once: true }));
+      await Promise.race([
+        new Promise((resolve) => image.addEventListener('load', resolve, { once: true })),
+        new Promise((resolve) => setTimeout(resolve, BOOT_SPLASH_IMAGE_TIMEOUT_MS)),
+      ]);
+    }
+    if (!image.complete) {
+      return;
     }
     assert(image.naturalWidth > 0, 'Boot splash image is required');
 
+    // Decoding only avoids a flash of a blank logo, and a tab hidden mid-boot never finishes it.
     if (image.decode) {
-      await image.decode();
+      await Promise.race([
+        image.decode().catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, BOOT_SPLASH_IMAGE_TIMEOUT_MS)),
+      ]);
     }
   }
 
@@ -1235,12 +1281,21 @@ class WelcomeScreen {
     assert(welcomeLogo, 'Welcome logo is required');
     assert(welcomeTitle, 'Welcome title is required');
 
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    // The handoff is purely cosmetic and a hidden tab neither paints it nor finishes it.
+    if (document.visibilityState === 'hidden') {
+      this.showHydratedWelcome();
+      return;
+    }
+
+    await this.waitForBootSplashFrame();
     this.bootSplash.classList.add('is-handoff');
 
-    await Promise.all([
-      this.createBootSplashHandoffAnimation(splashLogo, welcomeLogo).finished,
-      this.createBootSplashHandoffAnimation(splashTitle, welcomeTitle).finished,
+    await Promise.race([
+      Promise.all([
+        this.createBootSplashHandoffAnimation(splashLogo, welcomeLogo).finished,
+        this.createBootSplashHandoffAnimation(splashTitle, welcomeTitle).finished,
+      ]),
+      new Promise((resolve) => setTimeout(resolve, BOOT_SPLASH_HANDOFF_MS + 100)),
     ]);
     this.showHydratedWelcome();
   }
@@ -1867,6 +1922,18 @@ class ChatsScreen {
         previewHTML = `<span><i>Voice message</i></span>`;
       } else if (latestActivity.type === 'location') {
         previewHTML = `<span><i>Shared location</i></span>`;
+      } else if (latestActivity.type === INTENTS_CHAT_MESSAGE_TYPE) {
+        // The same shape as a LIB payment's preview: signed amount, then note.
+        const payment = latestActivity.payment;
+        if (payment) {
+          const directionText = latestActivity.my ? '-' : '+';
+          previewHTML = `<span class="payment-preview">${directionText} ${escapeHtml(formatDisplayAmount(payment.amount))} ${escapeHtml(payment.symbol)}</span>`;
+          if (payment.note) {
+            previewHTML += ` <span class="memo-preview"> | ${truncateMessage(escapeHtml(payment.note), 50)}</span>`;
+          }
+        } else {
+          previewHTML = `<span><i>Payment</i></span>`;
+        }
       } else if (latestActivity.type === 'update_toll_required') {
         previewHTML = truncateMessage(escapeHtml(getUpdateTollRequiredPreviewText(latestActivity, contact)), 50);
       } else if ((!latestActivity.message || String(latestActivity.message).trim() === '') && latestActivity.xattach) {
@@ -2219,6 +2286,10 @@ class WalletScreen {
         hideToast(loadingToastId);
       }
     }
+
+    // The multichain row is its own balance and its own request, so it is
+    // refreshed alongside the wallet rather than blocking it.
+    multichain.updateSummary({ refresh: true }).catch(() => {});
 
     const walletUsdValue = calculateWalletUsdValue(walletData.assets);
     walletData.networth = walletUsdValue ?? 0.0;
@@ -11813,6 +11884,10 @@ function getReactionTargetPreviewText(message) {
     return 'location';
   }
 
+  if (message.type === INTENTS_CHAT_MESSAGE_TYPE) {
+    return message.payment ? `${message.payment.amount} ${message.payment.symbol}` : 'payment';
+  }
+
   const messageText = typeof message.message === 'string' ? message.message.trim() : '';
   if (messageText) {
     return messageText;
@@ -12215,6 +12290,82 @@ function restorePendingMessageEdit(pendingTxid, contactAddress, editPending) {
  * @param {Object} pendingTxInfo
  * @returns {void}
  */
+/**
+ * A received payment message only claims a payment; this checks the intent
+ * behind it actually settled, and says so on the bubble.
+ *
+ * Results are cached per intent hash: a settled intent stays settled, and
+ * re-asking on every render would poll the relay for the whole history.
+ */
+const intentsPaymentVerifications = new Map();
+
+async function verifyVisibleChatPayments() {
+  const bubbles = document.querySelectorAll(
+    '.intents-payment-message[data-verified="unchecked"], .intents-payment-message[data-verified="pending"]'
+  );
+
+  for (const bubble of bubbles) {
+    const intentHash = bubble.dataset.intentHash;
+    if (!intentHash) continue;
+    const sentAt = Number(bubble.closest('[data-message-timestamp]')?.dataset.messageTimestamp) || null;
+    // The whole claim, from the stored message: the check compares what was
+    // claimed -- token, amount, the two sides -- with what the verifier logged.
+    const found = findPaymentMessage(intentHash);
+    if (!found || found.message.my) continue;
+
+    let result = intentsPaymentVerifications.get(intentHash);
+    if (!result || result.state === 'pending' || result.state === 'unverifiable') {
+      result = await verifyTransferClaim(found.message.payment, {
+        sentAt,
+        expectedFrom: intentsAccountIdForAddress(found.contact.address),
+        expectedTo: intentsAccountIdForAddress(myAccount?.keys?.address),
+      });
+      if (RESTING_PAYMENT_STATES.has(result.state)) {
+        intentsPaymentVerifications.set(intentHash, result);
+        rememberPaymentVerdict(intentHash, result.state);
+      }
+    }
+
+    const label = bubble.querySelector('.intents-payment-verified');
+    if (!label) continue;
+    bubble.dataset.verified = result.state;
+    label.textContent = paymentStatusLabel(result.state);
+  }
+}
+
+/** The stored message behind a payment bubble, and whose chat it is in. */
+function findPaymentMessage(intentHash) {
+  for (const contact of Object.values(myData?.contacts || {})) {
+    const message = (contact.messages || []).find((item) => item.payment?.intentHash === intentHash);
+    if (message) return { contact, message };
+  }
+  return null;
+}
+
+// Answers that will not change. Anything else is asked again next time.
+const RESTING_PAYMENT_STATES = new Set(['settled', 'failed', 'expired']);
+
+/**
+ * Keep a payment's verdict on the stored message itself.
+ *
+ * The relay forgets intents within days, so a payment checked once must stay
+ * checked: without this, a genuine payment verified today would come back
+ * "not found" next week. The bubble renders from the stored field, and the
+ * verifier only asks about bubbles still unchecked or pending.
+ */
+function rememberPaymentVerdict(intentHash, state) {
+  let changed = false;
+  for (const contact of Object.values(myData?.contacts || {})) {
+    for (const message of contact.messages || []) {
+      if (message.payment?.intentHash === intentHash && message.paymentVerified !== state) {
+        message.paymentVerified = state;
+        changed = true;
+      }
+    }
+  }
+  if (changed) saveState();
+}
+
 function reconcilePendingMessageEdit(pendingTxInfo) {
   const { editPending } = pendingTxInfo;
   assert(editPending, `Missing pending message edit metadata for ${pendingTxInfo.txid}`);
@@ -12712,6 +12863,18 @@ async function processChats(chats, keys) {
                   payload.latitude = latitude;
                   payload.longitude = longitude;
                   payload.accuracy = Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null;
+                } else if (parsedMessage.type === INTENTS_CHAT_MESSAGE_TYPE) {
+                  // Every field of this arrives from the sender, and a payment
+                  // bubble is worth forging, so anything malformed is dropped
+                  // rather than rendered with defaults.
+                  const claim = parseTransferMessage(parsedMessage);
+                  if (!claim) {
+                    console.warn('Ignoring invalid chat payment message', parsedMessage);
+                    continue;
+                  }
+                  payload.message = '';
+                  payload.type = INTENTS_CHAT_MESSAGE_TYPE;
+                  payload.payment = claim;
                 } else if (parsedMessage.type === 'message') {
                   const hasReactionFields =
                     typeof parsedMessage.reactId !== 'undefined' ||
@@ -20899,6 +21062,8 @@ class ChatModal {
 
     this.chatRenderedOldestIndex = nextOldestIndex;
     list.insertAdjacentHTML('afterbegin', range.html);
+    // Older payments scrolled into view are claims like any other.
+    void verifyVisibleChatPayments();
     const prependedThumbnailRows = [];
     for (let messageEl = list.firstElementChild; messageEl && messageEl !== oldFirstMessage; messageEl = messageEl.nextElementSibling) {
       prependedThumbnailRows.push(
@@ -22265,6 +22430,79 @@ class ChatModal {
   }
 
   /**
+   * Send the chat receipt for a payment that has already settled on NEAR.
+   *
+   * Called only after the transfer is published, so a failure here means the
+   * money moved and the receipt did not. It throws rather than swallowing
+   * that, so the caller can say exactly which of the two happened.
+   */
+  async sendIntentsPaymentMessage(recipientAddress, messageObj) {
+    const currentAddress = normalizeAddress(recipientAddress);
+    const keys = myAccount.keys;
+    assert(keys, 'Keys not found for sender address');
+
+    // The recipient's own toll, from their contact record -- not this.toll,
+    // which belongs to whichever conversation is open. A payment sent from the
+    // wallet may go to someone whose chat was never opened this session.
+    const recipient = myData.contacts[currentAddress];
+    const { libWei: recipientTollLib } = this.formatTollDisplay(recipient.toll, recipient.tollUnit);
+    const tollInLib =
+      recipient.tollRequiredToSend == 0
+        ? 0n
+        : getEffectiveTollLibWei(typeof recipientTollLib === 'bigint' ? recipientTollLib : 0n);
+    const sufficientBalance = await validateBalance(tollInLib);
+    if (!sufficientBalance) {
+      throw new Error('Not enough LIB for the message fee.');
+    }
+
+    const chatCryptoContext = await this.prepareEncryptedChatContext(currentAddress, keys);
+    const { payload, chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
+      currentAddress,
+      messageObj,
+      tollInLib,
+      keys,
+      chatCryptoContext
+    );
+
+    const contact = myData.contacts[currentAddress];
+    const newMessage = {
+      message: '',
+      type: INTENTS_CHAT_MESSAGE_TYPE,
+      payment: parseTransferMessage(messageObj),
+      // Our own payment is settled by definition: we published it ourselves.
+      paymentVerified: 'settled',
+      timestamp: payload.sent_timestamp,
+      sent_timestamp: payload.sent_timestamp,
+      my: true,
+      txid,
+      status: 'sent'
+    };
+    insertSorted(contact.messages, newMessage, 'timestamp');
+
+    const chatIndex = myData.chats.findIndex((chat) => chat.address === currentAddress);
+    if (chatIndex !== -1) {
+      myData.chats.splice(chatIndex, 1);
+    }
+    insertSorted(myData.chats, {
+      address: currentAddress,
+      timestamp: newMessage.sent_timestamp,
+      txid
+    }, 'timestamp');
+
+    this.appendChatModal();
+    saveState();
+    chatsScreen.updateChatList();
+
+    const response = await injectTx(chatMessageObj, txid);
+    if (!response?.result?.success) {
+      updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+      this.appendChatModal();
+      saveState();
+      throw new Error(response?.result?.reason || 'The chat receipt was rejected.');
+    }
+  }
+
+  /**
    * Cancel editing mode without sending: clears hidden edit txid and restores UI state
    */
   cancelEdit() {
@@ -22672,6 +22910,28 @@ class ChatModal {
               </div>`;
         break;
       }
+      case INTENTS_CHAT_MESSAGE_TYPE: {
+        const payment = item.payment;
+        if (payment) {
+          // A received payment is a claim until the intent behind it is
+          // checked, so the bubble says what was claimed and carries its
+          // verification state rather than asserting money arrived.
+          const verified = item.paymentVerified || 'unchecked';
+          // Signed like a LIB payment, so a run of payments reads as money in
+          // and money out without checking which side each bubble sits on.
+          const direction = item.my ? '−' : '+';
+          messageTextHTML = `
+              <div class="intents-payment-message" data-verified="${escapeHtml(verified)}" data-intent-hash="${escapeHtml(payment.intentHash)}">
+                <div class="intents-payment-amount" title="${escapeHtml(payment.amount)} ${escapeHtml(payment.symbol)}">
+                  ${direction}${escapeHtml(formatDisplayAmount(payment.amount))} ${escapeHtml(payment.symbol)}
+                </div>
+                ${payment.chainName ? `<div class="intents-payment-chain">${escapeHtml(payment.chainName)}</div>` : ''}
+                ${payment.note ? `<div class="intents-payment-note">${escapeHtml(payment.note)}</div>` : ''}
+                <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
+              </div>`;
+        }
+        break;
+      }
       case 'location': {
         const latitude = Number(item.latitude);
         const longitude = Number(item.longitude);
@@ -22798,6 +23058,10 @@ class ChatModal {
     // Replace the list once to avoid one DOM mutation per message.
     this.messagesList.innerHTML = range.html;
     this.syncAllRenderedReactionChips();
+    // Straight after rendering, ahead of the early returns below: it used to
+    // sit at the end of this method, which only the highlight path reaches,
+    // so an ordinary open left every received payment on "Checking…".
+    void verifyVisibleChatPayments();
     const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
@@ -25043,6 +25307,11 @@ class ChatModal {
       case 'location':
         void this.handleShareLocationAction();
         break;
+      case 'intents-payment': {
+        const contact = myData.contacts[chatModal.address];
+        void chatPaymentPanel.open(chatModal.address, contact?.username || contact?.name || null);
+        break;
+      }
     }
   }
 
@@ -33617,6 +33886,70 @@ class ReceiveModal {
 // initialize the receive modal
 const receiveModal = new ReceiveModal();
 
+multichain.configure({
+  // Which assets this account has held, and whether empty ones are hidden,
+  // travel with the account's saved state.
+  getSettings: () => myData?.multichain,
+  saveSettings: (settings) => {
+    if (!myData) return;
+    myData.multichain = settings;
+    saveState();
+  },
+  getAccount: () => myAccount,
+});
+
+chatPaymentPanel.configure({
+  getAccount: () => myAccount,
+  onSent: (recipientAddress, messageObj) =>
+    chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
+  showToast,
+  // Who a payment from the wallet can go to: people a message can reach.
+  // Blocked contacts and ones with no public key would take the money and
+  // never get the receipt. Recent conversations first.
+  listContacts: () => {
+    const recency = new Map((myData?.chats || []).map((chat, index) => [chat.address, index]));
+    return Object.values(myData?.contacts || {})
+      .filter((contact) => contact.address && !isFaucetAddress(contact.address))
+      .filter((contact) => contact.friend !== 0 && contact.public)
+      .sort((a, b) => (recency.get(a.address) ?? Infinity) - (recency.get(b.address) ?? Infinity)
+        || getContactDisplayName(a).localeCompare(getContactDisplayName(b)))
+      .map((contact) => ({
+        address: contact.address,
+        name: getContactDisplayName(contact),
+        username: contact.username || null,
+      }));
+  },
+  renderAvatar: (address, size) => getContactAvatarHtml(myData.contacts[address] || address, size),
+  // The toll may be stale when the chat was never opened; refresh it, and
+  // say whether a message can reach them at all.
+  prepareRecipient: async (address) => {
+    await chatModal.refreshRecipientTollState(address);
+    return { blocked: Number(myData.contacts[address]?.tollRequiredToSend) === 2 };
+  },
+});
+
+// The asset screen's activity. Swaps and withdrawals this device placed are
+// kept with the account's own saved state, so a backup carries them; chat
+// payments are read from the conversations that already hold them.
+intentsActivity.configure({
+  getOrders: () => (Array.isArray(myData?.intentsOrders) ? myData.intentsOrders : []),
+  saveOrders: (orders) => {
+    if (!myData) return;
+    myData.intentsOrders = orders;
+    saveState();
+  },
+  listPayments: () => Object.values(myData?.contacts || {}).flatMap((contact) => (contact.messages || [])
+    .filter((message) => message.type === INTENTS_CHAT_MESSAGE_TYPE && message.payment)
+    .map((message) => ({
+      ...message.payment,
+      my: Boolean(message.my),
+      peer: getContactDisplayName(contact),
+      peerAccount: intentsAccountIdForAddress(contact.address),
+      time: message.timestamp,
+      verified: message.paymentVerified,
+    }))),
+});
+
 evmAssets.configure({
   getAccount: () => myAccount,
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
@@ -37700,6 +38033,15 @@ const modalCloseHandlers = new Map([
   // Structural exceptions require an id or a controller-specific close method.
   ['assetsModal', () => evmAssets.close('assetsModal')],
   ['assetDetailsModal', () => evmAssets.close('assetDetailsModal')],
+  ['multichainModal', () => multichain.close('multichainModal')],
+  ['multichainAssetModal', () => multichain.close('multichainAssetModal')],
+  ['multichainReceiveModal', () => multichain.close('multichainReceiveModal')],
+  ['multichainWithdrawModal', () => multichain.close('multichainWithdrawModal')],
+  ['multichainSwapModal', () => multichain.close('multichainSwapModal')],
+  ['multichainTokenPickerModal', () => multichain.close('multichainTokenPickerModal')],
+  ['chatSendModal', () => chatPaymentPanel.close()],
+  ['chatSendContactModal', () => chatPaymentPanel.contactPicker.close()],
+  ['multichainConfirmModal', () => multichain.close('multichainConfirmModal')],
   ['sendAssetConfirmModal', () => {
     evmAssets.confirmationModal.reset();
     sendAssetConfirmModal.close();
@@ -37915,6 +38257,9 @@ class PopupSelect {
       item.setAttribute('aria-selected', String(index === select.selectedIndex));
       if (option.disabled) item.setAttribute('aria-disabled', 'true');
 
+      const icon = PopupSelect.buildOptionIcon(option);
+      if (icon) item.append(icon);
+
       const label = document.createElement('span');
       label.className = 'popup-select__option-label';
       label.textContent = option.textContent;
@@ -37923,12 +38268,41 @@ class PopupSelect {
     });
   }
 
+  /**
+   * An option may carry `data-icon-label`, optionally with `data-icon-url` and
+   * `data-icon-color`. The label is drawn and the image laid over it, so an
+   * image that never loads leaves something readable rather than a gap.
+   */
+  static buildOptionIcon(option) {
+    const label = option.dataset.iconLabel;
+    if (!label) return null;
+
+    const mark = document.createElement('span');
+    mark.className = 'popup-select__option-icon';
+    if (option.dataset.iconColor) mark.style.setProperty('--mark-bg', option.dataset.iconColor);
+    mark.textContent = label;
+
+    if (option.dataset.iconUrl) {
+      const image = document.createElement('img');
+      image.src = option.dataset.iconUrl;
+      image.alt = '';
+      image.loading = 'lazy';
+      mark.append(image);
+    }
+    return mark;
+  }
+
   static sync(select) {
     const trigger = PopupSelect.getTrigger(select);
     if (!trigger) return;
 
-    const selectedText = select.options[select.selectedIndex]?.textContent || '';
-    trigger.querySelector('.popup-select__value').textContent = selectedText;
+    const selected = select.options[select.selectedIndex];
+    const selectedText = selected?.textContent || '';
+    const value = trigger.querySelector('.popup-select__value');
+    value.replaceChildren();
+    const triggerIcon = selected ? PopupSelect.buildOptionIcon(selected) : null;
+    if (triggerIcon) value.append(triggerIcon);
+    value.append(document.createTextNode(selectedText));
     const accessibleName = select.getAttribute('aria-label');
     if (accessibleName) trigger.setAttribute('aria-label', `${accessibleName}: ${selectedText}`);
     trigger.disabled = select.disabled;
