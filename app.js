@@ -1122,9 +1122,6 @@ function saveAccountData(accountData, account) {
     data = encryptData(data, lockModal.encKey, true);
   }
   localStorage.setItem(`${account.username}_${account.netid}`, data);
-  // Retire the draft implementation's separate entry only after the account
-  // write succeeds, so a storage failure cannot discard an existing transfer.
-  localStorage.removeItem(`evm-payments:${account.netid}:${normalizeAddress(account.keys.address)}`);
 }
 
 function loadState(account, noparse=false){
@@ -34060,16 +34057,10 @@ function loadEvmPayments(account) {
     throw new Error('Saved EVM payments belong to a different account.');
   }
   const records = saved?.evmPayments ?? (account === myAccount ? myData?.evmPayments : null) ?? [];
-  // Import records made with the earlier phase-3 draft. Saved myData records
-  // take precedence when the same payment exists in both places.
-  const legacy = localStorage.getItem(`evm-payments:${account.netid}:${normalizeAddress(account.keys.address)}`);
-  const previous = legacy ? parse(decryptData(legacy, account.keys.secret + account.keys.pqSeed, true)) : [];
-  for (const list of [previous, records]) {
-    if (!Array.isArray(list) || list.some((record) => !parseEvmTransferMessage(record?.payment))) {
-      throw new Error('Saved EVM payment records could not be read.');
-    }
+  if (!Array.isArray(records) || records.some((record) => !parseEvmTransferMessage(record?.payment))) {
+    throw new Error('Saved EVM payment records could not be read.');
   }
-  return [...new Map([...previous, ...records].map((record) => [evmPaymentId(record.payment), record])).values()];
+  return records;
 }
 
 function saveEvmPayment(record, account) {

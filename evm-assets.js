@@ -873,7 +873,7 @@ export class EvmTransactionService {
     showToast,
     confirmTransfer,
     getManagedRpcUrl = () => null,
-    savePayment = () => {},
+    savePayment,
     fetchFn = (...args) => fetch(...args),
   }) {
     this.getAccount = getAccount;
@@ -1197,7 +1197,6 @@ export class EvmTransactionService {
     }
     this.showToast(`EVM transfer ${status}: ${transactionHash}`, 5000, status === 'reverted' ? 'error' : 'info');
     return { status, transactionHash, receipt, record };
-
   }
 }
 
