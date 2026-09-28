@@ -511,6 +511,7 @@ function newDataRecord(myAccount) {
 function clearMyData() {
   myData = null;
   myAccount = null;
+  stopEvmChatVerification();
   evmAssets.reset();
   multichain.reset();
   daoRepo.reset();
@@ -12307,7 +12308,64 @@ function restorePendingMessageEdit(pendingTxid, contactAddress, editPending) {
  */
 const intentsPaymentVerifications = new Map();
 
+let evmChatVerification = null;
+
+function stopEvmChatVerification() {
+  clearTimeout(evmChatVerification?.timer);
+  evmChatVerification = null;
+  evmAssets.transactions.paymentEvidence.clear();
+}
+
+function verifyVisibleEvmPayments() {
+  if (!chatModal.isActive() || !myAccount || document.visibilityState === 'hidden') return;
+  if (evmChatVerification?.account !== myAccount || evmChatVerification?.address !== chatModal.address) {
+    stopEvmChatVerification();
+    evmChatVerification = { account: myAccount, address: chatModal.address, running: false, timer: null, round: 0, checked: new Map() };
+  }
+  const session = evmChatVerification;
+  if (session.running) return;
+  clearTimeout(session.timer);
+  session.running = true;
+  const current = () => evmChatVerification === session && myAccount === session.account
+    && chatModal.isActive() && chatModal.address === session.address && document.visibilityState !== 'hidden';
+  const check = async () => {
+    let unresolved = false;
+    for (const bubble of document.querySelectorAll('.evm-payment-message')) {
+      if (!current()) return;
+      const txid = bubble.closest('[data-txid]')?.dataset.txid;
+      const message = myData.contacts[session.address]?.messages.find((item) => item.txid === txid && item.type === EVM_CHAT_MESSAGE_TYPE);
+      if (!message) continue;
+      let state = session.checked.get(txid);
+      if (!state) {
+        const own = `0x${normalizeAddress(session.account.keys.address)}`;
+        const peer = `0x${normalizeAddress(session.address)}`;
+        state = await evmAssets.transactions.verifyPayment(message.payment, message.my ? own : peer, message.my ? peer : own);
+        if (!current()) return;
+        message.paymentVerified = state;
+        if (state === 'settled' || state === 'failed') session.checked.set(txid, state);
+      }
+      unresolved ||= state === 'pending' || state === 'unverifiable';
+      bubble.dataset.verified = state;
+      const label = bubble.querySelector('.intents-payment-verified');
+      if (label) label.textContent = paymentStatusLabel(state);
+    }
+    if (!current()) return;
+    saveState();
+    if (unresolved && session.round < 20) {
+      session.timer = setTimeout(verifyVisibleEvmPayments, Math.min(30_000, 2000 * 2 ** Math.min(session.round++, 4)));
+    }
+  };
+  check().catch((error) => console.warn('EVM payment verification interrupted:', error.message))
+    .finally(() => { session.running = false; });
+}
+
+document.addEventListener('visibilitychange', () => {
+  stopEvmChatVerification();
+  if (document.visibilityState !== 'hidden') verifyVisibleEvmPayments();
+});
+
 async function verifyVisibleChatPayments() {
+  verifyVisibleEvmPayments();
   const bubbles = document.querySelectorAll(
     '.intents-payment-message[data-verified="unchecked"], .intents-payment-message[data-verified="pending"]'
   );
@@ -21210,6 +21268,7 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async open(address, skipAutoScroll = false) {
+    stopEvmChatVerification();
     this.closeReactionSheet();
 
     // Set active chat address early so async refreshes target the correct chat.
@@ -21399,6 +21458,7 @@ class ChatModal {
    * @returns {void}
    */
   close() {
+    stopEvmChatVerification();
     this.closeReactionSheet();
     const closingAddress = this.address;
     this.hideAttachmentLoadingToastsForContact(closingAddress);
@@ -23118,7 +23178,8 @@ class ChatModal {
         messageTextHTML = `
           <div class="intents-payment-message evm-payment-message" data-verified="${escapeHtml(verified)}" data-evm-payment="${escapeHtml(evmPaymentId(payment))}">
             <div class="intents-payment-amount">${item.my ? '−' : '+'}${escapeHtml(evmPaymentAmount(payment))} ${escapeHtml(payment.symbol)}</div>
-            <div class="intents-payment-chain">EVM chain ${payment.chainId}</div>
+            <div class="intents-payment-chain">${escapeHtml(evmAssets.transactions.paymentNetwork(payment.chainId)?.name || `EVM chain ${payment.chainId}`)}</div>
+            ${payment.contractAddress ? `<div class="intents-payment-chain" style="overflow-wrap:anywhere">Token: ${escapeHtml(payment.contractAddress)}</div>` : ''}
             <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
           </div>`;
         break;

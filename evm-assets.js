@@ -44,6 +44,16 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
   ]),
 });
 
+const EVM_PAYMENT_NETWORKS = Object.freeze({
+  1: { id: 'ethereum', name: 'Ethereum', nativeSymbol: 'ETH' },
+  137: { id: 'polygon', name: 'Polygon', nativeSymbol: 'POL' },
+  42161: { id: 'arbitrum', name: 'Arbitrum', nativeSymbol: 'ETH' },
+  10: { id: 'optimism', name: 'Optimism', nativeSymbol: 'ETH' },
+  8453: { id: 'base', name: 'Base', nativeSymbol: 'ETH' },
+  56: { id: 'bsc', name: 'BNB Smart Chain', nativeSymbol: 'BNB' },
+});
+const ERC20_TRANSFER_TOPIC = bytesToHex(keccak256(utf82bin('Transfer(address,address,uint256)')));
+
 const EVM_CHAT_PAYMENTS_ENABLED = false;
 
 export const EVM_CHAT_MESSAGE_TYPE = 'evm_transfer';
@@ -894,6 +904,7 @@ export class EvmTransactionService {
     this.fetchFn = fetchFn;
     this.requestId = 0;
     this.verifiedRpcEndpoints = new Map();
+    this.paymentEvidence = new Map();
   }
 
   validate({ network, asset, recipient, amount }) {
@@ -1212,6 +1223,76 @@ export class EvmTransactionService {
       '',
       'The transaction will be signed locally with this account.',
     ].join('\n');
+  }
+
+  paymentNetwork(chainId) {
+    const configured = EVM_PAYMENT_NETWORKS[chainId];
+    return configured ? { ...configured, chainId, source: 'evm', rpcUrls: DEFAULT_EVM_RPC_URLS[configured.id] } : null;
+  }
+
+  /** Cache network evidence, not verdicts: every claim must match independently. */
+  async getPaymentEvidence(network, hash) {
+    const key = `${network.chainId}:${hash}`;
+    const cached = this.paymentEvidence.get(key);
+    if (cached && cached.until > Date.now()) return cached.promise;
+    const promise = (async () => {
+      const [transaction, receipt] = await Promise.all([
+        this.request(network, 'eth_getTransactionByHash', [hash]),
+        this.request(network, 'eth_getTransactionReceipt', [hash]),
+      ]);
+      const block = receipt?.blockNumber
+        ? await this.request(network, 'eth_getBlockByNumber', [receipt.blockNumber, false]) : null;
+      return { transaction, receipt, block };
+    })();
+    // Bound history retained in memory; reopening chat also clears this cache.
+    if (this.paymentEvidence.size >= 100) this.paymentEvidence.clear();
+    this.paymentEvidence.set(key, { until: Date.now() + 10_000, promise });
+    return promise;
+  }
+
+  async verifyPayment(value, expectedFrom, expectedTo) {
+    const payment = parseEvmTransferMessage(value);
+    if (!payment || payment.from !== expectedFrom || payment.to !== expectedTo) return 'failed';
+    const network = this.paymentNetwork(payment.chainId);
+    if (!network) return 'unverifiable';
+    try {
+      const { transaction: tx, receipt, block } = await this.getPaymentEvidence(network, payment.transactionHash);
+      if (!tx || !receipt || !block) return 'pending';
+      if (!EVM_HASH_PATTERN.test(block.hash) || receipt.blockHash !== block.hash || tx.blockHash !== block.hash) return 'pending';
+      if (tx.hash?.toLowerCase() !== payment.transactionHash || receipt.transactionHash?.toLowerCase() !== payment.transactionHash) return 'unverifiable';
+      if (parseHexQuantity(receipt.status, 'receipt status') !== 1n) return 'failed';
+      if (tx.from?.toLowerCase() !== payment.from) return 'failed';
+      if (payment.assetKind === 'native') {
+        return tx.to?.toLowerCase() === payment.to && parseHexQuantity(tx.value, 'value') === BigInt(payment.rawAmount)
+          && payment.decimals === 18 && payment.symbol === network.nativeSymbol ? 'settled' : 'failed';
+      }
+      if (tx.to?.toLowerCase() !== payment.contractAddress) return 'failed';
+      const matchingTransfer = receipt.logs?.some((log) => !log.removed
+        && log.address?.toLowerCase() === payment.contractAddress && log.topics?.length === 3
+        && log.topics[0]?.toLowerCase() === ERC20_TRANSFER_TOPIC
+        && log.topics[1]?.toLowerCase() === `0x${payment.from.slice(2).padStart(64, '0')}`
+        && log.topics[2]?.toLowerCase() === `0x${payment.to.slice(2).padStart(64, '0')}`
+        && /^0x[0-9a-fA-F]{64}$/.test(log.data) && BigInt(log.data) === BigInt(payment.rawAmount));
+      if (!matchingTransfer) return 'failed';
+      // Verify display metadata too: a valid transfer of a different token must not look like USDC.
+      const [decimals, symbolData] = await Promise.all([
+        this.request(network, 'eth_call', [{ to: payment.contractAddress, data: '0x313ce567' }, receipt.blockNumber]),
+        this.request(network, 'eth_call', [{ to: payment.contractAddress, data: '0x95d89b41' }, receipt.blockNumber]),
+      ]);
+      const symbolBytes = hexToBytes(symbolData, 'symbol');
+      let symbol;
+      if (symbolBytes.length === 32) {
+        symbol = new TextDecoder().decode(symbolBytes).replace(/\0+$/, '');
+      } else {
+        if (symbolBytes.length < 64 || BigInt(`0x${symbolData.slice(2, 66)}`) !== 32n) return 'unverifiable';
+        const length = Number(BigInt(`0x${symbolData.slice(66, 130)}`));
+        if (length > 128 || symbolBytes.length < 64 + length) return 'unverifiable';
+        symbol = new TextDecoder().decode(symbolBytes.slice(64, 64 + length));
+      }
+      return BigInt(decimals) === BigInt(payment.decimals) && symbol.trim() === payment.symbol ? 'settled' : 'failed';
+    } catch {
+      return 'unverifiable';
+    }
   }
 
   async waitForReceipt(network, transactionHash) {
@@ -2063,6 +2144,7 @@ class EvmAssetsController {
 
   reset() {
     this.discovery.reset();
+    this.transactions.paymentEvidence.clear();
     this.confirmationModal.reset();
   }
 
