@@ -221,6 +221,7 @@ import {
 } from './intents-chat.js';
 import { chatPaymentPanel } from './intents-chat-ui.js';
 import { intentsActivity } from './intents-activity.js';
+import { intentsAccountIdForAddress } from './intents-assets.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
@@ -12308,13 +12309,22 @@ async function verifyVisibleChatPayments() {
   for (const bubble of bubbles) {
     const intentHash = bubble.dataset.intentHash;
     if (!intentHash) continue;
+    const sentAt = Number(bubble.closest('[data-message-timestamp]')?.dataset.messageTimestamp) || null;
+    // The whole claim, from the stored message: the check compares what was
+    // claimed -- token, amount, the two sides -- with what the verifier logged.
+    const found = findPaymentMessage(intentHash);
+    if (!found || found.message.my) continue;
 
     let result = intentsPaymentVerifications.get(intentHash);
     if (!result || result.state === 'pending' || result.state === 'unverifiable') {
-      result = await verifyTransferClaim({ intentHash });
-      // Only a resting answer is worth remembering.
-      if (result.state === 'settled' || result.state === 'failed') {
+      result = await verifyTransferClaim(found.message.payment, {
+        sentAt,
+        expectedFrom: intentsAccountIdForAddress(found.contact.address),
+        expectedTo: intentsAccountIdForAddress(myAccount?.keys?.address),
+      });
+      if (RESTING_PAYMENT_STATES.has(result.state)) {
         intentsPaymentVerifications.set(intentHash, result);
+        rememberPaymentVerdict(intentHash, result.state);
       }
     }
 
@@ -12323,6 +12333,39 @@ async function verifyVisibleChatPayments() {
     bubble.dataset.verified = result.state;
     label.textContent = paymentStatusLabel(result.state);
   }
+}
+
+/** The stored message behind a payment bubble, and whose chat it is in. */
+function findPaymentMessage(intentHash) {
+  for (const contact of Object.values(myData?.contacts || {})) {
+    const message = (contact.messages || []).find((item) => item.payment?.intentHash === intentHash);
+    if (message) return { contact, message };
+  }
+  return null;
+}
+
+// Answers that will not change. Anything else is asked again next time.
+const RESTING_PAYMENT_STATES = new Set(['settled', 'failed', 'expired']);
+
+/**
+ * Keep a payment's verdict on the stored message itself.
+ *
+ * The relay forgets intents within days, so a payment checked once must stay
+ * checked: without this, a genuine payment verified today would come back
+ * "not found" next week. The bubble renders from the stored field, and the
+ * verifier only asks about bubbles still unchecked or pending.
+ */
+function rememberPaymentVerdict(intentHash, state) {
+  let changed = false;
+  for (const contact of Object.values(myData?.contacts || {})) {
+    for (const message of contact.messages || []) {
+      if (message.payment?.intentHash === intentHash && message.paymentVerified !== state) {
+        message.paymentVerified = state;
+        changed = true;
+      }
+    }
+  }
+  if (changed) saveState();
 }
 
 function reconcilePendingMessageEdit(pendingTxInfo) {
@@ -21021,6 +21064,8 @@ class ChatModal {
 
     this.chatRenderedOldestIndex = nextOldestIndex;
     list.insertAdjacentHTML('afterbegin', range.html);
+    // Older payments scrolled into view are claims like any other.
+    void verifyVisibleChatPayments();
     const prependedThumbnailRows = [];
     for (let messageEl = list.firstElementChild; messageEl && messageEl !== oldFirstMessage; messageEl = messageEl.nextElementSibling) {
       prependedThumbnailRows.push(
@@ -23015,6 +23060,10 @@ class ChatModal {
     // Replace the list once to avoid one DOM mutation per message.
     this.messagesList.innerHTML = range.html;
     this.syncAllRenderedReactionChips();
+    // Straight after rendering, ahead of the early returns below: it used to
+    // sit at the end of this method, which only the highlight path reaches,
+    // so an ordinary open left every received payment on "Checking…".
+    void verifyVisibleChatPayments();
     const shouldKeepBottomAnchored = !skipAutoScroll && !highlightNewMessage;
 
     // --- 4.5. Load thumbnails for image attachments (async, non-blocking) ---
@@ -23100,8 +23149,6 @@ class ChatModal {
         }
       }
     }, 300); // <<< Delay of 300 milliseconds for rendering
-
-    verifyVisibleChatPayments();
   }
 
 
@@ -33902,6 +33949,7 @@ intentsActivity.configure({
       ...message.payment,
       my: Boolean(message.my),
       peer: getContactDisplayName(contact),
+      peerAccount: intentsAccountIdForAddress(contact.address),
       time: message.timestamp,
       verified: message.paymentVerified,
     }))),

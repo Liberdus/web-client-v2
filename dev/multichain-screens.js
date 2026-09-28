@@ -35,11 +35,13 @@ const NEAR = T('nep141:wrap.near', 24, 'near', 'NEAR', 2.61);
 const XLM = T('nep141:stellar.omft.near', 7, 'stellar', 'XLM', 0.27);
 
 // The rest of what a new account is offered first.
+// Bitcoin as deposits actually credit it.
+const NBTC = T('nep141:nbtc.bridge.near', 8, 'near', 'BTC', 83277, { contractAddress: 'nbtc.bridge.near' });
 const ETH_MAIN = T('nep141:eth.omft.near', 18, 'eth', 'ETH', 2693.8);
 const XRP = T('nep141:xrp.omft.near', 6, 'xrp', 'XRP', 1.48);
 const BNB = T('nep245:v2_1.omni.hot.tg:56_11111111111111111111', 18, 'bsc', 'BNB', 769.4);
 
-const TOKENS = [SOL, BTC, USDC, ETH, USDC_SOL, USDT, NEAR, XLM, ETH_MAIN, XRP, BNB];
+const TOKENS = [SOL, BTC, USDC, ETH, USDC_SOL, USDT, NEAR, XLM, ETH_MAIN, XRP, BNB, NBTC];
 
 // What the bridge carries, in its own field names. NEAR is left out, so the
 // Receive picker's filter has something to filter.
@@ -53,6 +55,7 @@ const B = (token, identifier, minimum) => ({
 const BRIDGE_TOKENS = [
   B(SOL, 'sol:mainnet:native', '1250000'),
   B(BTC, 'btc:mainnet:native', '10000'),
+  B(NBTC, 'btc:mainnet:native', '5000'),
   B(USDC, `eth:8453:${USDC.contractAddress}`, '1000000'),
   B(ETH, 'eth:8453:native', '400000000000000'),
   B(USDC_SOL, `sol:mainnet:${USDC_SOL.contractAddress}`, '1000000'),
@@ -66,6 +69,7 @@ const DEPOSIT_ADDRESSES = {
   'sol:mainnet': { address: '12gRNH1VMbWKFQo4nMcUq83N3sWqxouU1FqFBeembtFb', memo: null },
   'stellar:mainnet': { address: 'GBL5JNQ7P3X4Z6SHOTNVQBYTUO7AXZCB6BSX2RUPSJLVY3DAX3QEWMXT', memo: '4061789215' },
   'eth:56': { address: '0x50354ee509E2E19D5273D43c808429140D7967B9', memo: null },
+  'btc:mainnet': { address: 'bc1qz0yq8ffzgdz8ms9zt9jl3sr6k7stm5kdc2q55c', memo: null },
 };
 const BALANCES = {
   [SOL.assetId]: '5000000',
@@ -125,6 +129,11 @@ const STAGES = [
     intentsAssets.balances = {};
     intentsAssets.rebuildNetwork();
     return multichain.assetsModal.open();
+  }],
+
+  // Tapping BTC -- or anything aimed at btc.omft.near -- lands on nBTC.
+  ['receive-btc', 'Receive — Bitcoin', async ({ multichain }) => {
+    await multichain.receiveModal.open(key(BTC));
   }],
 
   // A new account taps a chip: straight to that coin's address.
@@ -302,6 +311,40 @@ const STAGES = [
 
   ['withdraw-sent', 'After a withdrawal', (ctx) => pressConfirm(ctx, 'withdraw', { status: 'SUCCESS' })],
 
+  // Paid in, payout still running: the sheet lets go with Activity to follow.
+  ['withdraw-on-its-way', 'After a withdrawal, payout still running', (ctx) =>
+    pressConfirm(ctx, 'withdraw', ({ onFunded }) => {
+      onFunded({ intentHash: 'h' });
+      return new Promise(() => {});
+    })],
+
+  // The payout lands while the sheet is still up: it says so, in place.
+  ['withdraw-lands', 'After a withdrawal, payout landed', (ctx) =>
+    pressConfirm(ctx, 'withdraw', async ({ onFunded }) => {
+      onFunded({ intentHash: 'h' });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return { status: 'SUCCESS' };
+    }).then(() => new Promise((resolve) => setTimeout(resolve, 400)))],
+
+  // The person pressed Done and started a swap before the payout landed; the
+  // late answer must not write onto the new sheet.
+  ['withdraw-lands-late', 'A late payout does not touch a newer sheet', async (ctx) => {
+    let land;
+    const landed = new Promise((resolve) => { land = resolve; });
+    await pressConfirm(ctx, 'withdraw', ({ onFunded }) => {
+      onFunded({ intentHash: 'h' });
+      return landed;
+    });
+    ctx.multichain.confirmModal.confirm(); // Done
+    ctx.multichain.swapModal.assetKey = key(SOL);
+    ctx.multichain.swapModal.openConfirm(
+      ctx.intentsAssets.getAsset(key(SOL)), ctx.intentsAssets.getCatalogAsset(key(USDC)), SWAP_QUOTE,
+    );
+    await settle();
+    land({ status: 'SUCCESS' });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }],
+
   ['withdraw-unconfirmed', 'After a withdrawal whose outcome is unknown', (ctx) =>
     pressConfirm(ctx, 'withdraw', new Error('settlement check timed out'))],
 
@@ -317,7 +360,8 @@ async function pressConfirm({ multichain, intentsAssets, services }, kind, resul
   const service = kind === 'withdraw' ? services.intentsWithdrawals : services.intentsSwaps;
   service.prepare = async () => ({ payload: { fixture: true }, amountOut: WITHDRAW_QUOTE.amountOut });
   service.simulate = async () => ({ ok: true });
-  service.execute = async () => {
+  service.execute = async (prepared, secret, options) => {
+    if (typeof result === 'function') return result(options);
     if (result instanceof Error) throw result;
     return result;
   };
@@ -336,7 +380,14 @@ async function pressConfirm({ multichain, intentsAssets, services }, kind, resul
     form.reviewedAmount = SWAP_QUOTE.amountIn;
     form.openConfirm(intentsAssets.getAsset(key(SOL)), intentsAssets.getCatalogAsset(key(USDC)), SWAP_QUOTE);
   }
-  await multichain.confirmModal.confirm();
+  const running = multichain.confirmModal.confirm();
+  // A payout the stub holds open would hold this stage open with it; return
+  // once the funding has had its moment.
+  if (typeof result === 'function') {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return;
+  }
+  await running;
 }
 
 function renderGallery() {

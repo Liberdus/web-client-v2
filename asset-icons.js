@@ -100,9 +100,17 @@ export function toChecksumAddress(address) {
   return `0x${out}`;
 }
 
+// Tokens whose own logo the repo does not carry, drawn with the coin they
+// stand for. nBTC is Bitcoin held on NEAR; its own path 404s.
+const LOGO_ALIAS = Object.freeze({
+  'near:nbtc.bridge.near': `${TRUSTWALLET}/bitcoin/info/logo.png`,
+});
+
 /** Where the logo lives, or null when we have no path worth trying. */
 export function assetLogoUrl({ blockchain, contractAddress, symbol } = {}) {
   const chain = String(blockchain || '').toLowerCase();
+  const alias = LOGO_ALIAS[`${chain}:${String(contractAddress || '').toLowerCase()}`];
+  if (alias) return alias;
   const folder = CHAIN_FOLDER[chain];
   if (!folder) return null;
 
@@ -137,6 +145,23 @@ export function chainLogoUrl(blockchain) {
 export function chainBrandColor(blockchain) {
   const chain = String(blockchain || '').toLowerCase();
   return assetBrandColor(CHAIN_NATIVE[chain] || chain);
+}
+
+/**
+ * Take a logo that failed to load off the page, leaving the drawn disc.
+ *
+ * With alt="" Chrome draws nothing for a broken image, but Safari and some
+ * WebViews draw a thin grey frame -- a dark ring bleeding round the disc.
+ * Error events do not bubble, so this listens in the capture phase, once.
+ */
+let logoFallbackInstalled = false;
+export function installLogoFallback(root = globalThis.document) {
+  if (logoFallbackInstalled || !root) return;
+  logoFallbackInstalled = true;
+  root.addEventListener('error', (event) => {
+    const image = event.target;
+    if (image?.matches?.('.asset-mark-image, .popup-select__option-icon img')) image.remove();
+  }, true);
 }
 
 /**

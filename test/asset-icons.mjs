@@ -72,6 +72,8 @@ ck('a malformed evm address', assetLogoUrl({ blockchain: 'base', contractAddress
 section('network marks');
 // A network row is the chain, not the asset: SOL on Aptos and SOL on Solana
 // must not both wear the Solana logo.
+ck('nBTC, whose own logo 404s, is drawn as Bitcoin',
+  assetLogoUrl({ blockchain: 'near', symbol: 'BTC', contractAddress: 'nbtc.bridge.near' }), `${TW}/bitcoin/info/logo.png`);
 ck('a chain logo ignores the asset', chainLogoUrl('aptos'), `${TW}/aptos/info/logo.png`);
 ck('  and differs per chain', chainLogoUrl('sol'), `${TW}/solana/info/logo.png`);
 ck('an unmapped chain has none', chainLogoUrl('fogo'), null);
