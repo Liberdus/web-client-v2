@@ -179,7 +179,8 @@
         padding: 0 16px;
       }
 
-      .showcase-tab[aria-selected="true"] {
+      .showcase-tab[aria-selected="true"],
+      .showcase-tab[aria-pressed="true"] {
         background: var(--primary-color);
         color: #fff;
       }
@@ -189,7 +190,8 @@
         outline-offset: 2px;
       }
 
-      .showcase-panel[hidden] {
+      .showcase-panel[hidden],
+      .preview-subsection[hidden] {
         display: none;
       }
 
@@ -855,14 +857,23 @@
         </section>
 
         <section class="showcase-panel preview-panel" id="showcase-panel-projects" role="tabpanel" aria-labelledby="showcase-tab-projects" data-showcase-panel="projects" hidden>
+          <div class="showcase-tabs" role="group" aria-label="Proposal type" data-proposal-filters>
+            <button class="showcase-tab" type="button" data-proposal-filter="all" aria-pressed="true">All</button>
+            <button class="showcase-tab" type="button" data-proposal-filter="project" aria-pressed="false">Project</button>
+            <button class="showcase-tab" type="button" data-proposal-filter="governance" aria-pressed="false">Governance</button>
+            <button class="showcase-tab" type="button" data-proposal-filter="economic" aria-pressed="false">Economic</button>
+            <button class="showcase-tab" type="button" data-proposal-filter="protocol" aria-pressed="false">Protocol</button>
+          </div>
+          <p class="section-note" data-proposal-filter-status role="status"></p>
           <div class="current-note">
             <strong>Proposal and milestone states</strong>
             Scroll each phone and expand its milestone and action cards. These independent previews do not submit transactions.
           </div>
           <div id="proposal-state-gallery"></div>
+          <div class="preview-subsection">
           <div class="section-heading"><h2 class="section-title">Project authoring and review</h2><div class="section-note">Scroll each phone to inspect the live form and proposal components.</div></div>
           <div class="preview-grid">
-            <article class="screen" data-app-modal="addProposalModal">
+            <article class="screen" data-proposal-type="project" data-app-modal="addProposalModal">
               <div class="screen-label-row"><div class="screen-label">Project proposal</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div></div>
               <div class="screen-note"><strong>Project editor</strong>Milestones, recipient, budget, and fixed ballot choices replace parameter options.</div>
               <div class="modal fixed-header active" id="addProposalModal">
@@ -899,7 +910,7 @@
               </div>
             </article>
 
-            <article class="screen" data-app-modal="confirmProposalModal">
+            <article class="screen" data-proposal-type="project" data-app-modal="confirmProposalModal">
               <div class="screen-label-row"><div class="screen-label">Review Project Proposal</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Author</span></div></div>
               <div class="screen-note"><strong>Review before submission</strong>Review funding, milestones, and timing before signing the proposal.</div>
               <div class="modal fixed-header active" id="confirmProposalModal"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">Review Project Proposal</div></div><div class="modal-content"><div class="form-container">
@@ -916,7 +927,7 @@
               </div></div></div>
             </article>
           </div>
-
+          </div>
         </section>
 
         <section class="showcase-panel preview-panel" id="showcase-panel-screens" role="tabpanel" aria-labelledby="showcase-tab-screens" data-showcase-panel="screens" hidden>
@@ -1749,6 +1760,31 @@
 
           });
         };
+
+        const proposalPanel = document.getElementById("showcase-panel-projects");
+        const proposalFilters = [...proposalPanel.querySelectorAll("[data-proposal-filter]")];
+        const proposalScreens = [...proposalPanel.querySelectorAll("[data-proposal-type]")];
+        const proposalGroups = [...proposalPanel.querySelectorAll(".preview-subsection")];
+        const proposalFilterStatus = proposalPanel.querySelector("[data-proposal-filter-status]");
+
+        const filterProposals = (selectedFilter) => {
+          setFocusedPreview(null);
+          const type = selectedFilter.dataset.proposalFilter;
+          proposalFilters.forEach((button) => button.setAttribute("aria-pressed", button === selectedFilter));
+          proposalScreens.forEach((screen) => {
+            screen.hidden = type !== "all" && screen.dataset.proposalType !== type;
+          });
+          proposalGroups.forEach((group) => {
+            group.hidden = !group.querySelector(".screen:not([hidden])");
+          });
+          const count = proposalScreens.filter((screen) => !screen.hidden).length;
+          proposalFilterStatus.textContent = count
+            ? `${count} ${type === "all" ? "proposal" : selectedFilter.textContent} preview${count === 1 ? "" : "s"}`
+            : `No ${selectedFilter.textContent} previews yet. Choose another type or All.`;
+          updateScrollArea();
+        };
+        proposalFilters.forEach((button) => button.addEventListener("click", () => filterProposals(button)));
+        filterProposals(proposalFilters[0]);
 
         const activateShowcasePanel = (panelName) => {
           setFocusedPreview(null);

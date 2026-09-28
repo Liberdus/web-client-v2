@@ -118,7 +118,9 @@ Their functions now live in the filter bar, proposal-row preview badges, and the
 Open `mock/index.html?tab=proposals` (the existing `?tab=projects` link also works).
 The **Proposals** tab starts with 36 independent state examples, followed by project
 creation and signing previews. All phones load the production stylesheet; controls
-illustrate available actions without submitting transactions.
+illustrate available actions without submitting transactions. A second filter row beneath
+the main tabs selects All, Project, Governance, Economic, or Protocol previews.
+Empty types show a message, and the selection is retained when switching tabs.
 
 - Committee endorsements: start time, completion time, and contractor changes,
   each with one endorsement, two endorsements, and an already-endorsed account.

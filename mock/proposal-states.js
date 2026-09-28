@@ -197,7 +197,7 @@
         ? `<div class="proposal-lifecycle-action-group"><h3>Project actions</h3>${example.actions}</div>`
         : '',
     ].filter(Boolean).join('');
-    return `<article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="${example.state}" data-state-example="${example.id}">
+    return `<article class="screen" data-app-modal="proposalInfoModal" data-proposal-state="${example.state}" data-proposal-type="${isProject ? 'project' : 'governance'}" data-state-example="${example.id}">
       <div class="screen-label-row"><div class="screen-label">${title}</div><div class="screen-badges"><span class="screen-badge">${labels[example.state]}</span></div></div>
       <div class="screen-note">${example.note}</div>
       <div class="modal fixed-header active"><div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">${labels[example.state]}</div></div>
