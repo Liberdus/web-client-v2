@@ -488,6 +488,7 @@ function newDataRecord(myAccount) {
       ],
       history: [],
     },
+    evmPayments: [], // External transfers and their chat receipt recovery records
     pending: [], // Array to track pending transactions
     state: {
       unread: 0,
@@ -1108,12 +1109,22 @@ async function encryptAllAccounts(oldPassword, newPassword) {
 
 function saveState() {
   if (myData && myAccount && myAccount.username && myAccount.netid) {
-    let data = stringify(myData)
-    if (localStorage.lock && lockModal.encKey){  // Consider what happens if localStorage.lock was manually deleted
-      data = encryptData(data, lockModal.encKey, true)
-    }
-    localStorage.setItem(`${myAccount.username}_${myAccount.netid}`, data);
+    // Read the latest payment records before a whole-account save. An older
+    // tab's in-memory myData must not replace a newer recovery record.
+    myData.evmPayments = loadEvmPayments(myAccount);
+    saveAccountData(myData, myAccount);
   }
+}
+
+function saveAccountData(accountData, account) {
+  let data = stringify(accountData);
+  if (localStorage.lock && lockModal.encKey) {
+    data = encryptData(data, lockModal.encKey, true);
+  }
+  localStorage.setItem(`${account.username}_${account.netid}`, data);
+  // Retire the draft implementation's separate entry only after the account
+  // write succeeds, so a storage failure cannot discard an existing transfer.
+  localStorage.removeItem(`evm-payments:${account.netid}:${normalizeAddress(account.keys.address)}`);
 }
 
 function loadState(account, noparse=false){
@@ -34042,29 +34053,36 @@ intentsActivity.configure({
     }))),
 });
 
-// Recovery has its own account-scoped entry so another tab's ordinary saveState
-// cannot overwrite it. Encrypt metadata and signed chat attempts with the account key.
-function evmPaymentStorageKey(account) {
-  return `evm-payments:${account.netid}:${normalizeAddress(account.keys.address)}`;
-}
-
+// EVM recovery travels with the normal account data, backups and account lock.
 function loadEvmPayments(account) {
-  const saved = localStorage.getItem(evmPaymentStorageKey(account));
-  if (!saved) return [];
-  const records = parse(decryptData(saved, account.keys.secret + account.keys.pqSeed, true));
-  if (!Array.isArray(records) || records.some((record) => !parseEvmTransferMessage(record.payment))) {
-    throw new Error('Saved EVM payment records could not be read.');
+  const saved = loadState(`${account.username}_${account.netid}`);
+  if (saved && normalizeAddress(saved.account.keys.address) !== normalizeAddress(account.keys.address)) {
+    throw new Error('Saved EVM payments belong to a different account.');
   }
-  return records;
+  const records = saved?.evmPayments ?? (account === myAccount ? myData?.evmPayments : null) ?? [];
+  // Import records made with the earlier phase-3 draft. Saved myData records
+  // take precedence when the same payment exists in both places.
+  const legacy = localStorage.getItem(`evm-payments:${account.netid}:${normalizeAddress(account.keys.address)}`);
+  const previous = legacy ? parse(decryptData(legacy, account.keys.secret + account.keys.pqSeed, true)) : [];
+  for (const list of [previous, records]) {
+    if (!Array.isArray(list) || list.some((record) => !parseEvmTransferMessage(record?.payment))) {
+      throw new Error('Saved EVM payment records could not be read.');
+    }
+  }
+  return [...new Map([...previous, ...records].map((record) => [evmPaymentId(record.payment), record])).values()];
 }
 
 function saveEvmPayment(record, account) {
+  // A transfer can finish after account switching. Update its original account,
+  // without touching the account currently displayed or recreating a deleted one.
+  const accountData = account === myAccount ? myData : loadState(`${account.username}_${account.netid}`);
+  if (!accountData) throw new Error('The payment account is no longer saved on this device.');
   const records = loadEvmPayments(account);
   const index = records.findIndex((item) => evmPaymentId(item.payment) === evmPaymentId(record.payment));
   if (index < 0) records.push(record);
   else records[index] = record;
-  const encrypted = encryptData(stringify(records), account.keys.secret + account.keys.pqSeed, true);
-  localStorage.setItem(evmPaymentStorageKey(account), encrypted);
+  accountData.evmPayments = records;
+  saveAccountData(accountData, account);
 }
 
 evmAssets.configure({
