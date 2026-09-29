@@ -12347,7 +12347,9 @@ async function checkEvmPayments() {
         removeEvmPayment(record, session.account);
         return;
       }
-      const state = await evmAssets.transactions.verifyPayment(record.payment, record.payment.from, record.payment.to);
+      const state = record.kind === 'outgoing'
+        ? await evmAssets.transactions.verifyOutgoingPayment(record)
+        : await evmAssets.transactions.verifyPayment(record.payment, record.payment.from, record.payment.to);
       if (!current()) return;
       // Do not apply a stale result to an operation changed while RPC was in flight.
       const latest = loadEvmPayments(session.account).find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
@@ -12377,7 +12379,8 @@ async function checkEvmPayments() {
         try {
           await evmAssets.refresh({ force: true });
           if (!current()) return;
-          record.balanceRefreshed = true;
+          // Discovery resolves with cached balances when its request fails.
+          record.balanceRefreshed = evmAssets.getStatus() === 'connected';
         } catch { /* Retry a balance refresh with the same bounded schedule. */ }
       }
       if (!current()) return;

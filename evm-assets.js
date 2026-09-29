@@ -1255,6 +1255,23 @@ export class EvmTransactionService {
     if (!payment || payment.from !== expectedFrom || payment.to !== expectedTo) return 'failed';
     const network = this.paymentNetwork(payment.chainId);
     if (!network) return 'unverifiable';
+    return this.verifyPaymentOnNetwork(payment, network);
+  }
+
+  async verifyOutgoingPayment(record) {
+    const payment = parseEvmTransferMessage(record.payment);
+    if (record.kind !== 'outgoing' || !payment || payment.from !== walletProbeAddress(this.getAccount()?.keys?.address)) return 'failed';
+    if (typeof record.networkId !== 'string' || !/^[a-z0-9-]+$/.test(record.networkId)) return 'unverifiable';
+    // Locally prepared sends can use discovered networks, even after the asset
+    // leaves the catalog. Incoming claims must use the trusted network list above.
+    const network = this.paymentNetwork(payment.chainId) || {
+      id: record.networkId, name: record.networkId, source: 'evm', chainId: payment.chainId,
+      nativeSymbol: payment.symbol, rpcUrls: DEFAULT_EVM_RPC_URLS[record.networkId] || [],
+    };
+    return this.verifyPaymentOnNetwork(payment, network);
+  }
+
+  async verifyPaymentOnNetwork(payment, network) {
     try {
       const { transaction: tx, receipt, block } = await this.getPaymentEvidence(network, payment.transactionHash);
       if (!tx || tx.hash?.toLowerCase() !== payment.transactionHash) return 'unverifiable';
