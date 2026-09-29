@@ -13038,6 +13038,7 @@ async function processChats(chats, keys) {
               existing.paymentMessageConfirmed = true;
               existing.status = 'sent';
               existing.txid = txidHex;
+              queueEvmPaymentMessage(existing, myAccount);
               continue;
             }
           }
@@ -13091,6 +13092,7 @@ async function processChats(chats, keys) {
           }
           
           insertSorted(contact.messages, payload, 'timestamp');
+          if (payload.type === EVM_CHAT_MESSAGE_TYPE) queueEvmPaymentMessage(payload, myAccount);
           if (payload.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) {
             needsUpcomingCallsUiRefresh = true;
           }
@@ -13405,7 +13407,7 @@ async function processChats(chats, keys) {
     // Update the timestamp
     myAccount.chatTimestamp = newTimestamp;
   }
-  // Save the synced card and remove its recovery record in the same write.
+  // Save queried messages and their verification work together.
   if (syncedEvmPayment) saveState();
 }
 
@@ -22540,11 +22542,8 @@ class ChatModal {
     };
   }
 
-  async sendEvmPaymentMessage(record, account) {
-    if (myAccount !== account) throw new Error('Sign in to the payment account to send its chat message.');
-    if (!['pending', 'confirmed'].includes(record.assetState)) throw new Error('Check the EVM transfer before sending its message.');
-    if (record.messageState === 'submitted') return;
-    if (record.attempt) throw new Error('The previous message attempt needs reconciliation.');
+  async prepareEvmPaymentMessage(record, account) {
+    if (myAccount !== account || record.kind !== 'outgoing') throw new Error('Sign in to the payment account.');
     const payment = parseEvmTransferMessage(record.payment);
     if (!payment || payment.from !== `0x${normalizeAddress(account.keys.address)}`) throw new Error('Invalid payment sender.');
     const prepared = await this.prepareEvmPaymentRecipient({ address: payment.to, username: record.username }, account);
@@ -22553,34 +22552,46 @@ class ChatModal {
     );
     if (myAccount !== account) throw new Error('Account changed before chat submission.');
     record.attempt = { tx: chatMessageObj, txid, timestamp: payload.sent_timestamp };
-    record.messageState = 'submitting';
+    record.messageState = 'ready';
     saveEvmPayment(record, account);
     this.upsertEvmPaymentCard(record);
-    const response = await injectTx(chatMessageObj, txid, account);
-    record.messageState = response?.result?.success === true ? 'submitted'
+  }
+
+  async sendEvmPaymentMessage(record, account) {
+    if (myAccount !== account || record.kind !== 'outgoing') throw new Error('Sign in to the payment account.');
+    if (['submitted', 'delivered'].includes(record.messageState)) return;
+    if (!record.attempt || record.messageState !== 'ready') throw new Error('The previous message attempt needs reconciliation.');
+    const { tx, txid } = record.attempt;
+    record.messageState = 'submitting';
+    saveEvmPayment(record, account);
+    const response = await injectTx(tx, txid, account);
+    const current = loadEvmPayments(account).find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
+    record.messageState = current?.messageState === 'delivered' ? 'delivered'
+      : response?.result?.success === true ? 'submitted'
       : response?.result?.success === false && !response.transportFailure ? 'rejected' : 'uncertain';
     saveEvmPayment(record, account);
     if (myAccount === account) this.upsertEvmPaymentCard(record);
-    if (record.messageState !== 'submitted') throw new Error(response?.result?.reason || 'Message submission could not be confirmed.');
+    if (!['submitted', 'delivered'].includes(record.messageState)) throw new Error(response?.result?.reason || 'Message submission could not be confirmed.');
   }
 
   upsertEvmPaymentCard(record) {
     const address = normalizeAddress(record.payment.to);
     const contact = myData.contacts[address];
+    if (!contact) return;
     const existing = contact.messages.find((message) => message.my && message.type === EVM_CHAT_MESSAGE_TYPE
       && evmPaymentId(message.payment) === evmPaymentId(record.payment));
     // Message sync can finish while injectTx is still waiting for a response.
-    if (existing?.paymentMessageConfirmed) return;
+    if (existing?.paymentMessageConfirmed || existing?.deleted || (!existing && record.cardCreated)) return;
     const message = existing || { message: '', type: EVM_CHAT_MESSAGE_TYPE, payment: record.payment, my: true, paymentVerified: 'unchecked' };
     message.txid = record.attempt.txid;
     message.timestamp = record.attempt.timestamp;
     message.sent_timestamp = message.timestamp;
-    message.status = record.messageState === 'submitted' ? 'sent' : 'failed';
+    message.status = ['rejected', 'uncertain'].includes(record.messageState) ? 'failed' : 'sent';
     if (!existing) insertSorted(contact.messages, message, 'timestamp');
+    record.cardCreated = true;
     const chatIndex = myData.chats.findIndex((chat) => chat.address === address);
     if (chatIndex >= 0) myData.chats.splice(chatIndex, 1);
     insertSorted(myData.chats, { address, timestamp: message.timestamp, txid: message.txid }, 'timestamp');
-    saveState();
     if (this.isActive() && this.address === address) this.appendChatModal();
     chatsScreen.updateChatList();
   }
@@ -34119,6 +34130,20 @@ function evmPaymentRecordId(record) {
   return `${record.kind}:${stringify(record.payment)}`;
 }
 
+// A synced claim only grants permission to verify, never to send or retry assets.
+function queueEvmPaymentMessage(message, account) {
+  const payment = parseEvmTransferMessage(message.payment);
+  if (!payment || message.deleted) return;
+  const records = loadEvmPayments(account);
+  const claim = stringify(payment);
+  const existing = records.find((record) => stringify(record.payment) === claim);
+  if (!existing && ['settled', 'failed'].includes(message.paymentVerified)
+    && Date.now() - (message.paymentCheckedAt || 0) < 5 * 60_000) return;
+  const record = existing || { kind: 'verification', payment, assetState: 'unknown', createdAt: Date.now() };
+  if (record.kind === 'outgoing' && message.my && message.paymentMessageConfirmed) record.messageState = 'delivered';
+  saveEvmPayment(record, account);
+}
+
 // EVM recovery lives in myData and follows the normal account save lifecycle.
 function loadEvmPayments(account) {
   if (account !== myAccount) return [];
@@ -34167,6 +34192,7 @@ evmAssets.configure({
   findContact: (username) => getMessagePaymentContacts()
     .find((contact) => normalizeUsername(contact.username || '') === username) || null,
   prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
+  preparePaymentMessage: (record, account) => chatModal.prepareEvmPaymentMessage(record, account),
   sendChatPayment: (record, account) => chatModal.sendEvmPaymentMessage(record, account),
   getPayments: (account) => loadEvmPayments(account),
   savePayment: (record, account) => saveEvmPayment(record, account),
