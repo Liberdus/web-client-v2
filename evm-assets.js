@@ -1244,7 +1244,7 @@ export class EvmTransactionService {
         ? await this.request(network, 'eth_getBlockByNumber', [receipt.blockNumber, false]) : null;
       return { transaction, receipt, block };
     })();
-    // Bound history retained in memory; reopening chat also clears this cache.
+    // Share recent network evidence across claims; verdicts are never shared.
     if (this.paymentEvidence.size >= 100) this.paymentEvidence.clear();
     this.paymentEvidence.set(key, { until: Date.now() + 10_000, promise });
     return promise;
@@ -1257,11 +1257,18 @@ export class EvmTransactionService {
     if (!network) return 'unverifiable';
     try {
       const { transaction: tx, receipt, block } = await this.getPaymentEvidence(network, payment.transactionHash);
-      if (!tx || !receipt || !block) return 'pending';
+      if (!tx || tx.hash?.toLowerCase() !== payment.transactionHash) return 'unverifiable';
+      if (!receipt) return 'pending';
+      if (!block) return 'unverifiable';
       if (!EVM_HASH_PATTERN.test(block.hash) || receipt.blockHash !== block.hash || tx.blockHash !== block.hash) return 'pending';
       if (tx.hash?.toLowerCase() !== payment.transactionHash || receipt.transactionHash?.toLowerCase() !== payment.transactionHash) return 'unverifiable';
-      if (parseHexQuantity(receipt.status, 'receipt status') !== 1n) return 'failed';
       if (tx.from?.toLowerCase() !== payment.from) return 'failed';
+      if (parseHexQuantity(receipt.status, 'receipt status') !== 1n) {
+        const matches = payment.assetKind === 'native'
+          ? tx.to?.toLowerCase() === payment.to && parseHexQuantity(tx.value, 'value') === BigInt(payment.rawAmount)
+          : tx.to?.toLowerCase() === payment.contractAddress && tx.input?.toLowerCase() === encodeErc20Transfer(payment.to, BigInt(payment.rawAmount));
+        return matches ? 'reverted' : 'failed';
+      }
       if (payment.assetKind === 'native') {
         return tx.to?.toLowerCase() === payment.to && parseHexQuantity(tx.value, 'value') === BigInt(payment.rawAmount)
           && payment.decimals === 18 && payment.symbol === network.nativeSymbol ? 'settled' : 'failed';

@@ -511,7 +511,7 @@ function newDataRecord(myAccount) {
 function clearMyData() {
   myData = null;
   myAccount = null;
-  stopEvmChatVerification();
+  stopEvmPaymentChecks();
   evmAssets.reset();
   multichain.reset();
   daoRepo.reset();
@@ -12308,64 +12308,104 @@ function restorePendingMessageEdit(pendingTxid, contactAddress, editPending) {
  */
 const intentsPaymentVerifications = new Map();
 
-let evmChatVerification = null;
+const EVM_CHECK_LIMIT = 20;
+const EVM_RECHECK_MS = 5 * 60_000;
+let evmPaymentCheckSession = null;
 
-function stopEvmChatVerification() {
-  clearTimeout(evmChatVerification?.timer);
-  evmChatVerification = null;
+function stopEvmPaymentChecks() {
+  evmPaymentCheckSession = null;
   evmAssets.transactions.paymentEvidence.clear();
 }
 
-function verifyVisibleEvmPayments() {
-  if (!chatModal.isActive() || !myAccount || document.visibilityState === 'hidden') return;
-  if (evmChatVerification?.account !== myAccount || evmChatVerification?.address !== chatModal.address) {
-    stopEvmChatVerification();
-    evmChatVerification = { account: myAccount, address: chatModal.address, running: false, timer: null, round: 0, checked: new Map() };
+function evmPaymentMessages(record, account) {
+  const own = `0x${normalizeAddress(account.keys.address)}`;
+  const address = normalizeAddress(record.payment.from === own ? record.payment.to : record.payment.from);
+  return (myData.contacts[address]?.messages || []).filter((message) => !message.deleted
+    && message.type === EVM_CHAT_MESSAGE_TYPE && stringify(message.payment) === stringify(record.payment)
+    && message.my === (record.payment.from === own));
+}
+
+// The existing five-second app heartbeat schedules this queue independently of
+// Liberdus pending. No chat modal owns a timer or a verification request.
+async function checkEvmPayments() {
+  if (!myAccount || !isOnline || document.visibilityState === 'hidden' || evmAssets.sending) return;
+  if (evmPaymentCheckSession?.account !== myAccount) {
+    stopEvmPaymentChecks();
+    evmPaymentCheckSession = { account: myAccount, running: false };
   }
-  const session = evmChatVerification;
+  const session = evmPaymentCheckSession;
   if (session.running) return;
-  clearTimeout(session.timer);
   session.running = true;
-  const current = () => evmChatVerification === session && myAccount === session.account
-    && chatModal.isActive() && chatModal.address === session.address && document.visibilityState !== 'hidden';
-  const check = async () => {
-    let unresolved = false;
-    for (const bubble of document.querySelectorAll('.evm-payment-message')) {
+  const current = () => evmPaymentCheckSession === session && myAccount === session.account
+    && isOnline && document.visibilityState !== 'hidden' && !evmAssets.sending;
+  try {
+    const due = loadEvmPayments(session.account).filter((record) => (record.checkAttempts || 0) < EVM_CHECK_LIMIT
+      && (record.nextCheckAt || 0) <= Date.now()).sort((a, b) => (a.nextCheckAt || 0) - (b.nextCheckAt || 0)).slice(0, 4);
+    await Promise.all(due.map(async (record) => {
       if (!current()) return;
-      const txid = bubble.closest('[data-txid]')?.dataset.txid;
-      const message = myData.contacts[session.address]?.messages.find((item) => item.txid === txid && item.type === EVM_CHAT_MESSAGE_TYPE);
-      if (!message) continue;
-      let state = session.checked.get(txid);
-      if (!state) {
-        const own = `0x${normalizeAddress(session.account.keys.address)}`;
-        const peer = `0x${normalizeAddress(session.address)}`;
-        state = await evmAssets.transactions.verifyPayment(message.payment, message.my ? own : peer, message.my ? peer : own);
-        if (!current()) return;
-        message.paymentVerified = state;
-        if (state === 'settled' || state === 'failed') session.checked.set(txid, state);
+      if (record.kind === 'verification' && !evmPaymentMessages(record, session.account).length) {
+        removeEvmPayment(record, session.account);
+        return;
       }
-      unresolved ||= state === 'pending' || state === 'unverifiable';
-      bubble.dataset.verified = state;
-      const label = bubble.querySelector('.intents-payment-verified');
-      if (label) label.textContent = paymentStatusLabel(state);
-    }
-    if (!current()) return;
+      const state = await evmAssets.transactions.verifyPayment(record.payment, record.payment.from, record.payment.to);
+      if (!current()) return;
+      // Do not apply a stale result to an operation changed while RPC was in flight.
+      const latest = loadEvmPayments(session.account).find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
+      if (!latest) return;
+      record = latest;
+      record.checkedAt = Date.now();
+      record.checkAttempts = (record.checkAttempts || 0) + 1;
+      record.nextCheckAt = Date.now() + Math.min(30_000, 5000 * 2 ** Math.min(record.checkAttempts - 1, 3));
+      record.verification = state;
+      record.assetState = state === 'settled' ? 'confirmed' : state === 'reverted' ? 'reverted'
+        : state === 'pending' ? 'pending' : 'unknown';
+      const messages = evmPaymentMessages(record, session.account);
+      for (const message of messages) {
+        message.paymentVerified = state === 'reverted' ? 'failed' : state;
+        message.paymentReverted = state === 'reverted';
+        message.paymentCheckedAt = record.checkedAt;
+      }
+      if (messages.some((message) => message.my && message.paymentMessageConfirmed)
+        && record.kind === 'outgoing') record.messageState = 'delivered';
+      const terminal = ['settled', 'reverted', 'failed'].includes(state);
+      if (terminal && record.kind === 'verification') {
+        removeEvmPayment(record, session.account);
+        return;
+      }
+      saveEvmPayment(record, session.account);
+      if (['settled', 'reverted'].includes(state) && !record.balanceRefreshed) {
+        try {
+          await evmAssets.refresh({ force: true });
+          if (!current()) return;
+          record.balanceRefreshed = true;
+        } catch { /* Retry a balance refresh with the same bounded schedule. */ }
+      }
+      if (!current()) return;
+      if (['settled', 'reverted'].includes(state) && record.balanceRefreshed
+        && ['none', 'delivered', 'abandoned'].includes(record.messageState)) {
+        if (!record.username) showToast(`EVM transfer ${record.assetState}: ${record.payment.transactionHash}`, 5000, state === 'reverted' ? 'error' : 'info');
+        removeEvmPayment(record, session.account);
+      } else {
+        saveEvmPayment(record, session.account);
+      }
+    }));
+    if (!current() || !due.length) return;
     saveState();
-    if (unresolved && session.round < 20) {
-      session.timer = setTimeout(verifyVisibleEvmPayments, Math.min(30_000, 2000 * 2 ** Math.min(session.round++, 4)));
-    }
-  };
-  check().catch((error) => console.warn('EVM payment verification interrupted:', error.message))
-    .finally(() => { session.running = false; });
+    if (chatModal.isActive()) chatModal.appendChatModal();
+    chatsScreen.updateChatList();
+  } catch (error) {
+    console.warn('EVM payment verification interrupted:', error.message);
+  } finally {
+    session.running = false;
+  }
 }
 
 document.addEventListener('visibilitychange', () => {
-  stopEvmChatVerification();
-  if (document.visibilityState !== 'hidden') verifyVisibleEvmPayments();
+  if (document.visibilityState === 'hidden') stopEvmPaymentChecks();
+  else void checkEvmPayments();
 });
 
 async function verifyVisibleChatPayments() {
-  verifyVisibleEvmPayments();
   const bubbles = document.querySelectorAll(
     '.intents-payment-message[data-verified="unchecked"], .intents-payment-message[data-verified="pending"]'
   );
@@ -21268,11 +21308,14 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async open(address, skipAutoScroll = false) {
-    stopEvmChatVerification();
     this.closeReactionSheet();
 
     // Set active chat address early so async refreshes target the correct chat.
     this.address = address;
+    for (const message of myData.contacts[address]?.messages || []) {
+      if (message.type === EVM_CHAT_MESSAGE_TYPE) queueEvmPaymentMessage(message, myAccount);
+    }
+    void checkEvmPayments();
 
     // clear message input
     this.messageInput.value = '';
@@ -21458,7 +21501,6 @@ class ChatModal {
    * @returns {void}
    */
   close() {
-    stopEvmChatVerification();
     this.closeReactionSheet();
     const closingAddress = this.address;
     this.hideAttachmentLoadingToastsForContact(closingAddress);
@@ -34240,8 +34282,12 @@ function queueEvmPaymentMessage(message, account) {
   const claim = stringify(payment);
   const existing = records.find((record) => stringify(record.payment) === claim);
   if (!existing && ['settled', 'failed'].includes(message.paymentVerified)
-    && Date.now() - (message.paymentCheckedAt || 0) < 5 * 60_000) return;
+    && Date.now() - (message.paymentCheckedAt || 0) < EVM_RECHECK_MS) return;
   const record = existing || { kind: 'verification', payment, assetState: 'unknown', createdAt: Date.now() };
+  if (Date.now() - (record.checkedAt || 0) >= EVM_RECHECK_MS) {
+    record.checkAttempts = 0;
+    record.nextCheckAt = 0;
+  }
   if (record.kind === 'outgoing' && message.my && message.paymentMessageConfirmed) record.messageState = 'delivered';
   saveEvmPayment(record, account);
 }
@@ -36372,6 +36418,7 @@ let checkPendingTransactionsPromise = null;
  * @returns {Promise<void>}
  */
 async function checkPendingTransactions() {
+  void checkEvmPayments();
   if (!checkPendingTransactionsPromise) {
     checkPendingTransactionsPromise = checkPendingTransactionsOnce()
       .finally(() => {
