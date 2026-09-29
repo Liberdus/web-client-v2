@@ -1399,22 +1399,25 @@ export class EvmTransactionService {
     }
     record.assetState = status;
     if (['confirmed', 'reverted'].includes(status)) delete record.rawTransaction;
-    try {
-      this.saveSubmission(record, account);
-      status = record.assetState;
-    } catch {
-      this.showToast('Transfer may be sent. Check its hash before sending again.', 0, 'warning');
-    }
-    if (['confirmed', 'reverted'].includes(status) && this.getAccount() === account) {
-      try { await this.refreshAssets({ force: true }); }
-      catch { this.showToast('Transfer processed; balance refresh is temporarily unavailable.', 5000, 'warning'); }
-    }
     if (this.getAccount() === account) {
       const message = status === 'rejected' ? `EVM submission rejected: ${record.broadcastError.message}. Review the form and try again.`
         : status === 'unknown' ? `Submission could not be confirmed: ${record.broadcastError?.message || 'Connection interrupted'}. Check status or retry the original submission in EVM assets.`
         : `EVM transfer ${status}: ${transactionHash}`;
       const failed = ['reverted', 'rejected'].includes(status);
       this.showToast(message, failed || status === 'unknown' ? 0 : 5000, failed ? 'error' : status === 'unknown' ? 'warning' : 'info');
+      if (!chat && ['confirmed', 'reverted'].includes(status)) record.notifiedAssetState = status;
+    }
+    try {
+      this.saveSubmission(record, account);
+      status = record.assetState;
+    } catch {
+      if (this.getAccount() === account) this.showToast('Transfer may be sent. Check its hash before sending again.', 0, 'warning');
+    }
+    if (['confirmed', 'reverted'].includes(status) && this.getAccount() === account) {
+      try { await this.refreshAssets({ force: true }); }
+      catch {
+        if (this.getAccount() === account) this.showToast('Transfer processed; balance refresh is temporarily unavailable.', 5000, 'warning');
+      }
     }
     return { status, transactionHash, receipt, record };
   }

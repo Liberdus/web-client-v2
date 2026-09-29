@@ -2615,8 +2615,10 @@ class MenuModal {
 
 const menuModal = new MenuModal();
 
-// ==============// DAO / Proposals
-// ==============
+// =====================
+// DAO / Proposals
+// =====================
+
 setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
 const daoProposalVoteTracker = createDaoProposalVoteTracker({
   getDaoUserVotes: () => myData?.daoUserVotes,
@@ -12473,7 +12475,7 @@ async function checkEvmPayments() {
         return;
       }
 
-      if (!record.username) {
+      if (!record.username && record.notifiedAssetState !== record.assetState) {
         showToast(
           `EVM transfer ${record.assetState}: ${record.payment.transactionHash}`,
           state === 'reverted' ? 0 : 5000,
@@ -16696,8 +16698,10 @@ class BackupAccountModal {
     this.handleStorageLocationChange();
   }
 
-  // ===============================  // GOOGLE DRIVE TOKEN MANAGEMENT
-  // ===============================  // Not using below because we are requiring user to confirm account to use each time
+  // ======================================
+  // GOOGLE DRIVE TOKEN MANAGEMENT
+  // ======================================
+  // Not using below because we are requiring user to confirm account to use each time
   /* storeGoogleToken(tokenData) {
     localStorage.setItem(this.GOOGLE_TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
   } */
@@ -16724,8 +16728,10 @@ class BackupAccountModal {
     localStorage.removeItem(this.GOOGLE_TOKEN_STORAGE_KEY);
   }
 
-  // ===============================  // GOOGLE DRIVE BACKUP TIMESTAMP MANAGEMENT
-  // ===============================  _getStoredTimestamp(key) {
+  // ======================================
+  // GOOGLE DRIVE BACKUP TIMESTAMP MANAGEMENT
+  // ======================================
+  _getStoredTimestamp(key) {
     const rawValue = localStorage.getItem(key);
     const parsed = Number(rawValue);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -16753,8 +16759,10 @@ class BackupAccountModal {
     localStorage.setItem(this.GDRIVE_REMINDER_TS_KEY, String(timestamp));
   }
 
-  // ===============================  // GOOGLE OAUTH FLOW (via OAuth Server with PKCE)
-  // ===============================  buildOAuthServerUrl(sessionId) {
+  // ======================================
+  // GOOGLE OAUTH FLOW (via OAuth Server with PKCE)
+  // ======================================
+  buildOAuthServerUrl(sessionId) {
     const config = network.googleDrive;
     const params = new URLSearchParams({
       sessionId,
@@ -17041,8 +17049,10 @@ class BackupAccountModal {
     window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
   }
 
-  // ===============================  // GOOGLE DRIVE FOLDER HELPERS
-  // ===============================  async ensureBackupFolder(tokenData) {
+  // ======================================
+  // GOOGLE DRIVE FOLDER HELPERS
+  // ======================================
+  async ensureBackupFolder(tokenData) {
     const folderName = network.googleDrive.backupFolder;
 
     const queryParams = new URLSearchParams({
@@ -17096,8 +17106,10 @@ class BackupAccountModal {
     return folderData.id;
   }
 
-  // ===============================  // GOOGLE DRIVE UPLOAD
-  // ===============================  async uploadToGoogleDrive(data, filename, tokenData) {
+  // ======================================
+  // GOOGLE DRIVE UPLOAD
+  // ======================================
+  async uploadToGoogleDrive(data, filename, tokenData) {
     // Ensure backup folder exists and get its ID
     const folderId = await this.ensureBackupFolder(tokenData);
 
