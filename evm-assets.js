@@ -1161,25 +1161,29 @@ export class EvmTransactionService {
     });
     if (!payment) throw new Error('Cannot record this asset transfer.');
     const record = {
-      payment, networkId: network.id, username: chat?.username || null,
-      createdAt: Date.now(), assetState: 'broadcasting', messageState: chat ? 'ready' : 'none',
+      kind: 'outgoing', payment, networkId: network.id, username: chat?.username || null,
+      createdAt: Date.now(), broadcastState: 'attempting', assetState: 'unknown',
+      messageState: chat ? 'ready' : 'none',
     };
     const account = prepared.validation.account;
-    // This write must succeed before the irreversible network request. Never save the signed EVM bytes.
+    // Track in account memory; normal account saves persist it. Never store signed EVM bytes.
     this.savePayment(record, account);
     let status = 'unknown';
     let receipt = null;
     try {
       const broadcast = await this.request(network, 'eth_sendRawTransaction', [rawTransaction]);
       if (typeof broadcast !== 'string' || broadcast.toLowerCase() !== transactionHash) throw new Error('Unexpected transaction hash');
+      record.broadcastState = 'acknowledged';
       status = 'pending';
     } catch {
+      record.broadcastState = 'unknown';
       // A lost response is not a rejection. Reconcile the locally known hash, without resending.
       try {
-        if (await this.request(network, 'eth_getTransactionByHash', [transactionHash])) status = 'pending';
+        const transaction = await this.request(network, 'eth_getTransactionByHash', [transactionHash]);
+        if (transaction?.hash?.toLowerCase() === transactionHash) status = 'pending';
       } catch { /* Keep the uncertain outcome for recovery. */ }
     }
-    if (status === 'pending') {
+    if (!chat && status === 'pending') {
       try {
         receipt = await this.waitForReceipt(network, transactionHash);
         if (receipt) status = parseHexQuantity(receipt.status, 'receipt status') === 1n ? 'confirmed' : 'reverted';
@@ -1189,7 +1193,7 @@ export class EvmTransactionService {
     try {
       this.savePayment(record, account);
     } catch {
-      this.showToast('Transfer may be sent. Its saved hash can be checked after reopening EVM Assets.', 0, 'warning');
+      this.showToast('Transfer may be sent. Check its hash before sending again.', 0, 'warning');
     }
     if (status === 'confirmed' && this.getAccount() === account) {
       try { await this.refreshAssets({ force: true }); }

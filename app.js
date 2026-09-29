@@ -1109,8 +1109,7 @@ async function encryptAllAccounts(oldPassword, newPassword) {
 
 function saveState() {
   if (myData && myAccount && myAccount.username && myAccount.netid) {
-    // Read the latest payment records before a whole-account save. An older
-    // tab's in-memory myData must not replace a newer recovery record.
+    // Merge this tab's unsaved payment changes with the latest account snapshot.
     myData.evmPayments = loadEvmPayments(myAccount);
     saveAccountData(myData, myAccount);
   }
@@ -1122,6 +1121,7 @@ function saveAccountData(accountData, account) {
     data = encryptData(data, lockModal.encKey, true);
   }
   localStorage.setItem(`${account.username}_${account.netid}`, data);
+  evmPaymentChanges.delete(account);
 }
 
 function loadState(account, noparse=false){
@@ -34050,30 +34050,51 @@ intentsActivity.configure({
     }))),
 });
 
-// EVM recovery travels with the normal account data, backups and account lock.
+// Payment changes join the normal account save; there is no separate storage key.
+// Keep a small mutation journal so stale tabs neither drop new work nor restore
+// records they previously removed. Clear it only after a successful save.
+const evmPaymentChanges = new WeakMap();
+
+function evmPaymentRecordId(record) {
+  return `${record.kind}:${stringify(record.payment)}`;
+}
+
 function loadEvmPayments(account) {
   const saved = loadState(`${account.username}_${account.netid}`);
   if (saved && normalizeAddress(saved.account.keys.address) !== normalizeAddress(account.keys.address)) {
     throw new Error('Saved EVM payments belong to a different account.');
   }
   const records = saved?.evmPayments ?? (account === myAccount ? myData?.evmPayments : null) ?? [];
-  if (!Array.isArray(records) || records.some((record) => !parseEvmTransferMessage(record?.payment))) {
+  if (!Array.isArray(records) || records.some((record) => !['outgoing', 'verification'].includes(record?.kind)
+    || !parseEvmTransferMessage(record.payment))) {
     throw new Error('Saved EVM payment records could not be read.');
   }
-  return records;
+  const merged = new Map(records.map((record) => [evmPaymentRecordId(record), record]));
+  for (const [id, record] of evmPaymentChanges.get(account) || []) {
+    if (record) merged.set(id, record);
+    else merged.delete(id);
+  }
+  return [...merged.values()];
 }
 
 function saveEvmPayment(record, account) {
-  // A transfer can finish after account switching. Update its original account,
-  // without touching the account currently displayed or recreating a deleted one.
+  changeEvmPayment(record, account, false);
+}
+
+function removeEvmPayment(record, account) {
+  changeEvmPayment(record, account, true);
+}
+
+function changeEvmPayment(record, account, remove) {
+  // A response may arrive after switching accounts. Never recreate a deleted account.
   const accountData = account === myAccount ? myData : loadState(`${account.username}_${account.netid}`);
   if (!accountData) throw new Error('The payment account is no longer saved on this device.');
-  const records = loadEvmPayments(account);
-  const index = records.findIndex((item) => evmPaymentId(item.payment) === evmPaymentId(record.payment));
-  if (index < 0) records.push(record);
-  else records[index] = record;
-  accountData.evmPayments = records;
-  saveAccountData(accountData, account);
+  if (!evmPaymentChanges.has(account)) evmPaymentChanges.set(account, new Map());
+  evmPaymentChanges.get(account).set(evmPaymentRecordId(record), remove ? null : record);
+  accountData.evmPayments = loadEvmPayments(account);
+  // Active-account changes are saved by the normal app lifecycle. A late callback
+  // for another account must save there, without changing the displayed account.
+  if (account !== myAccount) saveAccountData(accountData, account);
 }
 
 evmAssets.configure({
