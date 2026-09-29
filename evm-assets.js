@@ -48,6 +48,7 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
 const ERC20_TRANSFER_TOPIC = bytesToHex(keccak256(utf82bin('Transfer(address,address,uint256)')));
 
 export const EVM_CHAT_MESSAGE_TYPE = 'evm_transfer';
+const EVM_NOTE_MAX_BYTES = 1000;
 
 /** Validate untrusted chat claims once; amount remains an exact base-unit string. */
 export function parseEvmTransferMessage(value) {
@@ -64,6 +65,7 @@ export function parseEvmTransferMessage(value) {
     || BigInt(value.rawAmount) >= 2n ** 256n) return null;
   if (!Number.isInteger(value.decimals) || value.decimals < 0 || value.decimals > 255) return null;
   if (typeof value.symbol !== 'string' || !value.symbol.trim() || value.symbol.length > 32) return null;
+  if (value.note !== undefined && (typeof value.note !== 'string' || utf82bin(value.note).length > EVM_NOTE_MAX_BYTES)) return null;
   return {
     type: EVM_CHAT_MESSAGE_TYPE,
     version: 1,
@@ -77,6 +79,7 @@ export function parseEvmTransferMessage(value) {
     rawAmount: value.rawAmount,
     decimals: value.decimals,
     symbol: value.symbol.trim(),
+    ...(value.note ? { note: value.note } : {}),
   };
 }
 
@@ -1247,7 +1250,7 @@ export class EvmTransactionService {
       `Recipient: ${recipientLabel || validation.recipient}`,
       `Maximum network fee: ${formatUnits(maximumFee, 18)} ${network.nativeSymbol}`,
       prepared.chat ? `Chat message fee and toll: ${formatUnits(prepared.chat.totalRequired)} LIB` : 'Wallet transfer only; no chat message.',
-      '',
+      prepared.chat?.note ? `Note: ${prepared.chat.note}` : '',
       'The transaction will be signed locally with this account.',
     ].join('\n');
   }
@@ -1358,6 +1361,7 @@ export class EvmTransactionService {
   }
 
   async send({ network, asset, recipient, recipientLabel = null, amount, chat = null, beforeBroadcast = async () => {} }) {
+    if (chat?.note && utf82bin(chat.note).length > EVM_NOTE_MAX_BYTES) throw new Error('Payment note exceeds 1000 bytes.');
     const prepared = await this.prepare({ network, asset, recipient, amount });
     prepared.recipientLabel = recipientLabel || prepared.validation.recipient;
     prepared.chat = chat;
@@ -1378,6 +1382,7 @@ export class EvmTransactionService {
       from: prepared.validation.from, to: prepared.validation.recipient,
       assetKind: asset.contractAddress ? 'erc20' : 'native', contractAddress: asset.contractAddress || null,
       rawAmount: prepared.validation.amountRaw.toString(), decimals: asset.tokenDecimals, symbol: asset.tokenSymbol,
+      ...(chat?.note ? { note: chat.note } : {}),
     });
     if (!payment) throw new Error('Cannot record this asset transfer.');
     const record = {
@@ -1948,7 +1953,8 @@ export class EvmSendConfirmationModal {
       this.amountUsd.textContent = hasUsdValue ? `≈ ${formatConnectedUsd(usdValue)}` : '';
       this.amountUsd.style.display = hasUsdValue ? 'block' : 'none';
     }
-    if (this.memoGroup) this.memoGroup.style.display = 'none';
+    this.memoGroup.style.display = prepared.chat?.note ? 'block' : 'none';
+    document.getElementById('confirmMemo').textContent = prepared.chat?.note || '';
     for (const group of [this.networkGroup, this.feeGroup]) {
       group.hidden = false;
     }
@@ -2011,6 +2017,9 @@ class EvmSendFormAdapter {
     this.sendForm = document.getElementById('sendForm');
     this.usernameInput = document.getElementById('sendToAddress');
     this.amountInput = document.getElementById('sendAmount');
+    this.memoInput = document.getElementById('sendMemo');
+    this.memoGroup = document.getElementById('sendMemoGroup');
+    this.memoCounter = this.memoGroup.querySelector('.memo-byte-counter');
     this.submitButton = this.sendForm?.querySelector('button[type="submit"]');
     this.networkSelect = document.getElementById('sendNetwork');
     this.networkStatus = document.getElementById('sendNetworkStatus');
@@ -2020,6 +2029,11 @@ class EvmSendFormAdapter {
     this.closeButton = document.getElementById('closeSendAssetFormModal');
     if (!this.sendForm || !this.usernameInput || !this.amountInput || !this.submitButton) return;
 
+    this.memoInput.addEventListener('input', (event) => {
+      if (!this.isEvmSelected()) return;
+      event.stopImmediatePropagation();
+      this.scheduleRefresh();
+    }, true);
     this.sendForm.addEventListener('submit', (event) => this.handleSubmit(event), true);
     this.usernameInput.addEventListener(
       'input',
@@ -2053,6 +2067,10 @@ class EvmSendFormAdapter {
 
   clearRecipientLookup({ hideStatus = true } = {}) {
     this.recipientResolution = null;
+    this.memoInput.value = '';
+    this.memoGroup.hidden = true;
+    this.memoInput.setCustomValidity('');
+    this.memoCounter.style.display = 'none';
     if (hideStatus) this.setRecipientStatus();
   }
 
@@ -2090,6 +2108,7 @@ class EvmSendFormAdapter {
 
     try {
       this.recipientResolution = this.controller.recipients.resolve(recipient.input);
+      this.memoGroup.hidden = recipient.kind !== 'username';
       const status = recipient.kind === 'address'
         ? 'Valid address — wallet transfer only'
         : 'Contact found — includes a chat payment message';
@@ -2345,9 +2364,14 @@ class EvmAssetsController {
         amount,
       })
       : { valid: false, message: '' };
-    form.balanceWarning.textContent = !validation.valid ? validation.message : '';
-    form.balanceWarning.style.display = validation.message ? 'inline' : 'none';
-    form.submitButton.disabled = this.sending || !validation.valid;
+    const noteBytes = resolution?.kind === 'username' ? utf82bin(form.memoInput.value).length : 0;
+    const noteError = noteBytes > EVM_NOTE_MAX_BYTES ? 'Payment note exceeds 1000 bytes.' : '';
+    form.memoInput.setCustomValidity(noteError);
+    form.memoCounter.textContent = `${noteBytes} / ${EVM_NOTE_MAX_BYTES} bytes`;
+    form.memoCounter.style.display = resolution?.kind === 'username' ? 'inline' : 'none';
+    form.balanceWarning.textContent = noteError || (!validation.valid ? validation.message : '');
+    form.balanceWarning.style.display = noteError || validation.message ? 'inline' : 'none';
+    form.submitButton.disabled = this.sending || !validation.valid || Boolean(noteError);
   }
   getPaymentActions(payment, message = null) {
     const account = this.getAccount();
@@ -2501,6 +2525,7 @@ class EvmAssetsController {
     this.sending = true;
     const account = this.getAccount();
     const input = form.usernameInput.value;
+    const note = form.memoInput.value.trim();
     const selection = { networkId: form.networkSelect.value, assetKey: form.assetSelectDropdown.value, amount: form.amountInput.value.trim() };
     form.submitButton.disabled = true;
     try {
@@ -2539,7 +2564,7 @@ class EvmAssetsController {
       form.recipientResolution = resolution;
 
       const chat = resolution.kind === 'username'
-        ? await this.prepareChatPayment(resolution, account) : null;
+        ? { ...await this.prepareChatPayment(resolution, account), note } : null;
       const beforeBroadcast = async () => {
         if (resolution.kind === 'username') {
           const current = this.recipients.resolve(resolution.username);
