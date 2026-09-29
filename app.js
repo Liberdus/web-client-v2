@@ -22551,6 +22551,10 @@ class ChatModal {
       prepared.address, payment, BigInt(prepared.toll), account.keys,
     );
     if (myAccount !== account) throw new Error('Account changed before chat submission.');
+    // The last lookup or message builder can see a newer fee/toll than confirmation.
+    if (chatMessageObj.amount + chatMessageObj.fee > BigInt(record.messageCostLimit)) {
+      throw new Error('Chat message cost exceeds the approved amount. Review the message cost before sending.');
+    }
     record.attempt = { tx: chatMessageObj, txid, timestamp: payload.sent_timestamp };
     record.messageState = 'ready';
     saveEvmPayment(record, account);

@@ -1260,6 +1260,7 @@ export class EvmTransactionService {
       createdAt: Date.now(), broadcastState: 'not_started', assetState: 'unknown',
       messageState: chat ? 'ready' : 'none',
       rawTransaction, nonce: prepared.transaction.nonce,
+      ...(chat ? { messageCostLimit: chat.totalRequired } : {}),
     };
     const account = prepared.validation.account;
     // Check and sign the announcement before spending EVM assets; send only after acceptance.
