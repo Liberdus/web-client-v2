@@ -431,6 +431,35 @@
         z-index: 20;
       }
 
+      .zoom-drag-handle {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        border-radius: 6px;
+        color: var(--secondary-text-color);
+        cursor: grab;
+        display: flex;
+        flex-shrink: 0;
+        height: 36px;
+        justify-content: center;
+        padding: 0;
+        touch-action: none;
+        user-select: none;
+        width: 24px;
+      }
+
+      .zoom-drag-handle:hover {
+        background: var(--board-background);
+      }
+
+      .zoom-drag-handle:focus-visible {
+        outline: 2px solid var(--primary-color);
+      }
+
+      .zoom-controls.is-dragging .zoom-drag-handle {
+        cursor: grabbing;
+      }
+
       .zoom-button,
       .zoom-reset {
         background: #fff;
@@ -482,6 +511,9 @@
   <body>
     <div class="mock-viewport" data-pan-viewport tabindex="0" role="region" aria-label="Scrollable UI preview board">
       <div class="zoom-controls" aria-label="Mock board zoom controls">
+        <button class="zoom-drag-handle" type="button" aria-label="Move zoom controls. Drag or use arrow keys; Home restores the default position." title="Drag to move · Arrow keys to move · Home to reset position">
+          <svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor" aria-hidden="true"><circle cx="3" cy="4" r="1.5"/><circle cx="9" cy="4" r="1.5"/><circle cx="3" cy="10" r="1.5"/><circle cx="9" cy="10" r="1.5"/><circle cx="3" cy="16" r="1.5"/><circle cx="9" cy="16" r="1.5"/></svg>
+        </button>
         <span class="zoom-help">Scroll, use scrollbars, or drag to pan · click a device to interact · click outside, Escape, or zoom to exit · Ctrl/Cmd + scroll to zoom</span>
         <button class="zoom-button" type="button" data-zoom-out aria-label="Zoom out">−</button>
         <button class="zoom-reset" type="button" data-zoom-reset aria-label="Reset zoom and position">100%</button>
@@ -1520,6 +1552,61 @@
         ];
 
         const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+
+        const zoomControls = document.querySelector(".zoom-controls");
+        const zoomDragHandle = zoomControls.querySelector(".zoom-drag-handle");
+        let toolbarDrag = null;
+
+        const moveZoomControls = (left, top) => {
+          const margin = 12;
+          const maxLeft = Math.max(margin, viewport.clientWidth - zoomControls.offsetWidth - margin);
+          const maxTop = Math.max(margin, viewport.clientHeight - zoomControls.offsetHeight - margin);
+          zoomControls.style.left = `${clamp(left, margin, maxLeft)}px`;
+          zoomControls.style.top = `${clamp(top, margin, maxTop)}px`;
+          zoomControls.style.right = "auto";
+          zoomControls.style.bottom = "auto";
+        };
+
+        zoomDragHandle.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0 || !event.isPrimary) return;
+          const box = zoomControls.getBoundingClientRect();
+          toolbarDrag = { pointerId: event.pointerId, x: event.clientX - box.left, y: event.clientY - box.top };
+          zoomDragHandle.setPointerCapture(event.pointerId);
+          zoomDragHandle.focus({ preventScroll: true });
+          zoomControls.classList.add("is-dragging");
+          event.preventDefault();
+        });
+        zoomDragHandle.addEventListener("pointermove", (event) => {
+          if (toolbarDrag?.pointerId !== event.pointerId) return;
+          moveZoomControls(event.clientX - toolbarDrag.x, event.clientY - toolbarDrag.y);
+        });
+        const stopToolbarDrag = (event) => {
+          if (toolbarDrag?.pointerId !== event.pointerId) return;
+          toolbarDrag = null;
+          zoomControls.classList.remove("is-dragging");
+          if (zoomDragHandle.hasPointerCapture(event.pointerId)) zoomDragHandle.releasePointerCapture(event.pointerId);
+        };
+        zoomDragHandle.addEventListener("pointerup", stopToolbarDrag);
+        zoomDragHandle.addEventListener("pointercancel", stopToolbarDrag);
+        zoomDragHandle.addEventListener("lostpointercapture", stopToolbarDrag);
+        zoomDragHandle.addEventListener("keydown", (event) => {
+          if (event.key === "Home") {
+            event.preventDefault();
+            ["left", "top", "right", "bottom"].forEach((property) => zoomControls.style.removeProperty(property));
+            return;
+          }
+          const direction = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+          if (!direction) return;
+          event.preventDefault();
+          const step = event.shiftKey ? 50 : 10;
+          const box = zoomControls.getBoundingClientRect();
+          moveZoomControls(box.left + direction[0] * step, box.top + direction[1] * step);
+        });
+        window.addEventListener("resize", () => {
+          if (!zoomControls.style.left) return;
+          const box = zoomControls.getBoundingClientRect();
+          moveZoomControls(box.left, box.top);
+        });
 
         const updateScrollArea = () => {
           scrollArea.style.width = `${Math.ceil(canvas.offsetWidth * scale)}px`;

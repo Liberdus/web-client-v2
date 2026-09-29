@@ -109,6 +109,7 @@ Their functions now live in the filter bar, proposal-row preview badges, and the
 - Click a device once to focus it; its outline turns purple and subsequent clicks and scrolling interact with its content.
 - Click outside the device, press **Escape**, switch tabs, or zoom the canvas to leave device focus. Expanding or collapsing a milestone keeps focus.
 - Use **+**, **−**, the percentage button, or **Ctrl/Cmd + scroll** outside a device to control zoom.
+- Drag the zoom toolbar’s grip to move it within the window. With the grip focused, arrow keys move it (Shift for larger steps), and Home restores its default position. Resizing keeps a moved toolbar visible.
 - Click a flow arrow, arrow label, or connected source control to pin its animated highlight.
 - Run `node mock/validate-current-flow.mjs` after changing production DAO modal labels or actions.
 
