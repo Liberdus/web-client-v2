@@ -12342,10 +12342,10 @@ function refreshEvmPaymentChat(messages) {
 }
 
 // Receipt lookup is read-only: even a reverted asset may already have an announcement.
-async function lookupEvmAnnouncement(record, account) {
-  let outcome = await queryNetwork(`/transaction/${record.attempt.txid}`);
+async function lookupEvmAnnouncement(txid, account) {
+  let outcome = await queryNetwork(`/transaction/${txid}`);
   if (typeof outcome?.transaction?.success !== 'boolean') {
-    outcome = await queryNetwork(`/collector/api/transaction?appReceiptId=${record.attempt.txid}`);
+    outcome = await queryNetwork(`/collector/api/transaction?appReceiptId=${txid}`);
   }
   if (myAccount !== account) throw new Error('Account changed during message recovery.');
   return outcome?.transaction?.success;
@@ -12384,6 +12384,7 @@ async function checkEvmPayments() {
       && (record.nextCheckAt || 0) <= Date.now()).sort((a, b) => (a.nextCheckAt || 0) - (b.nextCheckAt || 0)).slice(0, 4);
     await Promise.all(due.map(async (record) => {
       if (!current()) return;
+      const recordId = evmPaymentRecordId(record);
       if (record.kind === 'verification' && !evmPaymentMessages(record, session.account).length) {
         removeEvmPayment(record, session.account);
         return;
@@ -12401,8 +12402,12 @@ async function checkEvmPayments() {
         state = await evmAssets.transactions.verifyOutgoingPayment(record);
       }
       if (!current()) return;
+      const attemptId = record.attempt?.txid;
+      const delivered = record.kind === 'outgoing' && attemptId && !['delivered', 'abandoned'].includes(record.messageState)
+        ? await lookupEvmAnnouncement(attemptId, session.account).catch(() => undefined) : undefined;
+      if (!current()) return;
       // Do not apply a stale result to an operation changed while RPC was in flight.
-      const latest = loadEvmPayments(session.account).find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
+      const latest = loadEvmPayments(session.account).find((item) => evmPaymentRecordId(item) === recordId);
       if (!latest || stringify(latest) !== checkedRecord) return;
       record = latest;
       record.checkedAt = Date.now();
@@ -12440,8 +12445,6 @@ async function checkEvmPayments() {
       if (messages.some((message) => message.my && message.paymentMessageConfirmed)
         && record.kind === 'outgoing') record.messageState = 'delivered';
       if (record.kind === 'outgoing' && record.attempt && !['delivered', 'abandoned'].includes(record.messageState)) {
-        const delivered = await lookupEvmAnnouncement(record, session.account).catch(() => undefined);
-        if (!current()) return;
         if (delivered === true) {
           record.messageState = 'delivered';
           for (const message of messages) {
@@ -22768,7 +22771,7 @@ class ChatModal {
     if (myAccount !== account || record.kind !== 'outgoing') throw new Error('Sign in to the payment account.');
     if (['delivered', 'abandoned'].includes(record.messageState)) return;
     if (record.attempt && record.messageState !== 'ready') {
-      const outcome = await lookupEvmAnnouncement(record, account);
+      const outcome = await lookupEvmAnnouncement(record.attempt.txid, account);
       if (outcome === true) {
         record.messageState = 'delivered';
         saveEvmPayment(record, account);
