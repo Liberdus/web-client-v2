@@ -1490,7 +1490,7 @@ class AssetsModal {
       const button = event.target.closest('[data-recover-payment]');
       if (!button) return;
       button.disabled = true;
-      try { await this.controller.recoverPayment(button.dataset.recoverPayment); }
+      try { await this.controller.recoverPayment(button.dataset.recoverPayment, button.dataset.recoveryAction); }
       finally { this.renderRecovery(); }
     });
 
@@ -1564,18 +1564,19 @@ class AssetsModal {
     const account = this.controller.getAccount();
     if (!account) { this.recovery.hidden = true; return; }
     try {
-      const records = this.controller.getPayments(account).filter((record) => record.assetState !== 'reverted'
-        && (['broadcasting', 'unknown', 'pending'].includes(record.assetState)
-          || !['none', 'delivered'].includes(record.messageState)));
+      const records = this.controller.getPayments(account).filter((record) => record.kind === 'outgoing');
       this.recovery.hidden = records.length === 0;
-      const assetLabels = { broadcasting: 'Checking submission', unknown: 'Checking submission', pending: 'Confirming', confirmed: 'Confirmed' };
+      const assetLabels = { unknown: 'Checking submission', pending: 'Confirming', confirmed: 'Confirmed', reverted: 'Reverted' };
       const messageLabels = { ready: 'Not sent', submitting: 'Checking submission', submitted: 'Submitted', rejected: 'Needs retry', uncertain: 'Checking submission' };
       this.recoveryList.innerHTML = records.map((record) => `
         <div class="evm-payment-recovery-item">
           <div>${escapeHtml(evmPaymentAmount(record.payment))} ${escapeHtml(record.payment.symbol)} → ${escapeHtml(record.username || record.payment.to)}</div>
           <div class="evm-payment-reference">${escapeHtml(record.payment.transactionHash)}</div>
           <div>Asset: ${escapeHtml(assetLabels[record.assetState] || record.assetState)}${record.username ? ` · Chat message: ${escapeHtml(messageLabels[record.messageState] || record.messageState)}` : ''}</div>
-          <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}">${record.username && ['pending', 'confirmed'].includes(record.assetState) && record.messageState !== 'submitted' ? 'Retry chat message' : 'Check payment'}</button>
+          <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="check">Check status</button>
+          ${record.username && !['delivered', 'abandoned'].includes(record.messageState) ? `
+            <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="retry">Retry message</button>
+            <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="abandon">Stop retrying message</button>` : ''}
         </div>`).join('');
     } catch (error) {
       this.recovery.hidden = false;
@@ -2178,6 +2179,8 @@ class EvmAssetsController {
     getPayments,
     savePayment,
     saveSubmission,
+    checkPayment,
+    abandonPayment,
     openSend,
     openReceive,
     showToast,
@@ -2191,6 +2194,8 @@ class EvmAssetsController {
     if (typeof getPayments === 'function') this.getPayments = getPayments;
     if (typeof savePayment === 'function') this.savePayment = savePayment;
     if (typeof saveSubmission === 'function') this.saveSubmission = saveSubmission;
+    if (typeof checkPayment === 'function') this.checkPayment = checkPayment;
+    if (typeof abandonPayment === 'function') this.abandonPayment = abandonPayment;
     if (typeof preparePaymentMessage === 'function') this.preparePaymentMessage = preparePaymentMessage;
     if (typeof sendChatPayment === 'function') this.sendChatPayment = sendChatPayment;
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
@@ -2315,29 +2320,54 @@ class EvmAssetsController {
     });
   }
 
-  async recoverPayment(id) {
+  async recoverPayment(id, action = 'retry') {
     const account = this.getAccount();
     try {
       await this.withPaymentLock(account, async () => {
-        const record = this.getPayments(account).find((item) => evmPaymentId(item.payment) === id);
-        if (!record) throw new Error('Saved payment not found on this device.');
-        const network = this.transactions.paymentNetwork(record.payment.chainId) || this.getNetwork(record.networkId);
-        if (!network) throw new Error('This network is not supported for payment recovery.');
-        this.transactions.paymentEvidence.clear();
-        const { transaction, receipt, block } = await this.transactions.getPaymentEvidence(network, record.payment.transactionHash);
-        if (this.getAccount() !== account) throw new Error('Account changed. Reopen EVM Assets.');
-        if (!transaction) throw new Error('Transfer not found yet. Check again later; do not send the asset again.');
-        if (transaction.hash?.toLowerCase() !== record.payment.transactionHash
-          || (receipt && receipt.transactionHash?.toLowerCase() !== record.payment.transactionHash)) {
-          throw new Error('The network returned inconsistent payment data. Try again later.');
+        const record = this.getPayments(account).find((item) => item.kind === 'outgoing' && evmPaymentId(item.payment) === id);
+        if (!record) throw new Error('This device has no outgoing operation to retry. Use Check status on the message.');
+        if (action === 'check') {
+          await this.checkPayment(record.payment, account);
+          return;
         }
-        record.assetState = receipt && block?.hash === receipt.blockHash
-          ? (parseHexQuantity(receipt.status, 'status') === 1n ? 'confirmed' : 'reverted') : 'pending';
-        this.savePayment(record, account);
-        if (record.assetState === 'reverted') throw new Error('The EVM transfer reverted. No new chat message will be sent.');
-        if (record.username) await this.sendChatPayment(record, account);
-        this.showToast(record.username ? 'Payment message checked/submitted.' : `Transfer ${record.assetState}.`, 5000, 'info');
+        if (action === 'abandon') {
+          if (!confirm('Stop retrying this chat announcement? Its existing transaction may still arrive. This does not cancel or resend the asset.')) return;
+          this.abandonPayment(record, account);
+          return;
+        }
+        if (action !== 'retry' || !record.username) throw new Error('This payment has no message to retry.');
+        this.sending = true;
+        try {
+          // Retry only the captured Liberdus attempt; asset submission is never called here.
+          await this.sendChatPayment(record, account);
+          this.showToast('Payment message checked/submitted.', 5000, 'info');
+        } finally {
+          this.sending = false;
+        }
       });
+    } catch (error) {
+      this.showToast(error.message, 0, 'warning');
+    }
+  }
+
+  async reviewPayment(payment, recipient) {
+    const account = this.getAccount();
+    try {
+      if (payment.from !== walletProbeAddress(account.keys.address)) throw new Error('Only the sender can review a new payment.');
+      this.transactions.paymentEvidence.clear();
+      const state = await this.transactions.verifyPayment(payment, payment.from, payment.to);
+      if (this.getAccount() !== account) return;
+      if (state !== 'reverted') throw new Error('A new payment requires a verified revert. Check the original transfer again.');
+      const network = this.getEvmCatalog().find((item) => item.chainId === payment.chainId);
+      const asset = network?.assets.find((item) => (item.contractAddress?.toLowerCase() || null) === payment.contractAddress);
+      if (!asset) throw new Error('Refresh EVM Assets to load this asset before reviewing it.');
+      await this.openSend({ mode: 'evm', networkId: network.id, assetKey: asset.key });
+      if (this.getAccount() !== account) return;
+      const form = this.sendFormAdapter;
+      form.usernameInput.value = recipient;
+      form.amountInput.value = evmPaymentAmount(payment);
+      form.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+      this.showToast('Review the recipient and amount. Nothing has been sent.', 5000, 'info');
     } catch (error) {
       this.showToast(error.message, 0, 'warning');
     }

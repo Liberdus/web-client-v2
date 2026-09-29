@@ -2615,10 +2615,8 @@ class MenuModal {
 
 const menuModal = new MenuModal();
 
-// =====================
-// DAO / Proposals
-// =====================
-
+// ==============// DAO / Proposals
+// ==============
 setDaoBackendFetcher(createDaoBackendFetcher(queryNetwork));
 const daoProposalVoteTracker = createDaoProposalVoteTracker({
   getDaoUserVotes: () => myData?.daoUserVotes,
@@ -12341,6 +12339,27 @@ function refreshEvmPaymentChat(messages) {
   chatModal.messagesContainer.scrollTop = scrollTop;
 }
 
+// Receipt lookup is read-only: even a reverted asset may already have an announcement.
+async function lookupEvmAnnouncement(record, account) {
+  let outcome = await queryNetwork(`/transaction/${record.attempt.txid}`);
+  if (typeof outcome?.transaction?.success !== 'boolean') {
+    outcome = await queryNetwork(`/collector/api/transaction?appReceiptId=${record.attempt.txid}`);
+  }
+  if (myAccount !== account) throw new Error('Account changed during message recovery.');
+  return outcome?.transaction?.success;
+}
+
+async function recheckEvmPayment(payment, account) {
+  if (myAccount !== account) return;
+  evmAssets.transactions.paymentEvidence.clear();
+  const record = loadEvmPayments(account).find((item) => stringify(item.payment) === stringify(payment))
+    || { kind: 'verification', payment, assetState: 'unknown', createdAt: Date.now() };
+  record.checkAttempts = 0;
+  record.nextCheckAt = 0;
+  saveEvmPayment(record, account);
+  await checkEvmPayments();
+}
+
 // The existing five-second app heartbeat schedules this queue independently of
 // Liberdus pending. No chat modal owns a timer or a verification request.
 async function checkEvmPayments() {
@@ -12418,6 +12437,21 @@ async function checkEvmPayments() {
       }
       if (messages.some((message) => message.my && message.paymentMessageConfirmed)
         && record.kind === 'outgoing') record.messageState = 'delivered';
+      if (record.kind === 'outgoing' && record.attempt && !['delivered', 'abandoned'].includes(record.messageState)) {
+        const delivered = await lookupEvmAnnouncement(record, session.account).catch(() => undefined);
+        if (!current()) return;
+        if (delivered === true) {
+          record.messageState = 'delivered';
+          for (const message of messages) {
+            message.paymentMessageConfirmed = true;
+            message.status = 'sent';
+          }
+        } else if (delivered === false) {
+          record.messageState = 'rejected';
+          record.attempt.everUncertain = false;
+          for (const message of messages) message.status = 'failed';
+        }
+      }
       const terminal = ['settled', 'reverted', 'failed'].includes(state);
       if (terminal && record.kind === 'verification') {
         removeEvmPayment(record, session.account);
@@ -12454,6 +12488,7 @@ async function checkEvmPayments() {
     chatsScreen.updateChatList();
     // Completion is independent of portfolio availability or refresh speed.
     if (refreshBalances) void evmAssets.refresh({ force: true }).catch(() => {});
+    if (evmAssets.assetsModal?.modal?.classList.contains('active')) evmAssets.assetsModal.renderRecovery();
   } catch (error) {
     console.warn('EVM payment verification interrupted:', error.message);
   } finally {
@@ -16661,10 +16696,8 @@ class BackupAccountModal {
     this.handleStorageLocationChange();
   }
 
-  // ======================================
-  // GOOGLE DRIVE TOKEN MANAGEMENT
-  // ======================================
-  // Not using below because we are requiring user to confirm account to use each time
+  // ===============================  // GOOGLE DRIVE TOKEN MANAGEMENT
+  // ===============================  // Not using below because we are requiring user to confirm account to use each time
   /* storeGoogleToken(tokenData) {
     localStorage.setItem(this.GOOGLE_TOKEN_STORAGE_KEY, JSON.stringify(tokenData));
   } */
@@ -16691,10 +16724,8 @@ class BackupAccountModal {
     localStorage.removeItem(this.GOOGLE_TOKEN_STORAGE_KEY);
   }
 
-  // ======================================
-  // GOOGLE DRIVE BACKUP TIMESTAMP MANAGEMENT
-  // ======================================
-  _getStoredTimestamp(key) {
+  // ===============================  // GOOGLE DRIVE BACKUP TIMESTAMP MANAGEMENT
+  // ===============================  _getStoredTimestamp(key) {
     const rawValue = localStorage.getItem(key);
     const parsed = Number(rawValue);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -16722,10 +16753,8 @@ class BackupAccountModal {
     localStorage.setItem(this.GDRIVE_REMINDER_TS_KEY, String(timestamp));
   }
 
-  // ======================================
-  // GOOGLE OAUTH FLOW (via OAuth Server with PKCE)
-  // ======================================
-  buildOAuthServerUrl(sessionId) {
+  // ===============================  // GOOGLE OAUTH FLOW (via OAuth Server with PKCE)
+  // ===============================  buildOAuthServerUrl(sessionId) {
     const config = network.googleDrive;
     const params = new URLSearchParams({
       sessionId,
@@ -17012,10 +17041,8 @@ class BackupAccountModal {
     window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
   }
 
-  // ======================================
-  // GOOGLE DRIVE FOLDER HELPERS
-  // ======================================
-  async ensureBackupFolder(tokenData) {
+  // ===============================  // GOOGLE DRIVE FOLDER HELPERS
+  // ===============================  async ensureBackupFolder(tokenData) {
     const folderName = network.googleDrive.backupFolder;
 
     const queryParams = new URLSearchParams({
@@ -17069,10 +17096,8 @@ class BackupAccountModal {
     return folderData.id;
   }
 
-  // ======================================
-  // GOOGLE DRIVE UPLOAD
-  // ======================================
-  async uploadToGoogleDrive(data, filename, tokenData) {
+  // ===============================  // GOOGLE DRIVE UPLOAD
+  // ===============================  async uploadToGoogleDrive(data, filename, tokenData) {
     // Ensure backup folder exists and get its ID
     const folderId = await this.ensureBackupFolder(tokenData);
 
@@ -22729,26 +22754,51 @@ class ChatModal {
 
   async sendEvmPaymentMessage(record, account) {
     if (myAccount !== account || record.kind !== 'outgoing') throw new Error('Sign in to the payment account.');
-    if (record.broadcastState !== 'acknowledged' || !['pending', 'confirmed'].includes(record.assetState)) {
-      throw new Error('Confirm EVM submission before sending its chat message.');
-    }
-    if (['submitted', 'delivered'].includes(record.messageState)) return;
-    if (!record.attempt || record.messageState !== 'ready') throw new Error('The previous message attempt needs reconciliation.');
-    // An unsent announcement can be rebuilt safely after a slow submission.
-    // Refresh recipient, funds and timestamp; confirm any increased message cost.
-    try {
-      if (!await this.prepareEvmPaymentMessage(record, account)) return false;
-    } catch (error) {
-      if (myAccount === account) {
-        record.messageState = 'rejected';
-        this.upsertEvmPaymentCard(record);
+    if (['delivered', 'abandoned'].includes(record.messageState)) return;
+    if (record.attempt && record.messageState !== 'ready') {
+      const outcome = await lookupEvmAnnouncement(record, account);
+      if (outcome === true) {
+        record.messageState = 'delivered';
         saveEvmPayment(record, account);
+        this.upsertEvmPaymentCard(record);
+        saveState();
+        return;
       }
-      throw error;
+      const canRebuild = outcome === false || (record.messageState === 'rejected' && !record.attempt.everUncertain);
+      if (canRebuild) {
+        if (!['pending', 'confirmed'].includes(record.assetState)) {
+          throw new Error('The announcement failed. Check the asset status before creating another message.');
+        }
+        record.previousAttempts = [...(record.previousAttempts || []), { txid: record.attempt.txid, timestamp: record.attempt.timestamp }];
+        delete record.attempt;
+      } else {
+        if (!myData.contacts[normalizeAddress(record.payment.to)]) throw new Error('The payment contact was deleted. Check status or stop retrying from EVM Assets.');
+        // A missing receipt cannot justify a new txid or a second message fee.
+        await this.prepareEvmPaymentRecipient({ address: record.payment.to, username: record.username }, account);
+      }
     }
+    if (!record.attempt || (record.messageState === 'ready' && !record.attempt.everUncertain)) {
+      if (!myData.contacts[normalizeAddress(record.payment.to)]) throw new Error('The payment contact was deleted. Check status or stop retrying from EVM Assets.');
+      if (record.broadcastState !== 'acknowledged' || !['pending', 'confirmed'].includes(record.assetState)) {
+        throw new Error('Confirm EVM submission before sending its chat message.');
+      }
+      // Refresh an unsent message's timestamp and cost after a slow broadcast.
+      try {
+        await this.prepareEvmPaymentMessage(record, account);
+      } catch (error) {
+        if (myAccount === account) {
+          record.messageState = 'rejected';
+          if (record.attempt) this.upsertEvmPaymentCard(record);
+          saveEvmPayment(record, account);
+        }
+        throw error;
+      }
+    }
+    if (myAccount !== account) throw new Error('Account changed before chat submission.');
     const { tx, txid } = record.attempt;
-    record.messageState = 'submitting';
+    const previouslyUncertain = record.attempt.everUncertain;
     record.attempt.everUncertain = true;
+    record.messageState = 'submitting';
     this.upsertEvmPaymentCard(record);
     saveEvmPayment(record, account);
     const response = await injectTx(tx, txid, account);
@@ -22756,6 +22806,7 @@ class ChatModal {
     record.messageState = current?.messageState === 'delivered' ? 'delivered'
       : response?.result?.success === true ? 'submitted'
       : response?.result?.success === false && !response.transportFailure ? 'rejected' : 'uncertain';
+    if (record.messageState === 'rejected' && !previouslyUncertain) record.attempt.everUncertain = false;
     saveEvmPayment(record, account);
     if (myAccount === account) this.upsertEvmPaymentCard(record);
     if (!['submitted', 'delivered'].includes(record.messageState)) {
@@ -22771,10 +22822,11 @@ class ChatModal {
     const contact = myData.contacts[address];
     if (!contact) return;
     const existing = contact.messages.find((message) => message.my && message.type === EVM_CHAT_MESSAGE_TYPE
-      && evmPaymentId(message.payment) === evmPaymentId(record.payment));
+      && stringify(message.payment) === stringify(record.payment));
     // Message sync can finish while injectTx is still waiting for a response.
     if (existing?.paymentMessageConfirmed || existing?.deleted || (!existing && record.cardCreated)) return;
     const message = existing || { message: '', type: EVM_CHAT_MESSAGE_TYPE, payment: record.payment, my: true, paymentVerified: 'unchecked' };
+    message.paymentMessageConfirmed = record.messageState === 'delivered';
     message.txid = record.attempt.txid;
     message.timestamp = record.attempt.timestamp;
     message.sent_timestamp = message.timestamp;
@@ -24790,6 +24842,10 @@ class ChatModal {
     const messageRecord = this.getMessageRecordFromElement(messageEl);
     const isDeletedLocalOnly =
       messageEl.classList.contains('deleted-message') && isDeletedForMeOnly(messageRecord);
+    const evmMessage = messageRecord?.type === EVM_CHAT_MESSAGE_TYPE && !messageRecord.deleted;
+    this.contextMenu.querySelector('[data-action="evm-check"]').style.display = evmMessage ? 'flex' : 'none';
+    this.contextMenu.querySelector('[data-action="evm-review"]').style.display = evmMessage && messageRecord.my
+      && messageRecord.paymentReverted ? 'flex' : 'none';
     
     const deleteOption = this.contextMenu.querySelector('[data-action="delete"]');
     if (deleteOption) deleteOption.style.display = 'flex';
@@ -24894,7 +24950,7 @@ class ChatModal {
         const isPayment = messageEl.classList.contains('payment-info');
         const hasMemo = !!messageEl.querySelector('.payment-memo');
         const isVoice = !!messageEl.querySelector('.voice-message');
-        const allowedType = !isPayment || (isPayment && hasMemo);
+        const allowedType = messageRecord?.type !== EVM_CHAT_MESSAGE_TYPE && (!isPayment || hasMemo);
         const show = isMine && !isDeleted && allowedType && !isVoice && !isFailedPayment && ageOk;
         editOption.style.display = show ? 'flex' : 'none';
       }
@@ -26198,6 +26254,12 @@ class ChatModal {
     if (!messageEl) return;
     
     switch (action) {
+      case 'evm-check':
+        void recheckEvmPayment(this.getMessageRecordFromElement(messageEl).payment, myAccount);
+        break;
+      case 'evm-review':
+        void evmAssets.reviewPayment(this.getMessageRecordFromElement(messageEl).payment, myData.contacts[this.address]?.username || `0x${this.address}`);
+        break;
       case 'save':
         void this.saveVoiceMessage(messageEl);
         break;
@@ -27572,8 +27634,7 @@ class ChatModal {
     }
   }
 
-  // ========== Voice Message Methods ==========
-
+  // ========== Voice Message Methods ===
   /**
    * Normalize a duration-like value to a positive finite number of seconds.
    * @param {number|string} seconds - Duration value to normalize.
@@ -34411,6 +34472,15 @@ evmAssets.configure({
   getPayments: (account) => loadEvmPayments(account),
   savePayment: (record, account) => saveEvmPayment(record, account),
   saveSubmission: (record, account) => saveEvmSubmission(record, account),
+  checkPayment: (payment, account) => recheckEvmPayment(payment, account),
+  abandonPayment: (record, account) => {
+    record.messageState = 'abandoned';
+    record.checkAttempts = 0;
+    record.nextCheckAt = 0;
+    saveEvmPayment(record, account);
+    saveState();
+    void checkEvmPayments();
+  },
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
     || myData?.wallet?.assets?.[0]
     || null,
