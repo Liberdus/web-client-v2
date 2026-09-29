@@ -540,6 +540,7 @@
           <button class="showcase-tab" id="showcase-tab-dao" type="button" role="tab" aria-controls="showcase-panel-dao" aria-selected="true" data-showcase-tab="dao">DAO Flow</button>
           <button class="showcase-tab" id="showcase-tab-projects" type="button" role="tab" aria-controls="showcase-panel-projects" aria-selected="false" tabindex="-1" data-showcase-tab="projects">Proposals</button>
           <button class="showcase-tab" id="showcase-tab-screens" type="button" role="tab" aria-controls="showcase-panel-screens" aria-selected="false" tabindex="-1" data-showcase-tab="screens">Screens</button>
+          <button class="showcase-tab" id="showcase-tab-wallet" type="button" role="tab" aria-controls="showcase-panel-wallet" aria-selected="false" tabindex="-1" data-showcase-tab="wallet">Wallet</button>
           <button class="showcase-tab" id="showcase-tab-account" type="button" role="tab" aria-controls="showcase-panel-account" aria-selected="false" tabindex="-1" data-showcase-tab="account">Account</button>
           <button class="showcase-tab" id="showcase-tab-chat" type="button" role="tab" aria-controls="showcase-panel-chat" aria-selected="false" tabindex="-1" data-showcase-tab="chat">Chat</button>
           <button class="showcase-tab" id="showcase-tab-my-info" type="button" role="tab" aria-controls="showcase-panel-my-info" aria-selected="false" tabindex="-1" data-showcase-tab="my-info">My Info</button>
@@ -575,26 +576,7 @@
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Devnet</span></div>
                 </div>
                 <div class="screen-note"><strong>Entry point</strong>DAO remains a Devnet-only Menu item and opens the proposal list.</div>
-                <div class="modal fixed-header active">
-                  <div class="modal-header">
-                    <button class="back-button" type="button" aria-label="Back"></button>
-                    <div class="modal-title">Menu</div>
-                    <button class="sign-out-header-button" data-icon="log-out" type="button" aria-label="Sign out"></button>
-                  </div>
-                  <div class="modal-content">
-                    <ul class="menu-list">
-                      <li class="menu-item" data-icon="mail">Invite</li>
-                      <li class="menu-item" data-icon="assets">EVM Assets</li>
-                      <li class="menu-item" data-icon="trending-up">Farm</li>
-                      <li class="menu-item" data-icon="shield">Validator</li>
-                      <li class="menu-item" data-icon="dao" data-flow-source="menu-dao">DAO</li>
-                      <li class="menu-item" data-icon="arrow-right-arrow-left">Bridge</li>
-                      <li class="menu-item" data-icon="search">Explorer</li>
-                      <li class="menu-item" data-icon="globe">Network</li>
-                      <li class="menu-item" data-icon="file-text">Logs</li>
-                    </ul>
-                  </div>
-                </div>
+                <div class="modal fixed-header active"></div>
               </article>
 
               <article class="screen" data-app-modal="daoModal" data-flow-screen="dao-list" data-flow-target="dao-list">
@@ -1032,18 +1014,26 @@
 
             <article class="screen" data-app-modal="walletScreen">
               <div class="screen-label-row"><div class="screen-label">Wallet screen</div><div class="screen-badges"><span class="screen-badge">Current</span></div></div>
-              <div class="screen-note"><strong>Balances and actions</strong>The wallet keeps the production balance hero, six actions, asset list, and footer navigation.</div>
+              <div class="screen-note"><strong>Balances and actions</strong>Current wallet markup with sample LIB and Multichain balances, actions, and footer navigation.</div>
               <div data-device-root>
                 <header class="header active" id="header"><div id="logo"><a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link"><img src="../media/liberdus_logo_50.png" alt="" /></a></div><div class="app-name-container"><div class="app-name-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#dcdcf8"/><path d="M8 15h16v16H8zM24 7h16v16H24zM24 31h16v10H24z" fill="#3d3dce"/></svg></div><div class="app-name">alex</div></div><div class="header-icons"><div class="offline-indicator" id="offlineIndicator">Offline</div><button class="icon-button" id="upcomingCallsBtn" style="display:none" aria-label="Upcoming calls"></button><button class="icon-button" id="daoNotificationsBtn" aria-label="Open DAO notifications" hidden></button><button class="icon-button" id="toggleSettings" aria-label="Settings"></button><button class="icon-button" id="toggleMenu" aria-label="Menu"></button></div></header>
-                <div class="app-screen active" id="walletScreen">
-                  <div class="wallet-balance"><div class="balance-label">Total Balance</div><div class="balance-amount"><span id="walletTotalBalance">248.42</span><button class="refresh-button" id="refreshBalance">↻</button></div></div>
-                  <div class="wallet-actions"><button class="wallet-action-button" id="openSendAssetFormModal"><span class="action-icon"></span><span class="action-label">Send</span></button><button class="wallet-action-button" id="openReceiveModal"><span class="action-icon"></span><span class="action-label">Receive</span></button><button class="wallet-action-button" id="openHistoryModal"><span class="action-icon"></span><span class="action-label">History</span></button><div class="wallet-actions-break"></div><button class="wallet-action-button" id="openBuyButton"><span class="action-icon"></span><span class="action-label">Buy</span></button><button class="wallet-action-button" id="openSellButton"><span class="action-icon"></span><span class="action-label">Sell</span></button><button class="wallet-action-button" id="openFaucetBridgeButton"><span class="action-icon"></span><span class="action-label">Faucet</span></button></div>
-                  <div class="wallet-assets"><div class="section-title">Assets</div><div id="assetsList"><div class="asset-item"><div class="asset-logo"><img src="../media/liberdus_logo_50.png" class="asset-logo" alt="" /></div><div class="asset-info"><div class="asset-name">Liberdus</div><div class="asset-symbol">$0.841762 / LIB</div></div><div class="asset-balance">295.120000<br /><span class="asset-symbol">$248.420000</span></div></div></div></div>
-                </div>
+                <div data-production-wallet></div>
                 <footer class="footer active" id="footer"><div class="nav-buttons"><button class="nav-button" id="switchToChats">Chats</button><button class="nav-button" id="switchToContacts">Contacts</button><button class="nav-button active" id="switchToWallet">Wallet</button></div><a class="last-item" href="#"></a></footer>
               </div>
             </article>
           </div>
+        </section>
+
+        <section class="showcase-panel preview-panel" id="showcase-panel-wallet" role="tabpanel" aria-labelledby="showcase-tab-wallet" data-showcase-panel="wallet" hidden>
+          <div class="showcase-tabs" role="group" aria-label="Wallet category" data-wallet-filters>
+            <button class="showcase-tab" type="button" data-wallet-filter="all" aria-pressed="true">All</button>
+            <button class="showcase-tab" type="button" data-wallet-filter="lib" aria-pressed="false">LIB Wallet</button>
+            <button class="showcase-tab" type="button" data-wallet-filter="evm" aria-pressed="false">EVM Assets</button>
+            <button class="showcase-tab" type="button" data-wallet-filter="multichain" aria-pressed="false">Multichain</button>
+          </div>
+          <p class="section-note" data-wallet-filter-status role="status"></p>
+          <div class="current-note"><strong>Wallet previews</strong>Production modal markup and styles with illustrative balances and addresses. These previews do not connect to wallets or submit transactions.</div>
+          <div data-wallet-gallery></div>
         </section>
 
         <section class="showcase-panel preview-panel" id="showcase-panel-account" role="tabpanel" aria-labelledby="showcase-tab-account" data-showcase-panel="account" hidden>
@@ -1206,6 +1196,8 @@
 
     <script src="./modal-catalog-data.js"></script>
     <script src="./proposal-states.js"></script>
+    <script src="../external/qr.js"></script>
+    <script src="./wallet-previews.js"></script>
     <script>
       (() => {
         const viewport = document.querySelector("[data-pan-viewport]");
@@ -1232,6 +1224,8 @@
         if (!Array.isArray(modalCatalog)) throw new Error("Modal catalog data did not load");
         const modalCatalogById = new Map(modalCatalog.map((entry) => [entry.id, entry]));
 
+        const walletPanel = document.getElementById("showcase-panel-wallet");
+        const walletCategories = { "LIB Wallet": "lib", "EVM Assets": "evm", "Multichain": "multichain" };
         const renderModalCatalog = () => {
           const catalogRoot = document.querySelector("[data-modal-catalog]");
           const represented = new Set(
@@ -1259,6 +1253,25 @@
             </section>`).join("");
         };
         renderModalCatalog();
+        const walletGallery = walletPanel.querySelector("[data-wallet-gallery]");
+        document.querySelectorAll("[data-modal-catalog] .preview-subsection").forEach((section) => {
+          const type = walletCategories[section.querySelector(".section-title").textContent];
+          if (!type) return;
+          section.dataset.walletType = type;
+          section.querySelector(".section-note").textContent = "Current production modals with illustrative wallet data.";
+          walletGallery.append(section);
+        });
+        Object.values(walletCategories).forEach((type) => {
+          walletGallery.append(walletGallery.querySelector(`[data-wallet-type="${type}"]`));
+        });
+        const walletOverview = canvas.querySelector('.screen[data-app-modal="walletScreen"]').cloneNode(true);
+        walletGallery.querySelector('[data-wallet-type="lib"] .preview-grid').prepend(walletOverview);
+        // EVM send/receive reuse the same production modal IDs as LIB transfers.
+        const evmGrid = walletGallery.querySelector('[data-wallet-type="evm"] .preview-grid');
+        ["sendAssetFormModal", "sendAssetConfirmModal", "receiveModal"].forEach((id) => {
+          const preview = walletGallery.querySelector(`[data-catalog-modal="${id}"]`).cloneNode(true);
+          evmGrid.append(preview);
+        });
         document.getElementById("proposal-state-gallery").innerHTML = window.PROPOSAL_STATE_MARKUP;
 
         const chatPanel = document.getElementById("showcase-panel-chat");
@@ -1446,6 +1459,7 @@
         const wireDeviceFrame = (frame) => {
           const frameDocument = frame.contentDocument;
           if (!frameDocument) return;
+          frameDocument.addEventListener("submit", (event) => event.preventDefault());
 
           frameDocument.addEventListener("keydown", handleDeviceEscape, true);
           frameDocument.addEventListener("wheel", (event) => {
@@ -1490,6 +1504,16 @@
               return;
             }
 
+            const walletPlaceholder = deviceRoot.querySelector("[data-production-wallet]");
+            if (walletPlaceholder) {
+              walletPlaceholder.outerHTML = window.PRODUCTION_WALLET_MARKUP;
+              deviceRoot.querySelector("#walletScreen").classList.add("active");
+            }
+            if (screen.dataset.appModal === "menuModal") {
+              deviceRoot.innerHTML = new DOMParser().parseFromString(modalCatalogById.get("menuModal").markup, "text/html").querySelector(".modal").innerHTML;
+              deviceRoot.querySelector("#openDao").dataset.flowSource = "menu-dao";
+              deviceRoot.querySelector("#openDao").style.removeProperty("display");
+            }
             if (screen.dataset.catalogModal) {
               const entry = modalCatalogById.get(screen.dataset.catalogModal);
               if (!entry) throw new Error(`Unknown catalog modal: ${screen.dataset.catalogModal}`);
@@ -1505,6 +1529,8 @@
               deviceRoot.id = screen.dataset.appModal;
               deviceRoot.classList.add("is-transition-complete");
             }
+
+            window.populateWalletPreview(deviceRoot, screen.dataset.appModal, screen.closest("[data-wallet-type]")?.dataset.walletType || "lib");
 
             const details = deviceRoot.querySelector(".proposal-more");
             if (details && !details.querySelector(".proposal-more-content")) {
@@ -1970,6 +1996,20 @@
         };
         chatFilters.forEach((button) => button.addEventListener("click", () => filterChat(button)));
         filterChat(chatFilters[0]);
+
+        const walletFilters = [...walletPanel.querySelectorAll("[data-wallet-filter]")];
+        const walletSections = [...walletGallery.querySelectorAll("[data-wallet-type]")];
+        const filterWallet = (selectedFilter) => {
+          setFocusedPreview(null);
+          const type = selectedFilter.dataset.walletFilter;
+          walletFilters.forEach((button) => button.setAttribute("aria-pressed", button === selectedFilter));
+          walletSections.forEach((section) => { section.hidden = type !== "all" && section.dataset.walletType !== type; });
+          const count = [...walletGallery.querySelectorAll(".screen")].filter((screen) => !screen.closest("[data-wallet-type]").hidden).length;
+          walletPanel.querySelector("[data-wallet-filter-status]").textContent = `${selectedFilter.textContent}: ${count} previews`;
+          updateScrollArea();
+        };
+        walletFilters.forEach((button) => button.addEventListener("click", () => filterWallet(button)));
+        filterWallet(walletFilters[0]);
 
         const activateShowcasePanel = (panelName) => {
           setFocusedPreview(null);

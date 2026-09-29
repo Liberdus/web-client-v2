@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { shouldOpenDaoProjectMilestoneByDefault } from '../dao.js';
+import { assetIconMarkup } from '../near-assets.js';
 
-const [productionHtml, productionJs, productionCss, mockHtml, catalogData, stateData, daoJs, nearAssetsJs] = await Promise.all([
+const [productionHtml, productionJs, productionCss, mockHtml, catalogData, stateData, daoJs, nearAssetsJs, walletFixtures] = await Promise.all([
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../app.js', import.meta.url), 'utf8'),
   readFile(new URL('../styles.css', import.meta.url), 'utf8'),
@@ -12,6 +13,7 @@ const [productionHtml, productionJs, productionCss, mockHtml, catalogData, state
   readFile(new URL('./proposal-states.js', import.meta.url), 'utf8'),
   readFile(new URL('../dao.js', import.meta.url), 'utf8'),
   readFile(new URL('../near-assets.js', import.meta.url), 'utf8'),
+  readFile(new URL('./wallet-previews.js', import.meta.url), 'utf8'),
 ]);
 
 const stateWindow = {};
@@ -40,6 +42,23 @@ const catalogModalIds = catalog.map(({ id }) => id).sort();
 assert.deepEqual(catalogModalIds, productionModalIds, 'Generated catalog must include every production modal exactly once');
 for (const entry of catalog) {
   assert.ok(entry.markup.includes(`id="${entry.id}"`), `Catalog markup is unavailable: ${entry.id}`);
+}
+
+new Function(walletFixtures);
+for (const [symbol, sizes] of Object.entries(catalogWindow.WALLET_ASSET_MARKS)) {
+  for (const [size, markup] of Object.entries(sizes)) {
+    assert.equal(markup, assetIconMarkup(symbol, { size: Number(size) }), `Regenerate stale wallet icon: ${symbol}`);
+  }
+}
+for (const hook of ['multichainSummary', 'multichainSummaryValue', 'walletTotalBalance', 'assetsList']) {
+  assert.ok(catalogWindow.PRODUCTION_WALLET_MARKUP.includes(`id="${hook}"`), `Generated wallet is missing ${hook}`);
+}
+for (const entry of catalog) {
+  if (/^multichain|^chatSend/.test(entry.id)) assert.equal(entry.category, 'Multichain');
+  if (['assetsModal', 'assetDetailsModal'].includes(entry.id)) assert.equal(entry.category, 'EVM Assets');
+}
+for (const id of ['assetsModal', 'assetDetailsModal', 'sendAssetFormModal', 'sendAssetConfirmModal', 'receiveModal', ...catalog.filter((entry) => entry.category === 'Multichain').map((entry) => entry.id)]) {
+  assert.ok(walletFixtures.includes(`case '${id}':`), `Missing runtime wallet fixture for ${id}`);
 }
 
 const productionFilterLabels = [...productionHtml.matchAll(
@@ -150,14 +169,14 @@ assert.ok(!mockHtml.includes('<main class="container">'), 'Device previews must 
 assert.ok(!mockHtml.includes('[data-device-root] { display: contents; }'), 'Device previews must not retain the mock mounting wrapper');
 
 assert.equal(
-  [...mockHtml.matchAll(/data-app-modal="[^"]+"/g)].length,
+  [...mockHtml.matchAll(/<article\b[^>]*\bdata-app-modal="[^"]+"/g)].length,
   34,
   'Every authored preview and the generated catalog template must expose a device-frame hook',
 );
 
 const showcaseTabs = [...mockHtml.matchAll(/data-showcase-tab="([^"]+)"/g)].map((match) => match[1]);
 const showcasePanels = [...mockHtml.matchAll(/data-showcase-panel="([^"]+)"/g)].map((match) => match[1]);
-assert.deepEqual(showcaseTabs, ['dao', 'projects', 'screens', 'account', 'chat', 'my-info', 'contact-info', 'all-modals']);
+assert.deepEqual(showcaseTabs, ['dao', 'projects', 'screens', 'wallet', 'account', 'chat', 'my-info', 'contact-info', 'all-modals']);
 assert.deepEqual(showcasePanels, showcaseTabs, 'Every showcase tab must own exactly one panel');
 assert.ok(mockHtml.includes('<script src="./modal-catalog-data.js"></script>'), 'Mock must load generated modal data');
 
@@ -167,9 +186,9 @@ for (const primaryScreen of ['chatsScreen', 'contactsScreen', 'walletScreen']) {
 }
 
 const screensPanelStart = mockHtml.indexOf('id="showcase-panel-screens"');
-const screensPanelEnd = mockHtml.indexOf('id="showcase-panel-account"');
+const screensPanelEnd = mockHtml.indexOf('id="showcase-panel-wallet"');
 assert.ok(screensPanelStart >= 0 && screensPanelEnd > screensPanelStart, 'Primary screens panel is unavailable');
-const primaryScreensMarkup = mockHtml.slice(screensPanelStart, screensPanelEnd);
+const primaryScreensMarkup = mockHtml.slice(screensPanelStart, screensPanelEnd) + catalogWindow.PRODUCTION_WALLET_MARKUP + walletFixtures.slice(0, walletFixtures.indexOf("case 'assetsModal':"));
 for (const screenHook of [
   'logo-link',
   'app-name-avatar',
@@ -201,10 +220,10 @@ assert.equal(
   'The default runtime wallet must show its single LIB asset',
 );
 assert.ok(
-  primaryScreensMarkup.includes('id="walletTotalBalance">248.42</span>'),
+  walletFixtures.includes("text('walletTotalBalance', '248.42')"),
   'Wallet total must omit a literal currency prefix supplied by production CSS',
 );
-assert.ok(primaryScreensMarkup.includes('$248.420000</span>'), 'Asset net worth must use runtime precision');
+assert.ok(walletFixtures.includes('$248.420000</span>'), 'Asset net worth must use runtime precision');
 assert.ok(!primaryScreensMarkup.includes('<div class="asset-name">Ethereum</div>'), 'Mock must not invent a non-default wallet asset');
 
 const projectsPanelStart = mockHtml.indexOf('id="showcase-panel-projects"');
@@ -477,7 +496,8 @@ assert.equal(connectors.length, 9, 'Expected every current modal transition to h
 
 for (const connector of connectors) {
   assert.ok(
-    mockHtml.includes(`data-flow-source="${connector.from}"`),
+    mockHtml.includes(`data-flow-source="${connector.from}"`)
+      || mockHtml.includes(`dataset.flowSource = "${connector.from}"`),
     `Missing connector source: ${connector.from}`,
   );
   assert.ok(

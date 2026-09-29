@@ -176,3 +176,24 @@ all six verification states: Checking…, Confirming…, Confirmed, Not confirme
 Too old to check, and Could not check yet. Amount signs, chain names, optional
 notes, and status styling follow the production renderer. These fixed previews
 do not verify payments, access wallets, or submit transfers.
+
+
+## Wallet gallery
+
+Open `mock/index.html?tab=wallet`. Filters select All, LIB Wallet, EVM Assets,
+or Multichain and retain their selection when changing tabs. The gallery has
+23 previews: 9 LIB wallet screens, 5 EVM screens, and 9 Multichain screens.
+Shared send, confirmation, and receive modals have separate LIB and EVM examples.
+
+The wallet overview now includes the production Multichain balance row. Its
+shell and all 69 modal shells are generated from `index.html`; the DAO menu also
+uses the generated production menu. `wallet-previews.js` supplies illustrative
+runtime values and markup for balances, asset details, payment forms, activity,
+token/contact selection, deposits, swaps, withdrawals, and confirmations.
+Token marks come from the production icon renderer at catalog-generation time.
+QR codes encode a preview label, not a payment address. Forms never submit.
+
+Run `node mock/generate-modal-catalog.mjs` followed by
+`node mock/validate-current-flow.mjs` when production markup changes. Runtime
+rendering changes in `app.js`, `evm-assets.js`, or `near-assets.js` can also require
+updating the corresponding fixture; sharing CSS alone does not keep markup current.
