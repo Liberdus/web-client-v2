@@ -22489,15 +22489,20 @@ class ChatModal {
     if (available < totalRequired) {
       throw new Error(`Not enough LIB for the chat message. Required: ${big2str(totalRequired, 18)} LIB; available: ${big2str(available, 18)} LIB; add ${big2str(totalRequired - available, 18)} LIB.`);
     }
-    createNewContact(address, resolution.username);
-    const contact = myData.contacts[address];
-    contact.toll = recipient.data.toll;
-    contact.tollUnit = recipient.data.tollUnit || 'LIB';
-    contact.tollRequiredToSend = required;
-    await this.prepareEncryptedChatContext(address, account.keys);
-    requireAccount();
-    saveState();
-    return { address, username: resolution.username, toll: toll.toString(), totalRequired: totalRequired.toString() };
+    // Validate encryption before confirmation without creating a saved contact.
+    const publicKey = recipient.publicKey;
+    const pqPublicKey = recipient.pqPublicKey;
+    if (!publicKey || !pqPublicKey || bin2hex(generateAddress(hex2bin(publicKey))) !== address) {
+      throw new Error('Cannot verify recipient encryption keys. Try again.');
+    }
+    dhkeyCombined(account.keys.secret, publicKey, pqPublicKey);
+    return {
+      address, username: resolution.username, toll: toll.toString(), totalRequired: totalRequired.toString(),
+      contact: {
+        public: publicKey, pqPublic: pqPublicKey, toll: recipient.data.toll,
+        tollUnit: recipient.data.tollUnit || 'LIB', tollRequiredToSend: required,
+      },
+    };
   }
 
   async sendIntentsPaymentMessage(recipientAddress, messageObj) {
