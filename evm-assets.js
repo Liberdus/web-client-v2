@@ -1265,9 +1265,9 @@ export class EvmTransactionService {
     } catch {
       this.showToast('Transfer may be sent. Check its hash before sending again.', 0, 'warning');
     }
-    if (status === 'confirmed' && this.getAccount() === account) {
+    if (['confirmed', 'reverted'].includes(status) && this.getAccount() === account) {
       try { await this.refreshAssets({ force: true }); }
-      catch { this.showToast('Asset sent; balance refresh is temporarily unavailable.', 5000, 'warning'); }
+      catch { this.showToast('Transfer processed; balance refresh is temporarily unavailable.', 5000, 'warning'); }
     }
     if (this.getAccount() === account) {
       const message = status === 'rejected' ? `EVM submission rejected: ${record.broadcastError.message}. Review the form and try again.`
