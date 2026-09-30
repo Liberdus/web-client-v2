@@ -12390,23 +12390,26 @@ async function checkEvmPayments() {
         removeEvmPayment(record, session.account);
         return;
       }
-      saveEvmPayment(record, session.account);
-      if (['settled', 'reverted'].includes(state) && !record.balanceRefreshed) {
-        try {
-          await evmAssets.refresh({ force: true });
-          if (!current()) return;
-          // Discovery resolves with cached balances when its request fails.
-          record.balanceRefreshed = evmAssets.getStatus() === 'connected';
-        } catch { /* Retry a balance refresh with the same bounded schedule. */ }
-      }
-      if (!current()) return;
-      if (['settled', 'reverted'].includes(state) && record.balanceRefreshed
-        && ['none', 'delivered', 'abandoned'].includes(record.messageState)) {
-        if (!record.username) showToast(`EVM transfer ${record.assetState}: ${record.payment.transactionHash}`, 5000, state === 'reverted' ? 'error' : 'info');
-        removeEvmPayment(record, session.account);
-      } else {
+      const operationFinished = ['settled', 'reverted'].includes(state)
+        && ['none', 'delivered', 'abandoned'].includes(record.messageState);
+      if (!operationFinished) {
         saveEvmPayment(record, session.account);
+        return;
       }
+
+      if (!record.username) {
+        showToast(
+          `EVM transfer ${record.assetState}: ${record.payment.transactionHash}`,
+          5000,
+          state === 'reverted' ? 'error' : 'info',
+        );
+      }
+      removeEvmPayment(record, session.account);
+      saveState();
+      // The recovery operation is complete even when the portfolio service is
+      // temporarily unavailable. A later wallet refresh can update the balance.
+      try { await evmAssets.refresh({ force: true }); }
+      catch { /* Balance refresh is best effort after a terminal result. */ }
     }));
     if (!current() || !due.length) return;
     saveState();

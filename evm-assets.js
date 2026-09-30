@@ -3,6 +3,7 @@ import {
   escapeHtml,
   normalizeUsername,
   openModal,
+  utf82bin,
   withButtonCooldown,
 } from './lib.js';
 import { getPublicKey, signMessage } from './crypto.js';
