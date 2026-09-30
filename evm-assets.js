@@ -1273,7 +1273,7 @@ export class EvmTransactionService {
     if (chat && status === 'pending' && this.getAccount() === account) {
       try { await this.sendPaymentMessage(record, account); }
       catch (error) {
-        if (this.getAccount() === account) this.showToast(`Asset submitted; chat message needs attention: ${error.message}`, 0, 'warning');
+        if (this.getAccount() === account && !error.toastAlreadyShown) this.showToast(error.message, 0, 'error');
       }
     }
     if (!chat && status === 'pending') {

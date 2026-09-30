@@ -13864,6 +13864,7 @@ async function injectTx(tx, txid, expectedAccount = null) {
         return data;
       }
       showToast(toastMessage, 0, feeMismatchStatus.detected ? 'warning' : 'error');
+      data.toastAlreadyShown = true;
     }
     return data;
   } catch (error) {
@@ -22574,7 +22575,16 @@ class ChatModal {
     if (!record.attempt || record.messageState !== 'ready') throw new Error('The previous message attempt needs reconciliation.');
     // An unsent announcement can be rebuilt safely after a slow submission.
     // Refresh recipient, funds and timestamp without exceeding the approved cost.
-    await this.prepareEvmPaymentMessage(record, account);
+    try {
+      await this.prepareEvmPaymentMessage(record, account);
+    } catch (error) {
+      if (myAccount === account) {
+        record.messageState = 'rejected';
+        this.upsertEvmPaymentCard(record);
+        saveEvmPayment(record, account);
+      }
+      throw error;
+    }
     const { tx, txid } = record.attempt;
     record.messageState = 'submitting';
     record.attempt.everUncertain = true;
@@ -22587,7 +22597,11 @@ class ChatModal {
       : response?.result?.success === false && !response.transportFailure ? 'rejected' : 'uncertain';
     saveEvmPayment(record, account);
     if (myAccount === account) this.upsertEvmPaymentCard(record);
-    if (!['submitted', 'delivered'].includes(record.messageState)) throw new Error(response?.result?.reason || 'Message submission could not be confirmed.');
+    if (!['submitted', 'delivered'].includes(record.messageState)) {
+      const error = new Error(response?.result?.reason || 'Message submission could not be confirmed.');
+      error.toastAlreadyShown = response?.toastAlreadyShown === true;
+      throw error;
+    }
   }
 
   upsertEvmPaymentCard(record) {
@@ -22603,7 +22617,9 @@ class ChatModal {
     message.timestamp = record.attempt.timestamp;
     message.sent_timestamp = message.timestamp;
     message.status = ['rejected', 'uncertain'].includes(record.messageState) ? 'failed' : 'sent';
-    if (!existing) insertSorted(contact.messages, message, 'timestamp');
+    // A freshly signed retry moves the existing card to its new sent time.
+    if (existing) contact.messages.splice(contact.messages.indexOf(existing), 1);
+    insertSorted(contact.messages, message, 'timestamp');
     record.cardCreated = true;
     const chatIndex = myData.chats.findIndex((chat) => chat.address === address);
     if (chatIndex >= 0) myData.chats.splice(chatIndex, 1);
