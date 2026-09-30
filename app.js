@@ -12338,6 +12338,7 @@ async function checkEvmPayments() {
   session.running = true;
   const current = () => evmPaymentCheckSession === session && myAccount === session.account
     && isOnline && document.visibilityState !== 'hidden' && !evmAssets.sending;
+  let refreshBalances = false;
   try {
     const due = loadEvmPayments(session.account).filter((record) => (record.checkAttempts || 0) < EVM_CHECK_LIMIT
       && (record.nextCheckAt || 0) <= Date.now()).sort((a, b) => (a.nextCheckAt || 0) - (b.nextCheckAt || 0)).slice(0, 4);
@@ -12400,21 +12401,19 @@ async function checkEvmPayments() {
       if (!record.username) {
         showToast(
           `EVM transfer ${record.assetState}: ${record.payment.transactionHash}`,
-          5000,
+          state === 'reverted' ? 0 : 5000,
           state === 'reverted' ? 'error' : 'info',
         );
       }
       removeEvmPayment(record, session.account);
-      saveState();
-      // The recovery operation is complete even when the portfolio service is
-      // temporarily unavailable. A later wallet refresh can update the balance.
-      try { await evmAssets.refresh({ force: true }); }
-      catch { /* Balance refresh is best effort after a terminal result. */ }
+      refreshBalances = true;
     }));
     if (!current() || !due.length) return;
     saveState();
     if (chatModal.isActive()) chatModal.appendChatModal();
     chatsScreen.updateChatList();
+    // Completion is independent of portfolio availability or refresh speed.
+    if (refreshBalances) void evmAssets.refresh({ force: true }).catch(() => {});
   } catch (error) {
     console.warn('EVM payment verification interrupted:', error.message);
   } finally {
