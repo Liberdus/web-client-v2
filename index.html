@@ -321,7 +321,7 @@
             </div>
           </div>
           <section id="evmPaymentRecovery" class="evm-payment-recovery" hidden>
-            <h3>Pending transfers</h3>
+            <h3>Transfers needing attention</h3>
             <div id="evmPaymentRecoveryList" aria-live="polite"></div>
           </section>
           <div class="wallet-assets assets-portfolio">
@@ -2187,10 +2187,10 @@
           <span class="context-menu-text">Copy</span>
         </div>
         <div class="context-menu-option" data-action="evm-check" data-icon="retry" style="display: none;">
-          <span class="context-menu-icon"></span><span class="context-menu-text">Check asset status</span>
+          <span class="context-menu-icon"></span><span class="context-menu-text">Check again</span>
         </div>
-        <div class="context-menu-option" data-action="evm-review" data-icon="edit" style="display: none;">
-          <span class="context-menu-icon"></span><span class="context-menu-text">Review payment again</span>
+        <div class="context-menu-option" data-action="evm-review" data-icon="retry" style="display: none;">
+          <span class="context-menu-icon"></span><span class="context-menu-text">Retry transfer</span>
         </div>
         <!-- Edit own message option (shown only within allowed time window) -->
         <div class="context-menu-option" data-action="edit" data-icon="edit" style="display: none;">
@@ -2477,6 +2477,12 @@
 
       <!-- Failed Message Context Menu -->
       <div class="failed-message-context-menu" id="failedMessageContextMenu" style="display: none;">
+        <div class="context-menu-option" data-action="evm-review" data-icon="retry" style="display: none;">
+          <span class="context-menu-icon"></span><span class="context-menu-text">Retry transfer</span>
+        </div>
+        <div class="context-menu-option" data-action="evm-check" data-icon="retry" style="display: none;">
+          <span class="context-menu-icon"></span><span class="context-menu-text">Check again</span>
+        </div>
         <div class="context-menu-option" data-action="retry" data-icon="retry">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Retry</span>

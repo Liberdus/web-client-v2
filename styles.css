@@ -12630,5 +12630,5 @@ button.multichain-token-chip:hover {
 .evm-payment-pending-row + .evm-payment-pending-row { border-top: 1px solid var(--border-color); }
 .evm-payment-pending-row .asset-info { min-width: 0; overflow-wrap: anywhere; }
 .evm-payment-status { margin-top: 4px; color: var(--secondary-text-color); font-size: var(--font-size-xs); }
-.evm-payment-reference { margin-top: 6px; font-size: var(--font-size-xs); overflow-wrap: anywhere; }
 .evm-payment-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.evm-payment-actions .secondary-button { width: auto; margin: 0; padding: 6px 10px; font-size: var(--font-size-xs); }
