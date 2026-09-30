@@ -22558,15 +22558,22 @@ class ChatModal {
     record.attempt = { tx: chatMessageObj, txid, timestamp: payload.sent_timestamp };
     record.messageState = 'ready';
     saveEvmPayment(record, account);
-    this.upsertEvmPaymentCard(record);
   }
 
   async sendEvmPaymentMessage(record, account) {
     if (myAccount !== account || record.kind !== 'outgoing') throw new Error('Sign in to the payment account.');
+    if (record.broadcastState !== 'acknowledged' || !['pending', 'confirmed'].includes(record.assetState)) {
+      throw new Error('Confirm EVM submission before sending its chat message.');
+    }
     if (['submitted', 'delivered'].includes(record.messageState)) return;
     if (!record.attempt || record.messageState !== 'ready') throw new Error('The previous message attempt needs reconciliation.');
+    // An unsent announcement can be rebuilt safely after a slow submission.
+    // Refresh recipient, funds and timestamp without exceeding the approved cost.
+    await this.prepareEvmPaymentMessage(record, account);
     const { tx, txid } = record.attempt;
     record.messageState = 'submitting';
+    record.attempt.everUncertain = true;
+    this.upsertEvmPaymentCard(record);
     saveEvmPayment(record, account);
     const response = await injectTx(tx, txid, account);
     const current = loadEvmPayments(account).find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
