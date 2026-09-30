@@ -36911,6 +36911,16 @@ function updateTransactionStatus(txid, toAddress, status, type) {
     const msgIndex = contact.messages.findIndex((msg) => msg.txid === txid);
     if (msgIndex !== -1) {
       contact.messages[msgIndex].status = status;
+      if (status === 'failed' && contact.messages[msgIndex].type === EVM_CHAT_MESSAGE_TYPE) {
+        const record = loadEvmPayments(myAccount).find((item) => item.kind === 'outgoing' && item.attempt?.txid === txid);
+        if (record?.messageState === 'submitted') {
+          // Pending-message failure can mean a timeout. Reconcile before a fresh send.
+          record.messageState = 'uncertain';
+          record.checkAttempts = 0;
+          record.nextCheckAt = 0;
+          saveEvmPayment(record, myAccount);
+        }
+      }
     }
   }
 }
