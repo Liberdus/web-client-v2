@@ -2514,6 +2514,8 @@ class EvmAssetsController {
       form.usernameInput.value = recipient;
       form.amountInput.value = evmPaymentAmount(payment);
       form.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
+      // Recipient input clears the memo; restore it before the lookup finishes.
+      form.memoInput.value = payment.note || '';
       this.showToast('Review the recipient and amount. Nothing has been sent.', 5000, 'info');
     } catch (error) {
       this.showToast(error.message, 0, 'warning');
