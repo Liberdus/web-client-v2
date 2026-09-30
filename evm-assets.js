@@ -1100,10 +1100,13 @@ export class EvmTransactionService {
         await new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(1000, deadline - Date.now()))));
       }
     }
-    record.broadcastState = 'unknown';
-    record.assetState = 'unknown';
+    // Failed chain checks before any send cannot leave an uncertain transfer.
+    const status = record.broadcastUncertain ? 'unknown' : 'rejected';
+    record.broadcastState = status;
+    record.assetState = status;
+    if (status === 'rejected') delete record.rawTransaction;
     this.savePayment(record, account);
-    return 'unknown';
+    return status;
   }
 
   async prepare({ network, asset, recipient, amount }) {
