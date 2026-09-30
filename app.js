@@ -12877,6 +12877,11 @@ async function processChats(chats, keys) {
                   payload.message = '';
                   payload.type = EVM_CHAT_MESSAGE_TYPE;
                   payload.payment = claim;
+                  // Verification is local evidence, never a sender-provided assertion.
+                  payload.paymentVerified = 'unchecked';
+                  delete payload.paymentCheckedAt;
+                  delete payload.paymentReverted;
+                  delete payload.paymentMessageConfirmed;
                 } else if (parsedMessage.type === INTENTS_CHAT_MESSAGE_TYPE) {
                   // Every field of this arrives from the sender, and a payment
                   // bubble is worth forging, so anything malformed is dropped
