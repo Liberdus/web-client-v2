@@ -33982,6 +33982,12 @@ multichain.configure({
   getAccount: () => myAccount,
 });
 
+function getMessagePaymentContacts() {
+  return Object.values(myData?.contacts || {})
+    .filter((contact) => contact.address && !isFaucetAddress(contact.address))
+    .filter((contact) => contact.friend !== 0 && contact.public);
+}
+
 chatPaymentPanel.configure({
   getAccount: () => myAccount,
   onSent: (recipientAddress, messageObj) =>
@@ -33992,9 +33998,7 @@ chatPaymentPanel.configure({
   // never get the receipt. Recent conversations first.
   listContacts: () => {
     const recency = new Map((myData?.chats || []).map((chat, index) => [chat.address, index]));
-    return Object.values(myData?.contacts || {})
-      .filter((contact) => contact.address && !isFaucetAddress(contact.address))
-      .filter((contact) => contact.friend !== 0 && contact.public)
+    return getMessagePaymentContacts()
       .sort((a, b) => (recency.get(a.address) ?? Infinity) - (recency.get(b.address) ?? Infinity)
         || getContactDisplayName(a).localeCompare(getContactDisplayName(b)))
       .map((contact) => ({
@@ -34036,6 +34040,8 @@ intentsActivity.configure({
 
 evmAssets.configure({
   getAccount: () => myAccount,
+  findContact: (username) => getMessagePaymentContacts()
+    .find((contact) => normalizeUsername(contact.username) === username) || null,
   prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
     || myData?.wallet?.assets?.[0]
