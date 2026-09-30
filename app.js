@@ -12340,24 +12340,30 @@ async function checkEvmPayments() {
     && isOnline && document.visibilityState !== 'hidden' && !evmAssets.sending;
   let refreshBalances = false;
   try {
-    const due = loadEvmPayments(session.account).filter((record) => (record.checkAttempts || 0) < EVM_CHECK_LIMIT
+    const due = loadEvmPayments(session.account).filter((record) => record.broadcastState !== 'rejected'
+      && record.verification !== 'reverted'
+      && (record.checkAttempts || 0) < EVM_CHECK_LIMIT
       && (record.nextCheckAt || 0) <= Date.now()).sort((a, b) => (a.nextCheckAt || 0) - (b.nextCheckAt || 0)).slice(0, 4);
     // Unsaved local changes must not mask another tab's retry after the lookups.
     if (due.length && evmPaymentChanges.has(session.account)) saveState();
     await Promise.all(due.map(async (record) => {
       if (!current()) return;
-      if (record.kind === 'outgoing' && record.broadcastState === 'rejected') {
-        removeEvmPayment(record, session.account);
-        return;
-      }
       if (record.kind === 'verification' && !evmPaymentMessages(record, session.account).length) {
         removeEvmPayment(record, session.account);
         return;
       }
       const checkedRecord = stringify(record);
-      const state = record.kind === 'outgoing'
-        ? await evmAssets.transactions.verifyOutgoingPayment(record)
-        : await evmAssets.transactions.verifyPayment(record.payment, record.payment.from, record.payment.to);
+      // A completed asset does not need more EVM RPC calls while its chat is unresolved.
+      let state;
+      if (record.kind === 'verification') {
+        state = await evmAssets.transactions.verifyPayment(record.payment, record.payment.from, record.payment.to);
+      } else if (record.assetState === 'confirmed') {
+        state = 'settled';
+      } else if (record.assetState === 'reverted') {
+        state = 'reverted';
+      } else {
+        state = await evmAssets.transactions.verifyOutgoingPayment(record);
+      }
       if (!current()) return;
       // Do not apply a stale result to an operation changed while RPC was in flight.
       const latest = loadEvmPayments(session.account).find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
@@ -12395,7 +12401,16 @@ async function checkEvmPayments() {
         removeEvmPayment(record, session.account);
         return;
       }
-      const operationFinished = ['settled', 'reverted'].includes(state)
+      // Keep failed transfers for form restoration until the user dismisses them.
+      if (state === 'reverted') {
+        if (!record.username && record.notifiedAssetState !== 'reverted') {
+          showToast(`EVM transfer reverted: ${record.payment.transactionHash}`, 0, 'error');
+          record.notifiedAssetState = 'reverted';
+        }
+        saveEvmPayment(record, session.account);
+        return;
+      }
+      const operationFinished = state === 'settled'
         && ['none', 'delivered', 'abandoned'].includes(record.messageState);
       if (!operationFinished) {
         saveEvmPayment(record, session.account);
