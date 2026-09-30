@@ -34041,7 +34041,7 @@ intentsActivity.configure({
 evmAssets.configure({
   getAccount: () => myAccount,
   findContact: (username) => getMessagePaymentContacts()
-    .find((contact) => normalizeUsername(contact.username) === username) || null,
+    .find((contact) => normalizeUsername(contact.username || '') === username) || null,
   prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
     || myData?.wallet?.assets?.[0]
