@@ -12341,6 +12341,8 @@ async function checkEvmPayments() {
   try {
     const due = loadEvmPayments(session.account).filter((record) => (record.checkAttempts || 0) < EVM_CHECK_LIMIT
       && (record.nextCheckAt || 0) <= Date.now()).sort((a, b) => (a.nextCheckAt || 0) - (b.nextCheckAt || 0)).slice(0, 4);
+    // Unsaved local changes must not mask another tab's retry after the lookups.
+    if (due.length && evmPaymentChanges.has(session.account)) saveState();
     await Promise.all(due.map(async (record) => {
       if (!current()) return;
       if (record.kind === 'outgoing' && record.broadcastState === 'rejected') {
@@ -12351,13 +12353,14 @@ async function checkEvmPayments() {
         removeEvmPayment(record, session.account);
         return;
       }
+      const checkedRecord = stringify(record);
       const state = record.kind === 'outgoing'
         ? await evmAssets.transactions.verifyOutgoingPayment(record)
         : await evmAssets.transactions.verifyPayment(record.payment, record.payment.from, record.payment.to);
       if (!current()) return;
       // Do not apply a stale result to an operation changed while RPC was in flight.
       const latest = loadEvmPayments(session.account).find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
-      if (!latest) return;
+      if (!latest || stringify(latest) !== checkedRecord) return;
       record = latest;
       record.checkedAt = Date.now();
       record.checkAttempts = (record.checkAttempts || 0) + 1;
