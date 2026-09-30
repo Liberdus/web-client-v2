@@ -1595,7 +1595,7 @@ class AssetsModal {
           <div>Asset: ${escapeHtml(assetLabels[record.assetState] || record.assetState)}${record.username ? ` · Chat message: ${escapeHtml(messageLabels[record.messageState] || record.messageState)}` : ''}</div>
           ${record.broadcastError ? `<div>${escapeHtml(record.broadcastError.message)}</div>` : ''}
           <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="check">Check status</button>
-          ${record.assetState === 'unknown' && record.broadcastState !== 'acknowledged' && record.rawTransaction ? `
+          ${record.assetState === 'unknown' && record.rawTransaction ? `
             <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="submit">Retry submission</button>` : ''}
           ${record.username && !['delivered', 'abandoned'].includes(record.messageState)
             && (record.messageState !== 'ready' || ['pending', 'confirmed'].includes(record.assetState)) ? `
@@ -2381,7 +2381,7 @@ class EvmAssetsController {
   }
 
   async retrySubmission(record, account) {
-    if (record.assetState !== 'unknown' || record.broadcastState === 'acknowledged') {
+    if (record.assetState !== 'unknown') {
       throw new Error('Submission is already resolved. Use Check status.');
     }
     if (!record.rawTransaction || record.payment.from !== walletProbeAddress(account.keys.address)
@@ -2393,7 +2393,7 @@ class EvmAssetsController {
       id: record.networkId, name: record.networkId, source: 'evm', chainId: record.payment.chainId,
       nativeSymbol: record.payment.symbol, rpcUrls: DEFAULT_EVM_RPC_URLS[record.networkId] || [],
     };
-    // Recheck before an explicit retry. Background checks never broadcast.
+    // Acceptance can outlive a dropped transaction. Recheck before retrying its exact bytes.
     this.transactions.paymentEvidence.clear();
     const state = await this.transactions.verifyOutgoingPayment(record);
     if (this.getAccount() !== account) return;
