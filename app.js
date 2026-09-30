@@ -12367,8 +12367,12 @@ async function checkEvmPayments() {
       record.checkAttempts = (record.checkAttempts || 0) + 1;
       record.nextCheckAt = Date.now() + Math.min(30_000, 5000 * 2 ** Math.min(record.checkAttempts - 1, 3));
       record.verification = state;
-      record.assetState = state === 'settled' ? 'confirmed' : state === 'reverted' ? 'reverted'
+      const assetState = state === 'settled' ? 'confirmed' : state === 'reverted' ? 'reverted'
         : state === 'pending' ? 'pending' : 'unknown';
+      if (record.kind === 'outgoing' && record.assetState !== assetState && ['confirmed', 'reverted'].includes(assetState)) {
+        refreshBalances = true;
+      }
+      record.assetState = assetState;
       if (record.kind === 'outgoing' && ['pending', 'settled', 'reverted'].includes(state)) {
         record.broadcastState = 'acknowledged';
         delete record.broadcastError;
@@ -12406,7 +12410,6 @@ async function checkEvmPayments() {
         );
       }
       removeEvmPayment(record, session.account);
-      refreshBalances = true;
     }));
     if (!current() || !due.length) return;
     saveState();
