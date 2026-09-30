@@ -2410,12 +2410,17 @@ class EvmAssetsController {
     }
     record.checkAttempts = 0;
     record.nextCheckAt = 0;
+    if (this.getAccount() === account && !record.username && ['confirmed', 'reverted'].includes(record.assetState)) {
+      record.notifiedAssetState = record.assetState;
+    }
     this.savePayment(record, account);
     if (this.getAccount() !== account) return;
     const message = record.assetState === 'unknown' ? 'Submission is still uncertain. Check status or retry this original submission later.'
       : record.assetState === 'rejected' ? `Submission rejected: ${record.broadcastError.message}`
       : `EVM transfer ${record.assetState}.${record.username && ['pending', 'confirmed'].includes(record.assetState) ? ' Select Send message to announce it.' : ''}`;
-    this.showToast(message, 0, record.assetState === 'unknown' ? 'warning' : 'info');
+    const severity = ['rejected', 'reverted'].includes(record.assetState) ? 'error'
+      : record.assetState === 'unknown' ? 'warning' : 'info';
+    this.showToast(message, 0, severity);
   }
 
   async reviewPayment(payment, recipient) {
