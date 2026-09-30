@@ -895,6 +895,7 @@ export class EvmTransactionService {
     getAccount,
     refreshAssets,
     showToast,
+    hideToast = () => {},
     confirmTransfer,
     getManagedRpcUrl = () => null,
     getNativeCurrency,
@@ -907,6 +908,7 @@ export class EvmTransactionService {
     this.getAccount = getAccount;
     this.refreshAssets = refreshAssets;
     this.showToast = showToast;
+    this.hideToast = hideToast;
     this.confirmTransfer = confirmTransfer;
     this.getManagedRpcUrl = getManagedRpcUrl;
     this.getNativeCurrency = getNativeCurrency;
@@ -1146,6 +1148,21 @@ export class EvmTransactionService {
     return record.assetState;
   }
 
+  async withSubmissionProgress(account, operation) {
+    const toastId = this.showToast('Submitting EVM transfer…', 0, 'loading', false, { dedupe: false });
+    const slow = setTimeout(() => {
+      if (this.getAccount() !== account) { this.hideToast(toastId); return; }
+      const toast = document.getElementById(toastId);
+      if (toast) toast.textContent = 'Connection is slow. Checking submission…';
+    }, 8000);
+    try {
+      return await operation();
+    } finally {
+      clearTimeout(slow);
+      this.hideToast(toastId);
+    }
+  }
+
   async prepare({ network, asset, recipient, amount }) {
     const validation = this.validate({ network, asset, recipient, amount });
     if (!validation.valid) throw validation.error;
@@ -1383,7 +1400,7 @@ export class EvmTransactionService {
     if (this.getAccount() !== account) throw new Error('Account changed before broadcast.');
     this.savePayment(record, account);
     // Normal account saves retain the original bytes for an exact submission retry.
-    let status = await this.broadcast(network, record, account);
+    let status = await this.withSubmissionProgress(account, () => this.broadcast(network, record, account));
     let receipt = null;
     if (chat && status === 'pending' && this.getAccount() === account) {
       try { await this.sendPaymentMessage(record, account); }
@@ -1569,16 +1586,20 @@ class AssetsModal {
     try {
       const records = this.controller.getPayments(account).filter((record) => record.kind === 'outgoing');
       this.recovery.hidden = records.length === 0;
-      const assetLabels = { unknown: 'Checking submission', pending: 'Confirming', confirmed: 'Confirmed', reverted: 'Reverted' };
+      const assetLabels = { unknown: 'Unable to confirm yet', rejected: 'Submission rejected', pending: 'Confirming', confirmed: 'Confirmed', reverted: 'Reverted' };
       const messageLabels = { ready: 'Not sent', submitting: 'Checking submission', submitted: 'Submitted', rejected: 'Needs retry', uncertain: 'Checking submission' };
       this.recoveryList.innerHTML = records.map((record) => `
         <div class="evm-payment-recovery-item">
           <div>${escapeHtml(evmPaymentAmount(record.payment))} ${escapeHtml(record.payment.symbol)} → ${escapeHtml(record.username || record.payment.to)}</div>
           <div class="evm-payment-reference">${escapeHtml(record.payment.transactionHash)}</div>
           <div>Asset: ${escapeHtml(assetLabels[record.assetState] || record.assetState)}${record.username ? ` · Chat message: ${escapeHtml(messageLabels[record.messageState] || record.messageState)}` : ''}</div>
+          ${record.broadcastError ? `<div>${escapeHtml(record.broadcastError.message)}</div>` : ''}
           <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="check">Check status</button>
-          ${record.username && !['delivered', 'abandoned'].includes(record.messageState) ? `
-            <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="retry">Retry message</button>
+          ${record.assetState === 'unknown' && record.broadcastState !== 'acknowledged' && record.rawTransaction ? `
+            <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="submit">Retry submission</button>` : ''}
+          ${record.username && !['delivered', 'abandoned'].includes(record.messageState)
+            && (record.messageState !== 'ready' || ['pending', 'confirmed'].includes(record.assetState)) ? `
+            <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="retry">${record.messageState === 'ready' ? 'Send message' : 'Retry message'}</button>
             <button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="abandon">Stop retrying message</button>` : ''}
         </div>`).join('');
     } catch (error) {
@@ -2159,6 +2180,7 @@ class EvmAssetsController {
       getAccount: () => this.getAccount(),
       refreshAssets: (options) => this.refresh(options),
       showToast: (...args) => this.showToast(...args),
+      hideToast: (id) => this.hideToast(id),
       confirmTransfer: (...args) => this.confirmTransfer(...args),
       getManagedRpcUrl: (network) => this.discovery.getRpcUrl(network.id),
       getNativeCurrency: (network) => this.discovery.getNativeCurrency(network),
@@ -2326,6 +2348,7 @@ class EvmAssetsController {
   async recoverPayment(id, action = 'retry') {
     const account = this.getAccount();
     try {
+      if (this.sending) throw new Error('Wait for the current payment operation to finish.');
       await this.withPaymentLock(account, async () => {
         const record = this.getPayments(account).find((item) => item.kind === 'outgoing' && evmPaymentId(item.payment) === id);
         if (!record) throw new Error('This device has no outgoing operation to retry. Use Check status on the message.');
@@ -2338,19 +2361,61 @@ class EvmAssetsController {
           this.abandonPayment(record, account);
           return;
         }
-        if (action !== 'retry' || !record.username) throw new Error('This payment has no message to retry.');
         this.sending = true;
         try {
-          // Retry only the captured Liberdus attempt; asset submission is never called here.
-          await this.sendChatPayment(record, account);
-          this.showToast('Payment message checked/submitted.', 5000, 'info');
+          if (action === 'submit') {
+            await this.transactions.withSubmissionProgress(account, () => this.retrySubmission(record, account));
+          } else if (action === 'retry' && record.username) {
+            await this.sendChatPayment(record, account);
+            if (this.getAccount() === account) this.showToast('Payment message checked/submitted.', 5000, 'info');
+          } else {
+            throw new Error('This payment has no message to retry.');
+          }
         } finally {
           this.sending = false;
         }
       });
     } catch (error) {
-      this.showToast(error.message, 0, 'warning');
+      if (this.getAccount() === account) this.showToast(error.message, 0, 'warning');
     }
+  }
+
+  async retrySubmission(record, account) {
+    if (record.assetState !== 'unknown' || record.broadcastState === 'acknowledged') {
+      throw new Error('Submission is already resolved. Use Check status.');
+    }
+    if (!record.rawTransaction || record.payment.from !== walletProbeAddress(account.keys.address)
+      || bytesToHex(keccak256(hexToBytes(record.rawTransaction))) !== record.payment.transactionHash) {
+      throw new Error('The original signed transaction is unavailable. Check its status before sending again.');
+    }
+    if (typeof record.networkId !== 'string' || !/^[a-z0-9-]+$/.test(record.networkId)) throw new Error('Invalid payment network.');
+    const network = this.transactions.paymentNetwork(record.payment.chainId) || {
+      id: record.networkId, name: record.networkId, source: 'evm', chainId: record.payment.chainId,
+      nativeSymbol: record.payment.symbol, rpcUrls: DEFAULT_EVM_RPC_URLS[record.networkId] || [],
+    };
+    // Recheck before an explicit retry. Background checks never broadcast.
+    this.transactions.paymentEvidence.clear();
+    const state = await this.transactions.verifyOutgoingPayment(record);
+    if (this.getAccount() !== account) return;
+    const latest = this.getPayments(account).find((item) => item.kind === 'outgoing' && evmPaymentId(item.payment) === evmPaymentId(record.payment));
+    if (!latest || latest.broadcastState !== record.broadcastState || latest.assetState !== record.assetState) return;
+    record = latest;
+    if (['pending', 'settled', 'reverted'].includes(state)) {
+      record.broadcastState = 'acknowledged';
+      record.assetState = state === 'settled' ? 'confirmed' : state;
+      if (state !== 'pending') delete record.rawTransaction;
+      delete record.broadcastError;
+    } else {
+      await this.transactions.broadcast(network, record, account);
+    }
+    record.checkAttempts = 0;
+    record.nextCheckAt = 0;
+    this.savePayment(record, account);
+    if (this.getAccount() !== account) return;
+    const message = record.assetState === 'unknown' ? 'Submission is still uncertain. Check status or retry this original submission later.'
+      : record.assetState === 'rejected' ? `Submission rejected: ${record.broadcastError.message}`
+      : `EVM transfer ${record.assetState}.${record.username && ['pending', 'confirmed'].includes(record.assetState) ? ' Select Send message to announce it.' : ''}`;
+    this.showToast(message, 0, record.assetState === 'unknown' ? 'warning' : 'info');
   }
 
   async reviewPayment(payment, recipient) {

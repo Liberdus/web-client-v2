@@ -12403,7 +12403,7 @@ async function checkEvmPayments() {
       }
       if (!current()) return;
       const attemptId = record.attempt?.txid;
-      const delivered = record.kind === 'outgoing' && attemptId && !['delivered', 'abandoned'].includes(record.messageState)
+      const delivered = record.kind === 'outgoing' && attemptId && !['ready', 'delivered', 'abandoned'].includes(record.messageState)
         ? await lookupEvmAnnouncement(attemptId, session.account).catch(() => undefined) : undefined;
       if (!current()) return;
       // Do not apply a stale result to an operation changed while RPC was in flight.
