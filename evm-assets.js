@@ -2484,6 +2484,9 @@ class EvmAssetsController {
     const severity = ['rejected', 'reverted'].includes(record.assetState) ? 'error'
       : record.assetState === 'unknown' ? 'warning' : 'info';
     this.showToast(message, 0, severity);
+    if (['confirmed', 'reverted'].includes(record.assetState)) {
+      void this.refresh({ force: true }).catch(() => {});
+    }
   }
 
   async reviewPayment(payment, recipient) {
