@@ -1273,7 +1273,8 @@ export class EvmTransactionService {
       const message = status === 'rejected' ? `EVM submission rejected: ${record.broadcastError.message}. Review the form and try again.`
         : status === 'unknown' ? `Submission could not be confirmed: ${record.broadcastError?.message || 'Connection interrupted'}. Check status or retry the original submission in EVM assets.`
         : `EVM transfer ${status}: ${transactionHash}`;
-      this.showToast(message, 5000, ['reverted', 'rejected'].includes(status) ? 'error' : 'info');
+      const failed = ['reverted', 'rejected'].includes(status);
+      this.showToast(message, failed || status === 'unknown' ? 0 : 5000, failed ? 'error' : status === 'unknown' ? 'warning' : 'info');
     }
     return { status, transactionHash, receipt, record };
   }
@@ -2165,7 +2166,7 @@ class EvmAssetsController {
         form.clearRecipientLookup({ hideStatus: false });
         form.setRecipientStatus('recipient changed—review username');
       }
-      this.showToast(error?.message || 'EVM transfer failed', 5000, 'error');
+      this.showToast(error?.message || 'EVM transfer failed', 0, 'error');
       return { status: 'failed', error };
     } finally {
       this.sending = false;
