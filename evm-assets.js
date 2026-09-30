@@ -1530,7 +1530,9 @@ class AssetsModal {
     this.connectionSummary.textContent = 'Connecting wallet networks…';
     this.connectionSummary.dataset.status = 'loading';
     await this.controller.refresh({ force });
+  }
 
+  renderBalances() {
     const totalUsd = this.controller.getTotalUsd({ evmOnly: true });
     this.totalBalance.textContent = totalUsd === null ? 'N/A' : totalUsd.toFixed(2);
     this.controller.populateNetworkSelect(this.networkSelect, { includeAll: true, evmOnly: true });
@@ -2185,7 +2187,14 @@ class EvmAssetsController {
     return false;
   }
 
-  refresh(options) { return this.discovery.refresh(options); }
+  async refresh(options) {
+    const account = this.getAccount();
+    const catalog = await this.discovery.refresh(options);
+    if (this.getAccount() === account && this.assetsModal.modal?.classList.contains('active')) {
+      this.assetsModal.renderBalances();
+    }
+    return catalog;
+  }
   rebuildCatalog() { return this.discovery.rebuildCatalog(); }
   getCatalog() { return this.discovery.getCatalog(); }
   getEvmCatalog() { return this.discovery.getEvmCatalog(); }
