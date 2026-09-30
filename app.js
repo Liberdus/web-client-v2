@@ -12341,14 +12341,24 @@ function refreshEvmPaymentChat(messages) {
   chatModal.messagesContainer.scrollTop = scrollTop;
 }
 
-// Receipt lookup is read-only: even a reverted asset may already have an announcement.
-async function lookupEvmAnnouncement(txid, account) {
-  let outcome = await queryNetwork(`/transaction/${txid}`);
-  if (typeof outcome?.transaction?.success !== 'boolean') {
-    outcome = await queryNetwork(`/collector/api/transaction?appReceiptId=${txid}`);
+// The normal Liberdus pending checker owns announcement outcomes. Match the
+// current attempt so a late result cannot change a newly retried message.
+function settleEvmPaymentMessage(txid, delivered) {
+  const record = loadEvmPayments(myAccount).find((item) => item.kind === 'outgoing' && item.attempt?.txid === txid);
+  if (!record || record.messageState === 'delivered') return;
+  const messages = evmPaymentMessages(record, myAccount);
+  if (!delivered && messages.some((message) => message.paymentMessageConfirmed)) return;
+  record.messageState = delivered ? 'delivered' : 'rejected';
+  record.checkAttempts = 0;
+  record.nextCheckAt = 0;
+  for (const message of messages) {
+    message.status = delivered ? 'sent' : 'failed';
+    if (delivered) message.paymentMessageConfirmed = true;
   }
-  if (myAccount !== account) throw new Error('Account changed during message recovery.');
-  return outcome?.transaction?.success;
+  saveEvmPayment(record, myAccount);
+  if (chatModal.isActive()) chatModal.appendChatModal();
+  chatsScreen.updateChatList();
+  if (evmAssets.assetsModal.isActive()) evmAssets.assetsModal.renderRecovery();
 }
 
 async function recheckEvmPayment(payment, account) {
@@ -12379,8 +12389,7 @@ async function checkEvmPayments() {
   const changedMessages = [];
   try {
     const due = loadEvmPayments(session.account).filter((record) => record.broadcastState !== 'rejected'
-      && (record.verification !== 'reverted' || record.attempt?.everUncertain
-        && !['delivered', 'abandoned'].includes(record.messageState))
+      && record.verification !== 'reverted'
       && (record.checkAttempts || 0) < EVM_CHECK_LIMIT
       && (record.nextCheckAt || 0) <= Date.now()).sort((a, b) => (a.nextCheckAt || 0) - (b.nextCheckAt || 0)).slice(0, 4);
     await Promise.all(due.map(async (record) => {
@@ -12402,11 +12411,6 @@ async function checkEvmPayments() {
       } else {
         state = await evmAssets.transactions.verifyOutgoingPayment(record);
       }
-      if (!current()) return;
-      const attemptId = record.attempt?.txid;
-      const delivered = record.kind === 'outgoing' && attemptId && record.attempt.everUncertain
-        && !['ready', 'delivered', 'abandoned'].includes(record.messageState)
-        ? await lookupEvmAnnouncement(attemptId, session.account).catch(() => undefined) : undefined;
       if (!current()) return;
       // Do not apply a stale result to an operation changed while RPC was in flight.
       const latest = loadEvmPayments(session.account).find((item) => evmPaymentRecordId(item) === recordId);
@@ -12430,7 +12434,7 @@ async function checkEvmPayments() {
         delete record.broadcastError;
         if (state !== 'pending') delete record.rawTransaction;
         // An announcement prepared before a failed broadcast was never injected.
-        if (state === 'reverted' && record.messageState === 'ready' && !record.attempt?.everUncertain) {
+        if (state === 'reverted' && record.messageState === 'ready') {
           record.messageState = 'abandoned';
         }
       }
@@ -12446,19 +12450,6 @@ async function checkEvmPayments() {
       }
       if (messages.some((message) => message.my && message.paymentMessageConfirmed)
         && record.kind === 'outgoing') record.messageState = 'delivered';
-      if (record.kind === 'outgoing' && record.attempt && !['delivered', 'abandoned'].includes(record.messageState)) {
-        if (delivered === true) {
-          record.messageState = 'delivered';
-          for (const message of messages) {
-            message.paymentMessageConfirmed = true;
-            message.status = 'sent';
-          }
-        } else if (delivered === false) {
-          record.messageState = 'rejected';
-          record.attempt.everUncertain = false;
-          for (const message of messages) message.status = 'failed';
-        }
-      }
       const terminal = ['settled', 'reverted', 'failed'].includes(state);
       if (terminal && record.kind === 'verification') {
         removeEvmPayment(record, session.account);
@@ -22778,30 +22769,14 @@ class ChatModal {
 
   async sendEvmPaymentMessage(record, account) {
     if (myAccount !== account || record.kind !== 'outgoing') throw new Error('Sign in to the payment account.');
-    if (['delivered', 'abandoned'].includes(record.messageState)) return;
+    if (['submitted', 'delivered', 'abandoned'].includes(record.messageState)) return;
     if (record.cardCreated && record.assetState !== 'confirmed') {
       throw new Error('Wait for the EVM transfer to be confirmed before retrying its message.');
     }
     if (record.broadcastState !== 'acknowledged' || !['pending', 'confirmed'].includes(record.assetState)) {
       throw new Error('Confirm EVM submission before sending its chat message.');
     }
-    if (record.attempt && record.messageState !== 'ready') {
-      const outcome = await lookupEvmAnnouncement(record.attempt.txid, account).catch(() => undefined);
-      if (myAccount !== account) throw new Error('Account changed during message recovery.');
-      if (outcome === true) {
-        record.messageState = 'delivered';
-        record.checkAttempts = 0;
-        record.nextCheckAt = 0;
-        saveEvmPayment(record, account);
-        this.upsertEvmPaymentCard(record);
-        saveState();
-        return;
-      }
-      if (outcome !== false && record.attempt.everUncertain) {
-        throw new Error('The previous chat message may still arrive. Delivery could not be verified; try checking again later.');
-      }
-      record.attempt.everUncertain = false;
-    }
+    const previousTxid = record.attempt.txid;
     // Never replay a saved, possibly expired signature. A retry gets a new txid.
     // Keep the old card available if refreshing keys, LIB balance or cost fails.
     try {
@@ -22816,7 +22791,8 @@ class ChatModal {
     }
     if (myAccount !== account) throw new Error('Account changed before chat submission.');
     const { tx, txid } = record.attempt;
-    record.attempt.everUncertain = true;
+    // Like normal chat retry, replace the old pending attempt only after preparation succeeds.
+    removePendingTransaction(previousTxid);
     record.messageState = 'submitting';
     record.checkAttempts = 0;
     record.nextCheckAt = 0;
@@ -22827,7 +22803,6 @@ class ChatModal {
     record.messageState = current?.messageState === 'delivered' ? 'delivered'
       : response?.result?.success === true ? 'submitted'
       : response?.result?.success === false && !response.transportFailure ? 'rejected' : 'uncertain';
-    if (record.messageState === 'rejected') record.attempt.everUncertain = false;
     saveEvmPayment(record, account);
     if (myAccount === account) this.upsertEvmPaymentCard(record);
     if (!['submitted', 'delivered'].includes(record.messageState)) {
@@ -36611,6 +36586,7 @@ async function checkPendingTransactionsOnce() {
   if (!myData || !myAccount) {
     return;
   }
+  const account = myAccount;
 
   // initialize the pending array if it is not already initialized
   myData.pending ??= [];
@@ -36653,6 +36629,7 @@ async function checkPendingTransactionsOnce() {
       }
       //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
       const res = await queryNetwork(endpointPath);
+      if (myAccount !== account) return;
       //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
       if (submittedts < thirtySecondsAgo && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
         console.error(`DEBUG: txid ${txid} timed out, removing completely`);
@@ -36687,6 +36664,7 @@ async function checkPendingTransactionsOnce() {
           chatModal.refreshCurrentView(txid);
         }
         if (type === 'message') {
+          settleEvmPaymentMessage(txid, false);
           updateTransactionStatus(txid, pendingTxInfo.to, 'failed', type);
           chatModal.refreshCurrentView(txid);
           await chatsScreen.updateChatList();
@@ -36705,6 +36683,8 @@ async function checkPendingTransactionsOnce() {
           if (!removePendingTransaction(txid)) continue;
           didMutatePendingState = true;
         }
+
+        if (type === 'message') settleEvmPaymentMessage(txid, true);
 
         if (type === 'register') {
           pendingPromiseService.resolve(txid, {
@@ -36770,6 +36750,8 @@ async function checkPendingTransactionsOnce() {
           if (!removePendingTransaction(txid)) continue;
           didMutatePendingState = true;
         }
+
+        if (type === 'message') settleEvmPaymentMessage(txid, false);
 
         // Check for failure reason in the transaction receipt
         const failureReason = res?.transaction?.reason || 'Transaction failed';
@@ -36910,17 +36892,9 @@ function updateTransactionStatus(txid, toAddress, status, type) {
   if (contact) {
     const msgIndex = contact.messages.findIndex((msg) => msg.txid === txid);
     if (msgIndex !== -1) {
+      // A synced EVM announcement remains delivered even if a later receipt lookup times out.
+      if (contact.messages[msgIndex].type === EVM_CHAT_MESSAGE_TYPE && contact.messages[msgIndex].paymentMessageConfirmed) return;
       contact.messages[msgIndex].status = status;
-      if (status === 'failed' && contact.messages[msgIndex].type === EVM_CHAT_MESSAGE_TYPE) {
-        const record = loadEvmPayments(myAccount).find((item) => item.kind === 'outgoing' && item.attempt?.txid === txid);
-        if (record?.messageState === 'submitted') {
-          // Pending-message failure can mean a timeout. Reconcile before a fresh send.
-          record.messageState = 'uncertain';
-          record.checkAttempts = 0;
-          record.nextCheckAt = 0;
-          saveEvmPayment(record, myAccount);
-        }
-      }
     }
   }
 }

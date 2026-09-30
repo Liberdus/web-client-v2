@@ -2370,7 +2370,7 @@ class EvmAssetsController {
       retryTransfer: Boolean(failed),
       retryMessage: Boolean(outgoing && record.username && record.assetState === 'confirmed'
         && ['ready', 'rejected', 'uncertain'].includes(record.messageState)),
-      checkAgain: Boolean(record && !failed && record.checkAttempts >= 20),
+      checkAgain: Boolean(record && ['pending', 'unknown'].includes(record.assetState) && record.checkAttempts >= 20),
       dismiss: Boolean(outgoing && failed),
     };
   }
@@ -2410,7 +2410,7 @@ class EvmAssetsController {
         this.sending = true;
         try {
           await this.sendChatPayment(record, account);
-          if (this.getAccount() === account) this.showToast('Payment message checked/submitted.', 5000, 'info');
+          if (this.getAccount() === account) this.showToast('Payment message submitted.', 5000, 'info');
         } finally {
           this.sending = false;
         }
