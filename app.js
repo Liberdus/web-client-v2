@@ -22462,6 +22462,9 @@ class ChatModal {
     };
     requireAccount();
     const address = normalizeAddress(resolution.address);
+    if (!myData.contacts[address]) {
+      throw new Error('Add this username to Contacts before sending an EVM payment.');
+    }
     const sorted = [longAddress(account.keys.address), longAddress(address)].sort();
     const chatId = hashBytes(sorted.join(''));
     const [recipientInfo, tollInfo, balanceInfo, paramsOk] = await Promise.all([
@@ -22489,7 +22492,7 @@ class ChatModal {
     if (available < totalRequired) {
       throw new Error(`Not enough LIB for the chat message. Required: ${big2str(totalRequired, 18)} LIB; available: ${big2str(available, 18)} LIB; add ${big2str(totalRequired - available, 18)} LIB.`);
     }
-    // Validate encryption before confirmation without creating a saved contact.
+    // Validate current encryption keys without mutating the saved contact.
     const publicKey = recipient.publicKey;
     const pqPublicKey = recipient.pqPublicKey;
     if (!publicKey || !pqPublicKey || bin2hex(generateAddress(hex2bin(publicKey))) !== address) {
@@ -22498,7 +22501,7 @@ class ChatModal {
     dhkeyCombined(account.keys.secret, publicKey, pqPublicKey);
     return {
       address, username: resolution.username, toll: toll.toString(), totalRequired: totalRequired.toString(),
-      contact: {
+      contactUpdates: {
         public: publicKey, pqPublic: pqPublicKey, toll: recipient.data.toll,
         tollUnit: recipient.data.tollUnit || 'LIB', tollRequiredToSend: required,
       },
