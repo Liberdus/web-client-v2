@@ -12613,10 +12613,22 @@ button.multichain-token-chip:hover {
   min-width: 0;
 }
 
-/* EVM payment recovery shares the existing assets modal. */
-.evm-payment-recovery { margin: 16px; text-align: left; }
-.evm-payment-recovery h3 { margin: 0 0 8px; font-size: var(--font-size-base); }
-.evm-payment-recovery p { line-height: 1.45; }
-.evm-payment-recovery p, .evm-payment-reference { color: var(--secondary-text-color); font-size: var(--font-size-sm); }
-.evm-payment-recovery-item { padding: 12px 0; border-bottom: 1px solid var(--border-color); overflow-wrap: anywhere; }
-.evm-payment-recovery-item button { margin-top: 8px; }
+/* Pending transfers use the EVM wallet's asset rows. */
+.evm-payment-recovery { margin: 0 1rem 1rem; text-align: left; }
+.evm-payment-recovery h3 {
+  margin: 0 0 8px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--secondary-text-color);
+}
+#evmPaymentRecoveryList {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--background-color);
+}
+.evm-payment-pending-row + .evm-payment-pending-row { border-top: 1px solid var(--border-color); }
+.evm-payment-pending-row .asset-info { min-width: 0; overflow-wrap: anywhere; }
+.evm-payment-status { margin-top: 4px; color: var(--secondary-text-color); font-size: var(--font-size-xs); }
+.evm-payment-reference { margin-top: 6px; font-size: var(--font-size-xs); overflow-wrap: anywhere; }
+.evm-payment-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }

@@ -12487,7 +12487,9 @@ async function checkEvmPayments() {
       }
       removeEvmPayment(record, session.account);
     }));
-    if (!current() || !due.length) return;
+    if (!current()) return;
+    evmAssets.syncPaymentNotices();
+    if (!due.length) return;
     saveState();
     refreshEvmPaymentChat(changedMessages);
     chatsScreen.updateChatList();
@@ -27649,7 +27651,8 @@ class ChatModal {
     }
   }
 
-  // ========== Voice Message Methods ===
+  // ========== Voice Message Methods ==========
+
   /**
    * Normalize a duration-like value to a positive finite number of seconds.
    * @param {number|string} seconds - Duration value to normalize.
