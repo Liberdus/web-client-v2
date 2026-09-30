@@ -20969,9 +20969,14 @@ class ChatModal {
     window.addEventListener('resize', () => {
       const currentHeight = window.innerHeight;
       const heightDifference = this.initialViewportHeight - currentHeight;
-      
-      // If viewport height decreased significantly, keyboard is likely open
-      if (heightDifference > 150) { // 150px threshold for keyboard detection
+      const keyboardPossible = (isMobile() || isIOS()) && document.activeElement === this.messageInput;
+
+      // Window resizing and docked desktop DevTools are not a mobile keyboard.
+      if (!keyboardPossible) {
+        this.isKeyboardVisible = false;
+        this.initialViewportHeight = currentHeight;
+        this.unlockBackgroundScroll();
+      } else if (heightDifference > 150) { // 150px threshold for keyboard detection
         this.isKeyboardVisible = true;
         this.lockBackgroundScroll();
       } else if (heightDifference < 50) { // If height increased or stayed similar, keyboard is likely closed
@@ -21006,6 +21011,7 @@ class ChatModal {
 
     // Unlock when input loses focus (keyboard likely dismissed)
     this.messageInput.addEventListener('blur', () => {
+      this.isKeyboardVisible = false;
       this.unlockBackgroundScroll();
     });
 
@@ -24725,8 +24731,7 @@ class ChatModal {
    * @returns {boolean} True if keyboard is likely open
    */
   isKeyboardOpen() {
-    // Use the tracked state from resize listener for more reliable detection
-    return this.isKeyboardVisible;
+    return (isMobile() || isIOS()) && this.isKeyboardVisible;
   }
 
   /**
