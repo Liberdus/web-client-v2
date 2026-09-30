@@ -12343,6 +12343,10 @@ async function checkEvmPayments() {
       && (record.nextCheckAt || 0) <= Date.now()).sort((a, b) => (a.nextCheckAt || 0) - (b.nextCheckAt || 0)).slice(0, 4);
     await Promise.all(due.map(async (record) => {
       if (!current()) return;
+      if (record.kind === 'outgoing' && record.broadcastState === 'rejected') {
+        removeEvmPayment(record, session.account);
+        return;
+      }
       if (record.kind === 'verification' && !evmPaymentMessages(record, session.account).length) {
         removeEvmPayment(record, session.account);
         return;
@@ -12361,6 +12365,15 @@ async function checkEvmPayments() {
       record.verification = state;
       record.assetState = state === 'settled' ? 'confirmed' : state === 'reverted' ? 'reverted'
         : state === 'pending' ? 'pending' : 'unknown';
+      if (record.kind === 'outgoing' && ['pending', 'settled', 'reverted'].includes(state)) {
+        record.broadcastState = 'acknowledged';
+        delete record.broadcastError;
+        if (state !== 'pending') delete record.rawTransaction;
+        // An announcement prepared before a failed broadcast was never injected.
+        if (state === 'reverted' && record.messageState === 'ready' && !record.attempt?.everUncertain) {
+          record.messageState = 'abandoned';
+        }
+      }
       const messages = evmPaymentMessages(record, session.account);
       for (const message of messages) {
         message.paymentVerified = state === 'reverted' ? 'failed' : state;
