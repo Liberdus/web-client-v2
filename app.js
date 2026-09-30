@@ -22547,6 +22547,10 @@ class ChatModal {
     const payment = parseEvmTransferMessage(record.payment);
     if (!payment || payment.from !== `0x${normalizeAddress(account.keys.address)}`) throw new Error('Invalid payment sender.');
     const prepared = await this.prepareEvmPaymentRecipient({ address: payment.to, username: record.username }, account);
+    if (myAccount !== account) throw new Error('Account changed before chat preparation.');
+    // The user approved this payment; only now add its recipient to contacts.
+    createNewContact(prepared.address, prepared.username);
+    Object.assign(myData.contacts[prepared.address], prepared.contact);
     const { payload, chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
       prepared.address, payment, BigInt(prepared.toll), account.keys,
     );
