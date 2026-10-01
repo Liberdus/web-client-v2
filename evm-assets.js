@@ -2208,7 +2208,7 @@ class EvmAssetsController {
           && record.payment.contractAddress === (prepared.asset.contractAddress?.toLowerCase() || null)
           && record.payment.rawAmount === prepared.validation.amountRaw.toString());
         prepared.duplicatePaymentWarning = duplicate ? 'An earlier payment of this amount to this recipient is still unresolved. Continuing creates a separate payment that could pay them twice.' : '';
-        return this.confirmTransfer(`${prepared.duplicatePaymentWarning}\n\n${text}`, prepared);
+        return this.confirmTransfer(prepared.duplicatePaymentWarning ? `${prepared.duplicatePaymentWarning}\n\n${text}` : text, prepared);
       },
       getManagedRpcUrl: (network) => this.discovery.getRpcUrl(network.id),
       getNativeCurrency: (network) => this.discovery.getNativeCurrency(network),
@@ -2456,7 +2456,7 @@ class EvmAssetsController {
           && evmPaymentId(item.payment) === evmPaymentId(record.payment));
         if (!record || record.assetState !== 'unknown') return;
         if (state === 'failed') throw new Error('The saved transfer could not be verified.');
-        if (state === 'nonce_used') {
+        if (state === 'nonce_used' || (state === 'unverifiable' && record.broadcastState === 'nonce_used')) {
           record.broadcastState = 'nonce_used';
           this.savePayment(record, account);
           this.showToast('The nonce is already used. This payment outcome is still unverified; do not repeat the payment.', 0, 'warning');
