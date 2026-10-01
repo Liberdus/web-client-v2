@@ -23268,10 +23268,13 @@ class ChatModal {
         const payment = parseEvmTransferMessage(item.payment);
         if (!payment) break;
         const verified = item.paymentVerified || 'unchecked';
+        const walletNetwork = evmAssets.getNetwork(payment.networkId);
+        const networkName = walletNetwork?.id === payment.networkId && walletNetwork.chainId === payment.chainId
+          ? walletNetwork.name : `EVM chain ${payment.chainId}`;
         messageTextHTML = `
           <div class="intents-payment-message evm-payment-message" data-verified="${escapeHtml(verified)}" data-evm-payment="${escapeHtml(evmPaymentId(payment))}">
             <div class="intents-payment-amount">${item.my ? '−' : '+'}${escapeHtml(evmPaymentAmount(payment))} ${escapeHtml(payment.symbol)}</div>
-            <div class="intents-payment-chain">${escapeHtml(evmAssets.transactions.paymentNetwork(payment.chainId)?.name || `EVM chain ${payment.chainId}`)}</div>
+            <div class="intents-payment-chain">${escapeHtml(networkName)}</div>
             ${payment.contractAddress ? `<div class="intents-payment-chain" style="overflow-wrap:anywhere">Token: ${escapeHtml(payment.contractAddress)}</div>` : ''}
             <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
           </div>`;
