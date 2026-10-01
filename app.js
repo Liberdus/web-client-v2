@@ -22710,7 +22710,6 @@ class ChatModal {
     const toll = required === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(recipient.data.toll, recipient.data.tollUnit));
     const totalRequired = fee + toll;
     const available = BigInt(balanceInfo.balance);
-    if (toll < 0n || fee < 0n || available < 0n) throw new Error('Invalid LIB balance or message cost.');
     if (available < totalRequired) {
       throw new Error(`Not enough LIB for the chat message. Required: ${big2str(totalRequired, 18)} LIB; available: ${big2str(available, 18)} LIB; add ${big2str(totalRequired - available, 18)} LIB.`);
     }
