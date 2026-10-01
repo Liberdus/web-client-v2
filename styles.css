@@ -12612,3 +12612,23 @@ button.multichain-token-chip:hover {
   gap: 10px;
   min-width: 0;
 }
+
+/* Pending transfers use the EVM wallet's asset rows. */
+.evm-payment-recovery { margin: 0 1rem 1rem; text-align: left; }
+.evm-payment-recovery h3 {
+  margin: 0 0 8px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--secondary-text-color);
+}
+#evmPaymentRecoveryList {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--background-color);
+}
+.evm-payment-pending-row + .evm-payment-pending-row { border-top: 1px solid var(--border-color); }
+.evm-payment-pending-row .asset-info { min-width: 0; overflow-wrap: anywhere; }
+.evm-payment-status { margin-top: 4px; color: var(--secondary-text-color); font-size: var(--font-size-xs); }
+.evm-payment-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.evm-payment-actions .secondary-button { width: auto; margin: 0; padding: 6px 10px; font-size: var(--font-size-xs); }

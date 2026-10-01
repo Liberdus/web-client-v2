@@ -61,11 +61,11 @@
     -->
     <script src="./external/qr.js"></script>
     <script src="./network.js"></script>
-    <link rel="stylesheet" href="./styles.css?v=1455-28" />
+    <link rel="stylesheet" href="./styles.css?v=1455-29" />
     <!-- <link rel="manifest" href="./manifest.json" /> -->
   </head>
   <body>
-    <script src="./app.js?v=1455-32" type="module"></script>
+    <script src="./app.js?v=1455-33" type="module"></script>
     <script src="./lib.js" type="module"></script>
     <script src="./crypto.js" type="module"></script>
     <div class="container">
@@ -320,6 +320,10 @@
               <button class="refresh-button" id="refreshAssetsBalance">↻</button>
             </div>
           </div>
+          <section id="evmPaymentRecovery" class="evm-payment-recovery" hidden>
+            <h3>Transfers needing attention</h3>
+            <div id="evmPaymentRecoveryList" aria-live="polite"></div>
+          </section>
           <div class="wallet-assets assets-portfolio">
             <div class="wallet-network-panel">
               <div class="wallet-network-heading">
@@ -2182,6 +2186,12 @@
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Copy</span>
         </div>
+        <div class="context-menu-option" data-action="evm-check" data-icon="retry" style="display: none;">
+          <span class="context-menu-icon"></span><span class="context-menu-text">Check again</span>
+        </div>
+        <div class="context-menu-option" data-action="evm-review" data-icon="retry" style="display: none;">
+          <span class="context-menu-icon"></span><span class="context-menu-text">Retry transfer</span>
+        </div>
         <!-- Edit own message option (shown only within allowed time window) -->
         <div class="context-menu-option" data-action="edit" data-icon="edit" style="display: none;">
           <span class="context-menu-icon"></span>
@@ -2467,6 +2477,12 @@
 
       <!-- Failed Message Context Menu -->
       <div class="failed-message-context-menu" id="failedMessageContextMenu" style="display: none;">
+        <div class="context-menu-option" data-action="evm-review" data-icon="retry" style="display: none;">
+          <span class="context-menu-icon"></span><span class="context-menu-text">Retry transfer</span>
+        </div>
+        <div class="context-menu-option" data-action="evm-check" data-icon="retry" style="display: none;">
+          <span class="context-menu-icon"></span><span class="context-menu-text">Check again</span>
+        </div>
         <div class="context-menu-option" data-action="retry" data-icon="retry">
           <span class="context-menu-icon"></span>
           <span class="context-menu-text">Retry</span>
