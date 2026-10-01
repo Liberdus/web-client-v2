@@ -12372,7 +12372,10 @@ async function checkEvmPayments() {
       record.checkedAt = Date.now();
       record.checkAttempts = (record.checkAttempts || 0) + 1;
       record.nextCheckAt = Date.now() + Math.min(30_000, 5000 * 2 ** Math.min(record.checkAttempts - 1, 3));
-      record.verification = state;
+      // A consumed nonce releases submission blocking, but proves no outcome
+      // for this hash. Keep the record and show the card as unverified.
+      if (state === 'nonce_used') record.broadcastState = 'nonce_used';
+      record.verification = state === 'nonce_used' ? 'unverifiable' : state;
       const assetState = state === 'settled' ? 'confirmed' : state === 'reverted' ? 'reverted'
         : state === 'pending' ? 'pending' : 'unknown';
       if (record.kind === 'outgoing' && record.assetState !== assetState && ['confirmed', 'reverted'].includes(assetState)) {
@@ -12390,7 +12393,7 @@ async function checkEvmPayments() {
       }
       const messages = evmPaymentMessages(record, session.account);
       for (const message of messages) {
-        message.paymentVerified = state === 'reverted' ? 'failed' : state;
+        message.paymentVerified = state === 'reverted' ? 'failed' : record.verification;
         message.paymentReverted = state === 'reverted';
         message.paymentCheckedAt = record.checkedAt;
       }

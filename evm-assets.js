@@ -1263,13 +1263,24 @@ export class EvmTransactionService {
     const payment = parseEvmTransferMessage(record.payment);
     if (record.kind !== 'outgoing' || !payment || payment.from !== walletProbeAddress(this.getAccount()?.keys?.address)) return 'failed';
     if (typeof record.networkId !== 'string' || !/^[a-z0-9-]+$/.test(record.networkId)) return 'unverifiable';
-    // Locally prepared sends can use discovered networks, even after the asset
-    // leaves the catalog. Incoming claims must use the trusted network list above.
-    const network = this.paymentNetwork(payment.chainId) || {
+    const network = this.outgoingNetwork(record);
+    const state = await this.verifyPaymentOnNetwork(payment, network);
+    if (state !== 'unverifiable') return state;
+    if (record.broadcastState === 'nonce_used') return 'nonce_used';
+    try {
+      if (await this.isNonceConsumed(network, record)) return 'nonce_used';
+    } catch { /* An unavailable finalized nonce leaves the outcome unresolved. */ }
+    return state;
+  }
+
+  outgoingNetwork(record) {
+    // Local sends retain their network even if the asset leaves the catalog.
+    // Incoming claims still use only the trusted payment-network list.
+    const { payment } = record;
+    return this.paymentNetwork(payment.chainId) || {
       id: record.networkId, name: record.networkId, source: 'evm', chainId: payment.chainId,
       nativeSymbol: payment.symbol, rpcUrls: DEFAULT_EVM_RPC_URLS[record.networkId] || [],
     };
-    return this.verifyPaymentOnNetwork(payment, network);
   }
 
   async verifyPaymentOnNetwork(payment, network) {
