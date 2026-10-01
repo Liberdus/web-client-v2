@@ -213,6 +213,7 @@ import {
   formatDisplayAmount,
   multichain,
   INTENTS_CHAT_MESSAGE_TYPE,
+  buildTransferMessage,
   paymentStatusLabel,
   parseTransferMessage,
   verifyTransferClaim,
@@ -12306,10 +12307,71 @@ function restorePendingMessageEdit(pendingTxid, contactAddress, editPending) {
  */
 const intentsPaymentVerifications = new Map();
 
-async function verifyVisibleChatPayments() {
-  const bubbles = document.querySelectorAll(
-    '.intents-payment-message[data-verified="unchecked"], .intents-payment-message[data-verified="pending"]'
-  );
+// Intents whose receipt is being sent right now, so a double-tapped Retry
+// cannot sign and pay for two messages.
+const intentsReceiptsInFlight = new Set();
+
+// Bubbles whose answer can still change: not yet asked, still settling, or
+// not answerable last time.
+const UNRESOLVED_PAYMENT_BUBBLES = ['unchecked', 'pending', 'unverifiable']
+  .map((state) => `.intents-payment-message[data-verified="${state}"]`).join(', ');
+
+// While a payment in the open chat is unresolved, look again. An intent
+// settles or misses its two-minute deadline by itself, and the card should
+// say so while the person is watching, not after they leave and come back.
+// Backs off 4s, 8s ... to a minute: a pending intent is answered within
+// about two minutes, and an outage is not hammered.
+const PAYMENT_POLL_FIRST_MS = 4_000;
+const PAYMENT_POLL_MAX_MS = 60_000;
+const paymentPoll = { timer: null, delay: PAYMENT_POLL_FIRST_MS, running: null, again: false };
+
+/**
+ * Check the payment bubbles on screen, then keep checking the unresolved ones.
+ * A render starts the backoff over; overlapping calls share one pass.
+ */
+function verifyVisibleChatPayments({ poll = false } = {}) {
+  clearTimeout(paymentPoll.timer);
+  paymentPoll.timer = null;
+  if (!poll) paymentPoll.delay = PAYMENT_POLL_FIRST_MS;
+  if (paymentPoll.running) {
+    paymentPoll.again = true;
+    return paymentPoll.running;
+  }
+  paymentPoll.running = (async () => {
+    try {
+      do {
+        paymentPoll.again = false;
+        await verifyPaymentBubbles();
+      } while (paymentPoll.again);
+    } finally {
+      paymentPoll.running = null;
+      schedulePaymentPoll();
+    }
+  })();
+  return paymentPoll.running;
+}
+
+function paymentPollWanted() {
+  return chatModal.isActive() && document.visibilityState !== 'hidden'
+    && document.querySelector(UNRESOLVED_PAYMENT_BUBBLES) !== null;
+}
+
+function schedulePaymentPoll() {
+  if (!paymentPollWanted()) return;
+  paymentPoll.timer = setTimeout(() => {
+    paymentPoll.timer = null;
+    if (paymentPollWanted()) void verifyVisibleChatPayments({ poll: true });
+  }, paymentPoll.delay);
+  paymentPoll.delay = Math.min(paymentPoll.delay * 2, PAYMENT_POLL_MAX_MS);
+}
+
+// A hidden tab stops polling at its next turn; coming back looks at once.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && chatModal.isActive()) void verifyVisibleChatPayments();
+});
+
+async function verifyPaymentBubbles() {
+  const bubbles = document.querySelectorAll(UNRESOLVED_PAYMENT_BUBBLES);
 
   for (const bubble of bubbles) {
     const intentHash = bubble.dataset.intentHash;
@@ -12318,14 +12380,18 @@ async function verifyVisibleChatPayments() {
     // The whole claim, from the stored message: the check compares what was
     // claimed -- token, amount, the two sides -- with what the verifier logged.
     const found = findPaymentMessage(intentHash);
-    if (!found || found.message.my) continue;
+    if (!found) continue;
 
+    // Our own payments too: publishing an intent is not proof it settled, and
+    // one still in flight when its receipt went can miss its deadline.
+    const me = intentsAccountIdForAddress(myAccount?.keys?.address);
+    const them = intentsAccountIdForAddress(found.contact.address);
     let result = intentsPaymentVerifications.get(intentHash);
     if (!result || result.state === 'pending' || result.state === 'unverifiable') {
       result = await verifyTransferClaim(found.message.payment, {
         sentAt,
-        expectedFrom: intentsAccountIdForAddress(found.contact.address),
-        expectedTo: intentsAccountIdForAddress(myAccount?.keys?.address),
+        expectedFrom: found.message.my ? me : them,
+        expectedTo: found.message.my ? them : me,
       });
       if (RESTING_PAYMENT_STATES.has(result.state)) {
         intentsPaymentVerifications.set(intentHash, result);
@@ -13036,6 +13102,20 @@ async function processChats(chats, keys) {
           if (alreadyExists) {
             //console.log(`Skipping already existing message: ${payload.sent_timestamp}`);
             continue; // Skip to the next message
+          }
+          // One card per payment. A receipt retried after a lost response can
+          // land twice under two txids; the second says nothing new. For our
+          // own card it is proof the receipt arrived after all.
+          if (payload.type === INTENTS_CHAT_MESSAGE_TYPE) {
+            const card = contact.messages.find((message) => message.type === INTENTS_CHAT_MESSAGE_TYPE
+              && message.my === mine && message.payment?.intentHash === payload.payment.intentHash);
+            if (card) {
+              if (mine && card.status === 'failed') {
+                card.status = 'sent';
+                needsStatusChatRefresh = true;
+              }
+              continue;
+            }
           }
 
           //console.log('contact.message', contact.messages)
@@ -22449,68 +22529,154 @@ class ChatModal {
   }
 
   /**
-   * Send the chat receipt for a payment that has already settled on NEAR.
+   * The LIB a chat receipt to this contact costs in toll, before the fee.
+   *
+   * The recipient's own toll, from their contact record -- not this.toll,
+   * which belongs to whichever conversation is open. A payment sent from the
+   * wallet may go to someone whose chat was never opened this session.
+   */
+  paymentMessageToll(address) {
+    const recipient = myData.contacts[address];
+    const { libWei: recipientTollLib } = this.formatTollDisplay(recipient.toll, recipient.tollUnit);
+    return recipient.tollRequiredToSend == 0
+      ? 0n
+      : getEffectiveTollLibWei(typeof recipientTollLib === 'bigint' ? recipientTollLib : 0n);
+  }
+
+  /**
+   * Why a payment receipt could not reach this contact, or null when it can.
+   *
+   * Asked before any money moves. The transfer settles on NEAR and the
+   * receipt on Liberdus, so anything that would stop the receipt -- the
+   * other kind of account (public and private accounts cannot message each
+   * other), a block, missing keys, or too little LIB for the toll and fee --
+   * has to be found here, not after the money has gone. Throws when it
+   * cannot be checked; the caller refuses then too.
+   */
+  async checkPaymentRecipient(recipientAddress) {
+    const address = normalizeAddress(recipientAddress);
+    const contact = myData.contacts[address];
+    if (!contact) return 'Add this person to your contacts first.';
+    const name = getContactDisplayName(contact);
+
+    const accountRes = await queryNetwork(`/account/${longAddress(address)}`);
+    if (!accountRes?.account) throw new Error('Recipient account lookup failed');
+    const myIsPrivate = isPrivateAccount();
+    if ((accountRes.account.private === true) !== myIsPrivate) {
+      return `${myIsPrivate ? 'Private' : 'Public'} accounts can only send to other ${myIsPrivate ? 'private' : 'public'} accounts, so a payment cannot reach ${name} here.`;
+    }
+
+    await this.refreshRecipientTollState(address);
+    if (Number(contact.tollRequiredToSend) === 2) {
+      return `${name} is not accepting messages from you, so a payment cannot reach them here.`;
+    }
+    if (!(await ensureContactKeys(address)) || !contact.public || !contact.pqPublic) {
+      throw new Error('Recipient encryption keys are unavailable');
+    }
+
+    // Fresh where it can be; the saved balance otherwise, as any send uses.
+    await walletScreen.updateWalletBalances().catch((error) => console.warn('LIB balance refresh failed:', error));
+    const toll = this.paymentMessageToll(address);
+    if (!(await validateBalance(toll))) {
+      // validateBalance also refuses when it cannot learn the fee.
+      const fee = getTransactionFeeWei({ allowNull: true });
+      if (fee === null) throw new Error('Message fee unavailable');
+      const needed = formatDisplayAmount(big2str(toll + fee, 18), 6);
+      return `The chat message to ${name} costs ${needed} LIB with its fee, and you do not have enough LIB. Add LIB first.`;
+    }
+    return null;
+  }
+
+  /**
+   * Send, or send again, the chat receipt for a payment already made on NEAR.
    *
    * Called only after the transfer is published, so a failure here means the
    * money moved and the receipt did not. It throws rather than swallowing
    * that, so the caller can say exactly which of the two happened.
+   *
+   * The card in the conversation is the payment's record, one per intent. It
+   * is written before anything is submitted, and a receipt that fails --
+   * now, or found failed after a reload -- leaves it marked failed, where
+   * Retry sends the message again. Called again for the same intent this
+   * reuses that card, so it never adds a second, and never moves money.
    */
   async sendIntentsPaymentMessage(recipientAddress, messageObj) {
     const currentAddress = normalizeAddress(recipientAddress);
     const keys = myAccount.keys;
     assert(keys, 'Keys not found for sender address');
-
-    // The recipient's own toll, from their contact record -- not this.toll,
-    // which belongs to whichever conversation is open. A payment sent from the
-    // wallet may go to someone whose chat was never opened this session.
-    const recipient = myData.contacts[currentAddress];
-    const { libWei: recipientTollLib } = this.formatTollDisplay(recipient.toll, recipient.tollUnit);
-    const tollInLib =
-      recipient.tollRequiredToSend == 0
-        ? 0n
-        : getEffectiveTollLibWei(typeof recipientTollLib === 'bigint' ? recipientTollLib : 0n);
-    const sufficientBalance = await validateBalance(tollInLib);
-    if (!sufficientBalance) {
-      throw new Error('Not enough LIB for the message fee.');
-    }
-
-    const chatCryptoContext = await this.prepareEncryptedChatContext(currentAddress, keys);
-    const { payload, chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
-      currentAddress,
-      messageObj,
-      tollInLib,
-      keys,
-      chatCryptoContext
-    );
-
     const contact = myData.contacts[currentAddress];
-    const newMessage = {
-      message: '',
-      type: INTENTS_CHAT_MESSAGE_TYPE,
-      payment: parseTransferMessage(messageObj),
-      // Our own payment is settled by definition: we published it ourselves.
-      paymentVerified: 'settled',
-      timestamp: payload.sent_timestamp,
-      sent_timestamp: payload.sent_timestamp,
-      my: true,
-      txid,
-      status: 'sent'
-    };
-    insertSorted(contact.messages, newMessage, 'timestamp');
+    assert(contact, `Contact not found for ${currentAddress}`);
+    const payment = parseTransferMessage(messageObj);
+    assert(payment, 'Invalid payment message');
 
-    const chatIndex = myData.chats.findIndex((chat) => chat.address === currentAddress);
-    if (chatIndex !== -1) {
-      myData.chats.splice(chatIndex, 1);
+    if (intentsReceiptsInFlight.has(payment.intentHash)) {
+      throw new Error('This payment message is already being sent.');
     }
-    insertSorted(myData.chats, {
-      address: currentAddress,
-      timestamp: newMessage.sent_timestamp,
-      txid
-    }, 'timestamp');
+    intentsReceiptsInFlight.add(payment.intentHash);
+    try {
+      await this.submitIntentsPaymentMessage(currentAddress, contact, payment, keys);
+    } finally {
+      intentsReceiptsInFlight.delete(payment.intentHash);
+    }
+  }
 
-    this.appendChatModal();
-    saveState();
-    chatsScreen.updateChatList();
+  /** The body of sendIntentsPaymentMessage, run once per intent at a time. */
+  async submitIntentsPaymentMessage(currentAddress, contact, payment, keys) {
+    let card = contact.messages.find((message) => message.my && !message.deleted
+      && message.type === INTENTS_CHAT_MESSAGE_TYPE && message.payment?.intentHash === payment.intentHash);
+    // Already sent, or on its way: nothing to retry.
+    if (card && card.status !== 'failed') return;
+
+    const placeCard = (txid, timestamp, status) => {
+      if (card) contact.messages.splice(contact.messages.indexOf(card), 1);
+      card = card || {
+        message: '',
+        type: INTENTS_CHAT_MESSAGE_TYPE,
+        payment,
+        // Checked like any other payment: publishing it is not proof it
+        // settled, and an intent past its deadline never will.
+        paymentVerified: 'unchecked',
+        my: true,
+      };
+      Object.assign(card, { txid, timestamp, sent_timestamp: timestamp, status });
+      insertSorted(contact.messages, card, 'timestamp');
+
+      const chatIndex = myData.chats.findIndex((chat) => chat.address === currentAddress);
+      if (chatIndex !== -1) {
+        myData.chats.splice(chatIndex, 1);
+      }
+      insertSorted(myData.chats, { address: currentAddress, timestamp, txid }, 'timestamp');
+      this.appendChatModal();
+      saveState();
+      chatsScreen.updateChatList();
+    };
+
+    let built;
+    try {
+      const tollInLib = this.paymentMessageToll(currentAddress);
+      const sufficientBalance = await validateBalance(tollInLib);
+      if (!sufficientBalance) {
+        throw new Error('Not enough LIB for the message fee.');
+      }
+      const chatCryptoContext = await this.prepareEncryptedChatContext(currentAddress, keys);
+      built = await this.buildEncryptedStructuredChatTx(
+        currentAddress,
+        // Rebuilt from the parsed claim, so a retry sends what the card shows.
+        buildTransferMessage(payment),
+        tollInLib,
+        keys,
+        chatCryptoContext
+      );
+    } catch (error) {
+      // Nothing was submitted. Keep a failed card -- under a local id when
+      // there was never a transaction -- so the receipt is not lost with
+      // this screen.
+      placeCard(card?.txid || bin2hex(generateRandomBytes(32)), card?.timestamp || getTransactionTimestamp(), 'failed');
+      throw error;
+    }
+
+    const { payload, chatMessageObj, txid } = built;
+    placeCard(txid, payload.sent_timestamp, 'sent');
 
     const response = await injectTx(chatMessageObj, txid);
     if (!response?.result?.success) {
@@ -22518,6 +22684,23 @@ class ChatModal {
       this.appendChatModal();
       saveState();
       throw new Error(response?.result?.reason || 'The chat receipt was rejected.');
+    }
+  }
+
+  /** Retry a payment card's failed receipt. Only the message; never the money. */
+  async retryIntentsPaymentMessage(address, message) {
+    // A second tap while the first is still going: that one will answer.
+    if (intentsReceiptsInFlight.has(message.payment?.intentHash)) return;
+    try {
+      const problem = await this.checkPaymentRecipient(address);
+      if (problem) {
+        showToast(problem, 0, 'error');
+        return;
+      }
+      await this.sendIntentsPaymentMessage(address, message.payment);
+    } catch (error) {
+      console.error('Payment receipt retry failed:', error);
+      showToast(`The payment message did not go through: ${error?.message || 'try again'}`, 0, 'error');
     }
   }
 
@@ -30792,6 +30975,13 @@ class FailedMessageMenu {
       ? contact.messages.find(msg => msg.txid === txid)
       : null;
 
+    // A payment's receipt: send the message again from the card's own record.
+    // The money already moved, so this never goes near the transfer.
+    if (message?.type === INTENTS_CHAT_MESSAGE_TYPE && message.my && message.payment) {
+      void chatModal.retryIntentsPaymentMessage(chatModal.address, message);
+      return;
+    }
+
     // Voice message retry: resend the same voice message (no re-upload)
     if (voiceEl) {
       const voiceUrl = voiceEl.dataset.url || '';
@@ -33951,12 +34141,9 @@ chatPaymentPanel.configure({
       }));
   },
   renderAvatar: (address, size) => getContactAvatarHtml(myData.contacts[address] || address, size),
-  // The toll may be stale when the chat was never opened; refresh it, and
-  // say whether a message can reach them at all.
-  prepareRecipient: async (address) => {
-    await chatModal.refreshRecipientTollState(address);
-    return { blocked: Number(myData.contacts[address]?.tollRequiredToSend) === 2 };
-  },
+  // Whether the receipt can reach them and be paid for, checked fresh: the
+  // toll may be stale when the chat was never opened.
+  prepareRecipient: async (address) => ({ problem: await chatModal.checkPaymentRecipient(address) }),
 });
 
 // The asset screen's activity. Swaps and withdrawals this device placed are
