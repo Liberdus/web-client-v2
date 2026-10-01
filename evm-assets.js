@@ -3,10 +3,9 @@ import {
   escapeHtml,
   normalizeUsername,
   openModal,
-  utf82bin,
   withButtonCooldown,
 } from './lib.js';
-import { getPublicKey, hashBytes, signMessage } from './crypto.js';
+import { getPublicKey, signMessage } from './crypto.js';
 import keccak256 from './external/keccak256.js';
 
 const DEFAULT_WALLET_PROBE_BASE_URL = 'https://163.245.216.178';
@@ -16,8 +15,6 @@ const ERC20_TRANSFER_SELECTOR = 'a9059cbb';
 const EVM_REQUEST_TIMEOUT_MS = 20_000;
 const EVM_RECEIPT_TIMEOUT_MS = 60_000;
 const EVM_RECEIPT_POLL_MS = 2_000;
-const LIBERDUS_USERNAME_LOOKUP_DELAY_MS = 1_000;
-const LIBERDUS_USERNAME_LOOKUP_TIMEOUT_MS = 15_000;
 const DEFAULT_EVM_RPC_URLS = Object.freeze({
   ethereum: Object.freeze([
     'https://ethereum-rpc.publicnode.com',
@@ -44,6 +41,8 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
     'https://bsc-dataseed.binance.org',
   ]),
 });
+
+const EVM_CHAT_PAYMENTS_ENABLED = false;
 
 export const EVM_CHAT_MESSAGE_TYPE = 'evm_transfer';
 
@@ -575,37 +574,13 @@ function liberdusLookupAddress(address) {
   return walletProbeAddress(normalized);
 }
 
-function getDefaultLiberdusGatewayUrl() {
-  const override = globalThis.window?.LIBERDUS_USERNAME_GATEWAY_URL;
-  if (typeof override === 'string' && override.trim()) {
-    return override.trim().replace(/\/$/, '');
-  }
-
-  // network.js is loaded as a classic script before this module. Its global lexical
-  // binding is available here even though it is intentionally not attached to window.
-  if (typeof network !== 'undefined' && Array.isArray(network?.gateways)) {
-    const gateway = network.gateways.find((entry) => typeof entry?.web === 'string');
-    if (gateway?.web) return gateway.web.replace(/\/$/, '');
-  }
-  return null;
-}
-
 export class LiberdusEvmRecipientResolver {
   constructor({
     getAccount = () => null,
-    getGatewayUrl = getDefaultLiberdusGatewayUrl,
-    fetchFn = (...args) => fetch(...args),
-    requestTimeoutMs = LIBERDUS_USERNAME_LOOKUP_TIMEOUT_MS,
+    findContact = () => null,
   } = {}) {
     this.getAccount = getAccount;
-    this.getGatewayUrl = getGatewayUrl;
-    this.fetchFn = fetchFn;
-    this.requestTimeoutMs = requestTimeoutMs;
-    this.associations = new Map();
-  }
-
-  reset() {
-    this.associations.clear();
+    this.findContact = findContact;
   }
 
   normalizeRecipientInput(value) {
@@ -617,13 +592,12 @@ export class LiberdusEvmRecipientResolver {
     return Object.freeze({ kind: 'username', input: username, display: username, username });
   }
 
-  async resolve(value, { force = false } = {}) {
+  resolve(value) {
     const recipient = this.normalizeRecipientInput(value);
     if (recipient.kind === 'address') {
       return Object.freeze({
         ...recipient,
         address: normalizeEvmAddress(recipient.input, 'recipient'),
-        verifiedAt: Date.now(),
       });
     }
 
@@ -631,75 +605,30 @@ export class LiberdusEvmRecipientResolver {
       throw new EvmTransferError('Username is too short', 'USERNAME_TOO_SHORT');
     }
 
-    if (!force) {
-      const cached = this.associations.get(recipient.username);
-      if (cached) return cached;
-    }
-
-    const gatewayUrl = this.getGatewayUrl();
-    if (!gatewayUrl) {
+    const contact = this.findContact(recipient.username);
+    if (!contact) {
       throw new EvmTransferError(
-        'Liberdus username lookup is unavailable',
-        'USERNAME_LOOKUP_UNAVAILABLE',
+        'Add this username to Contacts before sending an EVM payment',
+        'USERNAME_NOT_IN_CONTACTS',
       );
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+    let address;
     try {
-      const usernameHash = hashBytes(utf82bin(recipient.username));
-      const response = await this.fetchFn(`${gatewayUrl}/address/${usernameHash}`, {
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        throw new EvmTransferError(
-          `Liberdus username lookup returned HTTP ${response.status}`,
-          'USERNAME_LOOKUP_UNAVAILABLE',
-        );
-      }
-      const data = await response.json();
-      if (!data?.address) {
-        throw new EvmTransferError('Username not found', 'USERNAME_NOT_FOUND');
-      }
-
-      let address;
-      try {
-        address = liberdusLookupAddress(data.address);
-      } catch (error) {
-        throw new EvmTransferError(
-          'The username does not have a valid EVM wallet address',
-          'USERNAME_ADDRESS_INVALID',
-          { cause: error },
-        );
-      }
-
-      const ownAddress = walletProbeAddress(this.getAccount()?.keys?.address);
-      if (address === ownAddress) {
-        throw new EvmTransferError(
-          'Enter another user’s username',
-          'USERNAME_IS_SELF',
-        );
-      }
-
-      const association = Object.freeze({
-        ...recipient,
-        address,
-        verifiedAt: Date.now(),
-      });
-      this.associations.set(recipient.username, association);
-      return association;
+      address = liberdusLookupAddress(contact.address);
     } catch (error) {
-      if (error instanceof EvmTransferError) throw error;
       throw new EvmTransferError(
-        controller.signal.aborted
-          ? 'Liberdus username lookup timed out'
-          : 'Liberdus username lookup failed',
-        controller.signal.aborted ? 'USERNAME_LOOKUP_TIMEOUT' : 'USERNAME_LOOKUP_UNAVAILABLE',
+        'This contact does not have a valid EVM wallet address',
+        'USERNAME_ADDRESS_INVALID',
         { cause: error },
       );
-    } finally {
-      clearTimeout(timeout);
     }
+
+    if (address === walletProbeAddress(this.getAccount()?.keys?.address)) {
+      throw new EvmTransferError('Enter another user’s username', 'USERNAME_IS_SELF');
+    }
+
+    return Object.freeze({ ...recipient, address });
   }
 }
 
@@ -1182,6 +1111,7 @@ export class EvmTransactionService {
       `Network: ${network.name}`,
       `Recipient: ${recipientLabel || validation.recipient}`,
       `Maximum network fee: ${formatUnits(maximumFee, 18)} ${network.nativeSymbol}`,
+      prepared.chat ? `Chat message fee and toll: ${formatUnits(prepared.chat.totalRequired)} LIB` : 'Wallet transfer only; no chat message.',
       '',
       'The transaction will be signed locally with this account.',
     ].join('\n');
@@ -1201,15 +1131,20 @@ export class EvmTransactionService {
     return null;
   }
 
-  async send({ network, asset, recipient, recipientLabel = null, amount }) {
+  async send({ network, asset, recipient, recipientLabel = null, amount, chat = null, beforeBroadcast = async () => {} }) {
     const prepared = await this.prepare({ network, asset, recipient, amount });
     prepared.recipientLabel = recipientLabel || prepared.validation.recipient;
+    prepared.chat = chat;
     const confirmed = await this.confirmTransfer(
       this.confirmationText(prepared, amount, recipientLabel),
       prepared,
     );
     if (!confirmed) return { status: 'cancelled', transactionHash: null };
 
+    await beforeBroadcast();
+    if (this.getAccount() !== prepared.validation.account) {
+      throw new EvmTransferError('Account changed. Review the transfer again.', 'ACCOUNT_CHANGED');
+    }
     const rawTransaction = await signEvmTransaction(
       prepared.transaction,
       prepared.validation.privateKey,
@@ -1690,7 +1625,9 @@ export class EvmSendConfirmationModal {
     this.asset.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
     this.networkValue.textContent = `${network.name} (Chain ID ${network.chainId})`;
     this.feeValue.textContent = `${formatUnits(maximumFee, 18)} ${network.nativeSymbol}`;
-    this.signingNotice.textContent = 'Signature: your wallet key signs locally and never leaves this device.';
+    this.signingNotice.textContent = prepared.chat
+      ? `Includes a chat payment message. Message fee and toll: ${formatUnits(prepared.chat.totalRequired)} LIB.`
+      : 'Wallet transfer only; no chat message. Your key signs locally on this device.';
 
     const price = Number(asset.tokenPriceUsd);
     const amount = Number(displayAmount);
@@ -1754,8 +1691,6 @@ class EvmSendFormAdapter {
     this.controller = controller;
     this.loaded = false;
     this.refreshTimer = null;
-    this.lookupTimer = null;
-    this.lookupVersion = 0;
     this.recipientResolution = null;
   }
 
@@ -1806,9 +1741,6 @@ class EvmSendFormAdapter {
   }
 
   clearRecipientLookup({ hideStatus = true } = {}) {
-    clearTimeout(this.lookupTimer);
-    this.lookupTimer = null;
-    this.lookupVersion += 1;
     this.recipientResolution = null;
     if (hideStatus) this.setRecipientStatus();
   }
@@ -1821,7 +1753,7 @@ class EvmSendFormAdapter {
     return this.recipientResolution;
   }
 
-  async handleRecipientInput(event) {
+  handleRecipientInput(event) {
     if (!this.isEvmSelected()) return;
 
     // The shared Liberdus form has its own username/address listener. EVM Assets
@@ -1839,45 +1771,27 @@ class EvmSendFormAdapter {
       return;
     }
 
-    const version = this.lookupVersion;
-    if (recipient.kind === 'address') {
-      try {
-        this.recipientResolution = await this.controller.recipients.resolve(recipient.input);
-        if (version !== this.lookupVersion) return;
-        this.setRecipientStatus('valid address', 'success');
-      } catch (error) {
-        if (version !== this.lookupVersion) return;
-        this.setRecipientStatus(error?.message || 'enter a valid 0x address');
-      }
-      this.scheduleRefresh();
-      return;
-    }
-
-    if (recipient.username.length < 3) {
+    if (recipient.kind === 'username' && recipient.username.length < 3) {
       this.setRecipientStatus('too short');
       this.scheduleRefresh();
       return;
     }
 
-    this.setRecipientStatus('checking…');
-    this.lookupTimer = setTimeout(async () => {
-      try {
-        const resolution = await this.controller.recipients.resolve(recipient.username);
-        if (version !== this.lookupVersion) return;
-        this.recipientResolution = resolution;
-        this.setRecipientStatus('found', 'success');
-      } catch (error) {
-        if (version !== this.lookupVersion) return;
-        const messages = {
-          USERNAME_NOT_FOUND: 'not found',
-          USERNAME_IS_SELF: 'enter another username',
-          USERNAME_ADDRESS_INVALID: 'wallet address unavailable',
-        };
-        this.setRecipientStatus(messages[error?.code] || 'network error');
-      } finally {
-        if (version === this.lookupVersion) this.scheduleRefresh();
-      }
-    }, LIBERDUS_USERNAME_LOOKUP_DELAY_MS);
+    try {
+      this.recipientResolution = this.controller.recipients.resolve(recipient.input);
+      const status = recipient.kind === 'address'
+        ? 'Valid address — wallet transfer only'
+        : 'Contact found — includes a chat payment message';
+      this.setRecipientStatus(status, 'success');
+    } catch (error) {
+      const messages = {
+        USERNAME_NOT_IN_CONTACTS: 'Not in Contacts — add contact first',
+        USERNAME_IS_SELF: 'enter another username',
+        USERNAME_ADDRESS_INVALID: 'wallet address unavailable',
+      };
+      this.setRecipientStatus(messages[error?.code] || error?.message || 'enter a valid recipient');
+    }
+    this.scheduleRefresh();
   }
 
   isEvmSelected() {
@@ -1942,15 +1856,19 @@ class EvmAssetsController {
     this.showToast = () => {};
     this.hideToast = () => {};
     this.syncSelect = () => {};
+    this.findContact = () => null;
     this.confirmationModal = new EvmSendConfirmationModal();
     this.confirmTransfer = (...args) => this.confirmationModal.confirm(...args);
     this.loaded = false;
+    this.sending = false;
+    this.prepareChatPayment = null;
     this.discovery = new WalletDiscoveryService({
       getAccount: () => this.getAccount(),
       getLiberdusAsset: () => this.getLiberdusAsset(),
     });
     this.recipients = new LiberdusEvmRecipientResolver({
       getAccount: () => this.getAccount(),
+      findContact: (username) => this.findContact(username),
     });
     this.transactions = new EvmTransactionService({
       getAccount: () => this.getAccount(),
@@ -1967,6 +1885,8 @@ class EvmAssetsController {
   configure({
     getAccount,
     getLiberdusAsset,
+    findContact,
+    prepareChatPayment,
     openSend,
     openReceive,
     showToast,
@@ -1976,6 +1896,8 @@ class EvmAssetsController {
   } = {}) {
     if (typeof getAccount === 'function') this.getAccount = getAccount;
     if (typeof getLiberdusAsset === 'function') this.getLiberdusAsset = getLiberdusAsset;
+    if (typeof findContact === 'function') this.findContact = findContact;
+    if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openSend === 'function') this.openSend = openSend;
     if (typeof openReceive === 'function') this.openReceive = openReceive;
     if (typeof showToast === 'function') this.showToast = showToast;
@@ -1996,7 +1918,6 @@ class EvmAssetsController {
 
   reset() {
     this.discovery.reset();
-    this.recipients.reset();
     this.confirmationModal.reset();
   }
 
@@ -2043,7 +1964,7 @@ class EvmAssetsController {
       amount,
     });
   }
-  async sendTransfer({ networkId, assetKey, recipient, recipientLabel = null, amount }) {
+  async sendTransfer({ networkId, assetKey, recipient, recipientLabel = null, amount, chat, beforeBroadcast }) {
     const { walletNetwork, asset } = this.findAsset(networkId, assetKey, { evmOnly: true });
     return this.transactions.send({
       network: walletNetwork,
@@ -2051,6 +1972,8 @@ class EvmAssetsController {
       recipient,
       recipientLabel,
       amount,
+      chat,
+      beforeBroadcast,
     });
   }
   openContextualSend(options) {
@@ -2072,9 +1995,14 @@ class EvmAssetsController {
       : { valid: false, message: '' };
     form.balanceWarning.textContent = !validation.valid ? validation.message : '';
     form.balanceWarning.style.display = validation.message ? 'inline' : 'none';
-    form.submitButton.disabled = !validation.valid;
+    form.submitButton.disabled = this.sending || !validation.valid;
   }
   async handleSendFormSubmit(form) {
+    if (this.sending) return;
+    this.sending = true;
+    const account = this.getAccount();
+    const input = form.usernameInput.value;
+    const selection = { networkId: form.networkSelect.value, assetKey: form.assetSelectDropdown.value, amount: form.amountInput.value.trim() };
     form.submitButton.disabled = true;
     try {
       const previousResolution = form.getResolvedRecipient();
@@ -2085,9 +2013,7 @@ class EvmAssetsController {
         );
       }
 
-      const resolution = await this.recipients.resolve(form.usernameInput.value, {
-        force: previousResolution.kind === 'username',
-      });
+      const resolution = this.recipients.resolve(input);
       if (
         previousResolution.kind === 'username'
         && resolution.address !== previousResolution.address
@@ -2099,12 +2025,25 @@ class EvmAssetsController {
       }
       form.recipientResolution = resolution;
 
+      const chat = EVM_CHAT_PAYMENTS_ENABLED && resolution.kind === 'username'
+        ? await this.prepareChatPayment(resolution, account) : null;
+      const beforeBroadcast = async () => {
+        if (this.getAccount() !== account) throw new Error('Account changed. Review the transfer again.');
+        if (resolution.kind === 'username') {
+          const current = this.recipients.resolve(resolution.username);
+          if (current.address !== resolution.address) throw new EvmTransferError('Contact changed. Review the username.', 'USERNAME_ASSOCIATION_CHANGED');
+        }
+        if (chat) {
+          const current = await this.prepareChatPayment(resolution, account);
+          if (BigInt(current.totalRequired) > BigInt(chat.totalRequired)) throw new Error('Message cost increased. Review the transfer again.');
+        }
+      };
       const result = await this.sendTransfer({
-        networkId: form.networkSelect.value,
-        assetKey: form.assetSelectDropdown.value,
+        ...selection,
+        chat,
+        beforeBroadcast,
         recipient: resolution.address,
         recipientLabel: resolution.username || resolution.display,
-        amount: form.amountInput.value.trim(),
       });
       if (result.status === 'confirmed' || result.status === 'pending') {
         await form.close();
@@ -2119,6 +2058,7 @@ class EvmAssetsController {
       this.showToast(error?.message || 'EVM transfer failed', 5000, 'error');
       return { status: 'failed', error };
     } finally {
+      this.sending = false;
       await form.refreshSendButtonDisabledState();
     }
   }

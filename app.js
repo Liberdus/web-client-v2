@@ -22455,6 +22455,63 @@ class ChatModal {
    * money moved and the receipt did not. It throws rather than swallowing
    * that, so the caller can say exactly which of the two happened.
    */
+  /** Check the actual recipient and live LIB funds before an external payment. */
+  async prepareEvmPaymentRecipient(resolution, account) {
+    const requireAccount = () => {
+      if (myAccount !== account) throw new Error('Account changed. Review the transfer again.');
+    };
+    requireAccount();
+    const address = normalizeAddress(resolution.address);
+    if (!myData.contacts[address]) {
+      throw new Error('Add this username to Contacts before sending an EVM payment.');
+    }
+    const sorted = [longAddress(account.keys.address), longAddress(address)].sort();
+    const chatId = hashBytes(sorted.join(''));
+    const [recipientInfo, tollInfo, balanceInfo, paramsOk] = await Promise.all([
+      queryNetwork(`/account/${longAddress(address)}`),
+      queryNetwork(`/messages/${chatId}/toll`),
+      queryNetwork(`/account/${longAddress(account.keys.address)}/balance`),
+      getNetworkParams(true),
+    ]);
+    requireAccount();
+    const recipient = recipientInfo?.account;
+    const fee = paramsOk ? getTransactionFeeWei({ allowNull: true }) : null;
+    if (!recipient?.data || balanceInfo?.balance == null || fee === null) {
+      throw new Error('Cannot check LIB balance, message fee, or recipient toll. Try again.');
+    }
+    const senderIsPrivate = account.private === true;
+    if ((recipient.private === true) !== senderIsPrivate) {
+      throw new Error(`${senderIsPrivate ? 'Private' : 'Public'} accounts can only send chat payments to other ${senderIsPrivate ? 'private' : 'public'} accounts.`);
+    }
+    const required = tollInfo?.error === 'No account with the given chatId'
+      ? 1 : tollInfo?.toll?.required?.[sorted.indexOf(longAddress(address))];
+    if (![0, 1, 2].includes(required)) throw new Error('Cannot check recipient toll. Try again.');
+    if (required === 2) throw new Error('This recipient has blocked messages.');
+    if (typeof recipient.data.toll !== 'bigint' || !['LIB', 'USD'].includes(recipient.data.tollUnit || 'LIB')) {
+      throw new Error('Cannot determine recipient toll.');
+    }
+    const toll = required === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(recipient.data.toll, recipient.data.tollUnit));
+    const totalRequired = fee + toll;
+    const available = BigInt(balanceInfo.balance);
+    if (available < totalRequired) {
+      throw new Error(`Not enough LIB for the chat message. Required: ${big2str(totalRequired, 18)} LIB; available: ${big2str(available, 18)} LIB; add ${big2str(totalRequired - available, 18)} LIB.`);
+    }
+    // Validate current encryption keys without mutating the saved contact.
+    const publicKey = recipient.publicKey;
+    const pqPublicKey = recipient.pqPublicKey;
+    if (!publicKey || !pqPublicKey || bin2hex(generateAddress(hex2bin(publicKey))) !== address) {
+      throw new Error('Cannot verify recipient encryption keys. Try again.');
+    }
+    dhkeyCombined(account.keys.secret, publicKey, pqPublicKey);
+    return {
+      address, username: resolution.username, toll: toll.toString(), totalRequired: totalRequired.toString(),
+      contactUpdates: {
+        public: publicKey, pqPublic: pqPublicKey, toll: recipient.data.toll,
+        tollUnit: recipient.data.tollUnit || 'LIB', tollRequiredToSend: required,
+      },
+    };
+  }
+
   async sendIntentsPaymentMessage(recipientAddress, messageObj) {
     const currentAddress = normalizeAddress(recipientAddress);
     const keys = myAccount.keys;
@@ -33929,6 +33986,12 @@ multichain.configure({
   getAccount: () => myAccount,
 });
 
+function getMessagePaymentContacts() {
+  return Object.values(myData?.contacts || {})
+    .filter((contact) => contact.address && !isFaucetAddress(contact.address))
+    .filter((contact) => contact.friend !== 0 && contact.public);
+}
+
 chatPaymentPanel.configure({
   getAccount: () => myAccount,
   onSent: (recipientAddress, messageObj) =>
@@ -33939,9 +34002,7 @@ chatPaymentPanel.configure({
   // never get the receipt. Recent conversations first.
   listContacts: () => {
     const recency = new Map((myData?.chats || []).map((chat, index) => [chat.address, index]));
-    return Object.values(myData?.contacts || {})
-      .filter((contact) => contact.address && !isFaucetAddress(contact.address))
-      .filter((contact) => contact.friend !== 0 && contact.public)
+    return getMessagePaymentContacts()
       .sort((a, b) => (recency.get(a.address) ?? Infinity) - (recency.get(b.address) ?? Infinity)
         || getContactDisplayName(a).localeCompare(getContactDisplayName(b)))
       .map((contact) => ({
@@ -33983,6 +34044,9 @@ intentsActivity.configure({
 
 evmAssets.configure({
   getAccount: () => myAccount,
+  findContact: (username) => getMessagePaymentContacts()
+    .find((contact) => normalizeUsername(contact.username || '') === username) || null,
+  prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
     || myData?.wallet?.assets?.[0]
     || null,
