@@ -12355,8 +12355,6 @@ async function checkEvmPayments() {
       && record.verification !== 'reverted'
       && (record.checkAttempts || 0) < EVM_CHECK_LIMIT
       && (record.nextCheckAt || 0) <= Date.now()).sort((a, b) => (a.nextCheckAt || 0) - (b.nextCheckAt || 0)).slice(0, 4);
-    // Unsaved local changes must not mask another tab's retry after the lookups.
-    if (due.length && evmPaymentChanges.has(session.account)) saveState();
     await Promise.all(due.map(async (record) => {
       if (!current()) return;
       if (record.kind === 'verification' && !evmPaymentMessages(record, session.account).length) {
