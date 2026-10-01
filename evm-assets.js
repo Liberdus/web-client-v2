@@ -2124,9 +2124,13 @@ class EvmAssetsController {
       const unresolved = this.getPayments(account).filter((record) => record.kind === 'outgoing'
         && record.payment.chainId === network?.chainId && record.assetState === 'unknown'
         && record.broadcastState !== 'nonce_used');
-      for (const record of unresolved) {
+      for (let record of unresolved) {
         const consumed = await this.transactions.isNonceConsumed(network, record);
         if (this.getAccount() !== account) throw new Error('Account changed. Review the transfer again.');
+        // Preserve message delivery or execution updates received during the lookup.
+        record = this.getPayments(account).find((item) => item.kind === 'outgoing'
+          && evmPaymentId(item.payment) === evmPaymentId(record.payment));
+        if (!record || record.assetState !== 'unknown' || record.broadcastState === 'nonce_used') continue;
         if (!consumed) throw new Error('An earlier transfer on this network is unresolved. Retry its submission in EVM Assets before making a new payment.');
         record.broadcastState = 'nonce_used';
         this.savePayment(record, account);
