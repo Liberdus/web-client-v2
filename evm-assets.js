@@ -13,6 +13,8 @@ const EVM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 const EVM_HASH_PATTERN = /^0x[0-9a-fA-F]{64}$/;
 const ERC20_TRANSFER_SELECTOR = 'a9059cbb';
 const EVM_REQUEST_TIMEOUT_MS = 20_000;
+const EVM_BROADCAST_TIMEOUT_MS = 60_000;
+const EVM_BROADCAST_ATTEMPTS = 3;
 const EVM_RECEIPT_TIMEOUT_MS = 60_000;
 const EVM_RECEIPT_POLL_MS = 2_000;
 const DEFAULT_EVM_RPC_URLS = Object.freeze({
@@ -89,6 +91,7 @@ export class EvmTransferError extends Error {
     this.name = 'EvmTransferError';
     this.code = code;
     this.transactionHash = details.transactionHash || null;
+    this.rpcError = details.rpcError;
   }
 }
 
@@ -873,6 +876,8 @@ export class EvmTransactionService {
     showToast,
     confirmTransfer,
     getManagedRpcUrl = () => null,
+    savePayment,
+    saveSubmission,
     fetchFn = (...args) => fetch(...args),
   }) {
     this.getAccount = getAccount;
@@ -880,6 +885,8 @@ export class EvmTransactionService {
     this.showToast = showToast;
     this.confirmTransfer = confirmTransfer;
     this.getManagedRpcUrl = getManagedRpcUrl;
+    this.savePayment = savePayment;
+    this.saveSubmission = saveSubmission;
     this.fetchFn = fetchFn;
     this.requestId = 0;
     this.verifiedRpcEndpoints = new Map();
@@ -948,9 +955,9 @@ export class EvmTransactionService {
     return [...new Set(urls)];
   }
 
-  async requestEndpoint(endpoint, method, params, networkId) {
+  async requestEndpoint(endpoint, method, params, networkId, timeoutMs = EVM_REQUEST_TIMEOUT_MS) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), EVM_REQUEST_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     const id = ++this.requestId;
     try {
       const response = await this.fetchFn(endpoint, {
@@ -973,6 +980,7 @@ export class EvmTransactionService {
         throw new EvmTransferError(
           payload.error.message || 'RPC rejected the request',
           'RPC_RESPONSE_ERROR',
+          { rpcError: payload.error },
         );
       }
       if (payload.result === undefined) {
@@ -1023,6 +1031,91 @@ export class EvmTransactionService {
       'ALL_RPC_ENDPOINTS_FAILED',
       { cause: new AggregateError(errors) },
     );
+  }
+
+  async isNonceConsumed(network, record) {
+    // Finalized state can release the send guard even if this RPC has lost the
+    // original hash. It does not establish whether this payment succeeded.
+    const nonce = await this.request(network, 'eth_getTransactionCount', [record.payment.from, 'finalized']);
+    return parseHexQuantity(nonce, 'finalized nonce') > parseHexQuantity(record.nonce, 'payment nonce');
+  }
+
+  async broadcast(network, record, account) {
+    const deadline = Date.now() + EVM_BROADCAST_TIMEOUT_MS;
+    const endpoints = this.getRpcUrls(network);
+    const request = (endpoint, method, params) => {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) throw new EvmTransferError('Submission check timed out', 'RPC_TIMEOUT');
+      return this.requestEndpoint(endpoint, method, params, network.id, Math.min(EVM_REQUEST_TIMEOUT_MS, remaining));
+    };
+    record.broadcastState = 'attempting';
+    this.saveSubmission(record, account);
+    for (let attempt = 0; attempt < EVM_BROADCAST_ATTEMPTS && Date.now() < deadline; attempt++) {
+      if (this.getAccount() !== account) break;
+      const endpoint = endpoints[attempt % endpoints.length];
+      const previouslyUncertain = Boolean(record.broadcastUncertain);
+      let submitted = false;
+      try {
+        if (this.verifiedRpcEndpoints.get(endpoint) !== network.chainId) {
+          const chainId = parseHexQuantity(await request(endpoint, 'eth_chainId', []), 'chainId');
+          if (chainId !== BigInt(network.chainId)) throw new EvmTransferError('RPC returned the wrong chain', 'CHAIN_ID_MISMATCH');
+          this.verifiedRpcEndpoints.set(endpoint, network.chainId);
+        }
+        if (this.getAccount() !== account) break;
+        submitted = true;
+        record.broadcastUncertain = true;
+        this.saveSubmission(record, account);
+        const hash = await request(endpoint, 'eth_sendRawTransaction', [record.rawTransaction]);
+        if (typeof hash !== 'string' || hash.toLowerCase() !== record.payment.transactionHash) {
+          throw new EvmTransferError('RPC did not return the expected transaction hash', 'INVALID_RPC_RESPONSE');
+        }
+        record.broadcastState = 'acknowledged';
+        record.assetState = 'pending';
+        delete record.broadcastError;
+        this.saveSubmission(record, account);
+        return record.assetState;
+      } catch (error) {
+        record.broadcastError = { code: error.rpcError?.code ?? error.code, message: error.message, data: error.rpcError?.data };
+        // Only an explicit validation rejection, with no earlier ambiguous send,
+        // permits a fresh payment. Nonce/known/internal errors need reconciliation.
+        const rejected = error.code === 'RPC_RESPONSE_ERROR'
+          && /^(insufficient funds|intrinsic gas too low|exceeds block gas limit|invalid sender|invalid chain id|transaction type not supported|rlp:)/i.test(error.message);
+        if (submitted && rejected && !previouslyUncertain) {
+          record.broadcastState = 'rejected';
+          record.assetState = 'rejected';
+          record.broadcastUncertain = false;
+          delete record.rawTransaction;
+          this.saveSubmission(record, account);
+          return record.assetState;
+        }
+        this.saveSubmission(record, account);
+      }
+      // A null lookup does not prove absence. Try the original bytes again;
+      // never prepare another nonce while this payment remains unresolved.
+      for (const lookupEndpoint of endpoints) {
+        if (Date.now() >= deadline || this.getAccount() !== account) break;
+        try {
+          if (this.verifiedRpcEndpoints.get(lookupEndpoint) !== network.chainId) continue;
+          const tx = await request(lookupEndpoint, 'eth_getTransactionByHash', [record.payment.transactionHash]);
+          if (tx?.hash?.toLowerCase() !== record.payment.transactionHash) continue;
+          record.broadcastState = 'acknowledged';
+          record.assetState = 'pending';
+          delete record.broadcastError;
+          this.saveSubmission(record, account);
+          return record.assetState;
+        } catch { /* Keep the original broadcast error for the user. */ }
+      }
+      if (attempt + 1 < EVM_BROADCAST_ATTEMPTS && this.getAccount() === account) {
+        await new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(1000, deadline - Date.now()))));
+      }
+    }
+    // Failed chain checks before any send cannot leave an uncertain transfer.
+    const status = record.broadcastUncertain ? 'unknown' : 'rejected';
+    record.broadcastState = status;
+    record.assetState = status;
+    if (status === 'rejected') delete record.rawTransaction;
+    this.saveSubmission(record, account);
+    return record.assetState;
   }
 
   async prepare({ network, asset, recipient, amount }) {
@@ -1149,33 +1242,52 @@ export class EvmTransactionService {
       prepared.transaction,
       prepared.validation.privateKey,
     );
-    const broadcast = await this.request(
-      network,
-      'eth_sendRawTransaction',
-      [rawTransaction],
-    );
-    if (!EVM_HASH_PATTERN.test(broadcast || '')) {
-      throw new EvmTransferError('RPC returned an invalid transaction hash', 'INVALID_TX_HASH');
+    if (this.getAccount() !== prepared.validation.account) throw new Error('Account changed before broadcast.');
+    const transactionHash = bytesToHex(keccak256(hexToBytes(rawTransaction)));
+    const payment = parseEvmTransferMessage({
+      type: EVM_CHAT_MESSAGE_TYPE, version: 1, chainId: network.chainId, transactionHash,
+      from: prepared.validation.from, to: prepared.validation.recipient,
+      assetKind: asset.contractAddress ? 'erc20' : 'native', contractAddress: asset.contractAddress || null,
+      rawAmount: prepared.validation.amountRaw.toString(), decimals: asset.tokenDecimals, symbol: asset.tokenSymbol,
+    });
+    if (!payment) throw new Error('Cannot record this asset transfer.');
+    const record = {
+      kind: 'outgoing', payment, networkId: network.id, username: chat?.username || null,
+      createdAt: Date.now(), broadcastState: 'attempting', assetState: 'unknown',
+      messageState: chat ? 'ready' : 'none',
+      rawTransaction, nonce: prepared.transaction.nonce,
+    };
+    const account = prepared.validation.account;
+    this.savePayment(record, account);
+    // Normal account saves retain the original bytes for an exact submission retry.
+    let status = await this.broadcast(network, record, account);
+    let receipt = null;
+    if (!chat && status === 'pending') {
+      try {
+        receipt = await this.waitForReceipt(network, transactionHash);
+        if (receipt) status = parseHexQuantity(receipt.status, 'receipt status') === 1n ? 'confirmed' : 'reverted';
+      } catch { /* Receipt lookup failure leaves the broadcast pending. */ }
     }
-
-    const transactionHash = broadcast.toLowerCase();
-    this.showToast(`EVM transaction submitted: ${transactionHash}`, 5000, 'info');
-    const receipt = await this.waitForReceipt(network, transactionHash);
-    if (!receipt) {
-      this.showToast('Transaction is pending. Balances will update after confirmation.', 5000, 'info');
-      return { status: 'pending', transactionHash, receipt: null };
+    record.assetState = status;
+    if (['confirmed', 'reverted'].includes(status)) delete record.rawTransaction;
+    try {
+      this.saveSubmission(record, account);
+      status = record.assetState;
+    } catch {
+      this.showToast('Transfer may be sent. Check its hash before sending again.', 0, 'warning');
     }
-    if (parseHexQuantity(receipt.status, 'receipt status') !== 1n) {
-      throw new EvmTransferError(
-        'The EVM transaction reverted',
-        'TRANSACTION_REVERTED',
-        { transactionHash },
-      );
+    if (['confirmed', 'reverted'].includes(status) && this.getAccount() === account) {
+      try { await this.refreshAssets({ force: true }); }
+      catch { this.showToast('Transfer processed; balance refresh is temporarily unavailable.', 5000, 'warning'); }
     }
-
-    await this.refreshAssets({ force: true });
-    this.showToast(`Transaction confirmed: ${transactionHash}`, 5000, 'success');
-    return { status: 'confirmed', transactionHash, receipt };
+    if (this.getAccount() === account) {
+      const message = status === 'rejected' ? `EVM submission rejected: ${record.broadcastError.message}. Review the form and try again.`
+        : status === 'unknown' ? `Submission could not be confirmed: ${record.broadcastError?.message || 'Connection interrupted'}. Check status or retry the original submission in EVM assets.`
+        : `EVM transfer ${status}: ${transactionHash}`;
+      const failed = ['reverted', 'rejected'].includes(status);
+      this.showToast(message, failed || status === 'unknown' ? 0 : 5000, failed ? 'error' : status === 'unknown' ? 'warning' : 'info');
+    }
+    return { status, transactionHash, receipt, record };
   }
 }
 
@@ -1862,6 +1974,9 @@ class EvmAssetsController {
     this.loaded = false;
     this.sending = false;
     this.prepareChatPayment = null;
+    this.getPayments = () => [];
+    this.savePayment = () => { throw new Error('Payment storage is unavailable'); };
+    this.saveSubmission = () => { throw new Error('Payment storage is unavailable'); };
     this.discovery = new WalletDiscoveryService({
       getAccount: () => this.getAccount(),
       getLiberdusAsset: () => this.getLiberdusAsset(),
@@ -1876,6 +1991,8 @@ class EvmAssetsController {
       showToast: (...args) => this.showToast(...args),
       confirmTransfer: (...args) => this.confirmTransfer(...args),
       getManagedRpcUrl: (network) => this.discovery.getRpcUrl(network.id),
+      savePayment: (record, account) => this.savePayment(record, account),
+      saveSubmission: (record, account) => this.saveSubmission(record, account),
     });
     this.assetsModal = new AssetsModal(this);
     this.assetDetailsModal = new AssetDetailsModal(this);
@@ -1887,6 +2004,9 @@ class EvmAssetsController {
     getLiberdusAsset,
     findContact,
     prepareChatPayment,
+    getPayments,
+    savePayment,
+    saveSubmission,
     openSend,
     openReceive,
     showToast,
@@ -1897,6 +2017,9 @@ class EvmAssetsController {
     if (typeof getAccount === 'function') this.getAccount = getAccount;
     if (typeof getLiberdusAsset === 'function') this.getLiberdusAsset = getLiberdusAsset;
     if (typeof findContact === 'function') this.findContact = findContact;
+    if (typeof getPayments === 'function') this.getPayments = getPayments;
+    if (typeof savePayment === 'function') this.savePayment = savePayment;
+    if (typeof saveSubmission === 'function') this.saveSubmission = saveSubmission;
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openSend === 'function') this.openSend = openSend;
     if (typeof openReceive === 'function') this.openReceive = openReceive;
@@ -2005,6 +2128,21 @@ class EvmAssetsController {
     const selection = { networkId: form.networkSelect.value, assetKey: form.assetSelectDropdown.value, amount: form.amountInput.value.trim() };
     form.submitButton.disabled = true;
     try {
+      const network = this.getNetwork(selection.networkId);
+      const unresolved = this.getPayments(account).filter((record) => record.kind === 'outgoing'
+        && record.payment.chainId === network?.chainId && record.assetState === 'unknown'
+        && record.broadcastState !== 'nonce_used');
+      for (let record of unresolved) {
+        const consumed = await this.transactions.isNonceConsumed(network, record);
+        if (this.getAccount() !== account) throw new Error('Account changed. Review the transfer again.');
+        // Preserve message delivery or execution updates received during the lookup.
+        record = this.getPayments(account).find((item) => item.kind === 'outgoing'
+          && evmPaymentId(item.payment) === evmPaymentId(record.payment));
+        if (!record || record.assetState !== 'unknown' || record.broadcastState === 'nonce_used') continue;
+        if (!consumed) throw new Error('An earlier transfer on this network is unresolved. Retry its submission in EVM Assets before making a new payment.');
+        record.broadcastState = 'nonce_used';
+        this.savePayment(record, account);
+      }
       const previousResolution = form.getResolvedRecipient();
       if (!previousResolution) {
         throw new EvmTransferError(
@@ -2045,7 +2183,7 @@ class EvmAssetsController {
         recipient: resolution.address,
         recipientLabel: resolution.username || resolution.display,
       });
-      if (result.status === 'confirmed' || result.status === 'pending') {
+      if (['pending', 'confirmed', 'reverted'].includes(result.status) && this.getAccount() === account) {
         await form.close();
       }
       return result;
@@ -2055,7 +2193,7 @@ class EvmAssetsController {
         form.clearRecipientLookup({ hideStatus: false });
         form.setRecipientStatus('recipient changed—review username');
       }
-      this.showToast(error?.message || 'EVM transfer failed', 5000, 'error');
+      this.showToast(error?.message || 'EVM transfer failed', 0, 'error');
       return { status: 'failed', error };
     } finally {
       this.sending = false;
