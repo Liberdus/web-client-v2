@@ -22479,6 +22479,10 @@ class ChatModal {
     if (!recipient?.data || balanceInfo?.balance == null || fee === null) {
       throw new Error('Cannot check LIB balance, message fee, or recipient toll. Try again.');
     }
+    const senderIsPrivate = account.private === true;
+    if ((recipient.private === true) !== senderIsPrivate) {
+      throw new Error(`${senderIsPrivate ? 'Private' : 'Public'} accounts can only send chat payments to other ${senderIsPrivate ? 'private' : 'public'} accounts.`);
+    }
     const required = tollInfo?.error === 'No account with the given chatId'
       ? 1 : tollInfo?.toll?.required?.[sorted.indexOf(longAddress(address))];
     if (![0, 1, 2].includes(required)) throw new Error('Cannot check recipient toll. Try again.');
