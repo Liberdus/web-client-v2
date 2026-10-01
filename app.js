@@ -12325,6 +12325,16 @@ function evmPaymentMessages(record, account) {
     && message.my === (record.payment.from === own));
 }
 
+// Background status updates must not interrupt reading another chat or older messages.
+function refreshEvmPaymentChat(messages) {
+  if (!chatModal.isActive()) return;
+  const contact = myData.contacts[chatModal.address];
+  if (!messages.some((message) => contact?.messages.includes(message))) return;
+  const scrollTop = chatModal.messagesContainer.scrollTop;
+  chatModal.appendChatModal(false, true);
+  chatModal.messagesContainer.scrollTop = scrollTop;
+}
+
 // The existing five-second app heartbeat schedules this queue independently of
 // Liberdus pending. No chat modal owns a timer or a verification request.
 async function checkEvmPayments() {
@@ -12339,6 +12349,7 @@ async function checkEvmPayments() {
   const current = () => evmPaymentCheckSession === session && myAccount === session.account
     && isOnline && document.visibilityState !== 'hidden' && !evmAssets.sending;
   let refreshBalances = false;
+  const changedMessages = [];
   try {
     const due = loadEvmPayments(session.account).filter((record) => record.broadcastState !== 'rejected'
       && record.verification !== 'reverted'
@@ -12392,8 +12403,12 @@ async function checkEvmPayments() {
         }
       }
       const messages = evmPaymentMessages(record, session.account);
+      const verified = state === 'reverted' ? 'failed' : record.verification;
       for (const message of messages) {
-        message.paymentVerified = state === 'reverted' ? 'failed' : record.verification;
+        if (message.paymentVerified !== verified || (message.paymentReverted === true) !== (state === 'reverted')) {
+          changedMessages.push(message);
+        }
+        message.paymentVerified = verified;
         message.paymentReverted = state === 'reverted';
         message.paymentCheckedAt = record.checkedAt;
       }
@@ -12431,7 +12446,7 @@ async function checkEvmPayments() {
     }));
     if (!current() || !due.length) return;
     saveState();
-    if (chatModal.isActive()) chatModal.appendChatModal();
+    refreshEvmPaymentChat(changedMessages);
     chatsScreen.updateChatList();
     // Completion is independent of portfolio availability or refresh speed.
     if (refreshBalances) void evmAssets.refresh({ force: true }).catch(() => {});
