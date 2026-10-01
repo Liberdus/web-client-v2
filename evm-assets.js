@@ -2329,9 +2329,6 @@ class EvmAssetsController {
   }
   async sendTransfer({ networkId, assetKey, recipient, recipientLabel = null, amount, chat, beforeBroadcast }) {
     const { walletNetwork, asset } = this.findAsset(networkId, assetKey, { evmOnly: true });
-    if (chat && !this.transactions.paymentNetwork(walletNetwork.chainId)) {
-      throw new Error('Chat payments are not supported on this network yet.');
-    }
     return this.transactions.send({
       network: walletNetwork,
       asset,
@@ -2468,7 +2465,8 @@ class EvmAssetsController {
           if (rawHash !== record.payment.transactionHash) throw new Error('Saved transaction does not match the payment hash.');
           if (record.username && record.messageState === 'ready') await this.preparePaymentMessage(record, account);
           if (this.getAccount() !== account) return;
-          await this.transactions.broadcast(this.transactions.outgoingNetwork(record), record, account);
+          const network = { id: record.payment.networkId, chainId: record.payment.chainId };
+          await this.transactions.broadcast(network, record, account);
         } else {
           record.assetState = state === 'settled' ? 'confirmed' : state;
           record.broadcastState = 'acknowledged';
