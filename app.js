@@ -21367,10 +21367,6 @@ class ChatModal {
 
     // Set active chat address early so async refreshes target the correct chat.
     this.address = address;
-    for (const message of myData.contacts[address]?.messages || []) {
-      if (message.type === EVM_CHAT_MESSAGE_TYPE) queueEvmPaymentMessage(message, myAccount);
-    }
-    void checkEvmPayments();
 
     // clear message input
     this.messageInput.value = '';
