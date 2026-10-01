@@ -23501,6 +23501,7 @@ class ChatModal {
             <div class="intents-payment-amount">${item.my ? '−' : '+'}${escapeHtml(evmPaymentAmount(payment))} ${escapeHtml(payment.symbol)}</div>
             <div class="intents-payment-chain">${escapeHtml(networkName)}</div>
             ${payment.contractAddress ? `<div class="intents-payment-chain" style="overflow-wrap:anywhere">Token: ${escapeHtml(payment.contractAddress)}</div>` : ''}
+            ${payment.note ? `<div class="intents-payment-note">${escapeHtml(payment.note)}</div>` : ''}
             <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
           </div>`;
         break;
@@ -33020,6 +33021,8 @@ class SendAssetFormModal {
     this.networkGroup.hidden = mode !== 'evm' || hasFixedNetwork;
     this.assetSelectDropdown.closest('.form-group').hidden = hasFixedAsset;
     this.memoGroup.hidden = mode === 'evm';
+    document.getElementById('sendMemoLabel').textContent = mode === 'evm' ? 'Add a note (optional)' : 'Memo (Optional)';
+    this.memoInput.setCustomValidity('');
     this.memoValidation = {};
     this.memoByteCounter.textContent = '';
     this.memoByteCounter.style.display = 'none';
