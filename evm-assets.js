@@ -877,6 +877,7 @@ export class EvmTransactionService {
     confirmTransfer,
     getManagedRpcUrl = () => null,
     savePayment,
+    saveSubmission,
     fetchFn = (...args) => fetch(...args),
   }) {
     this.getAccount = getAccount;
@@ -885,6 +886,7 @@ export class EvmTransactionService {
     this.confirmTransfer = confirmTransfer;
     this.getManagedRpcUrl = getManagedRpcUrl;
     this.savePayment = savePayment;
+    this.saveSubmission = saveSubmission;
     this.fetchFn = fetchFn;
     this.requestId = 0;
     this.verifiedRpcEndpoints = new Map();
@@ -1047,7 +1049,7 @@ export class EvmTransactionService {
       return this.requestEndpoint(endpoint, method, params, network.id, Math.min(EVM_REQUEST_TIMEOUT_MS, remaining));
     };
     record.broadcastState = 'attempting';
-    this.savePayment(record, account);
+    this.saveSubmission(record, account);
     for (let attempt = 0; attempt < EVM_BROADCAST_ATTEMPTS && Date.now() < deadline; attempt++) {
       if (this.getAccount() !== account) break;
       const endpoint = endpoints[attempt % endpoints.length];
@@ -1062,7 +1064,7 @@ export class EvmTransactionService {
         if (this.getAccount() !== account) break;
         submitted = true;
         record.broadcastUncertain = true;
-        this.savePayment(record, account);
+        this.saveSubmission(record, account);
         const hash = await request(endpoint, 'eth_sendRawTransaction', [record.rawTransaction]);
         if (typeof hash !== 'string' || hash.toLowerCase() !== record.payment.transactionHash) {
           throw new EvmTransferError('RPC did not return the expected transaction hash', 'INVALID_RPC_RESPONSE');
@@ -1070,8 +1072,8 @@ export class EvmTransactionService {
         record.broadcastState = 'acknowledged';
         record.assetState = 'pending';
         delete record.broadcastError;
-        this.savePayment(record, account);
-        return 'pending';
+        this.saveSubmission(record, account);
+        return record.assetState;
       } catch (error) {
         record.broadcastError = { code: error.rpcError?.code ?? error.code, message: error.message, data: error.rpcError?.data };
         // Only an explicit validation rejection, with no earlier ambiguous send,
@@ -1083,10 +1085,10 @@ export class EvmTransactionService {
           record.assetState = 'rejected';
           record.broadcastUncertain = false;
           delete record.rawTransaction;
-          this.savePayment(record, account);
-          return 'rejected';
+          this.saveSubmission(record, account);
+          return record.assetState;
         }
-        this.savePayment(record, account);
+        this.saveSubmission(record, account);
       }
       // A null lookup does not prove absence. Try the original bytes again;
       // never prepare another nonce while this payment remains unresolved.
@@ -1099,8 +1101,8 @@ export class EvmTransactionService {
           record.broadcastState = 'acknowledged';
           record.assetState = 'pending';
           delete record.broadcastError;
-          this.savePayment(record, account);
-          return 'pending';
+          this.saveSubmission(record, account);
+          return record.assetState;
         } catch { /* Keep the original broadcast error for the user. */ }
       }
       if (attempt + 1 < EVM_BROADCAST_ATTEMPTS && this.getAccount() === account) {
@@ -1112,8 +1114,8 @@ export class EvmTransactionService {
     record.broadcastState = status;
     record.assetState = status;
     if (status === 'rejected') delete record.rawTransaction;
-    this.savePayment(record, account);
-    return status;
+    this.saveSubmission(record, account);
+    return record.assetState;
   }
 
   async prepare({ network, asset, recipient, amount }) {
@@ -1256,6 +1258,7 @@ export class EvmTransactionService {
       rawTransaction, nonce: prepared.transaction.nonce,
     };
     const account = prepared.validation.account;
+    this.savePayment(record, account);
     // Normal account saves retain the original bytes for an exact submission retry.
     let status = await this.broadcast(network, record, account);
     let receipt = null;
@@ -1268,7 +1271,8 @@ export class EvmTransactionService {
     record.assetState = status;
     if (['confirmed', 'reverted'].includes(status)) delete record.rawTransaction;
     try {
-      this.savePayment(record, account);
+      this.saveSubmission(record, account);
+      status = record.assetState;
     } catch {
       this.showToast('Transfer may be sent. Check its hash before sending again.', 0, 'warning');
     }
@@ -1972,6 +1976,7 @@ class EvmAssetsController {
     this.prepareChatPayment = null;
     this.getPayments = () => [];
     this.savePayment = () => { throw new Error('Payment storage is unavailable'); };
+    this.saveSubmission = () => { throw new Error('Payment storage is unavailable'); };
     this.discovery = new WalletDiscoveryService({
       getAccount: () => this.getAccount(),
       getLiberdusAsset: () => this.getLiberdusAsset(),
@@ -1987,6 +1992,7 @@ class EvmAssetsController {
       confirmTransfer: (...args) => this.confirmTransfer(...args),
       getManagedRpcUrl: (network) => this.discovery.getRpcUrl(network.id),
       savePayment: (record, account) => this.savePayment(record, account),
+      saveSubmission: (record, account) => this.saveSubmission(record, account),
     });
     this.assetsModal = new AssetsModal(this);
     this.assetDetailsModal = new AssetDetailsModal(this);
@@ -2000,6 +2006,7 @@ class EvmAssetsController {
     prepareChatPayment,
     getPayments,
     savePayment,
+    saveSubmission,
     openSend,
     openReceive,
     showToast,
@@ -2012,6 +2019,7 @@ class EvmAssetsController {
     if (typeof findContact === 'function') this.findContact = findContact;
     if (typeof getPayments === 'function') this.getPayments = getPayments;
     if (typeof savePayment === 'function') this.savePayment = savePayment;
+    if (typeof saveSubmission === 'function') this.saveSubmission = saveSubmission;
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openSend === 'function') this.openSend = openSend;
     if (typeof openReceive === 'function') this.openReceive = openReceive;

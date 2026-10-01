@@ -34081,6 +34081,22 @@ function saveEvmPayment(record, account) {
   changeEvmPayment(record, account, false);
 }
 
+// Submission responses own EVM progress, never the latest chat-delivery state.
+function saveEvmSubmission(record, account) {
+  const latest = loadEvmPayments(account).find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
+  if (!latest) throw new Error('Payment recovery was removed. Check the transaction hash before sending again.');
+  if (!['confirmed', 'reverted', 'rejected'].includes(latest.assetState)) {
+    latest.broadcastState = record.broadcastState;
+    latest.assetState = record.assetState;
+    latest.broadcastUncertain = record.broadcastUncertain;
+    latest.broadcastError = record.broadcastError;
+  }
+  if (record.notifiedAssetState) latest.notifiedAssetState = record.notifiedAssetState;
+  Object.assign(record, latest);
+  if (['confirmed', 'reverted', 'rejected'].includes(record.assetState)) delete record.rawTransaction;
+  saveEvmPayment(record, account);
+}
+
 function removeEvmPayment(record, account) {
   changeEvmPayment(record, account, true);
 }
@@ -34104,6 +34120,7 @@ evmAssets.configure({
   prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
   getPayments: (account) => loadEvmPayments(account),
   savePayment: (record, account) => saveEvmPayment(record, account),
+  saveSubmission: (record, account) => saveEvmSubmission(record, account),
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
     || myData?.wallet?.assets?.[0]
     || null,
