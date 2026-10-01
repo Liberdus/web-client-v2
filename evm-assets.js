@@ -45,6 +45,45 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
   ]),
 });
 
+export const EVM_CHAT_MESSAGE_TYPE = 'evm_transfer';
+
+/** Validate untrusted chat claims once; amount remains an exact base-unit string. */
+export function parseEvmTransferMessage(value) {
+  if (!value || value.type !== EVM_CHAT_MESSAGE_TYPE || value.version !== 1) return null;
+  if (!Number.isSafeInteger(value.chainId) || value.chainId <= 0) return null;
+  if (typeof value.transactionHash !== 'string' || typeof value.from !== 'string' || typeof value.to !== 'string') return null;
+  if (!EVM_HASH_PATTERN.test(value.transactionHash) || !EVM_ADDRESS_PATTERN.test(value.from)
+    || !EVM_ADDRESS_PATTERN.test(value.to)) return null;
+  if (value.assetKind !== 'native' && value.assetKind !== 'erc20') return null;
+  if (value.assetKind === 'erc20' && (typeof value.contractAddress !== 'string' || !EVM_ADDRESS_PATTERN.test(value.contractAddress))) return null;
+  if (value.assetKind === 'native' && value.contractAddress != null) return null;
+  if (typeof value.rawAmount !== 'string' || !/^[1-9][0-9]{0,77}$/.test(value.rawAmount)
+    || BigInt(value.rawAmount) >= 2n ** 256n) return null;
+  if (!Number.isInteger(value.decimals) || value.decimals < 0 || value.decimals > 255) return null;
+  if (typeof value.symbol !== 'string' || !value.symbol.trim() || value.symbol.length > 32) return null;
+  return {
+    type: EVM_CHAT_MESSAGE_TYPE,
+    version: 1,
+    chainId: value.chainId,
+    transactionHash: value.transactionHash.toLowerCase(),
+    from: value.from.toLowerCase(),
+    to: value.to.toLowerCase(),
+    assetKind: value.assetKind,
+    contractAddress: value.assetKind === 'erc20' ? value.contractAddress.toLowerCase() : null,
+    rawAmount: value.rawAmount,
+    decimals: value.decimals,
+    symbol: value.symbol.trim(),
+  };
+}
+
+export function evmPaymentId(payment) {
+  return `${payment.chainId}:${payment.transactionHash}`;
+}
+
+export function evmPaymentAmount(payment) {
+  return formatUnits(payment.rawAmount, payment.decimals);
+}
+
 export class EvmTransferError extends Error {
   constructor(message, code = 'EVM_TRANSFER_ERROR', details = {}) {
     super(message, { cause: details.cause });

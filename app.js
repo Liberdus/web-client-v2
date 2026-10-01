@@ -208,7 +208,7 @@ import {
   CHAT_REACTION_SHEET_RECENT_CATEGORY_KEY,
 } from './data/emoji-picker-data.js';
 
-import { evmAssets } from './evm-assets.js';
+import { evmAssets, EVM_CHAT_MESSAGE_TYPE, parseEvmTransferMessage, evmPaymentId, evmPaymentAmount } from './evm-assets.js';
 import {
   formatDisplayAmount,
   multichain,
@@ -1922,6 +1922,9 @@ class ChatsScreen {
         previewHTML = `<span><i>Voice message</i></span>`;
       } else if (latestActivity.type === 'location') {
         previewHTML = `<span><i>Shared location</i></span>`;
+      } else if (latestActivity.type === EVM_CHAT_MESSAGE_TYPE) {
+        const payment = latestActivity.payment;
+        previewHTML = payment ? `<span class="payment-preview">${latestActivity.my ? '-' : '+'} ${escapeHtml(evmPaymentAmount(payment))} ${escapeHtml(payment.symbol)}</span>` : '<span>Payment</span>';
       } else if (latestActivity.type === INTENTS_CHAT_MESSAGE_TYPE) {
         // The same shape as a LIB payment's preview: signed amount, then note.
         const payment = latestActivity.payment;
@@ -11884,6 +11887,10 @@ function getReactionTargetPreviewText(message) {
     return 'location';
   }
 
+  if (message.type === EVM_CHAT_MESSAGE_TYPE) {
+    return message.payment ? `${evmPaymentAmount(message.payment)} ${message.payment.symbol}` : 'payment';
+  }
+
   if (message.type === INTENTS_CHAT_MESSAGE_TYPE) {
     return message.payment ? `${message.payment.amount} ${message.payment.symbol}` : 'payment';
   }
@@ -12863,6 +12870,18 @@ async function processChats(chats, keys) {
                   payload.latitude = latitude;
                   payload.longitude = longitude;
                   payload.accuracy = Number.isFinite(accuracy) && accuracy >= 0 ? accuracy : null;
+                } else if (parsedMessage.type === EVM_CHAT_MESSAGE_TYPE) {
+                  const claim = parseEvmTransferMessage(parsedMessage);
+                  if (!claim || claim.from !== `0x${normalizeAddress(tx.from)}`
+                    || claim.to !== `0x${normalizeAddress(tx.to)}`) continue;
+                  payload.message = '';
+                  payload.type = EVM_CHAT_MESSAGE_TYPE;
+                  payload.payment = claim;
+                  // Verification is local evidence, never a sender-provided assertion.
+                  payload.paymentVerified = 'unchecked';
+                  delete payload.paymentCheckedAt;
+                  delete payload.paymentReverted;
+                  delete payload.paymentMessageConfirmed;
                 } else if (parsedMessage.type === INTENTS_CHAT_MESSAGE_TYPE) {
                   // Every field of this arrives from the sender, and a payment
                   // bubble is worth forging, so anything malformed is dropped
@@ -22908,6 +22927,18 @@ class ChatModal {
                   </div>
                 </div>
               </div>`;
+        break;
+      }
+      case EVM_CHAT_MESSAGE_TYPE: {
+        const payment = parseEvmTransferMessage(item.payment);
+        if (!payment) break;
+        const verified = item.paymentVerified || 'unchecked';
+        messageTextHTML = `
+          <div class="intents-payment-message evm-payment-message" data-verified="${escapeHtml(verified)}" data-evm-payment="${escapeHtml(evmPaymentId(payment))}">
+            <div class="intents-payment-amount">${item.my ? '−' : '+'}${escapeHtml(evmPaymentAmount(payment))} ${escapeHtml(payment.symbol)}</div>
+            <div class="intents-payment-chain">EVM chain ${payment.chainId}</div>
+            <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
+          </div>`;
         break;
       }
       case INTENTS_CHAT_MESSAGE_TYPE: {
