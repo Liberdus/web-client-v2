@@ -22558,12 +22558,20 @@ class ChatModal {
     );
     if (myAccount !== account) throw new Error('Account changed before chat submission.');
     // The last lookup or message builder can see a newer fee/toll than confirmation.
-    if (chatMessageObj.amount + chatMessageObj.fee > BigInt(record.messageCostLimit)) {
-      throw new Error('Chat message cost exceeds the approved amount. Review the message cost before sending.');
+    const messageCost = chatMessageObj.amount + chatMessageObj.fee;
+    if (messageCost > BigInt(record.messageCostLimit)) {
+      if (record.assetState !== 'confirmed') {
+        throw new Error('Chat message cost exceeds the approved amount. Review the message cost before sending.');
+      }
+      const approved = window.confirm(`The chat message fee and toll increased from ${big2str(BigInt(record.messageCostLimit), 18)} LIB to ${big2str(messageCost, 18)} LIB. Send the message at this cost? The EVM asset will not be sent again.`);
+      if (!approved) return false;
+      if (myAccount !== account) throw new Error('Account changed before chat submission.');
+      record.messageCostLimit = messageCost.toString();
     }
     record.attempt = { tx: chatMessageObj, txid, timestamp: payload.sent_timestamp };
     record.messageState = 'ready';
     saveEvmPayment(record, account);
+    return true;
   }
 
   async sendEvmPaymentMessage(record, account) {
@@ -22574,9 +22582,9 @@ class ChatModal {
     if (['submitted', 'delivered'].includes(record.messageState)) return;
     if (!record.attempt || record.messageState !== 'ready') throw new Error('The previous message attempt needs reconciliation.');
     // An unsent announcement can be rebuilt safely after a slow submission.
-    // Refresh recipient, funds and timestamp without exceeding the approved cost.
+    // Refresh recipient, funds and timestamp; confirm any increased message cost.
     try {
-      await this.prepareEvmPaymentMessage(record, account);
+      if (!await this.prepareEvmPaymentMessage(record, account)) return false;
     } catch (error) {
       if (myAccount === account) {
         record.messageState = 'rejected';
@@ -22602,6 +22610,7 @@ class ChatModal {
       error.toastAlreadyShown = response?.toastAlreadyShown === true;
       throw error;
     }
+    return true;
   }
 
   upsertEvmPaymentCard(record) {
