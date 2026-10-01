@@ -12356,7 +12356,7 @@ function settleEvmPaymentMessage(txid, delivered) {
     if (delivered) message.paymentMessageConfirmed = true;
   }
   saveEvmPayment(record, myAccount);
-  if (chatModal.isActive()) chatModal.appendChatModal();
+  refreshEvmPaymentChat(messages);
   chatsScreen.updateChatList();
   if (evmAssets.assetsModal.isActive()) evmAssets.assetsModal.renderRecovery();
 }
@@ -22780,7 +22780,7 @@ class ChatModal {
     // Never replay a saved, possibly expired signature. A retry gets a new txid.
     // Keep the old card available if refreshing keys, LIB balance or cost fails.
     try {
-      await this.prepareEvmPaymentMessage(record, account);
+      if (!await this.prepareEvmPaymentMessage(record, account)) return false;
     } catch (error) {
       if (myAccount === account) {
         record.messageState = 'rejected';

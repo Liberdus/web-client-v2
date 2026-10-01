@@ -1418,9 +1418,10 @@ export class EvmTransactionService {
     if (['confirmed', 'reverted'].includes(status)) delete record.rawTransaction;
     if (this.getAccount() === account) {
       const message = status === 'rejected' ? `EVM submission rejected: ${record.broadcastError.message}. Review the form and try again.`
+        : status === 'unknown' ? 'Submission could not be confirmed. The transfer may still go through. Use Retry submission in EVM Assets to check or resend the original transaction.'
         : `EVM transfer ${status}: ${transactionHash}`;
       const failed = ['reverted', 'rejected'].includes(status);
-      if (status !== 'unknown') this.showToast(message, failed ? 0 : 5000, failed ? 'error' : 'info');
+      this.showToast(message, failed || status === 'unknown' ? 0 : 5000, failed ? 'error' : status === 'unknown' ? 'warning' : 'info');
       if (!chat && ['confirmed', 'reverted'].includes(status)) record.notifiedAssetState = status;
     }
     try {
@@ -2430,8 +2431,8 @@ class EvmAssetsController {
         }
         this.sending = true;
         try {
-          await this.sendChatPayment(record, account);
-          if (this.getAccount() === account) this.showToast('Payment message submitted.', 5000, 'info');
+          const sent = await this.sendChatPayment(record, account);
+          if (sent && this.getAccount() === account) this.showToast('Payment message submitted.', 5000, 'info');
         } finally {
           this.sending = false;
         }
