@@ -2360,17 +2360,6 @@ class EvmAssetsController {
     form.balanceWarning.style.display = validation.message ? 'inline' : 'none';
     form.submitButton.disabled = this.sending || !validation.valid;
   }
-  async withPaymentLock(account, operation) {
-    if (!account?.keys) throw new Error('Sign in before sending a payment.');
-    if (!globalThis.navigator?.locks) throw new Error('Safe payment recovery requires a browser with Web Locks support.');
-    const key = `evm-payment:${account.netid}:${walletProbeAddress(account.keys.address)}`;
-    return navigator.locks.request(key, { ifAvailable: true }, async (lock) => {
-      if (!lock) throw new Error('An EVM payment is already being processed in another tab.');
-      if (this.getAccount() !== account) throw new Error('Account changed. Reopen EVM Assets.');
-      return operation();
-    });
-  }
-
   getPaymentActions(payment, message = null) {
     const account = this.getAccount();
     if (!account) return {};
@@ -2393,47 +2382,46 @@ class EvmAssetsController {
     const account = this.getAccount();
     try {
       if (this.sending) throw new Error('Wait for the current payment operation to finish.');
-      await this.withPaymentLock(account, async () => {
-        const record = this.getPayments(account).find((item) => item.kind === 'outgoing' && evmPaymentId(item.payment) === id);
-        if (!record) throw new Error('This device has no outgoing operation to retry.');
-        const actions = this.getPaymentActions(record.payment);
-        if (action === 'resubmit' && actions.retrySubmission) {
-          await this.retrySubmission(record, account);
-          return;
-        }
-        if (action === 'check') {
-          const toastId = this.showToast('Checking transfer status…', 0, 'loading');
-          try {
-            await this.checkPayment(record.payment, account);
-            if (this.getAccount() !== account) return;
-            const latest = this.getPayments(account).find((item) => evmPaymentId(item.payment) === id);
-            const message = !latest ? 'Payment completed.' : latest.checkAttempts === 0 ? 'Status check queued.'
-              : latest.broadcastState === 'nonce_used' ? 'The nonce is already used. This payment outcome is still unverified; do not repeat the payment.'
-              : latest.assetState === 'unknown' ? 'Status is still unavailable. Retry the original submission in EVM Assets.'
-              : `Transfer ${latest.assetState}.${latest.username ? ` Chat message: ${latest.messageState}.` : ''}`;
-            this.showToast(message, latest?.assetState === 'unknown' ? 0 : 5000, latest?.assetState === 'unknown' ? 'warning' : 'info');
-          } finally { this.hideToast(toastId); }
-          return;
-        }
-        if (action === 'review' && actions.retryTransfer) {
-          await this.reviewPayment(record.payment, record.username || record.payment.to);
-          return;
-        }
-        if (action === 'dismiss' && actions.dismiss) {
-          this.dismissPayment(record, account);
-          return;
-        }
-        if (action !== 'retry' || !actions.retryMessage) {
-          throw new Error('Retry message is available only after the EVM transfer is confirmed.');
-        }
-        this.sending = true;
+      if (!account?.keys) throw new Error('Sign in before sending a payment.');
+      const record = this.getPayments(account).find((item) => item.kind === 'outgoing' && evmPaymentId(item.payment) === id);
+      if (!record) throw new Error('This device has no outgoing operation to retry.');
+      const actions = this.getPaymentActions(record.payment);
+      if (action === 'resubmit' && actions.retrySubmission) {
+        await this.retrySubmission(record, account);
+        return;
+      }
+      if (action === 'check') {
+        const toastId = this.showToast('Checking transfer status…', 0, 'loading');
         try {
-          const sent = await this.sendChatPayment(record, account);
-          if (sent && this.getAccount() === account) this.showToast('Payment message submitted.', 5000, 'info');
-        } finally {
-          this.sending = false;
-        }
-      });
+          await this.checkPayment(record.payment, account);
+          if (this.getAccount() !== account) return;
+          const latest = this.getPayments(account).find((item) => evmPaymentId(item.payment) === id);
+          const message = !latest ? 'Payment completed.' : latest.checkAttempts === 0 ? 'Status check queued.'
+            : latest.broadcastState === 'nonce_used' ? 'The nonce is already used. This payment outcome is still unverified; do not repeat the payment.'
+            : latest.assetState === 'unknown' ? 'Status is still unavailable. Retry the original submission in EVM Assets.'
+            : `Transfer ${latest.assetState}.${latest.username ? ` Chat message: ${latest.messageState}.` : ''}`;
+          this.showToast(message, latest?.assetState === 'unknown' ? 0 : 5000, latest?.assetState === 'unknown' ? 'warning' : 'info');
+        } finally { this.hideToast(toastId); }
+        return;
+      }
+      if (action === 'review' && actions.retryTransfer) {
+        await this.reviewPayment(record.payment, record.username || record.payment.to);
+        return;
+      }
+      if (action === 'dismiss' && actions.dismiss) {
+        this.dismissPayment(record, account);
+        return;
+      }
+      if (action !== 'retry' || !actions.retryMessage) {
+        throw new Error('Retry message is available only after the EVM transfer is confirmed.');
+      }
+      this.sending = true;
+      try {
+        const sent = await this.sendChatPayment(record, account);
+        if (sent && this.getAccount() === account) this.showToast('Payment message submitted.', 5000, 'info');
+      } finally {
+        this.sending = false;
+      }
     } catch (error) {
       if (this.getAccount() === account && !error.toastAlreadyShown) this.showToast(error.message, 0, 'error');
     } finally {
@@ -2528,15 +2516,6 @@ class EvmAssetsController {
   }
 
   async handleSendFormSubmit(form) {
-    try {
-      return await this.withPaymentLock(this.getAccount(), () => this.submitSendForm(form));
-    } catch (error) {
-      this.showToast(error.message, 0, 'warning');
-      return { status: 'failed', error };
-    }
-  }
-
-  async submitSendForm(form) {
     if (this.sending) return;
     this.sending = true;
     const account = this.getAccount();
@@ -2544,6 +2523,7 @@ class EvmAssetsController {
     const selection = { networkId: form.networkSelect.value, assetKey: form.assetSelectDropdown.value, amount: form.amountInput.value.trim() };
     form.submitButton.disabled = true;
     try {
+      if (!account?.keys) throw new Error('Sign in before sending a payment.');
       const network = this.getNetwork(selection.networkId);
       const unresolved = this.getPayments(account).filter((record) => record.kind === 'outgoing'
         && record.payment.chainId === network?.chainId && record.assetState === 'unknown'
