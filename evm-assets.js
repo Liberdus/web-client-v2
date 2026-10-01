@@ -1031,6 +1031,13 @@ export class EvmTransactionService {
     );
   }
 
+  async isNonceConsumed(network, record) {
+    // Finalized state can release the send guard even if this RPC has lost the
+    // original hash. It does not establish whether this payment succeeded.
+    const nonce = await this.request(network, 'eth_getTransactionCount', [record.payment.from, 'finalized']);
+    return parseHexQuantity(nonce, 'finalized nonce') > parseHexQuantity(record.nonce, 'payment nonce');
+  }
+
   async broadcast(network, record, account) {
     const deadline = Date.now() + EVM_BROADCAST_TIMEOUT_MS;
     const endpoints = this.getRpcUrls(network);
@@ -2113,8 +2120,16 @@ class EvmAssetsController {
     const selection = { networkId: form.networkSelect.value, assetKey: form.assetSelectDropdown.value, amount: form.amountInput.value.trim() };
     form.submitButton.disabled = true;
     try {
-      if (this.getPayments(account).some((record) => record.kind === 'outgoing' && record.assetState === 'unknown')) {
-        throw new Error('Check the unresolved payment in EVM assets before starting another transfer.');
+      const network = this.getNetwork(selection.networkId);
+      const unresolved = this.getPayments(account).filter((record) => record.kind === 'outgoing'
+        && record.payment.chainId === network?.chainId && record.assetState === 'unknown'
+        && record.broadcastState !== 'nonce_used');
+      for (const record of unresolved) {
+        const consumed = await this.transactions.isNonceConsumed(network, record);
+        if (this.getAccount() !== account) throw new Error('Account changed. Review the transfer again.');
+        if (!consumed) throw new Error('An earlier transfer on this network is unresolved. Retry its submission in EVM Assets before making a new payment.');
+        record.broadcastState = 'nonce_used';
+        this.savePayment(record, account);
       }
       const previousResolution = form.getResolvedRecipient();
       if (!previousResolution) {
