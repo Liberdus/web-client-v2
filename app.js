@@ -489,6 +489,7 @@ function newDataRecord(myAccount) {
       ],
       history: [],
     },
+    evmPayments: [], // External transfers and their chat receipt recovery records
     pending: [], // Array to track pending transactions
     state: {
       unread: 0,
@@ -34229,11 +34230,61 @@ intentsActivity.configure({
     }))),
 });
 
+function evmPaymentRecordId(record) {
+  return `${record.kind}:${stringify(record.payment)}`;
+}
+
+// EVM recovery lives in myData and follows the normal account save lifecycle.
+function loadEvmPayments(account) {
+  if (account !== myAccount) return [];
+  const records = myData.evmPayments ?? [];
+  if (!Array.isArray(records) || records.some((record) => !['outgoing', 'verification'].includes(record?.kind)
+    || !parseEvmTransferMessage(record.payment))) {
+    throw new Error('Saved EVM payment records could not be read.');
+  }
+  // Async callers work on a snapshot, without changing the current record until saved.
+  return parse(stringify(records));
+}
+
+function saveEvmPayment(record, account) {
+  if (account !== myAccount) return;
+  const records = myData.evmPayments ??= [];
+  const index = records.findIndex((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
+  const saved = parse(stringify(record));
+  if (index < 0) records.push(saved);
+  else records[index] = saved;
+}
+
+// Submission responses own EVM progress, never the latest chat-delivery state.
+function saveEvmSubmission(record, account) {
+  if (account !== myAccount) return;
+  const latest = loadEvmPayments(account).find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
+  if (!latest) throw new Error('Payment recovery was removed. Check the transaction hash before sending again.');
+  if (!['confirmed', 'reverted', 'rejected'].includes(latest.assetState)) {
+    latest.broadcastState = record.broadcastState;
+    latest.assetState = record.assetState;
+    latest.broadcastUncertain = record.broadcastUncertain;
+    latest.broadcastError = record.broadcastError;
+  }
+  if (record.notifiedAssetState) latest.notifiedAssetState = record.notifiedAssetState;
+  Object.assign(record, latest);
+  if (['confirmed', 'reverted', 'rejected'].includes(record.assetState)) delete record.rawTransaction;
+  saveEvmPayment(record, account);
+}
+
+function removeEvmPayment(record, account) {
+  if (account !== myAccount) return;
+  myData.evmPayments = (myData.evmPayments ?? []).filter((item) => evmPaymentRecordId(item) !== evmPaymentRecordId(record));
+}
+
 evmAssets.configure({
   getAccount: () => myAccount,
   findContact: (username) => getMessagePaymentContacts()
     .find((contact) => normalizeUsername(contact.username || '') === username) || null,
   prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
+  getPayments: (account) => loadEvmPayments(account),
+  savePayment: (record, account) => saveEvmPayment(record, account),
+  saveSubmission: (record, account) => saveEvmSubmission(record, account),
   getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
     || myData?.wallet?.assets?.[0]
     || null,
