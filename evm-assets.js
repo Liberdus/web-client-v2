@@ -1863,6 +1863,10 @@ export class EvmSendConfirmationModal {
     this.signingNotice = this.createSigningNotice();
     this.networkValue = this.networkGroup.querySelector('.confirm-value');
     this.feeValue = this.feeGroup.querySelector('.confirm-value');
+    this.feeUsd = document.getElementById('evmConfirmFeeUSD') || document.createElement('div');
+    this.feeUsd.id = 'evmConfirmFeeUSD';
+    this.feeUsd.className = 'confirm-value-secondary usd-equivalent';
+    this.feeGroup.appendChild(this.feeUsd);
 
     this.confirmButton.addEventListener(
       'click',
@@ -1924,6 +1928,22 @@ export class EvmSendConfirmationModal {
     return notice;
   }
 
+  getUsdEstimate(amountInUnits, rawPrice) {
+    if (typeof rawPrice !== 'number' && typeof rawPrice !== 'string') return '';
+    if (typeof rawPrice === 'string' && !rawPrice.trim()) return '';
+
+    const price = Number(rawPrice);
+    const amount = Number(amountInUnits);
+    const usdValue = price * amount;
+    if (
+      !Number.isFinite(price) || price < 0
+      || !Number.isFinite(amount) || amount < 0
+      || !Number.isFinite(usdValue)
+    ) return '';
+
+    return `≈ ${formatConnectedUsd(usdValue)}`;
+  }
+
   render(prepared) {
     const {
       network,
@@ -1945,14 +1965,20 @@ export class EvmSendConfirmationModal {
       this.signingNotice.textContent = `${prepared.duplicatePaymentWarning} ${this.signingNotice.textContent}`;
     }
 
-    const price = Number(asset.tokenPriceUsd);
-    const amount = Number(displayAmount);
-    const usdValue = price * amount;
     if (this.amountUsd) {
-      const hasUsdValue = Number.isFinite(price) && Number.isFinite(amount) && Number.isFinite(usdValue);
-      this.amountUsd.textContent = hasUsdValue ? `≈ ${formatConnectedUsd(usdValue)}` : '';
-      this.amountUsd.style.display = hasUsdValue ? 'block' : 'none';
+      const estimate = this.getUsdEstimate(displayAmount, asset.tokenPriceUsd);
+      this.amountUsd.textContent = estimate;
+      this.amountUsd.style.display = estimate ? 'block' : 'none';
     }
+    const nativeAsset = network.assets.find((entry) => (
+      entry.networkId === network.id
+      && entry.chainId === network.chainId
+      && entry.tokenType === 'native'
+      && !entry.contractAddress
+    ));
+    const feeEstimate = this.getUsdEstimate(formatUnits(maximumFee, 18), nativeAsset?.tokenPriceUsd);
+    this.feeUsd.textContent = feeEstimate;
+    this.feeUsd.style.display = feeEstimate ? 'block' : 'none';
     this.memoGroup.style.display = prepared.chat?.note ? 'block' : 'none';
     document.getElementById('confirmMemo').textContent = prepared.chat?.note || '';
     for (const group of [this.networkGroup, this.feeGroup]) {
@@ -1969,11 +1995,12 @@ export class EvmSendConfirmationModal {
     if (this.pending) this.settle(false);
 
     if (!openModal(this.modal)) throw new EvmTransferError('Please wait for the current modal to open, then try again.', 'MODAL_BUSY');
+    const amountUsdDisplay = this.amountUsd?.style.display;
     this.render(prepared);
     this.confirmButton.disabled = false;
     this.cancelButton.disabled = false;
     return new Promise((resolve) => {
-      this.pending = { resolve };
+      this.pending = { resolve, amountUsdDisplay };
     });
   }
 
@@ -1995,6 +2022,8 @@ export class EvmSendConfirmationModal {
       group.hidden = true;
     }
     this.signingNotice.hidden = true;
+    // The LIB confirmation shares this element and controls its own USD text.
+    if (this.amountUsd) this.amountUsd.style.display = pending.amountUsdDisplay;
     pending.resolve(Boolean(confirmed));
   }
 

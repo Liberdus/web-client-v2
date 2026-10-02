@@ -8084,6 +8084,13 @@ small {
   width: calc(100% - 32px); /* Ensure it doesn't overflow the input */
 }
 
+#sendAssetConfirmModal:has(#evmConfirmFeeGroup:not([hidden])) #confirmAmountUSD,
+#sendAssetConfirmModal #evmConfirmFeeUSD {
+  position: static;
+  width: auto;
+  margin: 4px 16px 0;
+}
+
 .icon-button.edit-icon {
   color: var(--text-color);
   opacity: 0.7;
