@@ -1863,6 +1863,10 @@ export class EvmSendConfirmationModal {
     this.signingNotice = this.createSigningNotice();
     this.networkValue = this.networkGroup.querySelector('.confirm-value');
     this.feeValue = this.feeGroup.querySelector('.confirm-value');
+    this.feeUsd = document.getElementById('evmConfirmFeeUSD') || document.createElement('div');
+    this.feeUsd.id = 'evmConfirmFeeUSD';
+    this.feeUsd.className = 'confirm-value-secondary usd-equivalent';
+    this.feeGroup.appendChild(this.feeUsd);
 
     this.confirmButton.addEventListener(
       'click',
@@ -1966,6 +1970,15 @@ export class EvmSendConfirmationModal {
       this.amountUsd.textContent = estimate;
       this.amountUsd.style.display = estimate ? 'block' : 'none';
     }
+    const nativeAsset = network.assets.find((entry) => (
+      entry.networkId === network.id
+      && entry.chainId === network.chainId
+      && entry.tokenType === 'native'
+      && !entry.contractAddress
+    ));
+    const feeEstimate = this.getUsdEstimate(formatUnits(maximumFee, 18), nativeAsset?.tokenPriceUsd);
+    this.feeUsd.textContent = feeEstimate;
+    this.feeUsd.style.display = feeEstimate ? 'block' : 'none';
     this.memoGroup.style.display = prepared.chat?.note ? 'block' : 'none';
     document.getElementById('confirmMemo').textContent = prepared.chat?.note || '';
     for (const group of [this.networkGroup, this.feeGroup]) {
