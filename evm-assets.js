@@ -878,6 +878,8 @@ export class EvmTransactionService {
     getManagedRpcUrl = () => null,
     savePayment,
     saveSubmission,
+    preparePaymentMessage,
+    sendPaymentMessage,
     fetchFn = (...args) => fetch(...args),
   }) {
     this.getAccount = getAccount;
@@ -887,6 +889,8 @@ export class EvmTransactionService {
     this.getManagedRpcUrl = getManagedRpcUrl;
     this.savePayment = savePayment;
     this.saveSubmission = saveSubmission;
+    this.preparePaymentMessage = preparePaymentMessage;
+    this.sendPaymentMessage = sendPaymentMessage;
     this.fetchFn = fetchFn;
     this.requestId = 0;
     this.verifiedRpcEndpoints = new Map();
@@ -1253,15 +1257,25 @@ export class EvmTransactionService {
     if (!payment) throw new Error('Cannot record this asset transfer.');
     const record = {
       kind: 'outgoing', payment, networkId: network.id, username: chat?.username || null,
-      createdAt: Date.now(), broadcastState: 'attempting', assetState: 'unknown',
+      createdAt: Date.now(), broadcastState: 'not_started', assetState: 'unknown',
       messageState: chat ? 'ready' : 'none',
       rawTransaction, nonce: prepared.transaction.nonce,
+      ...(chat ? { messageCostLimit: chat.totalRequired } : {}),
     };
     const account = prepared.validation.account;
+    // Check and sign the announcement before spending EVM assets; send only after acceptance.
+    if (chat) await this.preparePaymentMessage(record, account);
+    if (this.getAccount() !== account) throw new Error('Account changed before broadcast.');
     this.savePayment(record, account);
     // Normal account saves retain the original bytes for an exact submission retry.
     let status = await this.broadcast(network, record, account);
     let receipt = null;
+    if (chat && status === 'pending' && this.getAccount() === account) {
+      try { await this.sendPaymentMessage(record, account); }
+      catch (error) {
+        if (this.getAccount() === account && !error.toastAlreadyShown) this.showToast(error.message, 0, 'error');
+      }
+    }
     if (!chat && status === 'pending') {
       try {
         receipt = await this.waitForReceipt(network, transactionHash);
@@ -1974,6 +1988,8 @@ class EvmAssetsController {
     this.loaded = false;
     this.sending = false;
     this.prepareChatPayment = null;
+    this.preparePaymentMessage = null;
+    this.sendChatPayment = null;
     this.getPayments = () => [];
     this.savePayment = () => { throw new Error('Payment storage is unavailable'); };
     this.saveSubmission = () => { throw new Error('Payment storage is unavailable'); };
@@ -1993,6 +2009,8 @@ class EvmAssetsController {
       getManagedRpcUrl: (network) => this.discovery.getRpcUrl(network.id),
       savePayment: (record, account) => this.savePayment(record, account),
       saveSubmission: (record, account) => this.saveSubmission(record, account),
+      preparePaymentMessage: (record, account) => this.preparePaymentMessage(record, account),
+      sendPaymentMessage: (record, account) => this.sendChatPayment(record, account),
     });
     this.assetsModal = new AssetsModal(this);
     this.assetDetailsModal = new AssetDetailsModal(this);
@@ -2004,6 +2022,8 @@ class EvmAssetsController {
     getLiberdusAsset,
     findContact,
     prepareChatPayment,
+    preparePaymentMessage,
+    sendChatPayment,
     getPayments,
     savePayment,
     saveSubmission,
@@ -2020,6 +2040,8 @@ class EvmAssetsController {
     if (typeof getPayments === 'function') this.getPayments = getPayments;
     if (typeof savePayment === 'function') this.savePayment = savePayment;
     if (typeof saveSubmission === 'function') this.saveSubmission = saveSubmission;
+    if (typeof preparePaymentMessage === 'function') this.preparePaymentMessage = preparePaymentMessage;
+    if (typeof sendChatPayment === 'function') this.sendChatPayment = sendChatPayment;
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openSend === 'function') this.openSend = openSend;
     if (typeof openReceive === 'function') this.openReceive = openReceive;
