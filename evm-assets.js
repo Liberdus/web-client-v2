@@ -3,6 +3,7 @@ import {
   escapeHtml,
   normalizeUsername,
   openModal,
+  utf82bin,
   withButtonCooldown,
 } from './lib.js';
 import { getPublicKey, signMessage } from './crypto.js';
@@ -44,6 +45,8 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
   ]),
 });
 
+const ERC20_TRANSFER_TOPIC = bytesToHex(keccak256(utf82bin('Transfer(address,address,uint256)')));
+
 const EVM_CHAT_PAYMENTS_ENABLED = false;
 
 export const EVM_CHAT_MESSAGE_TYPE = 'evm_transfer';
@@ -52,6 +55,7 @@ export const EVM_CHAT_MESSAGE_TYPE = 'evm_transfer';
 export function parseEvmTransferMessage(value) {
   if (!value || value.type !== EVM_CHAT_MESSAGE_TYPE || value.version !== 1) return null;
   if (!Number.isSafeInteger(value.chainId) || value.chainId <= 0) return null;
+  if (typeof value.networkId !== 'string' || !/^[a-z0-9-]{1,64}$/.test(value.networkId)) return null;
   if (typeof value.transactionHash !== 'string' || typeof value.from !== 'string' || typeof value.to !== 'string') return null;
   if (!EVM_HASH_PATTERN.test(value.transactionHash) || !EVM_ADDRESS_PATTERN.test(value.from)
     || !EVM_ADDRESS_PATTERN.test(value.to)) return null;
@@ -66,6 +70,7 @@ export function parseEvmTransferMessage(value) {
     type: EVM_CHAT_MESSAGE_TYPE,
     version: 1,
     chainId: value.chainId,
+    networkId: value.networkId,
     transactionHash: value.transactionHash.toLowerCase(),
     from: value.from.toLowerCase(),
     to: value.to.toLowerCase(),
@@ -697,6 +702,24 @@ class WalletDiscoveryService {
     return getWalletNetwork(this.getCatalog(), networkId);
   }
 
+  async getNativeCurrency({ id, chainId }) {
+    const configured = REQUIRED_NETWORKS.find((network) => network.source === 'evm'
+      && network.id === id && network.chainId === chainId);
+    if (configured) return { symbol: configured.nativeSymbol, decimals: 18 };
+
+    // Portfolio native rows include zero balances, unlike the visible wallet catalog.
+    const findNativeToken = () => this.portfolio?.tokens.find((token) => token.networkId === id
+      && token.chainId === chainId && token.tokenType === 'native' && !token.contractAddress);
+    let token = findNativeToken();
+    if (!token) {
+      await this.refresh();
+      token = findNativeToken();
+    }
+    if (!token || typeof token.tokenSymbol !== 'string' || !token.tokenSymbol.trim()
+      || !Number.isInteger(token.tokenDecimals) || token.tokenDecimals < 0 || token.tokenDecimals > 255) return null;
+    return { symbol: token.tokenSymbol.trim(), decimals: token.tokenDecimals };
+  }
+
   getSelectedAsset(networkId, select) {
     const walletNetwork = this.getNetwork(networkId);
     if (!walletNetwork) return null;
@@ -876,6 +899,7 @@ export class EvmTransactionService {
     showToast,
     confirmTransfer,
     getManagedRpcUrl = () => null,
+    getNativeCurrency,
     savePayment,
     saveSubmission,
     preparePaymentMessage,
@@ -887,6 +911,7 @@ export class EvmTransactionService {
     this.showToast = showToast;
     this.confirmTransfer = confirmTransfer;
     this.getManagedRpcUrl = getManagedRpcUrl;
+    this.getNativeCurrency = getNativeCurrency;
     this.savePayment = savePayment;
     this.saveSubmission = saveSubmission;
     this.preparePaymentMessage = preparePaymentMessage;
@@ -894,6 +919,7 @@ export class EvmTransactionService {
     this.fetchFn = fetchFn;
     this.requestId = 0;
     this.verifiedRpcEndpoints = new Map();
+    this.paymentEvidence = new Map();
   }
 
   validate({ network, asset, recipient, amount }) {
@@ -949,10 +975,10 @@ export class EvmTransactionService {
     const managedRpcUrl = this.getManagedRpcUrl(network);
     const urls = Array.isArray(runtimeUrls) && runtimeUrls.length > 0
       ? runtimeUrls
-      : [managedRpcUrl, ...(network.rpcUrls || [])].filter(Boolean);
+      : [managedRpcUrl, ...(network.rpcUrls || DEFAULT_EVM_RPC_URLS[network.id] || [])].filter(Boolean);
     if (!Array.isArray(urls) || urls.length === 0) {
       throw new EvmTransferError(
-        `Sending is not configured for ${network.name}`,
+        `Sending is not configured for ${network.name || network.id}`,
         'RPC_NOT_CONFIGURED',
       );
     }
@@ -1214,6 +1240,97 @@ export class EvmTransactionService {
     ].join('\n');
   }
 
+  /** Cache network evidence, not verdicts: every claim must match independently. */
+  async getPaymentEvidence(network, hash) {
+    const key = `${network.id}:${network.chainId}:${hash}`;
+    const cached = this.paymentEvidence.get(key);
+    if (cached && cached.until > Date.now()) return cached.promise;
+    const promise = (async () => {
+      const [transaction, receipt] = await Promise.all([
+        this.request(network, 'eth_getTransactionByHash', [hash]),
+        this.request(network, 'eth_getTransactionReceipt', [hash]),
+      ]);
+      const block = receipt?.blockNumber
+        ? await this.request(network, 'eth_getBlockByNumber', [receipt.blockNumber, false]) : null;
+      return { transaction, receipt, block };
+    })();
+    // Share recent network evidence across claims; verdicts are never shared.
+    if (this.paymentEvidence.size >= 100) this.paymentEvidence.clear();
+    this.paymentEvidence.set(key, { until: Date.now() + 10_000, promise });
+    return promise;
+  }
+
+  async verifyPayment(value, expectedFrom, expectedTo) {
+    const payment = parseEvmTransferMessage(value);
+    if (!payment || payment.from !== expectedFrom || payment.to !== expectedTo) return 'failed';
+    const network = { id: payment.networkId, chainId: payment.chainId };
+    return this.verifyPaymentOnNetwork(payment, network);
+  }
+
+  async verifyOutgoingPayment(record) {
+    const payment = parseEvmTransferMessage(record.payment);
+    if (record.kind !== 'outgoing' || !payment || payment.from !== walletProbeAddress(this.getAccount()?.keys?.address)) return 'failed';
+    const network = { id: payment.networkId, chainId: payment.chainId };
+    const state = await this.verifyPaymentOnNetwork(payment, network);
+    if (state !== 'unverifiable') return state;
+    if (record.broadcastState === 'nonce_used') return 'nonce_used';
+    try {
+      if (await this.isNonceConsumed(network, record)) return 'nonce_used';
+    } catch { /* An unavailable finalized nonce leaves the outcome unresolved. */ }
+    return state;
+  }
+
+  async verifyPaymentOnNetwork(payment, network) {
+    try {
+      const { transaction: tx, receipt, block } = await this.getPaymentEvidence(network, payment.transactionHash);
+      if (!tx || tx.hash?.toLowerCase() !== payment.transactionHash) return 'unverifiable';
+      if (!receipt) return 'pending';
+      if (!block) return 'unverifiable';
+      if (!EVM_HASH_PATTERN.test(block.hash) || receipt.blockHash !== block.hash || tx.blockHash !== block.hash) return 'pending';
+      if (tx.hash?.toLowerCase() !== payment.transactionHash || receipt.transactionHash?.toLowerCase() !== payment.transactionHash) return 'unverifiable';
+      if (tx.from?.toLowerCase() !== payment.from) return 'failed';
+      if (parseHexQuantity(receipt.status, 'receipt status') !== 1n) {
+        const matches = payment.assetKind === 'native'
+          ? tx.to?.toLowerCase() === payment.to && parseHexQuantity(tx.value, 'value') === BigInt(payment.rawAmount)
+          : tx.to?.toLowerCase() === payment.contractAddress && tx.input?.toLowerCase() === encodeErc20Transfer(payment.to, BigInt(payment.rawAmount));
+        return matches ? 'reverted' : 'failed';
+      }
+      if (payment.assetKind === 'native') {
+        if (tx.to?.toLowerCase() !== payment.to || parseHexQuantity(tx.value, 'value') !== BigInt(payment.rawAmount)) return 'failed';
+        // RPC proves the transfer; wallet metadata independently verifies its display units.
+        const currency = await this.getNativeCurrency(network);
+        if (!currency) return 'unverifiable';
+        return payment.decimals === currency.decimals && payment.symbol === currency.symbol ? 'settled' : 'failed';
+      }
+      if (tx.to?.toLowerCase() !== payment.contractAddress) return 'failed';
+      const matchingTransfer = receipt.logs?.some((log) => !log.removed
+        && log.address?.toLowerCase() === payment.contractAddress && log.topics?.length === 3
+        && log.topics[0]?.toLowerCase() === ERC20_TRANSFER_TOPIC
+        && log.topics[1]?.toLowerCase() === `0x${payment.from.slice(2).padStart(64, '0')}`
+        && log.topics[2]?.toLowerCase() === `0x${payment.to.slice(2).padStart(64, '0')}`
+        && /^0x[0-9a-fA-F]{64}$/.test(log.data) && BigInt(log.data) === BigInt(payment.rawAmount));
+      if (!matchingTransfer) return 'failed';
+      // Verify display metadata too: a valid transfer of a different token must not look like USDC.
+      const [decimals, symbolData] = await Promise.all([
+        this.request(network, 'eth_call', [{ to: payment.contractAddress, data: '0x313ce567' }, receipt.blockNumber]),
+        this.request(network, 'eth_call', [{ to: payment.contractAddress, data: '0x95d89b41' }, receipt.blockNumber]),
+      ]);
+      const symbolBytes = hexToBytes(symbolData, 'symbol');
+      let symbol;
+      if (symbolBytes.length === 32) {
+        symbol = new TextDecoder().decode(symbolBytes).replace(/\0+$/, '');
+      } else {
+        if (symbolBytes.length < 64 || BigInt(`0x${symbolData.slice(2, 66)}`) !== 32n) return 'unverifiable';
+        const length = Number(BigInt(`0x${symbolData.slice(66, 130)}`));
+        if (length > 128 || symbolBytes.length < 64 + length) return 'unverifiable';
+        symbol = new TextDecoder().decode(symbolBytes.slice(64, 64 + length));
+      }
+      return BigInt(decimals) === BigInt(payment.decimals) && symbol.trim() === payment.symbol ? 'settled' : 'failed';
+    } catch {
+      return 'unverifiable';
+    }
+  }
+
   async waitForReceipt(network, transactionHash) {
     const started = Date.now();
     while (Date.now() - started < EVM_RECEIPT_TIMEOUT_MS) {
@@ -1249,7 +1366,7 @@ export class EvmTransactionService {
     if (this.getAccount() !== prepared.validation.account) throw new Error('Account changed before broadcast.');
     const transactionHash = bytesToHex(keccak256(hexToBytes(rawTransaction)));
     const payment = parseEvmTransferMessage({
-      type: EVM_CHAT_MESSAGE_TYPE, version: 1, chainId: network.chainId, transactionHash,
+      type: EVM_CHAT_MESSAGE_TYPE, version: 1, chainId: network.chainId, networkId: network.id, transactionHash,
       from: prepared.validation.from, to: prepared.validation.recipient,
       assetKind: asset.contractAddress ? 'erc20' : 'native', contractAddress: asset.contractAddress || null,
       rawAmount: prepared.validation.amountRaw.toString(), decimals: asset.tokenDecimals, symbol: asset.tokenSymbol,
@@ -1424,7 +1541,9 @@ class AssetsModal {
     this.connectionSummary.textContent = 'Connecting wallet networks…';
     this.connectionSummary.dataset.status = 'loading';
     await this.controller.refresh({ force });
+  }
 
+  renderBalances() {
     const totalUsd = this.controller.getTotalUsd({ evmOnly: true });
     this.totalBalance.textContent = totalUsd === null ? 'N/A' : totalUsd.toFixed(2);
     this.controller.populateNetworkSelect(this.networkSelect, { includeAll: true, evmOnly: true });
@@ -2007,6 +2126,7 @@ class EvmAssetsController {
       showToast: (...args) => this.showToast(...args),
       confirmTransfer: (...args) => this.confirmTransfer(...args),
       getManagedRpcUrl: (network) => this.discovery.getRpcUrl(network.id),
+      getNativeCurrency: (network) => this.discovery.getNativeCurrency(network),
       savePayment: (record, account) => this.savePayment(record, account),
       saveSubmission: (record, account) => this.saveSubmission(record, account),
       preparePaymentMessage: (record, account) => this.preparePaymentMessage(record, account),
@@ -2063,6 +2183,7 @@ class EvmAssetsController {
 
   reset() {
     this.discovery.reset();
+    this.transactions.paymentEvidence.clear();
     this.confirmationModal.reset();
   }
 
@@ -2078,7 +2199,14 @@ class EvmAssetsController {
     return false;
   }
 
-  refresh(options) { return this.discovery.refresh(options); }
+  async refresh(options) {
+    const account = this.getAccount();
+    const catalog = await this.discovery.refresh(options);
+    if (this.getAccount() === account && this.assetsModal.modal?.classList.contains('active')) {
+      this.assetsModal.renderBalances();
+    }
+    return catalog;
+  }
   rebuildCatalog() { return this.discovery.rebuildCatalog(); }
   getCatalog() { return this.discovery.getCatalog(); }
   getEvmCatalog() { return this.discovery.getEvmCatalog(); }
