@@ -877,6 +877,27 @@ export function buildIntentsNetwork(tokens, balances, { alsoShow = [] } = {}) {
   });
 }
 
+// The last token catalog 1Click returned, kept for when it cannot be reached.
+// Not account data: the catalog is the same for everyone.
+const TOKEN_CATALOG_STORAGE_KEY = 'intentsTokenCatalog';
+
+function saveTokenCatalog(tokens) {
+  try {
+    globalThis.localStorage?.setItem(TOKEN_CATALOG_STORAGE_KEY, JSON.stringify(tokens));
+  } catch (error) {
+    console.warn('Could not save the intents token catalog:', error);
+  }
+}
+
+function readSavedTokenCatalog() {
+  try {
+    const tokens = JSON.parse(globalThis.localStorage?.getItem(TOKEN_CATALOG_STORAGE_KEY) || '[]');
+    return Array.isArray(tokens) ? tokens.filter((token) => token && typeof token.assetId === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 export class IntentsDiscoveryService {
   constructor({
     getAccount = () => null,
@@ -891,6 +912,7 @@ export class IntentsDiscoveryService {
     this.tokenCatalogTtlMs = tokenCatalogTtlMs;
     this.tokens = [];
     this.tokensFetchedAt = 0;
+    this.catalogIsFallback = false;
     this.reset();
   }
 
@@ -982,20 +1004,42 @@ export class IntentsDiscoveryService {
     this.accountId = accountId;
   }
 
-  /** The token catalog barely moves, so it is cached well past the balances. */
+  /**
+   * The token catalog barely moves, so it is cached well past the balances.
+   *
+   * It comes from 1Click, but the balances do not: they are read from NEAR,
+   * which only needs the asset ids. So when 1Click is down (a Cloudflare 521
+   * on 2026-10-01 blanked every balance) the last catalog this device saw
+   * stands in, with its prices dropped -- they could be hours old, and a
+   * stale price shown as current is worse than none. `catalogIsFallback`
+   * says which happened, and the next refresh tries 1Click again.
+   */
   async loadTokens({ force = false } = {}) {
     const now = Date.now();
     if (!force && this.tokens.length && now - this.tokensFetchedAt < this.tokenCatalogTtlMs) {
       return this.tokens;
     }
-    const body = await fetchIntentsTokens();
-    const tokens = (Array.isArray(body) ? body : body?.tokens || [])
-      .filter((token) => token && typeof token.assetId === 'string');
-    if (!tokens.length) {
-      throw new TypeError('Intents token catalog came back empty');
+    let tokens;
+    try {
+      const body = await fetchIntentsTokens();
+      tokens = (Array.isArray(body) ? body : body?.tokens || [])
+        .filter((token) => token && typeof token.assetId === 'string');
+      if (!tokens.length) {
+        throw new TypeError('Intents token catalog came back empty');
+      }
+    } catch (error) {
+      const fallback = this.tokens.length ? this.tokens : readSavedTokenCatalog();
+      if (!fallback.length) throw error;
+      console.warn('Intents token catalog unavailable; using the last one saved:', error);
+      this.tokens = fallback.map((token) => ({ ...token, price: null }));
+      this.tokensFetchedAt = 0;
+      this.catalogIsFallback = true;
+      return this.tokens;
     }
     this.tokens = tokens;
     this.tokensFetchedAt = now;
+    this.catalogIsFallback = false;
+    saveTokenCatalog(tokens);
     return this.tokens;
   }
 
@@ -1042,7 +1086,9 @@ export class IntentsDiscoveryService {
       }
 
       this.balances = balances;
-      this.status = 'connected';
+      // Balances read, but against a saved catalog: amounts are current,
+      // prices unknown.
+      this.status = this.catalogIsFallback ? 'unpriced' : 'connected';
       this.updatedAt = Date.now();
       this.rememberHeld();
       return this.rebuildNetwork();
@@ -2820,13 +2866,19 @@ export class IntentsChatPayments {
     }
   }
 
-  /** Everything checkable before anything moves. */
-  prepare({ asset, recipientAddress, amount, note = null }) {
+  /**
+   * Everything checkable before anything moves.
+   *
+   * The memo is fixed on purpose. The intent is published on NEAR in the
+   * clear, so anything in it is public and tied to both accounts; the note
+   * belongs only in the chat message, which is encrypted.
+   */
+  prepare({ asset, recipientAddress, amount }) {
     return this.transfers.prepare({
       asset,
       recipientAddress,
       amount,
-      memo: note ? `liberdus:${String(note).slice(0, 100)}` : 'liberdus chat payment',
+      memo: 'liberdus chat payment',
     });
   }
 
@@ -3399,6 +3451,11 @@ export function checkAmount(asset, value) {
   return null;
 }
 
+/** No balances read, or balances with no prices: either way, no dollar total. */
+function totalIsUnknown(status, network) {
+  return status === 'unpriced' || (status === 'unavailable' && network.assets.length === 0);
+}
+
 export const priceOf = (asset) => {
   const price = Number(asset?.tokenPriceUsd);
   return price > 0 ? price : null;
@@ -3660,7 +3717,7 @@ class MultichainModal {
    * screen that blanks itself on every refresh reads as losing your money.
    */
   async update({ force = false } = {}) {
-    if (intentsAssets.getStatus() === 'connected') this.render();
+    if (['connected', 'unpriced'].includes(intentsAssets.getStatus())) this.render();
     else this.renderLoading();
     this.setRefreshing(true);
     try {
@@ -3698,9 +3755,10 @@ class MultichainModal {
 
     this.totalBalance.removeAttribute('aria-label');
     this.assetsList.removeAttribute('aria-busy');
-    // Nothing read is not the same as nothing held: $0.00 would claim a balance.
+    // Nothing read is not the same as nothing held: $0.00 would claim a
+    // balance. Nor is a balance with no prices worth $0.00.
     const total = Number(network.totalValueUsd);
-    this.totalBalance.textContent = status === 'unavailable' && network.assets.length === 0
+    this.totalBalance.textContent = totalIsUnknown(status, network)
       ? '—'
       : heroUsd.format(Number.isFinite(total) ? total : 0);
     // Says where the money actually is, which a bare total does not. Silent
@@ -3711,9 +3769,10 @@ class MultichainModal {
       : chains.length === 1 ? `On ${chains[0]}` : '';
     // Only a problem earns this line (DESIGN.md §1.2); custody is a standing
     // fact, and lives in the footnote under the list.
-    this.statusLine.textContent = status === 'unavailable'
-      ? 'Balances are unavailable right now. Refresh to try again.'
-      : '';
+    this.statusLine.textContent = {
+      unavailable: 'Balances are unavailable right now. Refresh to try again.',
+      unpriced: 'Prices are unavailable right now. Your balances are up to date.',
+    }[status] || '';
     this.sendButton.disabled = held.length === 0;
 
     // The list is what you hold, plus what you held before and spent to zero.
@@ -3726,7 +3785,7 @@ class MultichainModal {
 
     // Nothing held: the way to start, not a list of zeros. Only when the
     // balances were actually read -- "nothing here" is a claim.
-    this.empty.hidden = !(status === 'connected' && held.length === 0 && visible.length === 0);
+    this.empty.hidden = !(['connected', 'unpriced'].includes(status) && held.length === 0 && visible.length === 0);
     if (!this.empty.hidden) this.renderQuickReceive();
 
     this.assetsList.hidden = visible.length === 0;
@@ -5359,7 +5418,9 @@ class MultichainController {
   async updateSummary({ refresh = false } = {}) {
     if (!this.summaryValue) return;
     if (refresh) await intentsAssets.refresh();
-    this.summaryValue.textContent = formatUsd(intentsAssets.getTotalUsd());
+    this.summaryValue.textContent = totalIsUnknown(intentsAssets.getStatus(), intentsAssets.getNetwork())
+      ? '—'
+      : formatUsd(intentsAssets.getTotalUsd());
   }
 }
 
@@ -5491,7 +5552,9 @@ export class ChatPaymentPanel {
     this.showToast = () => {};
     this.listContacts = () => [];
     this.renderAvatar = () => '';
-    this.prepareRecipient = async () => ({ blocked: false });
+    // Resolves to { problem } -- null when a receipt can reach them and be
+    // paid for, else the reason it cannot.
+    this.prepareRecipient = async () => ({ problem: null });
     this.contactPicker = new ContactPicker(this);
   }
 
@@ -5664,15 +5727,12 @@ export class ChatPaymentPanel {
     const amount = this.amount.tokenAmount();
     if (!asset || !this.recipientAddress || this.amount.problem() !== null) return;
 
-    // The receipt travels as a chat message, so a contact who is not taking
-    // messages from you would get the money with no word of who sent it or
-    // why. Refuse before anything moves, not after.
     this.sendButton.disabled = true;
     this.setStatus('Checking…');
-    const recipient = await this.prepareRecipient(this.recipientAddress).catch(() => ({ blocked: false }));
+    const problem = await this.recipientProblem();
     this.sendButton.disabled = false;
-    if (recipient?.blocked) {
-      this.setStatus(`${this.recipientName || 'This contact'} is not accepting messages from you, so a payment cannot reach them here.`, 'error');
+    if (problem) {
+      this.setStatus(problem, 'error');
       return;
     }
     this.setStatus('');
@@ -5702,6 +5762,24 @@ export class ChatPaymentPanel {
     });
   }
 
+  /**
+   * Why a receipt could not follow this payment, or null when it can.
+   *
+   * The receipt travels as a chat message, so a payment to someone it cannot
+   * reach -- blocked, the other kind of account, or no LIB for the fee --
+   * would leave them with money and no word of who sent it or why. Asked
+   * before anything moves, and a check that cannot be made refuses too.
+   */
+  async recipientProblem() {
+    try {
+      const result = await this.prepareRecipient(this.recipientAddress);
+      return result?.problem || null;
+    } catch (error) {
+      console.warn('Payment recipient check failed:', error);
+      return 'Could not check that this payment can reach them. Try again.';
+    }
+  }
+
   async run(sheet, { asset, amount, note }) {
     const secretKey = this.getAccount()?.keys?.secret;
     if (!secretKey) {
@@ -5710,13 +5788,23 @@ export class ChatPaymentPanel {
     }
 
     this.sending = true;
+    // Again at the last moment: the confirmation can sit open while the toll,
+    // a block or the LIB balance changes.
+    sheet.setStatus('Checking…');
+    const problem = await this.recipientProblem();
+    if (problem) {
+      this.sending = false;
+      sheet.setStatus(problem, 'error');
+      sheet.action.disabled = false;
+      return;
+    }
     sheet.setStatus('Sending…');
 
     let prepared;
     let sent;
     try {
       prepared = await intentsChatPayments.prepare({
-        asset, recipientAddress: this.recipientAddress, amount, note,
+        asset, recipientAddress: this.recipientAddress, amount,
       });
       sent = await intentsChatPayments.send(prepared, secretKey, { asset, note });
     } catch (error) {
@@ -5746,12 +5834,13 @@ export class ChatPaymentPanel {
       multichain.confirmModal.close();
       return;
     }
-    sheet.finish(`Your ${prepared.symbol} was sent, but the chat message did not go through. Go back to send it again.`, 'error');
+    sheet.finish(`Your ${prepared.symbol} was sent, but the chat message did not go through. Go back to send it again, or retry it later from the payment in your chat.`, 'error');
   }
 
   /**
    * Post the chat message for a transfer that has already gone. Safe to press
-   * again: it only ever resends the message, never the money.
+   * again: it only ever resends the message, never the money, and a resend
+   * reuses the payment's card in the chat rather than adding another.
    */
   async sendReceipt() {
     const receipt = this.pendingReceipt;
