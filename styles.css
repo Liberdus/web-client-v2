@@ -8054,6 +8054,8 @@ small {
 }
 
 #sendAssetConfirmModal #confirmMemo {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   font-style: italic;
   background-color: var(--primary-tint-04);
 }
@@ -12632,3 +12634,5 @@ button.multichain-token-chip:hover {
 .evm-payment-status { margin-top: 4px; color: var(--secondary-text-color); font-size: var(--font-size-xs); }
 .evm-payment-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .evm-payment-actions .secondary-button { width: auto; margin: 0; padding: 6px 10px; font-size: var(--font-size-xs); }
+
+.evm-payment-message .intents-payment-note { white-space: pre-wrap; }
