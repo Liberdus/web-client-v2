@@ -1076,8 +1076,15 @@ async function encryptAllAccounts(oldPassword, newPassword) {
   const oldEncKey = !oldPassword ? null : await passwordToKey(oldPassword+'liberdusData');
   const newEncKey = !newPassword ? null : await passwordToKey(newPassword+'liberdusData');
   // Get all accounts from localStorage
-  const accountsObj = parse(localStorage.getItem('accounts') || 'null');
-  if (!accountsObj?.netids) return;
+  const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+  // Pending registrations are not sign-in entries yet, but their saved keys must follow app-lock changes.
+  for (const key of Object.keys(localStorage)) {
+    if (!key.startsWith('pendingRegistration_')) continue;
+    const netid = key.slice('pendingRegistration_'.length);
+    const { username } = parse(localStorage.getItem(key));
+    accountsObj.netids[netid] ??= { usernames: {} };
+    accountsObj.netids[netid].usernames[username] ??= {};
+  }
 
   for (const netid in accountsObj.netids) {
     const usernamesObj = accountsObj.netids[netid]?.usernames;
@@ -32424,6 +32431,7 @@ class CreateAccountModal {
     this.checkTimeout = null;
     this.isCreatingAccount = false;
     this.isUsernameAvailable = false;
+    this.pendingRegistration = null;
   }
 
   load() {
@@ -32445,6 +32453,7 @@ class CreateAccountModal {
     this.privateAccountCheckbox = document.getElementById('togglePrivateAccount');
     this.privateAccountHelpButton = document.getElementById('privateAccountHelpButton');
     this.privateAccountTemplate = document.getElementById('privateAccountHelpMessageTemplate');
+    this.registrationStatus = document.getElementById('registrationStatus');
     this.controls = this.modal.querySelectorAll('button, input');
 
     // Setup event listeners
@@ -32453,7 +32462,7 @@ class CreateAccountModal {
     this.toggleButton.addEventListener('change', () => this.handleTogglePrivateKeyInput());
     this.advancedSection.addEventListener('toggle', () => this.handleAdvancedToggle());
     this.advancedSummary.addEventListener('click', (event) => {
-      if (this.isCreatingAccount) event.preventDefault();
+      if (this.isCreatingAccount || this.pendingRegistration) event.preventDefault();
     });
     this.backButton.addEventListener('click', () => this.closeWithReload());
 
@@ -32482,6 +32491,8 @@ class CreateAccountModal {
       this.migrateAccountsSection.style.display = 'none';
     }
 
+    this.restoreRegistration();
+    this.refreshControlStates();
     openModal(this.modal);
     enterFullscreen();
     // Delay focus to ensure transition completes (modal transition is 300ms)
@@ -32511,6 +32522,9 @@ class CreateAccountModal {
   openWithReset() {
     if (this.isCreatingAccount) return;
 
+    this.open();
+    if (this.pendingRegistration) return;
+
     // Clear form fields
     this.usernameInput.value = '';
     this.usernameAvailable.style.display = 'none';
@@ -32519,9 +32533,6 @@ class CreateAccountModal {
     
     this.advancedSection.open = false;
     this.resetAdvancedOptions();
-    
-    // Open the modal
-    this.open();
   }
 
   /**
@@ -32570,10 +32581,12 @@ class CreateAccountModal {
       const isMigrationBusy =
         control === this.migrateAccountsButton &&
         (migrateAccountsModal.isOpening || migrateAccountsModal.isMigrating);
-      control.disabled = this.isCreatingAccount || isMigrationBusy || (requiresConnection && !isOnline);
+      const lockedForRecovery = !!this.pendingRegistration && control !== this.backButton && control !== this.submitButton;
+      control.disabled = this.isCreatingAccount || lockedForRecovery || isMigrationBusy || (requiresConnection && !isOnline);
     });
-    this.advancedSummary.setAttribute('aria-disabled', String(this.isCreatingAccount));
-    this.advancedSection.classList.toggle('is-disabled', this.isCreatingAccount);
+    const advancedDisabled = this.isCreatingAccount || !!this.pendingRegistration;
+    this.advancedSummary.setAttribute('aria-disabled', String(advancedDisabled));
+    this.advancedSection.classList.toggle('is-disabled', advancedDisabled);
     this.refreshSubmitButton();
   }
 
@@ -32582,11 +32595,13 @@ class CreateAccountModal {
       this.isCreatingAccount ||
       migrateAccountsModal.isOpening ||
       migrateAccountsModal.isMigrating ||
-      !this.isUsernameAvailable ||
+      (!this.pendingRegistration && !this.isUsernameAvailable) ||
       !isOnline;
+    this.submitButton.textContent = this.pendingRegistration ? 'Check account status' : 'Create Account';
   }
 
   handleUsernameInput(e) {
+    if (this.pendingRegistration) return;
     const username = normalizeUsername(e.target.value);
     e.target.value = username;
 
@@ -32702,8 +32717,162 @@ class CreateAccountModal {
     };
   }
 
+  restoreRegistration() {
+    const saved = localStorage.getItem(`pendingRegistration_${network.netid}`);
+    if (!saved) {
+      this.pendingRegistration = null;
+      this.registrationStatus.hidden = true;
+      return false;
+    }
+
+    const registration = parse(saved);
+    const state = loadState(`${registration.username}_${network.netid}`);
+    // Account removal can deliberately delete the saved identity while its recovery pointer remains.
+    if (!state) {
+      this.clearRegistrationRecovery();
+      return false;
+    }
+    assert(
+      state?.account?.username === registration.username && state.account.netid === network.netid &&
+      state.account.keys?.address === registration.address && typeof registration.txid === 'string',
+      'Pending registration identity is missing'
+    );
+    myData = state;
+    myAccount = state.account;
+    this.pendingRegistration = registration;
+    this.usernameInput.value = registration.username;
+    this.privateKeyInput.value = '';
+    this.privateAccountCheckbox.checked = myAccount.private === true;
+    this.showRegistrationUnavailable();
+    return true;
+  }
+
+  showRegistrationUnavailable() {
+    this.registrationStatus.hidden = false;
+    this.usernameAvailable.style.display = 'none';
+    this.registrationStatus.textContent = 'Confirmation is unavailable. Your account details are saved on this device. Check account status to continue with the same account; no new registration will be sent.';
+  }
+
+  async queryRegistration(path, timeoutMs) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await queryNetwork(path, controller.signal);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async waitForRegistration() {
+    const { txid } = this.pendingRegistration;
+    const started = Date.now();
+    const deadline = started + 35000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, Math.min(5000, deadline - Date.now())));
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+      const path = Date.now() - started < 20000
+        ? `/transaction/${txid}`
+        : `/collector/api/transaction?appReceiptId=${txid}`;
+      const response = await this.queryRegistration(path, Math.min(10000, remaining));
+      const outcome = this.registrationOutcome(response);
+      if (outcome.status !== 'unavailable') return outcome;
+    }
+    return { status: 'unavailable' };
+  }
+
+  /** @returns {{ status: 'confirmed' } | { status: 'rejected', reason: string } | { status: 'unavailable' }} */
+  registrationOutcome(response) {
+    const receipt = response?.transaction;
+    if (receipt?.success === true) return { status: 'confirmed' };
+    if (receipt?.success === false) {
+      const reason = typeof receipt.reason === 'string' ? receipt.reason : 'Registration rejected';
+      return { status: 'rejected', reason };
+    }
+    return { status: 'unavailable' };
+  }
+
+  async reconcileRegistration() {
+    const { txid, username } = this.pendingRegistration;
+    const receipt = await this.queryRegistration(`/collector/api/transaction?appReceiptId=${txid}`, 10000);
+    const outcome = this.registrationOutcome(receipt);
+    if (outcome.status !== 'unavailable') return outcome;
+
+    // A matching alias proves this original identity registered even if its receipt is unavailable.
+    const usernameHash = hashBytes(utf82bin(username));
+    const lookup = await this.queryRegistration(`/address/${usernameHash}`, 10000);
+    if (lookup?.address === longAddress(myAccount.keys.address)) return { status: 'confirmed' };
+    return { status: 'unavailable' };
+  }
+
+  async confirmRegistration(isRecovery) {
+    this.setAccountCreationInProgress(true);
+    const toastId = showToast(isRecovery ? 'Checking account status...' : 'Creating account...', 0, 'loading');
+    let outcome;
+    try {
+      outcome = isRecovery ? await this.reconcileRegistration() : await this.waitForRegistration();
+    } catch (error) {
+      console.error('Registration confirmation unavailable:', error);
+      outcome = { status: 'unavailable' };
+    } finally {
+      hideToast(toastId);
+      this.setAccountCreationInProgress(false);
+    }
+
+    switch (outcome.status) {
+      case 'unavailable':
+        this.showRegistrationUnavailable();
+        return;
+      case 'rejected':
+        this.clearRegistrationRecovery();
+        clearMyData();
+        showToast(`Account creation failed: ${outcome.reason}`, 0, 'error');
+        return;
+      case 'confirmed':
+        await this.completeRegistration();
+        return;
+      default:
+        throw new Error(`Unknown registration outcome: ${outcome.status}`);
+    }
+  }
+
+  clearRegistrationRecovery() {
+    localStorage.removeItem(`pendingRegistration_${network.netid}`);
+    this.pendingRegistration = null;
+    this.registrationStatus.hidden = true;
+    this.refreshControlStates();
+  }
+
+  async completeRegistration() {
+    const { username, netid, keys } = myAccount;
+    assert(
+      username === this.pendingRegistration.username && keys.address === this.pendingRegistration.address,
+      'Registration confirmation identity changed'
+    );
+    const accounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+    accounts.netids[netid] ??= { usernames: {} };
+    accounts.netids[netid].usernames[username] = { address: keys.address };
+    localStorage.setItem('accounts', stringify(accounts));
+    saveState();
+    this.clearRegistrationRecovery();
+    this.close();
+    welcomeScreen.close();
+    try {
+      myData.wallet.timestamp = 0;
+      await walletScreen.updateWalletBalances();
+    } catch (error) {
+      console.error('Failed to refresh wallet balances after account creation:', error);
+    }
+    signInModal.open(username);
+  }
+
   async handleSubmit(event) {
     event.preventDefault();
+
+    if (this.pendingRegistration) {
+      if (!this.isCreatingAccount && isOnline) await this.confirmRegistration(true);
+      return;
+    }
 
     if (
       this.isCreatingAccount ||
@@ -32727,14 +32896,6 @@ class CreateAccountModal {
 
     // Get network ID from network.js
     const { netid } = network;
-
-    // Get existing accounts or create new structure
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-
-    // Ensure netid and usernames objects exist
-    if (!existingAccounts.netids[netid]) {
-      existingAccounts.netids[netid] = { usernames: {} };
-    }
 
     // Get private key from input or generate new one
     const providedPrivateKey = this.privateKeyInput.value;
@@ -32837,62 +32998,13 @@ class CreateAccountModal {
     }
 
     if (res && res.result && res.result.success && res.txid) {
-      const txid = res.txid;
-
-      try {
-        // Start interval since trying to create account and tx should be in pending
-        if (!checkPendingTransactionsIntervalId) {
-          checkPendingTransactionsIntervalId = setInterval(checkPendingTransactions, 5000);
-        }
-
-        // Wait for the transaction confirmation
-        const confirmationDetails = await pendingPromiseService.register(txid);
-        if (
-          confirmationDetails.username !== username ||
-          confirmationDetails.address !== longAddress(myAccount.keys.address)
-        ) {
-          throw new Error('Confirmation details mismatch.');
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        if (waitingToastId) hideToast(waitingToastId);
-//        showToast('Account created successfully!', 3000, 'success');
-        // TODO: may not need to get set since gets set in `getChats`. Need to check signin flow.
-        //getChats.lastCall = getCorrectedTimestamp();
-        // Store updated accounts back in localStorage
-        existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
-        localStorage.setItem('accounts', stringify(existingAccounts));
-        saveState();
-        this.setAccountCreationInProgress(false);
-        this.close();
-        welcomeScreen.close();
-        // Refresh wallet balance immediately after account creation for fee-dependent screens.
-        try {
-          myData.wallet.timestamp = 0;
-          await walletScreen.updateWalletBalances();
-        } catch (error) {
-          console.error('Failed to refresh wallet balances after account creation:', error);
-        }
-
-        // handleNativeAppSubscription();
-
-        signInModal.open(username);
-      } catch (error) {
-        if (waitingToastId) hideToast(waitingToastId);
-        console.error(`DEBUG: handleCreateAccount error`, JSON.stringify(error, null, 2));
-        showToast(`account creation failed: ${error}`, 0, 'error');
-
-        // Clear interval
-        if (checkPendingTransactionsIntervalId) {
-          clearInterval(checkPendingTransactionsIntervalId);
-          checkPendingTransactionsIntervalId = null;
-        }
-
-        clearMyData();
-        this.setAccountCreationInProgress(false);
-
-        // Note: `checkPendingTransactions` will also remove the item from `myData.pending` if it's rejected by the service.
-        return;
-      }
+      // Transfer confirmation ownership from the background checker to this modal.
+      this.pendingRegistration = { username, address: myAccount.keys.address, txid: res.txid };
+      removePendingTransaction(res.txid);
+      saveState();
+      localStorage.setItem(`pendingRegistration_${netid}`, stringify(this.pendingRegistration));
+      if (waitingToastId) hideToast(waitingToastId);
+      await this.confirmRegistration(false);
     } else {
       if (waitingToastId) hideToast(waitingToastId);
       console.error(`DEBUG: handleCreateAccount error in else`, JSON.stringify(res, null, 2));
@@ -36859,13 +36971,6 @@ async function checkPendingTransactionsOnce() {
 
         if (type === 'message') settleEvmPaymentMessage(txid, true);
 
-        if (type === 'register') {
-          pendingPromiseService.resolve(txid, {
-            username: pendingTxInfo.username,
-            address: pendingTxInfo.address,
-          });
-        }
-
         if (res?.transaction?.type === 'withdraw_stake') {
           const index = myData.wallet.history.findIndex((tx) => tx.txid === txid);
           if (index !== -1) {
@@ -36932,9 +37037,7 @@ async function checkPendingTransactionsOnce() {
         const userFailureReason = getUserFacingTxFailureReason(failureReason, feeMismatchStatus);
         console.log(`DEBUG: failure reason: ${failureReason}`);
 
-        if (type === 'register') {
-          pendingPromiseService.reject(txid, new Error(userFailureReason));
-        } else {
+        if (type !== 'register') {
           // Show toast notification with the failure reason
           if (reactionPending) {
             const outcome = settleAndQueueReactionCleanup(pendingTxInfo, 'failure');
@@ -37071,33 +37174,6 @@ function updateTransactionStatus(txid, toAddress, status, type) {
     }
   }
 }
-const pendingPromiseService = (() => {
-  const pendingPromises = new Map(); // txid -> { resolve, reject }
-
-  function register(txid) {
-    return new Promise((resolve, reject) => {
-      pendingPromises.set(txid, { resolve, reject });
-    });
-  }
-
-  function resolve(txid, data) {
-    if (pendingPromises.has(txid)) {
-      const promiseControls = pendingPromises.get(txid);
-      promiseControls.resolve(data);
-      pendingPromises.delete(txid);
-    }
-  }
-
-  function reject(txid, error) {
-    if (pendingPromises.has(txid)) {
-      const promiseControls = pendingPromises.get(txid);
-      promiseControls.reject(error);
-      pendingPromises.delete(txid);
-    }
-  }
-
-  return { register, resolve, reject };
-})();
 
 /*
  * Used to prevent tab from working.
