@@ -34598,7 +34598,21 @@ function evmPaymentRecordId(record) {
 function queueEvmPaymentMessage(message) {
   const payment = parseEvmTransferMessage(message.payment);
   if (!payment || message.deleted) return;
-  const records = loadEvmPayments();
+  let records;
+  try {
+    records = loadEvmPayments();
+  } catch (error) {
+    // Saved recovery failures must not interrupt delivery of other chat messages.
+    if (queueEvmPaymentMessage.warningAccount !== myAccount) {
+      console.warn('Skipping EVM payment verification queue:', {
+        txid: message.txid,
+        reason: error.message,
+      });
+      queueEvmPaymentMessage.warningAccount = myAccount;
+    }
+    return;
+  }
+  queueEvmPaymentMessage.warningAccount = null;
   const claim = stringify(payment);
   const existing = records.find((record) => stringify(record.payment) === claim);
   if (!existing && ['settled', 'failed'].includes(message.paymentVerified)
@@ -34616,6 +34630,7 @@ function queueEvmPaymentMessage(message) {
   }
   saveEvmPayment(record);
 }
+queueEvmPaymentMessage.warningAccount = null;
 
 // EVM recovery lives in myData and follows the normal account save lifecycle.
 function loadEvmPayments() {
