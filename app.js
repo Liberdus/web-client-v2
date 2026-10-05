@@ -34635,12 +34635,19 @@ queueEvmPaymentMessage.warningAccount = null;
 // EVM recovery lives in myData and follows the normal account save lifecycle.
 function loadEvmPayments() {
   const records = myData.evmPayments ?? [];
-  if (!Array.isArray(records) || records.some((record) => !['outgoing', 'verification'].includes(record?.kind)
-    || !parseEvmTransferMessage(record.payment))) {
+  if (!Array.isArray(records)) {
     throw new Error('Saved EVM payment records could not be read.');
   }
+  const validRecords = records.filter((record) => ['outgoing', 'verification'].includes(record?.kind)
+    && parseEvmTransferMessage(record.payment));
+  if (validRecords.length !== records.length) {
+    // Invalid records came from pre-release testing and can be discarded.
+    myData.evmPayments = validRecords;
+    console.warn('Removed invalid saved EVM payment records:', records.length - validRecords.length);
+    saveState();
+  }
   // Async callers work on a snapshot, without changing the current record until saved.
-  return parse(stringify(records));
+  return parse(stringify(validRecords));
 }
 
 function saveEvmPayment(record) {
