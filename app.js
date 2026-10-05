@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'u'; // Also increment this when you increment version.html
+const version = 'v'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -2746,7 +2746,7 @@ async function refreshDaoNotificationSummary() {
 
 const DAO_PROPOSAL_PAGE_SIZE = 10;
 const DAO_ALL_FILTER = { key: 'all', label: 'All' };
-const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claimable' };
+const DAO_CLAIMABLE_FILTER = { key: 'claimable', label: 'Claim' };
 const DAO_FILTER_OPTIONS = [
   DAO_ALL_FILTER,
   ...DAO_STATES,
@@ -2807,6 +2807,9 @@ class DaoModal {
   constructor() {
     this.loadingToastId = null;
     this.selectedFilterKey = 'voting';
+    this.contextFilters = { proposals: 'voting', projects: 'executing' };
+    this.detailsError = false;
+    this.listRequestSequence = 0;
     this.refreshState = 'loading';
     this.refreshSequence = 0;
     this.openRefreshId = 0;
@@ -2826,10 +2829,14 @@ class DaoModal {
     this.list = document.getElementById('daoProposalList');
     this.emptyState = document.getElementById('daoProposalEmptyState');
     this.loadMoreButton = document.getElementById('daoLoadMoreButton');
+    this.listStatus = document.getElementById('daoListStatus');
+    this.retryButton = document.getElementById('daoRetryButton');
+    this.listHeading = document.getElementById('daoListHeading');
     this.addButton = document.getElementById('daoAddProposalButton');
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
     if (this.loadMoreButton) this.loadMoreButton.addEventListener('click', () => this.loadMore());
+    if (this.retryButton) this.retryButton.addEventListener('click', () => this.retryLoad());
     if (this.addButton) {
       this.addButton.addEventListener('click', () => {
         if (hasPendingDaoProposalCreation()) {
@@ -2842,6 +2849,11 @@ class DaoModal {
 
     if (this.filterBar) {
       this.filterBar.addEventListener('click', (e) => {
+        const contextButton = e.target.closest('[data-dao-context]');
+        if (contextButton) {
+          this.setFilter(this.contextFilters[contextButton.dataset.daoContext]);
+          return;
+        }
         const chip = e.target.closest('.dao-filter-chip');
         if (!chip) return;
         const key = chip.dataset.filterKey;
@@ -2878,7 +2890,8 @@ class DaoModal {
 
     enterFullscreen();
 
-    this.selectedFilterKey = initialFilterKey || this.selectedFilterKey || 'voting';
+    this.selectFilter(initialFilterKey || this.selectedFilterKey);
+    this.detailsError = false;
     this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
     this.render();
 
@@ -2916,6 +2929,7 @@ class DaoModal {
     this.hideLoadingToast();
     this.proposalOpenSequence += 1;
     this.detailsRequest = null;
+    this.listRequestSequence += 1;
     this.modal.classList.remove('active');
     enterFullscreen();
 
@@ -2943,6 +2957,15 @@ class DaoModal {
   resetNotificationState() {
     this.notificationBatch = createEmptyDaoNotificationSummary();
     this.notificationProposalNumbers.clear();
+    this.selectedFilterKey = 'voting';
+    this.contextFilters = { proposals: 'voting', projects: 'executing' };
+    this.openRefreshId = ++this.refreshSequence;
+    this.listRequestSequence += 1;
+    this.proposalOpenSequence += 1;
+    this.detailsRequest = null;
+    this.detailsError = false;
+    this.refreshState = 'loading';
+    this.hideLoadingToast();
   }
 
   acknowledgeNotifications(notificationCutoff) {
@@ -3032,6 +3055,7 @@ class DaoModal {
   }
 
   async loadSelectedFilter({ reset, reuseProposalNumbers = new Set() }) {
+    const sequence = ++this.listRequestSequence;
     const entries = this.getSelectedMetadataEntries(daoRepo.getProposalMetaForUi());
 
     if (reset) this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
@@ -3041,26 +3065,37 @@ class DaoModal {
 
     const request = daoRepo.loadProposalEntries(entriesToFetch, { append: true });
     this.detailsRequest = request;
+    this.detailsError = false;
     this.render();
 
     try {
       await request;
+      if (sequence !== this.listRequestSequence) return;
+      const loadedNumbers = new Set(daoRepo.getProposalsForUi().map((proposal) => proposal.number));
+      if (entriesToLoad.some((entry) => !loadedNumbers.has(entry.proposal))) {
+        throw new Error('Some DAO items could not be loaded');
+      }
+    } catch (error) {
+      if (sequence !== this.listRequestSequence) return;
+      this.detailsError = true;
+      throw error;
     } finally {
       if (this.detailsRequest === request) this.detailsRequest = null;
     }
-    if (this.detailsRequest || !this.isActive()) return;
+    if (sequence !== this.listRequestSequence || !this.isActive()) return;
 
     this.render();
   }
 
   async loadMore() {
     if (this.detailsRequest) return;
+    const key = this.selectedFilterKey;
     this.visibleProposalCount += DAO_PROPOSAL_PAGE_SIZE;
 
     try {
       await this.loadSelectedFilter({ reset: false });
     } catch (error) {
-      this.visibleProposalCount -= DAO_PROPOSAL_PAGE_SIZE;
+      if (key !== this.selectedFilterKey || !this.isActive()) return;
       console.warn('Failed to load more DAO proposals:', error);
       showToast('Failed to load more proposals', 2500, 'error');
       this.render();
@@ -3122,17 +3157,61 @@ class DaoModal {
     return didRefreshDaoData;
   }
 
-  async setFilter(key) {
-    if (key === this.selectedFilterKey || this.detailsRequest) return;
-    this.proposalOpenSequence += 1;
+  selectFilter(key) {
+    assert(DAO_FILTER_OPTIONS.some((filter) => filter.key === key), 'Unknown DAO filter');
     this.selectedFilterKey = key;
+    if (key === 'all' || key === 'claimable') return;
+    const context = DAO_PROJECT_FILTER_KEYS.has(key) ? 'projects' : 'proposals';
+    this.contextFilters[context] = key;
+  }
+
+  async retryLoad() {
+    if (this.refreshState !== 'ready') return this._open(this.selectedFilterKey);
+    try {
+      await this.loadSelectedFilter({ reset: false });
+    } catch (error) {
+      console.warn('Failed to retry DAO items:', error);
+      this.render();
+    }
+  }
+
+  async setFilter(key) {
+    if (key === this.selectedFilterKey) return;
+    this.proposalOpenSequence += 1;
+    this.selectFilter(key);
+    this.list?.parentElement.scrollTo({ top: 0 });
+    if (this.refreshState !== 'ready') {
+      this.render();
+      return;
+    }
     try {
       await this.loadSelectedFilter({ reset: true });
     } catch (error) {
+      if (key !== this.selectedFilterKey || !this.isActive()) return;
       console.warn('Failed to load DAO proposal filter:', error);
       showToast('Failed to load proposals', 2500, 'error');
       this.render();
     }
+  }
+
+  renderFilterArea() {
+    const key = this.selectedFilterKey;
+    const context = key === 'all' || key === 'claimable'
+      ? null : DAO_PROJECT_FILTER_KEYS.has(key) ? 'projects' : 'proposals';
+    for (const button of this.filterBar.querySelectorAll('[data-dao-context]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.daoContext === context));
+    }
+    for (const panel of this.filterBar.querySelectorAll('[data-dao-filters]')) {
+      const inactive = panel.dataset.daoFilters !== context;
+      panel.classList.toggle('dao-filter-inactive', inactive);
+      panel.inert = inactive;
+      panel.setAttribute('aria-hidden', String(inactive));
+    }
+    const placeholder = this.filterBar.querySelector('.dao-filter-placeholder');
+    placeholder.classList.toggle('dao-filter-inactive', context !== null);
+    placeholder.setAttribute('aria-hidden', String(context !== null));
+    placeholder.textContent = key === 'claimable'
+      ? 'Voting rewards available to your account.' : 'Showing all proposals and projects.';
   }
 
   render() {
@@ -3160,9 +3239,11 @@ class DaoModal {
 
     const label = DAO_FILTER_OPTIONS.find((filter) => filter.key === this.selectedFilterKey)?.label
       || this.selectedFilterKey;
-    if (this.titleEl) {
-      this.titleEl.textContent = isClaimableFilter ? `DAO - ${label} (this account)` : `DAO - ${label}`;
-    }
+    if (this.titleEl) this.titleEl.textContent = 'DAO';
+    if (this.listHeading) this.listHeading.textContent = isClaimableFilter ? 'Your claims'
+      : this.selectedFilterKey === 'all' ? 'All DAO items'
+      : `${label} ${DAO_PROJECT_FILTER_KEYS.has(this.selectedFilterKey) ? 'projects' : 'proposals'}`;
+    if (this.filterBar) this.renderFilterArea();
 
     for (const filter of DAO_FILTER_OPTIONS) {
       const chip = this.filterBar?.querySelector(`.dao-filter-chip[data-filter-key="${filter.key}"]`);
@@ -3175,6 +3256,10 @@ class DaoModal {
         if (hasFreshData) {
           if (filter.key === DAO_CLAIMABLE_FILTER.key) {
             countAriaLabel = `${count} tracked claim candidates`;
+            countEl.textContent = count ? `${count}?` : '0';
+            countEl.title = 'Tracked voting-reward candidates; eligibility is checked when opened';
+          } else if (filter.key === DAO_ALL_FILTER.key) {
+            countAriaLabel = `${count} DAO items`;
           } else if (DAO_PROJECT_FILTER_KEYS.has(filter.key)) {
             countAriaLabel = `${count} ${filter.label.toLowerCase()} projects`;
           } else {
@@ -3187,7 +3272,7 @@ class DaoModal {
         const selected = filter.key === this.selectedFilterKey;
         chip.classList.toggle('active', selected);
         chip.classList.toggle('has-notification', this.hasNotificationForFilter(filter.key));
-        chip.setAttribute('aria-selected', selected ? 'true' : 'false');
+        chip.setAttribute('aria-pressed', String(selected));
       }
     }
 
@@ -3207,6 +3292,11 @@ class DaoModal {
     }
 
     const hasAny = filtered.length > 0;
+    if (this.listStatus) this.listStatus.textContent = this.detailsError
+      ? 'Some items could not be loaded. Retry to check the remaining items.'
+      : this.refreshState === 'error' ? 'Failed to load DAO items.'
+      : detailsLoading || this.refreshState === 'loading' ? 'Loading DAO items…' : '';
+    if (this.retryButton) this.retryButton.hidden = !this.detailsError && this.refreshState !== 'error';
     if (this.emptyState) this.emptyState.style.display = hasAny ? 'none' : 'block';
 
     if (this.emptyState && !hasAny) {
@@ -3218,9 +3308,9 @@ class DaoModal {
       if (this.refreshState === 'loading' || detailsLoading) {
         if (headlineEl) headlineEl.textContent = 'Loading proposals…';
         if (sublineEl) sublineEl.textContent = 'Please wait';
-      } else if (this.refreshState === 'error') {
+      } else if (this.refreshState === 'error' || this.detailsError) {
         if (headlineEl) headlineEl.textContent = 'Failed to load proposals';
-        if (sublineEl) sublineEl.textContent = 'Close and reopen the DAO to retry';
+        if (sublineEl) sublineEl.textContent = 'Use Retry to load the missing items';
       } else if (isClaimableFilter) {
         if (headlineEl) headlineEl.textContent = 'No claimable proposals found';
         if (sublineEl) sublineEl.textContent = 'Claimable proposals appear here when available';
@@ -3238,6 +3328,7 @@ class DaoModal {
     for (const p of filtered) {
       const li = document.createElement('li');
       li.classList.add('chat-item', 'dao-proposal-row');
+      li.dataset.proposalNumber = String(p.number);
 
       const rowTitleText = formatDaoProposalTitle(p);
       const title = escapeHtml(rowTitleText);
@@ -3276,7 +3367,7 @@ class DaoModal {
       const total = selectedMetadataEntries.length;
       const hasMore = this.visibleProposalCount < total;
       this.loadMoreButton.hidden = !hasMore;
-      this.loadMoreButton.disabled = detailsLoading;
+      this.loadMoreButton.disabled = detailsLoading || this.detailsError;
       this.loadMoreButton.textContent = detailsLoading ? 'Loading…' : 'Load more';
     }
 
@@ -3431,11 +3522,18 @@ class DaoModal {
         if (ariaLabel) proposalRow.setAttribute('aria-label', ariaLabel.replace(/^New DAO activity\. /, ''));
       }
       proposalInfoModal.open(proposal.id);
+      this.returnProposalNumber = proposal.number;
     } catch (error) {
       if (openId !== this.proposalOpenSequence || !this.isActive()) return;
       console.warn('Failed to refresh DAO proposal:', error);
       showToast('Failed to load proposal', 2500, 'error');
     }
+  }
+
+  restoreListFocus() {
+    if (!this.isActive()) return;
+    const row = this.list.querySelector(`[data-proposal-number="${this.returnProposalNumber}"]`);
+    (row || this.filterBar.querySelector('[aria-pressed="true"]'))?.focus();
   }
 }
 
@@ -7875,6 +7973,7 @@ class ProposalInfoModal {
     if (this.isSubmitting) return;
     this.modal.classList.remove('active');
     enterFullscreen();
+    daoModal.restoreListFocus();
   }
 
   refreshIfOpen(proposalId, { resetVoteForm = false } = {}) {

@@ -9433,65 +9433,74 @@ small {
 }
 
 #daoModal .dao-filter-bar {
-  background: rgba(61, 61, 206, 0.14);
-  border-radius: var(--overlay-border-radius);
   box-sizing: border-box;
   display: grid;
-  gap: 4px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 8px 4px 12px;
   width: 100%;
 }
 
-#daoModal .dao-project-filter-row {
+#daoModal .dao-filter-row,
+#daoModal .dao-context-switch {
   display: grid;
-  gap: 4px;
-  grid-column: 1 / -1;
-  grid-template-columns: max-content repeat(3, minmax(max-content, 1fr));
-  min-width: 0;
-  overflow-x: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
-#daoModal .dao-filter-chip {
+#daoModal .dao-context-switch {
+  background: var(--hover-background);
+  border-radius: 10px;
+  margin-top: 4px;
+  padding: 4px;
+}
+
+#daoModal .dao-filter-label {
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-xs);
+  margin-top: 8px;
+}
+
+/* Inactive panels still size this cell, including at larger text sizes. */
+#daoModal .dao-filter-slot { display: grid; }
+#daoModal .dao-filter-slot > * { grid-area: 1 / 1; min-width: 0; }
+#daoModal .dao-context-filters { display: grid; gap: 8px; align-content: start; }
+#daoModal .dao-filter-inactive { visibility: hidden; pointer-events: none; }
+#daoModal .dao-filter-placeholder {
+  display: flex;
   align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  text-align: center;
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
+}
+
+#daoModal .dao-filter-row--outcomes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+#daoModal .dao-filter-row--projects { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+#daoModal .dao-filter-chip,
+#daoModal .dao-context-switch button {
   appearance: none;
-  background: transparent;
+  background: var(--hover-background);
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-color);
   cursor: pointer;
-  display: grid;
   font-family: var(--font-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  gap: 4px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  justify-content: center;
-  line-height: 1.2;
-  min-height: 36px;
+  min-height: 44px;
   min-width: 0;
-  overflow: hidden;
-  padding: 6px 4px;
+  padding: 8px 4px;
   position: relative;
-  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
-#daoModal .dao-filter-row-label {
-  align-items: center;
-  color: var(--secondary-text-color);
-  display: flex;
-  font-size: 9px;
-  font-weight: var(--font-weight-semibold);
-  min-height: 36px;
-  padding: 6px 0;
-}
-
-#daoModal .dao-filter-chip-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: clip;
-}
+#daoModal .dao-context-switch button { background: transparent; font-size: var(--font-size-sm); }
+#daoModal .dao-filter-chip { display: flex; align-items: center; justify-content: center; gap: 6px; }
+#daoModal .dao-filter-row--outcomes .dao-filter-chip,
+#daoModal .dao-filter-row--projects .dao-filter-chip { flex-direction: column; }
+#daoModal .dao-filter-chip-label { min-width: 0; }
 
 #daoModal .dao-filter-chip.has-notification::after {
   background: var(--primary-color);
@@ -9504,15 +9513,18 @@ small {
   width: 7px;
 }
 
-#daoModal .dao-filter-chip:hover {
+#daoModal .dao-filter-chip:hover,
+#daoModal .dao-context-switch button:hover {
   background: var(--hover-background-dark);
 }
 
-#daoModal .dao-filter-chip.active {
+#daoModal .dao-filter-bar button[aria-pressed="true"] {
   background: var(--primary-color);
-  box-shadow: var(--elev-1, 0 1px 2px rgba(0,0,0,0.1));
   color: var(--background-color);
 }
+
+#daoModal .dao-filter-chip.active.has-notification::after { background: currentColor; }
+#daoModal .dao-filter-bar button:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 
 #daoModal .dao-filter-chip-count {
   align-items: center;
@@ -9520,15 +9532,14 @@ small {
   border-radius: 999px;
   color: var(--secondary-text-color);
   display: inline-flex;
-  flex: 0 0 auto;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-semibold);
   justify-content: center;
-  justify-self: end;
   min-height: 20px;
-  min-width: 22px;
-  padding: 2px 6px;
+  min-width: 20px;
+  padding: 0 4px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 #daoModal .dao-filter-chip.active .dao-filter-chip-count {
@@ -9536,23 +9547,10 @@ small {
   color: var(--background-color);
 }
 
-@media (max-width: 640px) {
-  #daoModal .dao-filter-chip {
-    font-size: clamp(9px, 2.8vw, 12px);
-    padding-left: 2px;
-    padding-right: 6px;
-  }
-
-  #daoModal .dao-project-filter-row .dao-filter-chip {
-    gap: 2px;
-    padding-inline: 2px;
-  }
-
-  #daoModal .dao-project-filter-row .dao-filter-chip-count {
-    min-width: 20px;
-    padding-inline: 4px;
-  }
-}
+#daoModal .dao-list-heading { padding: 12px 16px 4px; font-weight: var(--font-weight-medium); }
+#daoModal .dao-load-status { padding: 0 16px; color: var(--secondary-text-color); font-size: var(--font-size-xs); }
+#daoModal #daoRetryButton { margin: 8px 0; }
+#daoModal [hidden] { display: none !important; }
 
 #daoModal #daoProposalList {
   min-height: 0;
