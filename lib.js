@@ -1,11 +1,3 @@
-const HTML_ESCAPE_MAP = Object.freeze({
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-});
-
 /**
  * Encodes an untrusted value for an HTML text context.
  * Quotes are encoded as well so callers cannot accidentally reuse a text-only
@@ -15,7 +7,12 @@ const HTML_ESCAPE_MAP = Object.freeze({
  */
 export function escapeHtml(value) {
   if (value === null || value === undefined) return '';
-  return String(value).replace(/[&<>"']/g, character => HTML_ESCAPE_MAP[character]);
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 /**
