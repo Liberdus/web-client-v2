@@ -9404,6 +9404,8 @@ small {
   background-image: var(--icon-dao);
 }
 
+#daoModal { color: var(--text-color); }
+
 /* Keep the DAO header fixed above the shared toolbar and list scroll area. */
 #daoModal .modal-content {
   display: flex;
@@ -9465,7 +9467,7 @@ small {
 #daoModal .dao-context-filters { display: grid; gap: 4px; align-content: start; }
 #daoModal .dao-filter-inactive { visibility: hidden; pointer-events: none; }
 #daoModal .dao-filter-placeholder {
-  display: flex;
+  display: grid;
   align-items: center;
   justify-content: center;
   padding: 8px 12px;
@@ -9473,6 +9475,8 @@ small {
   color: var(--secondary-text-color);
   font-size: var(--font-size-sm);
 }
+
+#daoModal .dao-filter-placeholder > span { grid-area: 1 / 1; min-width: 0; }
 
 #daoModal .dao-filter-row--outcomes { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
 #daoModal .dao-filter-row--projects { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -9699,10 +9703,9 @@ small {
   line-height: 1.2;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow-wrap: anywhere;
   padding: 4px 6px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 #daoModal .dao-row-preview--accepted,

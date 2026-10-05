@@ -1601,6 +1601,44 @@ export function getDaoProjectPresentation(proposal) {
   });
 }
 
+export class DaoProjectClaims {
+  /**
+   * Completed unpaid milestones, including disabled actions for known payout problems.
+   * An incomplete summary must not be presented as a final zero-claim result.
+   */
+  static getSummary(proposal, currentAddress) {
+    const summary = { status: 'ready', milestones: [] };
+    if (!DAO_PROJECT_RUNTIME_STATUS_KEYS.has(getEffectiveDaoState(proposal))) return summary;
+
+    const project = getDaoProjectPresentation(proposal);
+    const address = normalizeDaoAddress(currentAddress);
+    if (project.kind !== 'available' || !project.address || !address) {
+      return { status: 'incomplete', milestones: [] };
+    }
+    if (project.address !== address) return summary;
+    if (!project.milestones.length || proposal.project.milestones.length > DAO_PROJECT_MAX_MILESTONES) {
+      summary.status = 'incomplete';
+    }
+
+    project.milestones.forEach((milestone, index) => {
+      if (!milestone.status || (milestone.status.key === 'completed' && milestone.paidWei === null)) {
+        summary.status = 'incomplete';
+        return;
+      }
+      if (milestone.status.key !== 'completed' || milestone.paidWei !== 0n) return;
+
+      const payout = getDaoProjectMilestonePayout(project, milestone);
+      let reason = null;
+      if (!payout) reason = 'payout-unavailable';
+      else if (project.balanceWei === null) reason = 'balance-unavailable';
+      else if (payout.amountWei > project.balanceWei) reason = 'insufficient-balance';
+      if (reason === 'payout-unavailable' || reason === 'balance-unavailable') summary.status = 'incomplete';
+      summary.milestones.push({ number: index + 1, payout, reason });
+    });
+    return summary;
+  }
+}
+
 function getDaoProjectUsdWei(usdStr, rateUsdStr) {
   const usdUnits = getDaoUsdUnits(usdStr);
   const rateUnits = getDaoUsdUnits(rateUsdStr);
