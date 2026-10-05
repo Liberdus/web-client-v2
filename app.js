@@ -34598,7 +34598,21 @@ function evmPaymentRecordId(record) {
 function queueEvmPaymentMessage(message) {
   const payment = parseEvmTransferMessage(message.payment);
   if (!payment || message.deleted) return;
-  const records = loadEvmPayments();
+  let records;
+  try {
+    records = loadEvmPayments();
+  } catch (error) {
+    // Saved recovery failures must not interrupt delivery of other chat messages.
+    if (queueEvmPaymentMessage.warningAccount !== myAccount) {
+      console.warn('Skipping EVM payment verification queue:', {
+        txid: message.txid,
+        reason: error.message,
+      });
+      queueEvmPaymentMessage.warningAccount = myAccount;
+    }
+    return;
+  }
+  queueEvmPaymentMessage.warningAccount = null;
   const claim = stringify(payment);
   const existing = records.find((record) => stringify(record.payment) === claim);
   if (!existing && ['settled', 'failed'].includes(message.paymentVerified)
@@ -34616,16 +34630,23 @@ function queueEvmPaymentMessage(message) {
   }
   saveEvmPayment(record);
 }
+queueEvmPaymentMessage.warningAccount = null;
 
 // EVM recovery lives in myData and follows the normal account save lifecycle.
 function loadEvmPayments() {
   const records = myData.evmPayments ?? [];
-  if (!Array.isArray(records) || records.some((record) => !['outgoing', 'verification'].includes(record?.kind)
-    || !parseEvmTransferMessage(record.payment))) {
+  if (!Array.isArray(records)) {
     throw new Error('Saved EVM payment records could not be read.');
   }
+  const validRecords = records.filter((record) => ['outgoing', 'verification'].includes(record?.kind)
+    && parseEvmTransferMessage(record.payment));
+  if (validRecords.length !== records.length) {
+    // Invalid records came from pre-release testing and can be discarded.
+    myData.evmPayments = validRecords;
+    console.warn('Removed invalid saved EVM payment records:', records.length - validRecords.length);
+  }
   // Async callers work on a snapshot, without changing the current record until saved.
-  return parse(stringify(records));
+  return parse(stringify(validRecords));
 }
 
 function saveEvmPayment(record) {
