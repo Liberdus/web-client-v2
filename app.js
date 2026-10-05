@@ -34644,7 +34644,6 @@ function loadEvmPayments() {
     // Invalid records came from pre-release testing and can be discarded.
     myData.evmPayments = validRecords;
     console.warn('Removed invalid saved EVM payment records:', records.length - validRecords.length);
-    saveState();
   }
   // Async callers work on a snapshot, without changing the current record until saved.
   return parse(stringify(validRecords));
