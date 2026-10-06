@@ -6011,7 +6011,8 @@ input[type='file'].form-control {
   display: none;
 }
 
-#sendToAddressError {
+#sendToAddressError,
+#evmSendRecipientStatus {
   font-family: var(--font-primary);
   font-size: var(--font-size-sm);
 }
