@@ -38915,6 +38915,7 @@ const modalCloseHandlers = new Map([
   ['assetsModal', () => evmAssets.close('assetsModal')],
   ['assetDetailsModal', () => evmAssets.close('assetDetailsModal')],
   ['evmSendModal', () => evmAssets.close('evmSendModal')],
+  ['evmSendConfirmModal', () => evmAssets.close('evmSendConfirmModal')],
   ['multichainModal', () => multichain.close('multichainModal')],
   ['multichainAssetModal', () => multichain.close('multichainAssetModal')],
   ['multichainReceiveModal', () => multichain.close('multichainReceiveModal')],
@@ -38924,10 +38925,7 @@ const modalCloseHandlers = new Map([
   ['chatSendModal', () => chatPaymentPanel.close()],
   ['chatSendContactModal', () => chatPaymentPanel.contactPicker.close()],
   ['multichainConfirmModal', () => multichain.close('multichainConfirmModal')],
-  ['sendAssetConfirmModal', () => {
-    evmAssets.confirmationModal.reset();
-    sendAssetConfirmModal.close();
-  }],
+  ['sendAssetConfirmModal', () => sendAssetConfirmModal.close()],
   ['googleDrivePickerModal', () => importModal.closeGoogleDrivePicker()],
 ]);
 
