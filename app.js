@@ -11466,7 +11466,10 @@ async function getVerifiedChatContactKeys(address) {
   const existingContact = myData.contacts[address];
   const existingPublicKey = existingContact?.public;
   if (isPublicKeyForAddress(existingPublicKey, address, generateAddress)) {
-    return { public: existingPublicKey, pqPublic: existingContact.pqPublic ?? null };
+    return {
+      public: existingPublicKey.replace(/^0x/i, ''),
+      pqPublic: existingContact.pqPublic ?? null,
+    };
   }
 
   try {
@@ -11474,7 +11477,7 @@ async function getVerifiedChatContactKeys(address) {
     const publicKey = accountInfo?.account?.publicKey;
     if (!isPublicKeyForAddress(publicKey, address, generateAddress)) return null;
     return {
-      public: publicKey,
+      public: publicKey.replace(/^0x/i, ''),
       pqPublic: accountInfo?.account?.pqPublicKey || existingContact?.pqPublic || null,
     };
   } catch (error) {
