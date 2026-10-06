@@ -49,7 +49,6 @@ async function checkVersion() {
       newUrl,
       'styles.css',
       'app.js',
-      'attachment-security.js',
       'evm-assets.js',
       'near-assets.js',
       'dao.js',
@@ -205,6 +204,7 @@ import {
   truncateMessage,
   normalizeUnsignedFloat,
   getVerifiedUsername,
+  getSafeAttachmentPreviewMime,
   EthNum,
 } from './lib.js';
 
@@ -233,8 +233,6 @@ import {
   intentsActivity,
   intentsAccountIdForAddress,
 } from './near-assets.js';
-
-import { getSafeAttachmentPreviewMime } from './attachment-security.js';
 
 const weiDigits = 18;
 const wei = 10n ** BigInt(weiDigits);
