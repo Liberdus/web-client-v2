@@ -2741,16 +2741,6 @@
         <div class="modal-content">
           <div class="form-container">
             <form id="sendForm" class="form--narrow">
-              <div class="form-group connected-wallet-only" id="sendNetworkGroup" hidden>
-                <label for="sendNetwork">Network</label>
-                <select id="sendNetwork" class="form-control wallet-network-select" required>
-                  <option value="liberdus">Liberdus (LIB)</option>
-                  <option value="ethereum">Ethereum (ETH)</option>
-                  <option value="bsc">BNB Smart Chain (BSC)</option>
-                  <option value="polygon">Polygon (POL)</option>
-                </select>
-                <div id="sendNetworkStatus" class="wallet-network-hint">Liberdus transfers are ready.</div>
-              </div>
               <div class="form-group">
                 <label for="sendAsset">Asset</label>
                 <select id="sendAsset" class="form-control" required></select>
@@ -2813,7 +2803,7 @@
                     required
                   />
                   <!-- add button to toggle between LIB and USD -->
-                  <button id="toggleBalance" class="toggle-balance">
+                  <button type="button" id="toggleBalance" class="toggle-balance">
                     <span id="balanceSymbol">LIB</span>
                   </button>
                 </div>
@@ -2851,6 +2841,89 @@
                 <button id="switchCamera" class="scanner-button">Switch Camera</button>
               </div>
             </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- EVM Send Modal -->
+      <div class="modal fixed-header" id="evmSendModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeEvmSendModal"></button>
+          <div class="modal-title">Send</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <form id="evmSendForm" class="form--narrow">
+              <p id="evmSendAssetLabel" class="wallet-network-hint"></p>
+              <div class="form-group">
+                <label for="evmSendRecipient"
+                  >Recipient <span id="evmSendRecipientStatus" style="color: #dc3545; display: none"></span
+                ></label>
+                <div style="display: flex; align-items: center; gap: 0.5rem">
+                  <input
+                    type="text"
+                    id="evmSendRecipient"
+                    class="form-control"
+                    placeholder="Enter username or 0x wallet address"
+                    required
+                    style="flex: 1"
+                  />
+                  <button
+                    type="button"
+                    id="evmSendUploadQR"
+                    class="icon-button"
+                    title="Upload QR Code"
+                    style="flex-shrink: 0"
+                  >
+                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
+                      <path
+                        d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
+                      />
+                    </svg>
+                  </button>
+                  <button type="button" id="evmSendScanQR" class="icon-button" title="Scan QR Code" style="flex-shrink: 0">
+                    <svg viewBox="0 0 24 24" width="24" height="24" style="fill: #007bff">
+                      <path
+                        d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"
+                      />
+                    </svg>
+                  </button>
+                  <input type="file" id="evmSendQRFile" accept="image/*" style="display: none" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="evmSendAmount">
+                  Amount <span id="evmSendWarning" class="balance-warning"></span>
+                </label>
+                <div class="amount-container">
+                  <input
+                    inputmode="decimal"
+                    type="text"
+                    id="evmSendAmount"
+                    class="form-control"
+                    required
+                  />
+                  <span id="evmSendSymbol" class="toggle-balance"></span>
+                </div>
+                <div id="evmSendAvailable" class="available-balance">
+                  <div class="balance-info">
+                    <span>Available: <span id="evmSendBalance"></span></span>
+                    <span class="fee-info">Fee: Calculated at send</span>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group" id="evmSendMemoGroup" hidden>
+                <label for="evmSendMemo">
+                  Add a note (optional)
+                  <span class="memo-byte-counter" style="font-size: 12px; margin-left: 8px; font-weight: normal; display: none;"></span>
+                </label>
+                <textarea id="evmSendMemo" class="form-control"></textarea>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn--primary btn--pill btn--full">Send</button>
+              </div>
+            </form>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
