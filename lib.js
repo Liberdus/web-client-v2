@@ -1357,12 +1357,13 @@ export function validateChatTransaction(transaction, context, crypto) {
   } catch {
     return { ok: false, reason: 'missing_signature' };
   }
+  const compactSignature = getCompactSignature(transaction.sign?.sig);
+  if (!compactSignature) return { ok: false, reason: 'invalid_signature_format' };
+
+  if (context.publicKey == null) return { ok: false, reason: 'public_key_unavailable' };
   if (!isPublicKeyForAddress(context.publicKey, transactionFrom, crypto.generateAddress)) {
     return { ok: false, reason: 'public_key_mismatch' };
   }
-
-  const compactSignature = getCompactSignature(transaction.sign?.sig);
-  if (!compactSignature) return { ok: false, reason: 'invalid_signature_format' };
 
   const txid = getUnsignedTransactionId(transaction, crypto);
   const signedHash = hex2bin(crypto.ethHashMessage(txid));

@@ -11465,8 +11465,8 @@ async function ensureContactKeys(address) {
 async function getVerifiedChatContactKeys(address) {
   const existingContact = myData.contacts[address];
   const existingPublicKey = existingContact?.public;
-  if (isPublicKeyForAddress(existingPublicKey, address, generateAddress) && existingContact?.pqPublic) {
-    return { public: existingPublicKey, pqPublic: existingContact.pqPublic };
+  if (isPublicKeyForAddress(existingPublicKey, address, generateAddress)) {
+    return { public: existingPublicKey, pqPublic: existingContact.pqPublic ?? null };
   }
 
   try {
@@ -12835,8 +12835,10 @@ async function processChats(chats, keys) {
   const currentUserPublicKey = isPublicKeyForAddress(keys.public, currentUserAddress, generateAddress)
     ? keys.public
     : bin2hex(getPublicKey(hex2bin(keys.secret)));
+  const verifiedChats = new Map();
 
-  for (let sender in chats) {
+  // Prepare the whole batch before changing contacts, messages, or the sync cursor.
+  for (const sender in chats) {
     let from;
     let expectedChatId;
     try {
@@ -12880,13 +12882,24 @@ async function processChats(chats, keys) {
           verifyMessage,
         });
         if (!validation.ok) {
+          if (validation.reason === 'public_key_unavailable') {
+            console.warn('Deferring chat sync until the participant signing key is available');
+            return;
+          }
           console.warn(`Ignoring unauthenticated chat transaction: ${validation.reason}`);
           continue;
         }
         verifiedMessages.push({ order, tx, txid: validation.txid });
       }
       if (verifiedMessages.length === 0) continue;
+      verifiedChats.set(sender, { from, contactKeys, verifiedMessages });
+    }
+  }
 
+  for (const sender in chats) {
+    const verifiedChat = verifiedChats.get(sender);
+    if (verifiedChat) {
+      const { from, contactKeys, verifiedMessages } = verifiedChat;
       if (!myData.contacts[from]) {
         // New inbound chat (not previously in contacts): create as tolled + allow one-time tolled deposit toast
         createNewContact(from, undefined, 1, false);
