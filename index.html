@@ -2639,16 +2639,6 @@
         </div>
         <div class="modal-content">
           <div class="form-container">
-            <div class="form-group connected-wallet-only" id="receiveNetworkGroup" hidden>
-              <label for="receiveNetwork">Network</label>
-              <select id="receiveNetwork" class="form-control wallet-network-select">
-                <option value="liberdus">Liberdus (LIB)</option>
-                <option value="ethereum">Ethereum (ETH)</option>
-                <option value="bsc">BNB Smart Chain (BSC)</option>
-                <option value="polygon">Polygon (POL)</option>
-              </select>
-              <div id="receiveNetworkStatus" class="wallet-network-hint">The same account address is used across connected EVM networks.</div>
-            </div>
             <div class="form-group">
               <label>Your Address</label>
               <div class="address-container">
@@ -2701,6 +2691,52 @@
                 placeholder="Add a note for the payment"
                 maxlength="300"
               ></textarea>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- EVM Receive Modal -->
+      <div class="modal fixed-header" id="evmReceiveModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeEvmReceiveModal"></button>
+          <div class="modal-title">Receive</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <p id="evmReceiveAssetLabel" class="wallet-network-hint"></p>
+            <div class="form-group">
+              <label>Your Address</label>
+              <div class="address-container">
+                <div
+                  id="evmReceiveAddress"
+                  class="form-control address-display"
+                ></div>
+                <button
+                  id="copyEvmReceiveAddress"
+                  class="icon-button address-copy-button"
+                ></button>
+              </div>
+              <div id="evmReceiveQRCode"></div>
+
+              <div id="evmReceiveQRPreview" class="form-control qr-data-preview" style="display: none"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="evmReceiveAmount">Amount (Optional)</label>
+              <div class="amount-container">
+                <input
+                  inputmode="decimal"
+                  type="text"
+                  id="evmReceiveAmount"
+                  class="form-control"
+                  placeholder="Enter amount"
+                />
+                <button id="toggleEvmReceiveBalance" class="toggle-balance">
+                  <span id="evmReceiveSymbol"></span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
