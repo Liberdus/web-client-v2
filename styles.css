@@ -9456,6 +9456,7 @@ small {
   color: var(--secondary-text-color);
   font-size: var(--font-size-xs);
   margin-top: 2px;
+  text-align: left;
 }
 
 /* Inactive panels still size this cell, including at larger text sizes. */
