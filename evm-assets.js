@@ -12,6 +12,7 @@ import {
   openModal,
   utf82bin,
   withButtonCooldown,
+  QRImageDecoder,
 } from './lib.js';
 import { getPublicKey, signMessage } from './crypto.js';
 import keccak256 from './external/keccak256.js';
@@ -303,14 +304,6 @@ export async function signEvmTransaction(transaction, privateKeyValue) {
 
 const REQUIRED_NETWORKS = Object.freeze([
   Object.freeze({
-    id: 'liberdus',
-    name: 'Liberdus',
-    shortName: 'LIB',
-    chainId: 2220,
-    nativeSymbol: 'LIB',
-    source: 'liberdus',
-  }),
-  Object.freeze({
     id: 'ethereum',
     name: 'Ethereum',
     shortName: 'ETH',
@@ -369,32 +362,6 @@ function formatUnits(value, decimals = 18) {
   return `${whole}${fraction ? `.${fraction}` : ''}`;
 }
 
-function normalizeLiberdusAsset(asset) {
-  const tokenAmount = formatUnits(asset?.balance ?? 0n, 18);
-  const price = Number(asset?.price);
-  const tokenPriceUsd = Number.isFinite(price) && price >= 0 ? String(price) : null;
-  const tokenValueUsd = tokenPriceUsd === null
-    ? null
-    : String(Number(tokenAmount) * price);
-
-  return Object.freeze({
-    key: 'liberdus:native',
-    networkId: 'liberdus',
-    chainId: 2220,
-    contractAddress: asset?.contract || null,
-    tokenType: 'native',
-    tokenName: asset?.name || 'Liberdus',
-    tokenSymbol: asset?.symbol || 'LIB',
-    tokenPriceUsd,
-    tokenAmount,
-    tokenValueUsd,
-    tokenDecimals: 18,
-    logoUrl: asset?.img || './media/liberdus_logo_50.png',
-    source: 'liberdus',
-    walletAsset: asset || null,
-  });
-}
-
 function normalizeEvmToken(token, network) {
   const contractAddress = typeof token?.contractAddress === 'string'
     ? token.contractAddress
@@ -414,7 +381,6 @@ function normalizeEvmToken(token, network) {
     rawAmount: typeof token?.rawAmount === 'string' ? token.rawAmount : null,
     logoUrl: token?.logoUrl || (!contractAddress ? network.logoUrl : null),
     source: 'evm',
-    walletAsset: null,
   });
 }
 
@@ -472,7 +438,7 @@ function extraNetworkDefinitions(portfolio, tokens) {
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
-function createWalletNetworkCatalog({ liberdusAsset = null, portfolio = null } = {}) {
+function createWalletNetworkCatalog({ portfolio = null } = {}) {
   const portfolioTokens = Array.isArray(portfolio?.tokens) ? portfolio.tokens : [];
   const portfolioChainIds = new Set(
     (portfolio?.chains || []).map((chain) => chain.networkId),
@@ -483,30 +449,11 @@ function createWalletNetworkCatalog({ liberdusAsset = null, portfolio = null } =
   ];
 
   return Object.freeze(definitions.map((definition) => {
-    if (definition.id === 'liberdus') {
-      const asset = normalizeLiberdusAsset(liberdusAsset);
-      return Object.freeze({
-        ...definition,
-        connected: true,
-        totalValueUsd: asset.tokenValueUsd,
-        assets: Object.freeze([asset]),
-      });
-    }
-
     const assets = portfolioTokens
       .filter((token) => token.networkId === definition.id)
       .map((token) => normalizeEvmToken(token, definition));
     return makeNetwork(definition, assets, portfolioChainIds.has(definition.id));
   }));
-}
-
-function getWalletNetwork(catalog, networkId) {
-  return catalog.find((network) => network.id === networkId) || catalog[0] || null;
-}
-
-function getEvmWalletNetworks(catalog) {
-  if (!Array.isArray(catalog)) return Object.freeze([]);
-  return Object.freeze(catalog.filter((network) => network.source === 'evm'));
 }
 
 function calculateCatalogTotalUsd(catalog) {
@@ -651,15 +598,13 @@ export class LiberdusEvmRecipientResolver {
 class WalletDiscoveryService {
   constructor({
     getAccount = () => null,
-    getLiberdusAsset = () => null,
     cacheTtlMs = 5000,
     requestTimeoutMs = 15000,
   } = {}) {
-    if (typeof getAccount !== 'function' || typeof getLiberdusAsset !== 'function') {
-      throw new TypeError('Wallet discovery state providers must be functions');
+    if (typeof getAccount !== 'function') {
+      throw new TypeError('Wallet account provider must be a function');
     }
     this.getAccount = getAccount;
-    this.getLiberdusAsset = getLiberdusAsset;
     this.cacheTtlMs = cacheTtlMs;
     this.requestTimeoutMs = requestTimeoutMs;
     this.requestController = null;
@@ -679,7 +624,6 @@ class WalletDiscoveryService {
 
   rebuildCatalog() {
     this.catalog = createWalletNetworkCatalog({
-      liberdusAsset: this.getLiberdusAsset(),
       portfolio: this.portfolio,
     });
     return this.catalog;
@@ -689,13 +633,8 @@ class WalletDiscoveryService {
     return this.rebuildCatalog();
   }
 
-  getEvmCatalog() {
-    return getEvmWalletNetworks(this.getCatalog());
-  }
-
-  getTotalUsd({ evmOnly = false } = {}) {
-    const catalog = evmOnly ? this.getEvmCatalog() : this.getCatalog();
-    return calculateCatalogTotalUsd(catalog);
+  getTotalUsd() {
+    return calculateCatalogTotalUsd(this.getCatalog());
   }
 
   getStatus() {
@@ -707,7 +646,7 @@ class WalletDiscoveryService {
   }
 
   getNetwork(networkId) {
-    return getWalletNetwork(this.getCatalog(), networkId);
+    return this.getCatalog().find((network) => network.id === networkId) || null;
   }
 
   async getNativeCurrency({ id, chainId }) {
@@ -728,16 +667,8 @@ class WalletDiscoveryService {
     return { symbol: token.tokenSymbol.trim(), decimals: token.tokenDecimals };
   }
 
-  getSelectedAsset(networkId, select) {
-    const walletNetwork = this.getNetwork(networkId);
-    if (!walletNetwork) return null;
-    return walletNetwork.assets.find((asset) => asset.key === select?.value)
-      || walletNetwork.assets[0]
-      || null;
-  }
-
-  findAsset(networkId, assetKey, { evmOnly = false } = {}) {
-    const catalog = evmOnly ? this.getEvmCatalog() : this.getCatalog();
+  findAsset(networkId, assetKey) {
+    const catalog = this.getCatalog();
     const walletNetwork = catalog.find((network) => network.id === networkId) || null;
     const asset = walletNetwork?.assets.find((entry) => entry.key === assetKey) || null;
     return { walletNetwork, asset };
@@ -840,11 +771,11 @@ class WalletDiscoveryService {
     }
   }
 
-  populateNetworkSelect(select, { includeAll = false, selectedId = null, evmOnly = false } = {}) {
+  populateNetworkSelect(select, { includeAll = false, selectedId = null } = {}) {
     if (!select) return;
 
     const previousValue = selectedId || select.value;
-    const catalog = evmOnly ? this.getEvmCatalog() : this.getCatalog();
+    const catalog = this.getCatalog();
     const fragment = document.createDocumentFragment();
     if (includeAll) {
       const allOption = document.createElement('option');
@@ -864,27 +795,11 @@ class WalletDiscoveryService {
     const availableValues = new Set([...select.options].map((option) => option.value));
     select.value = availableValues.has(previousValue)
       ? previousValue
-      : (includeAll ? 'all' : (evmOnly ? (catalog[0]?.id || '') : 'liberdus'));
-  }
-
-  populateAssetSelect(select, networkId) {
-    if (!select) return;
-    const walletNetwork = this.getNetwork(networkId);
-    if (!walletNetwork) return;
-
-    const fragment = document.createDocumentFragment();
-    for (const asset of walletNetwork.assets) {
-      const option = document.createElement('option');
-      option.value = asset.key;
-      option.textContent = asset.tokenName === asset.tokenSymbol
-        ? asset.tokenSymbol : `${asset.tokenName} (${asset.tokenSymbol})`;
-      fragment.appendChild(option);
-    }
-    select.replaceChildren(fragment);
+      : (includeAll ? 'all' : (catalog[0]?.id || ''));
   }
 
   getConnectionText() {
-    const connectedNetworks = this.getEvmCatalog().filter((walletNetwork) => walletNetwork.connected);
+    const connectedNetworks = this.getCatalog().filter((walletNetwork) => walletNetwork.connected);
     if (this.status === 'loading') {
       return 'Connecting wallet networks…';
     }
@@ -1587,9 +1502,9 @@ class AssetsModal {
   }
 
   renderBalances() {
-    const totalUsd = this.controller.getTotalUsd({ evmOnly: true });
+    const totalUsd = this.controller.getTotalUsd();
     this.totalBalance.textContent = totalUsd === null ? 'N/A' : totalUsd.toFixed(2);
-    this.controller.populateNetworkSelect(this.networkSelect, { includeAll: true, evmOnly: true });
+    this.controller.populateNetworkSelect(this.networkSelect, { includeAll: true });
     this.connectionSummary.textContent = this.controller.getConnectionText();
     this.connectionSummary.dataset.status = this.controller.getStatus();
     this.render();
@@ -1737,7 +1652,7 @@ class AssetDetailsModal {
   }
 
   getSelection() {
-    return this.controller.findAsset(this.networkId, this.assetKey, { evmOnly: true });
+    return this.controller.findAsset(this.networkId, this.assetKey);
   }
 
   open(networkId, assetKey) {
@@ -2010,7 +1925,7 @@ class EvmSendModal {
 
   open({ networkId, assetKey }) {
     if (this.modal.classList.contains('active')) return false;
-    const { walletNetwork, asset } = this.controller.findAsset(networkId, assetKey, { evmOnly: true });
+    const { walletNetwork, asset } = this.controller.findAsset(networkId, assetKey);
     if (!asset) {
       this.controller.showToast('This asset is no longer available. Refresh and try again.', 3000, 'warning');
       return false;
@@ -2034,7 +1949,7 @@ class EvmSendModal {
 
   getSelectedAsset() {
     if (!this.session) return null;
-    return this.controller.findAsset(this.session.networkId, this.session.assetKey, { evmOnly: true }).asset;
+    return this.controller.findAsset(this.session.networkId, this.session.assetKey).asset;
   }
 
   async refreshBalance(session) {
@@ -2152,12 +2067,21 @@ class EvmSendModal {
     });
   }
 
-  readQRFile(event) {
+  async readQRFile(event) {
+    const input = event.target;
+    const file = input.files[0];
+    if (!file) return;
     const session = this.session;
-    this.controller.readQRFile(event, {
-      fillFromQR: (data) => { if (this.isCurrentSession(session)) this.fillFromQR(data); },
-      resetForm: () => { if (this.isCurrentSession(session)) this.resetForm(); },
-    });
+    try {
+      const text = await QRImageDecoder.decode(file);
+      if (this.isCurrentSession(session) && input.files[0] === file) this.fillFromQR(text);
+    } catch (error) {
+      if (!this.isCurrentSession(session) || input.files[0] !== file) return;
+      this.controller.showToast('Could not read QR code from image', 0, 'error');
+      this.resetForm();
+    } finally {
+      if (input.files[0] === file) input.value = '';
+    }
   }
 
   fillFromQR(data) {
@@ -2205,7 +2129,7 @@ class EvmReceiveModal {
   open({ networkId, assetKey }) {
     if (this.modal.classList.contains('active')) return false;
     const account = this.controller.getAccount();
-    const { walletNetwork, asset } = this.controller.findAsset(networkId, assetKey, { evmOnly: true });
+    const { walletNetwork, asset } = this.controller.findAsset(networkId, assetKey);
     if (!account || !asset) {
       this.controller.showToast('This asset is no longer available. Refresh and try again.', 3000, 'warning');
       return false;
@@ -2235,7 +2159,7 @@ class EvmReceiveModal {
     try {
       await this.controller.refresh();
       if (!this.isCurrentSession(session)) return;
-      const { asset } = this.controller.findAsset(session.network.id, session.asset.key, { evmOnly: true });
+      const { asset } = this.controller.findAsset(session.network.id, session.asset.key);
       if (asset) session.asset = asset;
     } catch (error) {
       // Receiving still works with the selected address/asset; USD conversion may be unavailable.
@@ -2337,9 +2261,7 @@ class EvmReceiveModal {
 class EvmAssetsController {
   constructor() {
     this.getAccount = () => null;
-    this.getLiberdusAsset = () => null;
     this.openQRScanner = () => {};
-    this.readQRFile = () => {};
     this.showToast = () => {};
     this.hideToast = () => {};
     this.syncSelect = () => {};
@@ -2356,7 +2278,6 @@ class EvmAssetsController {
     this.saveSubmission = () => { throw new Error('Payment storage is unavailable'); };
     this.discovery = new WalletDiscoveryService({
       getAccount: () => this.getAccount(),
-      getLiberdusAsset: () => this.getLiberdusAsset(),
     });
     this.recipients = new LiberdusEvmRecipientResolver({
       getAccount: () => this.getAccount(),
@@ -2392,7 +2313,6 @@ class EvmAssetsController {
 
   configure({
     getAccount,
-    getLiberdusAsset,
     findContact,
     prepareChatPayment,
     preparePaymentMessage,
@@ -2403,14 +2323,12 @@ class EvmAssetsController {
     checkPayment,
     dismissPayment,
     openQRScanner,
-    readQRFile,
     showToast,
     hideToast,
     confirmTransfer,
     syncSelect,
   } = {}) {
     if (typeof getAccount === 'function') this.getAccount = getAccount;
-    if (typeof getLiberdusAsset === 'function') this.getLiberdusAsset = getLiberdusAsset;
     if (typeof findContact === 'function') this.findContact = findContact;
     if (typeof getPayments === 'function') this.getPayments = getPayments;
     if (typeof savePayment === 'function') this.savePayment = savePayment;
@@ -2421,7 +2339,6 @@ class EvmAssetsController {
     if (typeof sendChatPayment === 'function') this.sendChatPayment = sendChatPayment;
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openQRScanner === 'function') this.openQRScanner = openQRScanner;
-    if (typeof readQRFile === 'function') this.readQRFile = readQRFile;
     if (typeof showToast === 'function') this.showToast = showToast;
     if (typeof hideToast === 'function') this.hideToast = hideToast;
     if (typeof confirmTransfer === 'function') this.confirmTransfer = confirmTransfer;
@@ -2479,28 +2396,20 @@ class EvmAssetsController {
     return catalog;
   }
   rebuildCatalog() { return this.discovery.rebuildCatalog(); }
-  getCatalog() { return this.discovery.getCatalog(); }
-  getEvmCatalog() { return this.discovery.getEvmCatalog(); }
-  getTotalUsd(options) { return this.discovery.getTotalUsd(options); }
+  getEvmCatalog() { return this.discovery.getCatalog(); }
+  getTotalUsd() { return this.discovery.getTotalUsd(); }
   getStatus() { return this.discovery.getStatus(); }
   getUpdatedAt() { return this.discovery.getUpdatedAt(); }
   getNetwork(networkId) { return this.discovery.getNetwork(networkId); }
-  getSelectedAsset(networkId, select) {
-    return this.discovery.getSelectedAsset(networkId, select);
-  }
-  findAsset(networkId, assetKey, options) {
-    return this.discovery.findAsset(networkId, assetKey, options);
+  findAsset(networkId, assetKey) {
+    return this.discovery.findAsset(networkId, assetKey);
   }
   populateNetworkSelect(select, options) {
     this.discovery.populateNetworkSelect(select, options);
     this.syncSelect(select);
   }
-  populateAssetSelect(select, networkId) {
-    this.discovery.populateAssetSelect(select, networkId);
-    this.syncSelect(select);
-  }
   validateTransfer({ networkId, assetKey, recipient, amount }) {
-    const { walletNetwork, asset } = this.findAsset(networkId, assetKey, { evmOnly: true });
+    const { walletNetwork, asset } = this.findAsset(networkId, assetKey);
     return this.transactions.validate({
       network: walletNetwork,
       asset,
@@ -2509,7 +2418,7 @@ class EvmAssetsController {
     });
   }
   async sendTransfer({ networkId, assetKey, recipient, recipientLabel = null, amount, chat, beforeBroadcast, isCurrent }) {
-    const { walletNetwork, asset } = this.findAsset(networkId, assetKey, { evmOnly: true });
+    const { walletNetwork, asset } = this.findAsset(networkId, assetKey);
     return this.transactions.send({
       network: walletNetwork,
       asset,
