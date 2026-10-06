@@ -204,6 +204,7 @@ import {
   truncateMessage,
   normalizeUnsignedFloat,
   getVerifiedUsername,
+  getSafeAttachmentPreviewMime,
   EthNum,
 } from './lib.js';
 
@@ -24632,34 +24633,6 @@ class ChatModal {
   }
 
   /**
-   * Determines if a file type can be viewed in a browser
-   * @param {string} mimeType - The MIME type of the file
-   * @returns {boolean} True if the file type can be viewed in a browser, false otherwise
-   */
-  isViewableInBrowser(mimeType) {
-    if (!mimeType) return false;
-
-    const normalizedMime = mimeType.toLowerCase().trim();
-
-    // Exclude vCard types (VCF). Many servers report vcf as a text/* subtype
-    // but vCard files shouldn't be opened inline in the browser here.
-    if (normalizedMime.includes('vcard')) return false;
-
-    const viewableTypes = [
-      'image/',           // All images
-      'text/',            // Text files
-      'application/pdf',  // PDFs
-      'video/',           // Videos
-      'audio/',           // Audio files
-      'application/json', // JSON
-      'application/xml',  // XML
-      'text/xml'          // XML (alternative)
-    ];
-
-    return viewableTypes.some(type => normalizedMime.startsWith(type));
-  }
-
-  /**
    * Triggers a file download
    * @param {string} blobUrl - The URL of the file to download
    * @param {string} filename - The name of the file to download
@@ -24840,20 +24813,23 @@ class ChatModal {
       const blob = isImage
         ? await this.getFullImageBlob(item, linkEl)
         : await this.decryptAttachmentToBlob(item, linkEl);
-      const blobUrl = URL.createObjectURL(blob);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
+      const safePreviewMime = await getSafeAttachmentPreviewMime(blob);
+      const safePreviewBlob = safePreviewMime
+        ? new Blob([blob], { type: safePreviewMime })
+        : null;
 
       // Generate and cache thumbnail for images and videos, then update in place
-      if (blob.type.startsWith('image/') || blob.type.startsWith('video/')) {
+      if (safePreviewMime.startsWith('image/') || safePreviewMime.startsWith('video/')) {
         const attachmentUrl = linkEl.dataset.url;
         const attachmentRow = linkEl.closest('.attachment-row') || linkEl.closest(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR);
         
-        const thumbnailPromise = blob.type.startsWith('image/')
-          ? thumbnailCache.generateThumbnail(blob)
-          : thumbnailCache.extractVideoThumbnail(blob);
+        const thumbnailPromise = safePreviewMime.startsWith('image/')
+          ? thumbnailCache.generateThumbnail(safePreviewBlob)
+          : thumbnailCache.extractVideoThumbnail(safePreviewBlob);
         
         thumbnailPromise
-          .then(thumbnail => thumbnailCache.save(attachmentUrl, thumbnail, blob.type))
+          .then(thumbnail => thumbnailCache.save(attachmentUrl, thumbnail, safePreviewMime))
           .then(async () => {
             // Update thumbnail in place
             if (attachmentRow) {
@@ -24884,16 +24860,20 @@ class ChatModal {
         reader.readAsDataURL(blob);
       } else {
         // Web browser handling
-        const isViewable = this.isViewableInBrowser(blob.type);
+        const downloadUrl = URL.createObjectURL(blob);
+        const previewUrl = safePreviewBlob ? URL.createObjectURL(safePreviewBlob) : '';
         
         try {
-          if (isViewable) {
-            window.open(blobUrl, '_blank');
+          if (previewUrl) {
+            window.open(previewUrl, '_blank', 'noopener,noreferrer');
           }
-          this.triggerFileDownload(blobUrl, filename);
+          this.triggerFileDownload(downloadUrl, filename);
         } finally {
           // Clean up blob URL after enough time for downloads/tabs to initialize
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+          setTimeout(() => {
+            URL.revokeObjectURL(downloadUrl);
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+          }, 2000);
         }
       }
 
@@ -26416,7 +26396,11 @@ class ChatModal {
       });
       if (loadingToastId) hideToast(loadingToastId);
       loadingToastId = null;
-      fullImageModal.open(blob, filename);
+      const safePreviewMime = await getSafeAttachmentPreviewMime(blob);
+      if (!safePreviewMime.startsWith('image/')) {
+        throw new Error('Attachment is not a verified previewable image');
+      }
+      fullImageModal.open(new Blob([blob], { type: safePreviewMime }), filename);
     } catch (err) {
       console.error('Image open failed:', err);
       this.handleAttachmentError(err, 'Failed to open image.');
