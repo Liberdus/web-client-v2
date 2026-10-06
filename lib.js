@@ -1093,6 +1093,61 @@ const SAFE_PREVIEW_MIME_TYPES = new Set([
   'video/webm',
 ]);
 
+const ISO_BASE_MEDIA_MIME_TYPES = new Set([
+  'audio/mp4', 'image/avif', 'video/mp4', 'video/quicktime',
+]);
+
+class AttachmentPreviewHeader {
+  // Returns the leading block's length, 0 for media data, or -1 for an invalid block.
+  static getLeadingBlockSize(bytes, mimeType, remainingSize) {
+    if (mimeType === 'audio/aac' && asciiAt(bytes, 0, 'ID3')) {
+      if (bytes.length < 10 || bytes[3] < 2 || bytes[3] > 4 || bytes[4] === 0xff) return -1;
+      const sizeBytes = bytes.subarray(6, 10);
+      if (sizeBytes.some(value => value & 0x80)) return -1;
+      const tagSize = sizeBytes.reduce((size, value) => size * 128 + value, 0);
+      const footerSize = bytes[3] === 4 && (bytes[5] & 0x10) ? 10 : 0;
+      const blockSize = 10 + tagSize + footerSize;
+      return blockSize <= remainingSize ? blockSize : -1;
+    }
+
+    if (!ISO_BASE_MEDIA_MIME_TYPES.has(mimeType)
+      || !(asciiAt(bytes, 4, 'free') || asciiAt(bytes, 4, 'skip'))) return 0;
+
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let blockSize = view.getUint32(0);
+    const headerSize = blockSize === 1 ? 16 : 8;
+    if (blockSize === 1) {
+      if (bytes.length < headerSize) return -1;
+      blockSize = view.getUint32(8) * 2 ** 32 + view.getUint32(12);
+    }
+    if (!Number.isSafeInteger(blockSize) || blockSize < headerSize || blockSize > remainingSize) return -1;
+    return blockSize;
+  }
+
+  static stripLeadingBlocks(bytes, mimeType) {
+    for (let blocks = 0; blocks < 32; blocks++) {
+      const blockSize = this.getLeadingBlockSize(bytes, mimeType, bytes.length);
+      if (blockSize === 0) return bytes;
+      if (blockSize < 0) break;
+      bytes = bytes.subarray(blockSize);
+    }
+    return new Uint8Array(0);
+  }
+
+  static async read(blob, mimeType) {
+    let offset = 0;
+    // Read headers only; skip padding and metadata without loading their contents.
+    for (let blocks = 0; blocks < 32; blocks++) {
+      const bytes = new Uint8Array(await blob.slice(offset, offset + 64).arrayBuffer());
+      const blockSize = this.getLeadingBlockSize(bytes, mimeType, blob.size - offset);
+      if (blockSize === 0) return bytes;
+      if (blockSize < 0) break;
+      offset += blockSize;
+    }
+    return new Uint8Array(0);
+  }
+}
+
 function startsWithBytes(bytes, signature) {
   if (bytes.length < signature.length) return false;
   return signature.every((value, index) => bytes[index] === value);
@@ -1137,6 +1192,7 @@ export function detectSafeAttachmentPreviewMime(bytes, declaredMimeType) {
   if (!(bytes instanceof Uint8Array)) return '';
   const mimeType = normalizeAttachmentMimeType(declaredMimeType);
   if (!SAFE_PREVIEW_MIME_TYPES.has(mimeType)) return '';
+  bytes = AttachmentPreviewHeader.stripLeadingBlocks(bytes, mimeType);
 
   let matchesSignature = false;
   switch (mimeType) {
@@ -1202,8 +1258,10 @@ export function detectSafeAttachmentPreviewMime(bytes, declaredMimeType) {
 export async function getSafeAttachmentPreviewMime(blob) {
   if (!blob || typeof blob.slice !== 'function') return '';
   try {
-    const header = new Uint8Array(await blob.slice(0, 64).arrayBuffer());
-    return detectSafeAttachmentPreviewMime(header, blob.type);
+    const mimeType = normalizeAttachmentMimeType(blob.type);
+    if (!SAFE_PREVIEW_MIME_TYPES.has(mimeType)) return '';
+    const header = await AttachmentPreviewHeader.read(blob, mimeType);
+    return detectSafeAttachmentPreviewMime(header, mimeType);
   } catch {
     return '';
   }
