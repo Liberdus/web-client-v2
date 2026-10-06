@@ -9404,7 +9404,7 @@ small {
   background-image: var(--icon-dao);
 }
 
-/* DAO modal: keep the header fixed while the proposal list scrolls. */
+/* Keep the DAO header fixed above the shared toolbar and list scroll area. */
 #daoModal .modal-content {
   display: flex;
   flex-direction: column;
@@ -9414,15 +9414,13 @@ small {
   position: relative;
 }
 
-/* DAO modal: filter bar stays fixed while the list scrolls. */
+/* The toolbar moves with the results inside .dao-list-pane. */
 #daoModal .dao-toolbar {
   background: var(--background-color);
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
   padding: 4px 8px;
   border-bottom: 1px solid var(--border-color);
-  z-index: 2;
 }
 
 #daoModal .dao-list-pane {
@@ -9552,8 +9550,8 @@ small {
   margin: 0;
   padding: 16px 16px 8px;
   color: var(--text-color);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
   line-height: 1.4;
   text-align: left;
 }
