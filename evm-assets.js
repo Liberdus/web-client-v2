@@ -876,7 +876,8 @@ class WalletDiscoveryService {
     for (const asset of walletNetwork.assets) {
       const option = document.createElement('option');
       option.value = asset.key;
-      option.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
+      option.textContent = asset.tokenName === asset.tokenSymbol
+        ? asset.tokenSymbol : `${asset.tokenName} (${asset.tokenSymbol})`;
       fragment.appendChild(option);
     }
     select.replaceChildren(fragment);
@@ -1901,7 +1902,8 @@ export class EvmSendConfirmationModal {
     } = prepared;
     this.recipient.textContent = recipientLabel || validation.recipient;
     this.amount.textContent = `${displayAmount} ${asset.tokenSymbol}`;
-    this.asset.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
+    this.asset.textContent = asset.tokenName === asset.tokenSymbol
+      ? asset.tokenSymbol : `${asset.tokenName} (${asset.tokenSymbol})`;
     this.networkValue.textContent = `${network.name} (Chain ID ${network.chainId})`;
     this.feeValue.textContent = `${formatUnits(maximumFee, 18)} ${network.nativeSymbol}`;
     this.signingNotice.textContent = prepared.chat
@@ -2014,7 +2016,9 @@ class EvmSendModal {
       return false;
     }
     this.resetForm();
-    this.assetLabel.textContent = `${asset.tokenName} (${asset.tokenSymbol}) · ${walletNetwork.name}`;
+    const assetLabel = asset.tokenName === asset.tokenSymbol
+      ? asset.tokenSymbol : `${asset.tokenName} (${asset.tokenSymbol})`;
+    this.assetLabel.textContent = `${assetLabel} · ${walletNetwork.name}`;
     this.balanceSymbol.textContent = asset.tokenSymbol;
     this.balanceAmount.textContent = `${this.controller.formatTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
     if (!openModal(this.modal)) return false;
@@ -2209,7 +2213,9 @@ class EvmReceiveModal {
     this.close();
     this.session = { account, network: walletNetwork, asset, address: walletProbeAddress(account.keys.address) };
     this.amountInput.value = '';
-    this.assetLabel.textContent = `${asset.tokenName} (${asset.tokenSymbol}) · ${walletNetwork.name}`;
+    const assetLabel = asset.tokenName === asset.tokenSymbol
+      ? asset.tokenSymbol : `${asset.tokenName} (${asset.tokenSymbol})`;
+    this.assetLabel.textContent = `${assetLabel} · ${walletNetwork.name}`;
     this.balanceSymbol.textContent = asset.tokenSymbol;
     this.displayAddress.textContent = this.session.address;
     this.updateQRCode();
