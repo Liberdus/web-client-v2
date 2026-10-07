@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'aj'; // Also increment this when you increment version.html
+const version = 'ak'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -3048,6 +3048,20 @@ class DaoModal {
     });
   }
 
+  updateClaimScan(proposals) {
+    if (!this.claimScan) return;
+    const scan = this.claimScan;
+    const candidates = new Set(this.getClaimCandidateMetadataEntries(daoRepo.getProposalMetaForUi())
+      .map(entry => entry.proposal));
+    for (const proposal of proposals) {
+      if (!candidates.has(proposal.number)) continue;
+      scan.proposals.set(proposal.number, proposal);
+      if (this.getClaimSummary(proposal).incomplete) scan.unresolved.add(proposal.number);
+      else scan.unresolved.delete(proposal.number);
+    }
+    if (scan.status !== 'loading') scan.status = scan.unresolved.size ? 'partial' : 'ready';
+  }
+
   async loadClaimCandidates() {
     if (this.claimScan?.status === 'loading') return;
     const previous = this.claimScan;
@@ -3158,14 +3172,23 @@ class DaoModal {
       return;
     }
 
+    const claimScan = this.claimScan;
+    const previousProposals = claimScan ? new Set(daoRepo.getProposalsForUi()
+      .map(proposal => daoRepo.getProposalById(proposal.id))) : new Set();
     const request = daoRepo.loadProposalEntries(entriesToFetch, { append: true, signal: session.controller.signal });
     this.detailsRequest = request;
     this.detailsError = false;
     this.render();
 
     try {
-      await request;
+      const store = await request;
       if (!this.isLoadingSessionCurrent(session) || sequence !== this.listRequestSequence) return;
+      if (claimScan && this.claimScan === claimScan) {
+        const fetchedNumbers = new Set(entriesToFetch.map(entry => entry.proposal));
+        // A failed read can leave an older record cached; only accept replaced objects.
+        this.updateClaimScan(Object.values(store.proposals).filter(proposal =>
+          fetchedNumbers.has(proposal.number) && !previousProposals.has(proposal)));
+      }
       const loadedNumbers = new Set(daoRepo.getProposalsForUi().map((proposal) => proposal.number));
       if (entriesToLoad.some((entry) => !loadedNumbers.has(entry.proposal))) {
         throw new Error('Some DAO items could not be loaded');
@@ -3616,10 +3639,12 @@ class DaoModal {
     const session = this.loadingSession;
     if (!this.isLoadingSessionCurrent(session)) return;
     const openId = ++this.proposalOpenSequence;
+    const claimScan = this.claimScan;
     try {
       const refreshed = await daoRepo.refreshProposal(proposal.number, session.controller.signal);
       if (!this.isLoadingSessionCurrent(session) || openId !== this.proposalOpenSequence) return;
       if (!refreshed) throw new Error(`Proposal #${proposal.number} is unavailable`);
+      if (claimScan === this.claimScan) this.updateClaimScan([refreshed]);
       if (this.clearNotificationForProposal(proposal.number)) {
         proposalRow.classList.remove('has-notification');
         const ariaLabel = proposalRow.getAttribute('aria-label');
@@ -3627,6 +3652,7 @@ class DaoModal {
       }
       proposalInfoModal.open(proposal.id);
       this.returnProposalNumber = proposal.number;
+      this.render();
     } catch (error) {
       if (!this.isLoadingSessionCurrent(session) || openId !== this.proposalOpenSequence) return;
       console.warn('Failed to refresh DAO proposal:', error);
