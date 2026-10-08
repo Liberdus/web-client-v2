@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'am'; // Also increment this when you increment version.html
+const version = 'an'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -3049,7 +3049,7 @@ class DaoModal {
   }
 
   updateClaimScan(proposals) {
-    if (!this.claimScan) return;
+    if (!this.claimScan || proposals.length === 0) return;
     const scan = this.claimScan;
     const candidates = new Set(this.getClaimCandidateMetadataEntries(daoRepo.getProposalMetaForUi())
       .map(entry => entry.proposal));
@@ -3060,6 +3060,7 @@ class DaoModal {
       else scan.unresolved.delete(proposal.number);
     }
     if (scan.status !== 'loading') scan.status = scan.unresolved.size ? 'partial' : 'ready';
+    this.render();
   }
 
   async loadClaimCandidates() {
@@ -3182,9 +3183,6 @@ class DaoModal {
       return;
     }
 
-    const claimScan = this.claimScan;
-    const previousProposals = claimScan ? new Set(daoRepo.getProposalsForUi()
-      .map(proposal => daoRepo.getProposalById(proposal.id))) : new Set();
     const request = daoRepo.loadProposalEntries(entriesToFetch, { append: true, signal: session.controller.signal });
     this.detailsRequest = request;
     this.detailsError = false;
@@ -3192,13 +3190,11 @@ class DaoModal {
 
     try {
       const store = await request;
-      if (!this.isLoadingSessionCurrent(session) || sequence !== this.listRequestSequence) return;
-      if (claimScan && this.claimScan === claimScan) {
-        const fetchedNumbers = new Set(entriesToFetch.map(entry => entry.proposal));
-        // A failed read can leave an older record cached; only accept replaced objects.
-        this.updateClaimScan(Object.values(store.proposals).filter(proposal =>
-          fetchedNumbers.has(proposal.number) && !previousProposals.has(proposal)));
-      }
+      if (!this.isLoadingSessionCurrent(session)) return;
+      // Only missing records were requested, so loaded results are fresh for this session.
+      const fetchedNumbers = new Set(entriesToFetch.map(entry => entry.proposal));
+      this.updateClaimScan(Object.values(store.proposals).filter(proposal => fetchedNumbers.has(proposal.number)));
+      if (sequence !== this.listRequestSequence) return;
       const loadedNumbers = new Set(daoRepo.getProposalsForUi().map((proposal) => proposal.number));
       if (entriesToLoad.some((entry) => !loadedNumbers.has(entry.proposal))) {
         throw new Error('Some DAO items could not be loaded');
@@ -3649,12 +3645,12 @@ class DaoModal {
     const session = this.loadingSession;
     if (!this.isLoadingSessionCurrent(session)) return;
     const openId = ++this.proposalOpenSequence;
-    const claimScan = this.claimScan;
     try {
       const refreshed = await daoRepo.refreshProposal(proposal.number, session.controller.signal);
-      if (!this.isLoadingSessionCurrent(session) || openId !== this.proposalOpenSequence) return;
+      if (!this.isLoadingSessionCurrent(session)) return;
       if (!refreshed) throw new Error(`Proposal #${proposal.number} is unavailable`);
-      if (claimScan === this.claimScan) this.updateClaimScan([refreshed]);
+      this.updateClaimScan([refreshed]);
+      if (openId !== this.proposalOpenSequence) return;
       if (this.clearNotificationForProposal(proposal.number)) {
         proposalRow.classList.remove('has-notification');
         const ariaLabel = proposalRow.getAttribute('aria-label');
@@ -7833,18 +7829,22 @@ class ProposalInfoModal {
   }
 
   async refreshProjectActionProposal(action, proposal) {
+    const session = daoModal.loadingSession;
+    if (!daoModal.isLoadingSessionCurrent(session)) {
+      throw new Error('DAO closed. Reopen the proposal before submitting.');
+    }
     const currentAddress = getDaoCurrentAccountAddress();
-    const networkId = network?.netid || '';
     const proposalId = this._currentProposalId;
-    const refreshed = await daoRepo.refreshProposal(proposal.number);
-    if (currentAddress !== getDaoCurrentAccountAddress()
-      || networkId !== (network?.netid || '')
-      || proposalId !== this._currentProposalId
-      || !this.modal.classList.contains('active')) {
-      throw new Error('Account or proposal changed. Reopen the proposal before submitting.');
+    const refreshed = await daoRepo.refreshProposal(proposal.number, session.controller.signal);
+    if (!daoModal.isLoadingSessionCurrent(session) || currentAddress !== getDaoCurrentAccountAddress()) {
+      throw new Error('Account or network changed. Reopen the proposal before submitting.');
     }
     if (!refreshed) {
       throw new Error('Could not refresh the proposal. Try again before submitting.');
+    }
+    daoModal.updateClaimScan([refreshed]);
+    if (proposalId !== this._currentProposalId || !this.modal.classList.contains('active')) {
+      throw new Error('Proposal changed. Reopen the proposal before submitting.');
     }
 
     if (action.kind === 'project_change_address') {
