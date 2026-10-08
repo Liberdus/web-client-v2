@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'ao'; // Also increment this when you increment version.html
+const version = 'aq'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -3233,8 +3233,6 @@ class DaoModal {
         if (hasFreshData) {
           if (filter.key === DAO_CLAIMABLE_FILTER.key) {
             countAriaLabel = `${count} tracked claim candidates`;
-            countEl.textContent = count ? `${count}?` : '0';
-            countEl.title = 'Tracked voting-reward candidates; eligibility is checked when opened';
           } else if (filter.key === DAO_ALL_FILTER.key) {
             countAriaLabel = `${count} DAO items`;
           } else if (DAO_PROJECT_FILTER_KEYS.has(filter.key)) {
