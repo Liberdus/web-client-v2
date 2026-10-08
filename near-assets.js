@@ -5412,8 +5412,7 @@ class MultichainController {
   }
 
   /**
-   * The row on the wallet screen. Kept out of the native Total Balance on
-   * purpose: that number is the Liberdus balance, and these are not it.
+   * The wallet summary is separate from the native Liberdus balance.
    */
   async updateSummary({ refresh = false } = {}) {
     if (!this.summaryValue) return;

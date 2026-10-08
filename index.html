@@ -172,12 +172,16 @@
       <button class="floating-button" id="newChatButton" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
 
       <div class="app-screen" id="walletScreen">
-        <div class="wallet-balance">
-          <div class="balance-label">Total Balance</div>
-          <div class="balance-amount">
-            <span id="walletTotalBalance">-.--</span>
-            <button class="refresh-button" id="refreshBalance">↻</button>
+        <div class="wallet-native-balance">
+          <div id="assetsList">
+            <div class="empty-state">
+              <div></div>
+              <div>No Assets Yet</div>
+              <div>Your assets will appear here</div>
+            </div>
+            <!-- List of native assets will be inserted here -->
           </div>
+          <button type="button" class="refresh-button" id="refreshBalance" aria-label="Refresh wallet balances">↻</button>
         </div>
         <div class="wallet-actions">
           <button class="wallet-action-button" id="openSendAssetFormModal">
@@ -206,21 +210,18 @@
             <span class="action-label">Faucet</span>
           </button>
         </div>
-        <button type="button" class="multichain-summary" id="multichainSummary">
-          <span class="multichain-summary-label">Multichain</span>
-          <span class="multichain-summary-value" id="multichainSummaryValue">$0.00</span>
-          <span class="multichain-summary-chevron" aria-hidden="true"></span>
-        </button>
         <div class="wallet-assets">
-          <div class="section-title">Assets</div>
-          <div id="assetsList">
-            <div class="empty-state">
-              <div></div>
-              <div>No Assets Yet</div>
-              <div>Your assets will appear here</div>
-            </div>
-            <!-- List of assets will be inserted here -->
-          </div>
+          <div class="section-title">Other Assets</div>
+          <button type="button" class="wallet-asset-summary" id="multichainSummary">
+            <span class="wallet-asset-summary-label">Multichain</span>
+            <span class="wallet-asset-summary-value" id="multichainSummaryValue">$0.00</span>
+            <span class="wallet-asset-summary-chevron" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="wallet-asset-summary" id="evmAssetsSummary">
+            <span class="wallet-asset-summary-label">EVM Assets</span>
+            <span class="wallet-asset-summary-value" id="evmAssetsSummaryValue">N/A</span>
+            <span class="wallet-asset-summary-chevron" aria-hidden="true"></span>
+          </button>
         </div>
       </div>
 
