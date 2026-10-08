@@ -2318,12 +2318,15 @@ class EvmAssetsController {
     this.assetDetailsModal.load();
     this.confirmationModal.load();
     this.sendFormAdapter.load();
+    this.summaryValue = document.getElementById('evmAssetsSummaryValue');
+    document.getElementById('evmAssetsSummary').addEventListener('click', () => this.assetsModal.open());
     document.getElementById('openAssets').addEventListener('click', () => this.assetsModal.open());
     this.loaded = true;
   }
 
   reset() {
     this.discovery.reset();
+    this.renderSummary();
     this.transactions.paymentEvidence.clear();
     this.confirmationModal.reset();
   }
@@ -2342,11 +2345,19 @@ class EvmAssetsController {
 
   async refresh(options) {
     const catalog = await this.discovery.refresh(options);
+    this.renderSummary();
     if (this.assetsModal.modal?.classList.contains('active')) {
       this.assetsModal.renderBalances();
     }
     return catalog;
   }
+
+  renderSummary() {
+    if (!this.summaryValue) return;
+    const totalUsd = this.getTotalUsd({ evmOnly: true });
+    this.summaryValue.textContent = totalUsd === null ? 'N/A' : `$${totalUsd.toFixed(2)}`;
+  }
+
   rebuildCatalog() { return this.discovery.rebuildCatalog(); }
   getCatalog() { return this.discovery.getCatalog(); }
   getEvmCatalog() { return this.discovery.getEvmCatalog(); }

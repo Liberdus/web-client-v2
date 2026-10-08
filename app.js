@@ -2205,7 +2205,6 @@ class WalletScreen {
     // screen
     this.screen = document.getElementById('walletScreen');
     // balance elements
-    this.totalBalance = document.getElementById('walletTotalBalance');
     this.refreshBalanceButton = document.getElementById('refreshBalance');
     // assets list
     this.assetsList = document.getElementById('assetsList');
@@ -2333,13 +2332,12 @@ class WalletScreen {
       }
     }
 
-    // The multichain row is its own balance and its own request, so it is
-    // refreshed alongside the wallet rather than blocking it.
+    // Refresh external asset summaries without blocking the native balance.
     multichain.updateSummary({ refresh: true }).catch(() => {});
+    evmAssets.refresh().catch(() => {});
 
     const walletUsdValue = calculateWalletUsdValue(walletData.assets);
     walletData.networth = walletUsdValue ?? 0.0;
-    this.totalBalance.textContent = walletUsdValue === null ? 'N/A' : walletUsdValue.toFixed(2);
 
     if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
       this.assetsList.querySelector('.empty-state').style.display = 'block';
@@ -2354,7 +2352,7 @@ class WalletScreen {
         const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
         return `
               <div class="asset-item">
-                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
+                  <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
                   <div class="asset-info">
                       <div class="asset-name">${asset.name}</div>
                       <div class="asset-symbol">${assetPriceText}</div>
