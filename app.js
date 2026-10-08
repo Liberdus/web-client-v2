@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'ak'; // Also increment this when you increment version.html
+const version = 'al'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -3063,7 +3063,8 @@ class DaoModal {
   }
 
   async loadClaimCandidates() {
-    if (this.claimScan?.status === 'loading') return;
+    const session = this.loadingSession;
+    if (!this.isLoadingSessionCurrent(session) || this.claimScan?.status === 'loading') return;
     const previous = this.claimScan;
     const retrying = previous?.status === 'partial';
     const entries = this.getClaimCandidateMetadataEntries(daoRepo.getProposalMetaForUi())
@@ -3074,15 +3075,15 @@ class DaoModal {
       unresolved: new Set(),
     };
     this.claimScan = scan;
-    const accountData = myData;
-    const networkId = network.netid;
     this.render();
 
     // Bound detail reads independently of the visible page; eligibility needs full project data.
     for (let start = 0; start < entries.length; start += 4) {
+      if (!this.isLoadingSessionCurrent(session) || this.claimScan !== scan) return;
       const batch = entries.slice(start, start + 4);
-      const results = await Promise.allSettled(batch.map(entry => daoRepo.refreshProposal(entry.proposal)));
-      if (this.claimScan !== scan || accountData !== myData || networkId !== network.netid || !this.isActive()) return;
+      const results = await Promise.allSettled(batch
+        .map(entry => daoRepo.refreshProposal(entry.proposal, session.controller.signal)));
+      if (!this.isLoadingSessionCurrent(session) || this.claimScan !== scan) return;
       results.forEach((result, index) => {
         const number = batch[index].proposal;
         if (result.status === 'rejected' || !result.value) {
@@ -3094,7 +3095,7 @@ class DaoModal {
       });
       this.render();
     }
-    if (this.claimScan !== scan || accountData !== myData || networkId !== network.netid) return;
+    if (!this.isLoadingSessionCurrent(session) || this.claimScan !== scan) return;
     scan.status = scan.unresolved.size ? 'partial' : 'ready';
     this.render();
   }
@@ -3155,6 +3156,7 @@ class DaoModal {
       this.detailsError = false;
       if (reset) this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
       if (!this.claimScan) await this.loadClaimCandidates();
+      if (!this.isLoadingSessionCurrent(session)) return;
       this.render();
       return;
     }
