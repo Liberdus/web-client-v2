@@ -2033,8 +2033,9 @@ export function getDaoTrackedProposalMetadataEntries(entries, proposalNumbers) {
     .filter((entry) => tracked.has(entry.proposal));
 }
 
-async function fetchDaoProposalMeta(queryDaoApi) {
-  const body = await queryDaoApi('/dao/proposals/meta');
+async function fetchDaoProposalMeta(queryDaoApi, signal) {
+  const body = await queryDaoApi('/dao/proposals/meta', signal);
+  signal?.throwIfAborted();
   if (!body) {
     throw new Error('Failed to load DAO proposal metadata');
   }
@@ -2096,8 +2097,9 @@ function mapBackendProposals(indexedProposals) {
   return proposals;
 }
 
-async function fetchBackendProposal(queryDaoApi, metadataEntry) {
-  const body = await queryDaoApi(`/dao/proposals/${metadataEntry.proposal}`);
+async function fetchBackendProposal(queryDaoApi, metadataEntry, signal) {
+  const body = await queryDaoApi(`/dao/proposals/${metadataEntry.proposal}`, signal);
+  signal?.throwIfAborted();
   if (!body) {
     console.warn(`Skipping DAO proposal #${metadataEntry.proposal}: no response`);
     return null;
@@ -2118,14 +2120,14 @@ export function createDaoBackendFetcher(queryDaoApi) {
   }
 
   return {
-    async fetchMeta() {
-      return fetchDaoProposalMeta(queryDaoApi);
+    async fetchMeta(signal) {
+      return fetchDaoProposalMeta(queryDaoApi, signal);
     },
 
-    async fetchProposals(entries) {
+    async fetchProposals(entries, signal) {
       const normalizedEntries = normalizeDaoProposalIndexEntries(entries);
       const proposals = await Promise.all(
-        normalizedEntries.map((entry) => fetchBackendProposal(queryDaoApi, entry))
+        normalizedEntries.map((entry) => fetchBackendProposal(queryDaoApi, entry, signal))
       );
       return mapBackendProposals(proposals.filter(Boolean));
     },
@@ -2203,12 +2205,13 @@ export function setDaoBackendFetcher(fetcher) {
     : null;
 }
 
-async function fetchNormalizedDaoMeta() {
-  const meta = _backendFetcher ? await _backendFetcher.fetchMeta() : createEmptyDaoStore().meta;
+async function fetchNormalizedDaoMeta(signal) {
+  const meta = _backendFetcher ? await _backendFetcher.fetchMeta(signal) : createEmptyDaoStore().meta;
   return normalizeDaoStore({ meta, proposals: {} }).meta;
 }
 
-async function refreshInternal({ force }) {
+async function refreshInternal({ force, signal }) {
+  signal?.throwIfAborted();
   if (_loadingPromise && !force) return _loadingPromise;
   if (_store && !force) return _store;
 
@@ -2216,7 +2219,8 @@ async function refreshInternal({ force }) {
   const previousStore = _store;
   const loadingPromise = (async () => {
     try {
-      const meta = await fetchNormalizedDaoMeta();
+      const meta = await fetchNormalizedDaoMeta(signal);
+      signal?.throwIfAborted();
       const next = { meta, proposals: {} };
       const normalizedStore = normalizeDaoStore(next);
       if (refreshVersion === _refreshVersion) {
@@ -2224,7 +2228,7 @@ async function refreshInternal({ force }) {
       }
       return _store;
     } catch (error) {
-      if (!_store && refreshVersion === _refreshVersion) {
+      if (!signal?.aborted && !_store && refreshVersion === _refreshVersion) {
         _store = previousStore || normalizeDaoStore(createEmptyDaoStore());
       }
       throw error;
@@ -2248,34 +2252,40 @@ export const daoRepo = {
     _refreshVersion += 1;
   },
 
-  async refresh({ force } = {}) {
-    return refreshInternal({ force: Boolean(force) });
+  async refresh({ force, signal } = {}) {
+    return refreshInternal({ force: Boolean(force), signal });
   },
 
   async ensureLoaded() {
     return refreshInternal({ force: false });
   },
 
-  async loadProposalEntries(entries, { append = false } = {}) {
-    if (!_store) await refreshInternal({ force: false });
+  async loadProposalEntries(entries, { append = false, signal } = {}) {
+    signal?.throwIfAborted();
+    if (!_store) await refreshInternal({ force: false, signal });
+    signal?.throwIfAborted();
 
     const currentStore = _store;
-    const proposals = _backendFetcher ? await _backendFetcher.fetchProposals(entries) : {};
+    const proposals = _backendFetcher ? await _backendFetcher.fetchProposals(entries, signal) : {};
+    signal?.throwIfAborted();
     if (_store !== currentStore) return _store;
 
     _store.proposals = append ? { ..._store.proposals, ...proposals } : proposals;
     return _store;
   },
 
-  async refreshProposal(proposalNumber) {
-    if (!_store) await refreshInternal({ force: false });
+  async refreshProposal(proposalNumber, signal) {
+    signal?.throwIfAborted();
+    if (!_store) await refreshInternal({ force: false, signal });
+    signal?.throwIfAborted();
 
     const number = normalizeDaoPositiveInteger(proposalNumber);
     const entry = _store.meta.proposals.find((proposal) => proposal.proposal === number);
     if (!entry || !_backendFetcher) return null;
 
     const currentStore = _store;
-    const proposals = await _backendFetcher.fetchProposals([entry]);
+    const proposals = await _backendFetcher.fetchProposals([entry], signal);
+    signal?.throwIfAborted();
     if (_store !== currentStore) return null;
 
     const proposal = Object.values(proposals)[0] || null;
