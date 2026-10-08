@@ -129,7 +129,8 @@ Important implementation detail:
 
 ### Local notification acknowledgement
 
-- New accounts initialize `daoNotifications.lastDaoOpenedAt` to `0`; existing accounts use the same value lazily when the field is absent.
+- New accounts initialize `daoNotifications.lastDaoOpenedAt` to `0`.
+- The first successful sign-in metadata refresh initializes a missing or zero timestamp to a cutoff captured before the request, without showing a DAO reminder. Failed requests leave initialization pending; later sign-ins preserve the timestamp and detect new activity normally.
 - Opening the DAO from either the header or menu clears the current header reminder only after metadata loads successfully.
 - A cutoff timestamp captured before the metadata request is saved with the account record only after that request succeeds. Closing the DAO does not update it.
 - Claim reminders take routing priority over voting reminders. When both exist, the DAO opens Claimable and both categories remain marked until all notified proposals in each category have been opened successfully.

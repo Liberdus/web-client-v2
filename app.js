@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'u'; // Also increment this when you increment version.html
+const version = 'v'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -2726,14 +2726,20 @@ async function refreshDaoNotificationSummary() {
     return false;
   }
 
+  const notificationCutoff = getCorrectedTimestamp();
   try {
     await daoRepo.refresh({ force: true });
     if (accountData !== myData) return false;
 
+    if (!accountData.daoNotifications?.lastDaoOpenedAt) {
+      daoModal.acknowledgeNotifications(notificationCutoff);
+      return true;
+    }
+
     daoNotificationSummary = getDaoNotificationSummary({
       metadataEntries: daoRepo.getProposalMetaForUi(),
       daoUserVotes: accountData.daoUserVotes,
-      lastDaoOpenedAt: accountData.daoNotifications?.lastDaoOpenedAt || 0,
+      lastDaoOpenedAt: accountData.daoNotifications.lastDaoOpenedAt,
       now: getTransactionTimestamp(),
     });
     header.updateDaoNotificationsIcon();
