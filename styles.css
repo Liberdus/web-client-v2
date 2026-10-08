@@ -9556,8 +9556,6 @@ small {
   line-height: 1.4;
   text-align: left;
 }
-#daoModal .dao-load-status { padding: 0 16px; color: var(--secondary-text-color); font-size: var(--font-size-xs); }
-#daoModal #daoRetryButton { margin: 8px 0; }
 #daoModal [hidden] { display: none !important; }
 
 #daoModal #daoProposalList {
