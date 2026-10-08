@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'al'; // Also increment this when you increment version.html
+const version = 'am'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -3075,12 +3075,20 @@ class DaoModal {
       unresolved: new Set(),
     };
     this.claimScan = scan;
+    const cachedProposals = new Map(daoRepo.getProposalsForUi()
+      .map(proposal => [proposal.number, daoRepo.getProposalById(proposal.id)]));
+    const entriesToFetch = [];
+    for (const entry of entries) {
+      const cached = cachedProposals.get(entry.proposal);
+      if (cached) scan.proposals.set(entry.proposal, cached);
+      if (retrying || !cached || this.getClaimSummary(cached).incomplete) entriesToFetch.push(entry);
+    }
     this.render();
 
     // Bound detail reads independently of the visible page; eligibility needs full project data.
-    for (let start = 0; start < entries.length; start += 4) {
+    for (let start = 0; start < entriesToFetch.length; start += 4) {
       if (!this.isLoadingSessionCurrent(session) || this.claimScan !== scan) return;
-      const batch = entries.slice(start, start + 4);
+      const batch = entriesToFetch.slice(start, start + 4);
       const results = await Promise.allSettled(batch
         .map(entry => daoRepo.refreshProposal(entry.proposal, session.controller.signal)));
       if (!this.isLoadingSessionCurrent(session) || this.claimScan !== scan) return;
