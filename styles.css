@@ -9428,6 +9428,7 @@ small {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
 }
 
