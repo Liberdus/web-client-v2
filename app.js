@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'ad'; // Also increment this when you increment version.html
+const version = 'ai'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -2882,10 +2882,7 @@ class DaoModal {
 
     const session = this.beginLoadingSession();
     daoRepo.reset();
-    const refreshId = ++this.refreshSequence;
-    this.openRefreshId = refreshId;
-    this.proposalOpenSequence += 1;
-    this.refreshState = 'loading';
+    const refreshId = this.openRefreshId;
 
     // Close the main menu if opened from it
     if (menuModal?.isActive?.()) menuModal.close();
@@ -2894,12 +2891,10 @@ class DaoModal {
     enterFullscreen();
 
     this.selectFilter(initialFilterKey || this.selectedFilterKey);
-    this.detailsError = false;
     this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
     this.render();
 
     const notificationCutoff = getCorrectedTimestamp();
-    this.hideLoadingToast();
     const toastId = showToast('Loading DAO proposals...', 0, 'loading', false, { dedupe: false });
     this.loadingToastId = toastId;
     try {
@@ -2927,11 +2922,6 @@ class DaoModal {
 
   close() {
     this.cancelLoadingSession();
-    this.openRefreshId = ++this.refreshSequence;
-    this.hideLoadingToast();
-    this.proposalOpenSequence += 1;
-    this.detailsRequest = null;
-    this.listRequestSequence += 1;
     this.modal.classList.remove('active');
     enterFullscreen();
 
@@ -2952,8 +2942,6 @@ class DaoModal {
 
   beginLoadingSession() {
     this.cancelLoadingSession();
-    this.listRequestSequence += 1;
-    this.detailsRequest = null;
     this.loadingSession = {
       controller: new AbortController(),
       accountData: myData,
@@ -2965,6 +2953,13 @@ class DaoModal {
   cancelLoadingSession() {
     this.loadingSession?.controller.abort();
     this.loadingSession = null;
+    this.openRefreshId = ++this.refreshSequence;
+    this.listRequestSequence += 1;
+    this.proposalOpenSequence += 1;
+    this.detailsRequest = null;
+    this.detailsError = false;
+    this.refreshState = 'loading';
+    this.hideLoadingToast();
   }
 
   isLoadingSessionCurrent(session) {
@@ -2985,13 +2980,6 @@ class DaoModal {
     this.notificationProposalNumbers.clear();
     this.selectedFilterKey = 'voting';
     this.contextFilters = { proposals: 'voting', projects: 'executing' };
-    this.openRefreshId = ++this.refreshSequence;
-    this.listRequestSequence += 1;
-    this.proposalOpenSequence += 1;
-    this.detailsRequest = null;
-    this.detailsError = false;
-    this.refreshState = 'loading';
-    this.hideLoadingToast();
   }
 
   acknowledgeNotifications(notificationCutoff) {
@@ -3122,20 +3110,24 @@ class DaoModal {
     this.render();
   }
 
-  async loadMore() {
+  async loadPageWithFeedback(reset, errorMessage) {
     const session = this.loadingSession;
-    if (this.detailsRequest) return;
-    const key = this.selectedFilterKey;
-    this.visibleProposalCount += DAO_PROPOSAL_PAGE_SIZE;
-
+    const request = this.loadSelectedFilter({ reset });
+    const sequence = this.listRequestSequence;
     try {
-      await this.loadSelectedFilter({ reset: false });
+      await request;
     } catch (error) {
-      if (!this.isLoadingSessionCurrent(session) || key !== this.selectedFilterKey) return;
-      console.warn('Failed to load more DAO proposals:', error);
-      showToast('Failed to load more proposals', 2500, 'error');
+      if (!this.isLoadingSessionCurrent(session) || sequence !== this.listRequestSequence) return;
+      console.warn('Failed to load DAO page:', error);
+      if (errorMessage) showToast(errorMessage, 2500, 'error');
       this.render();
     }
+  }
+
+  async loadMore() {
+    if (this.detailsRequest) return;
+    this.visibleProposalCount += DAO_PROPOSAL_PAGE_SIZE;
+    return this.loadPageWithFeedback(false, 'Failed to load more proposals');
   }
 
   async refreshAfterDaoSettlement(pendingTxInfo, outcome) {
@@ -3199,19 +3191,11 @@ class DaoModal {
   }
 
   async retryLoad() {
-    const session = this.loadingSession;
     if (this.refreshState !== 'ready') return this._open(this.selectedFilterKey);
-    try {
-      await this.loadSelectedFilter({ reset: false });
-    } catch (error) {
-      if (!this.isLoadingSessionCurrent(session)) return;
-      console.warn('Failed to retry DAO items:', error);
-      this.render();
-    }
+    return this.loadPageWithFeedback(false, null);
   }
 
   async setFilter(key) {
-    const session = this.loadingSession;
     if (key === this.selectedFilterKey) return;
     this.proposalOpenSequence += 1;
     this.selectFilter(key);
@@ -3220,14 +3204,7 @@ class DaoModal {
       this.render();
       return;
     }
-    try {
-      await this.loadSelectedFilter({ reset: true });
-    } catch (error) {
-      if (!this.isLoadingSessionCurrent(session) || key !== this.selectedFilterKey) return;
-      console.warn('Failed to load DAO proposal filter:', error);
-      showToast('Failed to load proposals', 2500, 'error');
-      this.render();
-    }
+    return this.loadPageWithFeedback(true, 'Failed to load proposals');
   }
 
   renderFilterArea() {
