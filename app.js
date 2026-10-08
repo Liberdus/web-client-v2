@@ -2806,6 +2806,7 @@ function formatDaoProposalTitle(proposal) {
 class DaoModal {
   constructor() {
     this.loadingToastId = null;
+    this.loadingSession = null;
     this.selectedFilterKey = 'voting';
     this.contextFilters = { proposals: 'voting', projects: 'executing' };
     this.refreshState = 'loading';
@@ -2874,6 +2875,8 @@ class DaoModal {
     // Do not close the menu or start a refresh while another modal is still opening.
     if (!this.isActive() && !openModal(this.modal)) return;
 
+    const session = this.beginLoadingSession();
+    daoRepo.reset();
     const refreshId = ++this.refreshSequence;
     this.openRefreshId = refreshId;
     this.detailsRequest = null;
@@ -2895,17 +2898,18 @@ class DaoModal {
     const toastId = showToast('Loading DAO proposals...', 0, 'loading', false, { dedupe: false });
     this.loadingToastId = toastId;
     try {
-      await daoRepo.refresh({ force: true });
-      if (!this.isActive() || refreshId !== this.openRefreshId) return;
+      await daoRepo.refresh({ force: true, signal: session.controller.signal });
+      if (!this.isLoadingSessionCurrent(session) || refreshId !== this.openRefreshId) return;
       this.acknowledgeNotifications(notificationCutoff);
-      await this.syncTrackedClaimWindows();
-      if (!this.isActive() || refreshId !== this.openRefreshId) return;
+      await this.syncTrackedClaimWindows(session.controller.signal);
+      if (!this.isLoadingSessionCurrent(session) || refreshId !== this.openRefreshId) return;
       this.refreshState = 'ready';
       await this.loadSelectedFilter({ reset: true });
+      if (!this.isLoadingSessionCurrent(session) || refreshId !== this.openRefreshId) return;
       this.lastSuccessfulRefreshId = Math.max(this.lastSuccessfulRefreshId, refreshId);
-      if (!this.isActive() || refreshId !== this.openRefreshId) return;
     } catch (e) {
-      if (refreshId !== this.openRefreshId || this.lastSuccessfulRefreshId > refreshId) return;
+      if (!this.isLoadingSessionCurrent(session) || refreshId !== this.openRefreshId
+        || this.lastSuccessfulRefreshId > refreshId) return;
       if (this.refreshState === 'loading') this.refreshState = 'error';
       console.warn('Failed to refresh DAO proposals:', e);
       showToast('Failed to load proposals', 2500, 'error');
@@ -2917,6 +2921,7 @@ class DaoModal {
   }
 
   close() {
+    this.cancelLoadingSession();
     this.openRefreshId = ++this.refreshSequence;
     this.hideLoadingToast();
     this.proposalOpenSequence += 1;
@@ -2939,6 +2944,29 @@ class DaoModal {
     return this.modal.classList.contains('active');
   }
 
+  beginLoadingSession() {
+    this.cancelLoadingSession();
+    this.listRequestSequence += 1;
+    this.detailsRequest = null;
+    this.loadingSession = {
+      controller: new AbortController(),
+      accountData: myData,
+      networkId: network.netid,
+    };
+    return this.loadingSession;
+  }
+
+  cancelLoadingSession() {
+    this.loadingSession?.controller.abort();
+    this.loadingSession = null;
+  }
+
+  isLoadingSessionCurrent(session) {
+    return Boolean(session && session === this.loadingSession
+      && !session.controller.signal.aborted && session.accountData === myData
+      && session.networkId === network.netid && this.isActive());
+  }
+
   hideLoadingToast() {
     if (!this.loadingToastId) return;
     hideToast(this.loadingToastId);
@@ -2946,6 +2974,7 @@ class DaoModal {
   }
 
   resetNotificationState() {
+    this.cancelLoadingSession();
     this.notificationBatch = createEmptyDaoNotificationSummary();
     this.notificationProposalNumbers.clear();
     this.selectedFilterKey = 'voting';
@@ -2996,8 +3025,9 @@ class DaoModal {
     return getDaoTrackedProposalMetadataEntries(entries, proposalNumbers);
   }
 
-  async syncTrackedClaimWindows() {
+  async syncTrackedClaimWindows(signal) {
     const accountData = myData;
+    const networkId = network.netid;
     const pendingProposalNumbers = daoProposalVoteTracker.getPendingClaimProposalNumbers();
     if (pendingProposalNumbers.length === 0) return;
 
@@ -3006,16 +3036,18 @@ class DaoModal {
       pendingProposalNumbers,
     ).filter((entry) => isDaoFinalResultState(entry.status));
 
-    const proposals = await Promise.all(entries.map(async (entry) => {
-      try {
-        return await daoRepo.refreshProposal(entry.proposal);
-      } catch (error) {
-        console.warn(`Failed to refresh tracked DAO proposal #${entry.proposal}:`, error);
-        return null;
+    const proposals = [];
+    for (let start = 0; start < entries.length; start += 4) {
+      signal?.throwIfAborted();
+      const results = await Promise.allSettled(entries.slice(start, start + 4)
+        .map(entry => daoRepo.refreshProposal(entry.proposal, signal)));
+      signal?.throwIfAborted();
+      if (accountData !== myData || networkId !== network.netid) return;
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) proposals.push(result.value);
       }
-    }));
+    }
 
-    if (accountData !== myData) return;
     for (const proposal of proposals) {
       if (!proposal || !Number(proposal.votingEndedAt)) continue;
       const claimWindow = getDaoProposalClaimWindow(proposal);
@@ -3041,6 +3073,8 @@ class DaoModal {
   }
 
   async loadSelectedFilter({ reset }) {
+    const session = this.loadingSession;
+    if (!this.isLoadingSessionCurrent(session)) return;
     const entries = this.getSelectedMetadataEntries(daoRepo.getProposalMetaForUi());
 
     if (reset) this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
@@ -3054,38 +3088,38 @@ class DaoModal {
       return;
     }
 
-    const request = daoRepo.loadProposalEntries(entriesToFetch, { append: true });
+    const request = daoRepo.loadProposalEntries(entriesToFetch, { append: true, signal: session.controller.signal });
     this.detailsRequest = request;
     this.render();
 
     try {
       await request;
-      if (this.detailsRequest !== request || !this.isActive()) return;
+      if (!this.isLoadingSessionCurrent(session) || this.detailsRequest !== request) return;
       const loadedNumbers = new Set(daoRepo.getProposalsForUi().map((proposal) => proposal.number));
       if (entriesToLoad.some((entry) => !loadedNumbers.has(entry.proposal))) {
         throw new Error('Some DAO items could not be loaded');
       }
     } catch (error) {
-      if (this.detailsRequest !== request || !this.isActive()) return;
+      if (!this.isLoadingSessionCurrent(session) || this.detailsRequest !== request) return;
       this.refreshState = 'error';
       throw error;
     } finally {
       if (this.detailsRequest === request) this.detailsRequest = null;
     }
-    if (!this.isActive()) return;
+    if (!this.isLoadingSessionCurrent(session)) return;
 
     this.render();
   }
 
   async loadMore() {
     if (this.refreshState !== 'ready' || this.detailsRequest) return;
-    const refreshId = this.openRefreshId;
+    const session = this.loadingSession;
     this.visibleProposalCount += DAO_PROPOSAL_PAGE_SIZE;
 
     try {
       await this.loadSelectedFilter({ reset: false });
     } catch (error) {
-      if (refreshId !== this.openRefreshId || !this.isActive()) return;
+      if (!this.isLoadingSessionCurrent(session)) return;
       console.warn('Failed to load more DAO proposals:', error);
       showToast('Failed to load more proposals', 2500, 'error');
       this.render();
@@ -3106,7 +3140,7 @@ class DaoModal {
     let didRefreshDaoData = false;
     try {
       await daoRepo.refresh({ force: true });
-      await this.syncTrackedClaimWindows();
+      await this.syncTrackedClaimWindows(null);
       if (this.isActive()) {
         await this.loadSelectedFilter({ reset: true });
       }
@@ -3154,14 +3188,14 @@ class DaoModal {
 
   async setFilter(key) {
     if (key === this.selectedFilterKey || this.refreshState !== 'ready' || this.detailsRequest) return;
-    const refreshId = this.openRefreshId;
+    const session = this.loadingSession;
     this.proposalOpenSequence += 1;
     this.selectFilter(key);
     this.list?.parentElement.scrollTo({ top: 0 });
     try {
       await this.loadSelectedFilter({ reset: true });
     } catch (error) {
-      if (refreshId !== this.openRefreshId || key !== this.selectedFilterKey || !this.isActive()) return;
+      if (!this.isLoadingSessionCurrent(session) || key !== this.selectedFilterKey) return;
       console.warn('Failed to load DAO proposal filter:', error);
       showToast('Failed to load proposals', 2500, 'error');
       this.render();
@@ -3478,10 +3512,12 @@ class DaoModal {
   }
 
   async openProposal(proposal, proposalRow) {
+    const session = this.loadingSession;
+    if (!this.isLoadingSessionCurrent(session)) return;
     const openId = ++this.proposalOpenSequence;
     try {
-      const refreshed = await daoRepo.refreshProposal(proposal.number);
-      if (openId !== this.proposalOpenSequence || !this.isActive()) return;
+      const refreshed = await daoRepo.refreshProposal(proposal.number, session.controller.signal);
+      if (!this.isLoadingSessionCurrent(session) || openId !== this.proposalOpenSequence) return;
       if (!refreshed) throw new Error(`Proposal #${proposal.number} is unavailable`);
       if (this.clearNotificationForProposal(proposal.number)) {
         proposalRow.classList.remove('has-notification');
@@ -3491,7 +3527,7 @@ class DaoModal {
       proposalInfoModal.open(proposal.id);
       this.returnProposalNumber = proposal.number;
     } catch (error) {
-      if (openId !== this.proposalOpenSequence || !this.isActive()) return;
+      if (!this.isLoadingSessionCurrent(session) || openId !== this.proposalOpenSequence) return;
       console.warn('Failed to refresh DAO proposal:', error);
       showToast('Failed to load proposal', 2500, 'error');
     }
