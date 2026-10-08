@@ -1,6 +1,6 @@
 // Check if there is a newer version and load that using a new random url to avoid cache hits
 //   Versions should be YYYY.MMDD.HHmm like 2025.0125.1005
-const version = 'aq'; // Also increment this when you increment version.html
+const version = 'ar'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
@@ -2898,18 +2898,15 @@ class DaoModal {
       await daoRepo.refresh({ force: true });
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
       this.acknowledgeNotifications(notificationCutoff);
-      const refreshedClaimProposalNumbers = await this.syncTrackedClaimWindows();
+      await this.syncTrackedClaimWindows();
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
       this.refreshState = 'ready';
-      await this.loadSelectedFilter({
-        reset: true,
-        reuseProposalNumbers: refreshedClaimProposalNumbers,
-      });
+      await this.loadSelectedFilter({ reset: true });
       this.lastSuccessfulRefreshId = Math.max(this.lastSuccessfulRefreshId, refreshId);
       if (!this.isActive() || refreshId !== this.openRefreshId) return;
     } catch (e) {
       if (refreshId !== this.openRefreshId || this.lastSuccessfulRefreshId > refreshId) return;
-      this.refreshState = 'error';
+      if (this.refreshState === 'loading') this.refreshState = 'error';
       console.warn('Failed to refresh DAO proposals:', e);
       showToast('Failed to load proposals', 2500, 'error');
     } finally {
@@ -3000,10 +2997,9 @@ class DaoModal {
   }
 
   async syncTrackedClaimWindows() {
-    const refreshedProposalNumbers = new Set();
     const accountData = myData;
     const pendingProposalNumbers = daoProposalVoteTracker.getPendingClaimProposalNumbers();
-    if (pendingProposalNumbers.length === 0) return refreshedProposalNumbers;
+    if (pendingProposalNumbers.length === 0) return;
 
     const entries = getDaoTrackedProposalMetadataEntries(
       daoRepo.getProposalMetaForUi(),
@@ -3019,7 +3015,7 @@ class DaoModal {
       }
     }));
 
-    if (accountData !== myData) return refreshedProposalNumbers;
+    if (accountData !== myData) return;
     for (const proposal of proposals) {
       if (!proposal || !Number(proposal.votingEndedAt)) continue;
       const claimWindow = getDaoProposalClaimWindow(proposal);
@@ -3028,9 +3024,7 @@ class DaoModal {
         claimWindow.start,
         claimWindow.end,
       );
-      refreshedProposalNumbers.add(proposal.number);
     }
-    return refreshedProposalNumbers;
   }
 
   getSelectedMetadataEntries(entries) {
@@ -3046,13 +3040,19 @@ class DaoModal {
     });
   }
 
-  async loadSelectedFilter({ reset, reuseProposalNumbers = new Set() }) {
+  async loadSelectedFilter({ reset }) {
     const entries = this.getSelectedMetadataEntries(daoRepo.getProposalMetaForUi());
 
     if (reset) this.visibleProposalCount = DAO_PROPOSAL_PAGE_SIZE;
     const pageStart = reset ? 0 : Math.max(this.visibleProposalCount - DAO_PROPOSAL_PAGE_SIZE, 0);
     const entriesToLoad = entries.slice(pageStart, this.visibleProposalCount);
-    const entriesToFetch = entriesToLoad.filter((entry) => !reuseProposalNumbers.has(entry.proposal));
+    const cachedNumbers = new Set(daoRepo.getProposalsForUi().map(proposal => proposal.number));
+    const entriesToFetch = entriesToLoad.filter(entry => !cachedNumbers.has(entry.proposal));
+    if (entriesToFetch.length === 0) {
+      this.detailsRequest = null;
+      this.render();
+      return;
+    }
 
     const request = daoRepo.loadProposalEntries(entriesToFetch, { append: true });
     this.detailsRequest = request;
@@ -3106,12 +3106,9 @@ class DaoModal {
     let didRefreshDaoData = false;
     try {
       await daoRepo.refresh({ force: true });
-      const refreshedClaimProposalNumbers = await this.syncTrackedClaimWindows();
+      await this.syncTrackedClaimWindows();
       if (this.isActive()) {
-        await this.loadSelectedFilter({
-          reset: true,
-          reuseProposalNumbers: refreshedClaimProposalNumbers,
-        });
+        await this.loadSelectedFilter({ reset: true });
       }
       if (!daoRepo.getProposalById(pendingTxInfo?.proposalStoreId)) {
         await daoRepo.refreshProposal(pendingTxInfo?.proposalNumber);
