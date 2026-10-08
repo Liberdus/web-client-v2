@@ -424,58 +424,76 @@
           <div class="modal-title" id="daoModalTitle">DAO</div>
         </div>
         <div class="modal-content">
-          <div class="dao-toolbar">
-            <div class="dao-filter-bar" id="daoFilterBar" role="tablist" aria-label="Proposal and project filters">
-              <button class="dao-filter-chip" type="button" role="tab" data-filter-key="review" aria-selected="false">
-                <span class="dao-filter-chip-label">Review</span>
-                <span class="dao-filter-chip-count" aria-label="0 review proposals">0</span>
-              </button>
-              <button class="dao-filter-chip" type="button" role="tab" data-filter-key="voting" aria-selected="false">
-                <span class="dao-filter-chip-label">Vote</span>
-                <span class="dao-filter-chip-count" aria-label="0 voting proposals">0</span>
-              </button>
-              <button class="dao-filter-chip" type="button" role="tab" data-filter-key="accepted" aria-selected="false">
-                <span class="dao-filter-chip-label">Accepted</span>
-                <span class="dao-filter-chip-count" aria-label="0 accepted proposals">0</span>
-              </button>
-              <button class="dao-filter-chip" type="button" role="tab" data-filter-key="claimable" aria-selected="false" title="View proposals with rewards ready to claim">
-                <span class="dao-filter-chip-label">Claim</span>
-                <span class="dao-filter-chip-count" aria-label="0 claimable proposals">0</span>
-              </button>
-              <button class="dao-filter-chip" type="button" role="tab" data-filter-key="withheld" aria-selected="false">
-                <span class="dao-filter-chip-label">Withheld</span>
-                <span class="dao-filter-chip-count" aria-label="0 withheld proposals">0</span>
-              </button>
-              <button class="dao-filter-chip" type="button" role="tab" data-filter-key="rejected" aria-selected="false">
-                <span class="dao-filter-chip-label">Rejected</span>
-                <span class="dao-filter-chip-count" aria-label="0 rejected proposals">0</span>
-              </button>
-              <button class="dao-filter-chip" type="button" role="tab" data-filter-key="applied" aria-selected="false">
-                <span class="dao-filter-chip-label">Applied</span>
-                <span class="dao-filter-chip-count" aria-label="0 applied proposals">0</span>
-              </button>
-              <button class="dao-filter-chip" type="button" role="tab" data-filter-key="all" aria-selected="false">
-                <span class="dao-filter-chip-label">All</span>
-                <span class="dao-filter-chip-count" aria-label="0 all proposals">0</span>
-              </button>
-              <div class="dao-project-filter-row" role="presentation">
-                <span class="dao-filter-row-label" aria-hidden="true">Projects:</span>
-                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="executing" aria-selected="false">
-                  <span class="dao-filter-chip-label">Executing</span>
-                  <span class="dao-filter-chip-count" aria-label="0 executing projects">0</span>
-                </button>
-                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="terminated" aria-selected="false">
-                  <span class="dao-filter-chip-label">Terminated</span>
-                  <span class="dao-filter-chip-count" aria-label="0 terminated projects">0</span>
-                </button>
-                <button class="dao-filter-chip" type="button" role="tab" data-filter-key="completed" aria-selected="false">
-                  <span class="dao-filter-chip-label">Completed</span>
-                  <span class="dao-filter-chip-count" aria-label="0 completed projects">0</span>
-                </button>
+          <div class="dao-list-pane">
+            <div class="dao-toolbar">
+              <div class="dao-filter-bar" id="daoFilterBar" aria-label="DAO navigation">
+                    <div class="dao-filter-row" role="group" aria-label="All DAO items and claims">
+                      <button class="dao-filter-chip" type="button" data-filter-key="all" aria-pressed="false">
+                        <span class="dao-filter-chip-label">All</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                      <button class="dao-filter-chip" type="button" data-filter-key="claimable" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Claim</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                    </div>
+                <div class="dao-context-switch" role="group" aria-label="DAO section">
+                  <button type="button" data-dao-context="proposals" aria-pressed="true">Proposals</button>
+                  <button type="button" data-dao-context="projects" aria-pressed="false">Projects</button>
+                </div>
+                <div class="dao-filter-label">Filter</div>
+                <div class="dao-filter-slot">
+                  <div class="dao-context-filters" data-dao-filters="proposals">
+                    <div class="dao-filter-row" role="group" aria-label="Review filters">
+                      <button class="dao-filter-chip" type="button" data-filter-key="review" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Review</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                      <button class="dao-filter-chip" type="button" data-filter-key="withheld" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Withheld</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                    </div>
+                    <div class="dao-filter-row dao-filter-row--outcomes" role="group" aria-label="Voting and result filters">
+                      <button class="dao-filter-chip" type="button" data-filter-key="voting" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Vote</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                      <button class="dao-filter-chip" type="button" data-filter-key="accepted" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Accepted</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                      <button class="dao-filter-chip" type="button" data-filter-key="rejected" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Rejected</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                      <button class="dao-filter-chip" type="button" data-filter-key="applied" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Applied</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="dao-context-filters dao-filter-inactive" data-dao-filters="projects" inert aria-hidden="true">
+                    <div class="dao-filter-row dao-filter-row--projects" role="group" aria-label="Project filters">
+                      <button class="dao-filter-chip" type="button" data-filter-key="executing" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Executing</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                      <button class="dao-filter-chip" type="button" data-filter-key="terminated" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Terminated</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                      <button class="dao-filter-chip" type="button" data-filter-key="completed" aria-pressed="false">
+                        <span class="dao-filter-chip-label">Completed</span>
+                        <span class="dao-filter-chip-count">—</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="dao-filter-placeholder dao-filter-inactive" aria-hidden="true">Showing all proposals and projects.</div>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="dao-list-pane">
+            <h2 class="dao-list-heading" id="daoListHeading" aria-live="polite">Vote proposals</h2>
             <ul class="chat-list" id="daoProposalList">
               <div class="empty-state" id="daoProposalEmptyState">
                 <div></div>
