@@ -5153,6 +5153,84 @@ input[type='file'].form-control::file-selector-button {
   display: block;
 }
 /* Wallet Styles */
+.wallet-native-balance {
+  margin: 1rem;
+  padding: 16px 0;
+}
+
+.wallet-native-balance .asset-item {
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  text-align: center;
+}
+
+.wallet-native-heading {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 136px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+
+.wallet-native-amount {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  width: 100%;
+}
+
+.wallet-native-balance .asset-name {
+  margin-bottom: 0;
+}
+
+.wallet-native-balance .asset-logo {
+  width: 32px;
+  height: 32px;
+  margin-right: 0;
+}
+
+.wallet-native-balance .asset-balance {
+  grid-column: 2;
+  max-width: 100%;
+  font-size: clamp(28px, 8vw, 36px);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.wallet-native-symbol {
+  font-size: var(--font-size-base);
+  color: var(--secondary-text-color);
+}
+
+.wallet-native-pricing {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.wallet-native-value,
+.wallet-native-pricing .asset-symbol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1ch 3ch;
+  column-gap: 4px;
+  font-size: var(--font-size-xs);
+  line-height: 14px;
+  color: var(--secondary-text-color);
+}
+
+.wallet-native-pricing > div > :first-child {
+  text-align: right;
+}
+
+.wallet-native-balance .refresh-button {
+  grid-column: 3;
+}
+
 .wallet-balance {
   padding: 2rem;
   text-align: center;
@@ -11139,7 +11217,7 @@ small {
    so every block that holds a sentence or a value states its own alignment.
    --------------------------------------------------------------------------- */
 
-.multichain-summary {
+.wallet-asset-summary {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -11152,24 +11230,28 @@ small {
   cursor: pointer;
 }
 
-.multichain-summary:hover {
+.wallet-asset-summary + .wallet-asset-summary {
+  margin-top: 16px;
+}
+
+.wallet-asset-summary:hover {
   background: var(--hover-background-purple);
 }
 
-.multichain-summary-label {
+.wallet-asset-summary-label {
   flex: 1;
   font-size: var(--font-size-base);
   font-weight: 500;
   color: var(--text-color);
 }
 
-.multichain-summary-value {
+.wallet-asset-summary-value {
   font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--text-color);
 }
 
-.multichain-summary-chevron {
+.wallet-asset-summary-chevron {
   color: var(--muted-text-color);
 }
 

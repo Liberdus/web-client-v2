@@ -2205,7 +2205,6 @@ class WalletScreen {
     // screen
     this.screen = document.getElementById('walletScreen');
     // balance elements
-    this.totalBalance = document.getElementById('walletTotalBalance');
     this.refreshBalanceButton = document.getElementById('refreshBalance');
     // assets list
     this.assetsList = document.getElementById('assetsList');
@@ -2333,13 +2332,12 @@ class WalletScreen {
       }
     }
 
-    // The multichain row is its own balance and its own request, so it is
-    // refreshed alongside the wallet rather than blocking it.
+    // Refresh external asset summaries without blocking the native balance.
     multichain.updateSummary({ refresh: true }).catch(() => {});
+    evmAssets.refresh().catch(() => {});
 
     const walletUsdValue = calculateWalletUsdValue(walletData.assets);
     walletData.networth = walletUsdValue ?? 0.0;
-    this.totalBalance.textContent = walletUsdValue === null ? 'N/A' : walletUsdValue.toFixed(2);
 
     if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
       this.assetsList.querySelector('.empty-state').style.display = 'block';
@@ -2349,21 +2347,31 @@ class WalletScreen {
     this.assetsList.innerHTML = walletData.assets
       .map((asset) => {
         const assetUsdPrice = getAssetUsdPrice(asset);
-        const assetNetworth = calculateAssetUsdValue(asset);
-        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)} / ${asset.symbol}`;
-        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
+        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)}`;
+        const assetPerUsd = assetUsdPrice > 0 ? 1 / assetUsdPrice : null;
+        const assetPerUsdText = Number.isFinite(assetPerUsd) ? assetPerUsd.toFixed(6) : 'N/A';
         return `
               <div class="asset-item">
-                  <div class="asset-logo"><img src="./media/liberdus_logo_50.png" class="asset-logo"></div>
-                  <div class="asset-info">
+                  <div class="wallet-native-heading">
+                      <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
                       <div class="asset-name">${asset.name}</div>
-                      <div class="asset-symbol">${assetPriceText}</div>
+                      <div class="wallet-native-pricing">
+                          <div class="asset-symbol">
+                              <span>${assetPerUsdText} ${asset.symbol}</span><span>/</span><span>$</span>
+                          </div>
+                          <div class="wallet-native-value">
+                              <span>${assetPriceText}</span><span>/</span><span>${asset.symbol}</span>
+                          </div>
+                      </div>
                   </div>
-                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">${assetNetworthText}</span></div>
+                  <div class="wallet-native-amount">
+                      <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)} <span class="wallet-native-symbol">${asset.symbol}</span></div>
+                  </div>
               </div>
           `;
       })
       .join('');
+    this.assetsList.querySelector('.wallet-native-amount').appendChild(this.refreshBalanceButton);
   }
 
   // refresh wallet balance
