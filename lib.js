@@ -1374,3 +1374,28 @@ export function validateChatTransaction(transaction, context, crypto) {
 
   return { ok: true, txid };
 }
+
+/** Decode an uploaded image without owning any caller's form state. */
+export class QRImageDecoder {
+  /** @param {File} file @returns {Promise<string>} */
+  static async decode(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not create image canvas');
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      const text = qr.decodeQR({ data: pixels.data, width: pixels.width, height: pixels.height });
+      if (!text) throw new Error('No QR code found in image');
+      return text;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+}

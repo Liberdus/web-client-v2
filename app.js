@@ -210,6 +210,7 @@ import {
   getExpectedChatId,
   isPublicKeyForAddress,
   validateChatTransaction,
+  QRImageDecoder,
 } from './lib.js';
 
 import {
@@ -2310,6 +2311,27 @@ class WalletScreen {
   // Check if the current network is mainnet
   isMainnet() {
     return network?.name === 'Mainnet';
+  }
+
+  getAssets() {
+    return (myData?.wallet?.assets || []).filter((asset) => isLibAsset(asset));
+  }
+
+  getAsset(assetId) {
+    const assets = this.getAssets();
+    return assets.find((asset) => asset.id === assetId) || assets[0] || null;
+  }
+
+  populateAssetSelect(select) {
+    const options = this.getAssets().map((asset) => {
+      const option = document.createElement('option');
+      option.value = asset.id;
+      option.textContent = asset.name === asset.symbol
+        ? asset.symbol : `${asset.name} (${asset.symbol})`;
+      return option;
+    });
+    select.replaceChildren(...options);
+    PopupSelect.sync(select);
   }
 
   // Update wallet view; refresh wallet
@@ -20044,6 +20066,7 @@ const validatorModal = new ValidatorStakingModal();
 
 class StakeValidatorModal {
   constructor() {
+    this.openContext = null;
     this.stakedAmount = 0n;
     this.lastValidationTimestamp = 0;
     this.hasNominee = false;
@@ -20087,7 +20110,7 @@ class StakeValidatorModal {
     this.amountInput.addEventListener('input', this.debouncedValidateStakeInputs);
     this.scanStakeQRButton.addEventListener('click', () => qrScanModal.open());
     this.uploadStakeQRButton.addEventListener('click', () => this.stakeQRFileInput.click());
-    this.stakeQRFileInput.addEventListener('change', (event) => sendAssetFormModal.handleQRFileSelect(event, this));
+    this.stakeQRFileInput.addEventListener('change', (event) => this.readQRFile(event));
     this.faucetButton.addEventListener('click', withButtonCooldown(
       this.faucetButton,
       FAUCET_COOLDOWN_MS,
@@ -20100,7 +20123,8 @@ class StakeValidatorModal {
   }
 
   open() {
-    openModal(this.modal);
+    if (!openModal(this.modal)) return;
+    this.openContext = { account: myAccount };
 
     // Set the correct fill function for the staking context
     qrScanModal.fillFunction = this.fillFromQR.bind(this);
@@ -20131,6 +20155,7 @@ class StakeValidatorModal {
   }
 
   close() {
+    this.openContext = null;
     this.modal.classList.remove('active');
     // Reset the form fields
     this.resetForm();
@@ -20142,6 +20167,27 @@ class StakeValidatorModal {
    */
   isActive() {
     return this.modal?.classList.contains('active') || false;
+  }
+
+  isCurrentOpening(context) {
+    return Boolean(context && this.openContext === context && context.account === myAccount && this.isActive());
+  }
+
+  async readQRFile(event) {
+    const input = event.target;
+    const file = input.files[0];
+    if (!file) return;
+    const context = this.openContext;
+    try {
+      const text = await QRImageDecoder.decode(file);
+      if (this.isCurrentOpening(context) && input.files[0] === file) await this.fillFromQR(text);
+    } catch (error) {
+      if (!this.isCurrentOpening(context) || input.files[0] !== file) return;
+      showToast('Could not read QR code from image', 0, 'error');
+      this.resetForm();
+    } finally {
+      if (input.files[0] === file) input.value = '';
+    }
   }
 
   async handleSubmit(event) {
@@ -33123,7 +33169,7 @@ class SendAssetFormModal {
     this.balanceSymbol.textContent = 'LIB';
     this.balanceAmount.textContent = 'Loading…';
     this.transactionFee.textContent = 'Loading…';
-    evmAssets.populateAssetSelect(this.assetSelectDropdown, 'liberdus');
+    walletScreen.populateAssetSelect(this.assetSelectDropdown);
 
     if (!openModal(this.modal)) return false;
     const session = this.session = { account: myAccount };
@@ -33147,7 +33193,7 @@ class SendAssetFormModal {
   }
 
   getSelectedAsset() {
-    return evmAssets.getSelectedAsset('liberdus', this.assetSelectDropdown);
+    return walletScreen.getAsset(this.assetSelectDropdown.value);
   }
 
   isCurrentSession(session) {
@@ -33168,7 +33214,7 @@ class SendAssetFormModal {
 
   async handleAssetChange() {
     const asset = this.getSelectedAsset();
-    this.balanceSymbol.textContent = asset?.tokenSymbol || 'LIB';
+    this.balanceSymbol.textContent = asset?.symbol || 'LIB';
     await this.updateAvailableBalance();
   }
 
@@ -33478,12 +33524,11 @@ class SendAssetFormModal {
    */
   async fillAmount() {
     const session = this.session;
-    const selectedAsset = this.getSelectedAsset();
-    if (!selectedAsset) return;
+    const asset = this.getSelectedAsset();
+    if (!asset) return;
 
     await getNetworkParams();
     if (!this.isCurrentSession(session)) return;
-    const asset = selectedAsset.walletAsset;
     const feeInWei = getTransactionFeeWei();
     const maxAmount = BigInt(asset.balance) - feeInWei;
     const maxAmountStr = big2str(maxAmount > 0n ? maxAmount : 0n, 18).slice(0, -16);
@@ -33542,10 +33587,10 @@ class SendAssetFormModal {
 
     // Only set to asset symbol if it's empty (initial state)
     if (!currentSymbol) {
-      this.balanceSymbol.textContent = asset.tokenSymbol;
+      this.balanceSymbol.textContent = asset.symbol;
     }
 
-    const balanceInLIB = big2str(BigInt(asset.walletAsset.balance), 18).slice(0, -12);
+    const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
     const feeInLIB = big2str(txFeeInLIB, 18).slice(0, -16);
 
     this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, isCurrentlyUSD, stabilityFactor);
@@ -33593,7 +33638,7 @@ class SendAssetFormModal {
     }
 
     const selectedAsset = this.getSelectedAsset();
-    const assetIndex = myData.wallet.assets.indexOf(selectedAsset?.walletAsset);
+    const assetIndex = myData.wallet.assets.indexOf(selectedAsset);
     if (assetIndex < 0) {
       this.submitButton.disabled = true;
       return;
@@ -33675,7 +33720,7 @@ class SendAssetFormModal {
     const stabilityFactor = getStabilityFactor();
 
     // Get the raw values in LIB format
-    const asset = this.getSelectedAsset()?.walletAsset;
+    const asset = this.getSelectedAsset();
     if (!asset) return;
     const txFeeInWei = getTransactionFeeWei();
     const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
@@ -33766,91 +33811,21 @@ class SendAssetFormModal {
     qrScanModal.open();
   }
 
-  readQRFile(event) {
+  async readQRFile(event) {
+    const input = event.target;
+    const file = input.files[0];
+    if (!file) return;
     const session = this.session;
-    this.handleQRFileSelect(event, {
-      fillFromQR: (data) => { if (this.isCurrentSession(session)) this.fillFromQR(data); },
-      resetForm: () => { if (this.isCurrentSession(session)) this.resetForm(); },
-    });
-  }
-
-  /** Decode an uploaded QR for the requesting Send or Stake modal. */
-  async handleQRFileSelect(event, targetModal) {
-    const file = event.target.files[0];
-    if (!file) {
-      return; // No file selected
+    try {
+      const text = await QRImageDecoder.decode(file);
+      if (this.isCurrentSession(session) && input.files[0] === file) await this.fillFromQR(text);
+    } catch (error) {
+      if (!this.isCurrentSession(session) || input.files[0] !== file) return;
+      showToast('Could not read QR code from image', 0, 'error');
+      this.resetForm();
+    } finally {
+      if (input.files[0] === file) input.value = '';
     }
-
-    const reader = new FileReader();
-
-    reader.onload = function (e) {
-      const img = new Image();
-      img.onload = async function () {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        if (!context) {
-          console.error('Could not get 2d context from canvas');
-          showToast('Error processing image', 0, 'error');
-          event.target.value = ''; // Reset file input
-          return;
-        }
-        canvas.width = img.width;
-        canvas.height = img.height;
-        context.drawImage(img, 0, 0, img.width, img.height);
-        const imageData = context.getImageData(0, 0, img.width, img.height);
-
-        try {
-          // Use qr.js library for decoding
-          const decodedData = qr.decodeQR({
-            data: imageData.data,
-            width: imageData.width,
-            height: imageData.height,
-          });
-
-          if (decodedData) {
-            if (typeof targetModal.fillFromQR === 'function') {
-              targetModal.fillFromQR(decodedData); // Call the provided fill function
-            } else {
-              console.error('No valid fill function provided for QR file select');
-              // Fallback or default behavior if needed, e.g., show generic error
-              showToast('Internal error handling QR data', 0, 'error');
-            }
-          } else {
-            // qr.decodeQR might throw an error instead of returning null/undefined
-            // This else block might not be reached if errors are always thrown
-            console.error('No QR code found in image (qr.js)');
-            showToast('No QR code found in image', 0, 'error');
-            // Clear the form fields in case of failure to find QR code
-            targetModal.resetForm();
-          }
-        } catch (error) {
-          console.error('Error processing QR code image with qr.js:', error);
-          // Assume error means no QR code found or decoding failed
-          showToast('Could not read QR code from image', 0, 'error');
-          // Clear the form fields in case of error
-          targetModal.resetForm();
-
-        } finally {
-          event.target.value = ''; // Reset the file input value regardless of outcome
-        }
-      };
-      img.onerror = function () {
-        console.error('Error loading image');
-        showToast('Error loading image file', 0, 'error');
-        event.target.value = ''; // Reset the file input value
-        // Clear the form fields in case of image loading error
-        targetModal.resetForm();
-      };
-      img.src = e.target.result;
-    };
-
-    reader.onerror = function () {
-      console.error('Error reading file');
-      showToast('Error reading file', 0, 'error');
-      event.target.value = ''; // Reset the file input value
-    };
-
-    reader.readAsDataURL(file);
   }
 
   /**
@@ -33971,7 +33946,7 @@ class SendAssetConfirmModal {
   async handleSendAsset(event) {
     event.preventDefault();
     const selectedAsset = sendAssetFormModal.getSelectedAsset();
-    if (selectedAsset?.source !== 'liberdus') {
+    if (!selectedAsset) {
       showToast('Selected Liberdus asset is unavailable.', 3000, 'warning');
       this.close();
       return;
@@ -33990,7 +33965,7 @@ class SendAssetConfirmModal {
     }
 
     const wallet = myData.wallet;
-    const assetIndex = wallet.assets.indexOf(selectedAsset.walletAsset);
+    const assetIndex = wallet.assets.indexOf(selectedAsset);
     if (assetIndex < 0) {
       showToast('Selected Liberdus asset is unavailable.', 0, 'error');
       return;
@@ -34295,7 +34270,7 @@ class ReceiveModal {
     this.session = { account: myAccount };
     this.amountInput.value = '';
     this.memoInput.value = '';
-    evmAssets.populateAssetSelect(this.assetSelect, 'liberdus');
+    walletScreen.populateAssetSelect(this.assetSelect);
     this.receiveBalanceSymbol.textContent = 'LIB';
     this.toggleReceiveBalanceButton.disabled = false;
     this.updateDisplayAddress();
@@ -34322,7 +34297,7 @@ class ReceiveModal {
   }
 
   getSelectedAsset() {
-    return evmAssets.getSelectedAsset('liberdus', this.assetSelect);
+    return walletScreen.getAsset(this.assetSelect.value);
   }
 
   scheduleQRCode() {
@@ -34335,7 +34310,7 @@ class ReceiveModal {
 
   handleAssetChange() {
     const asset = this.getSelectedAsset();
-    this.receiveBalanceSymbol.textContent = asset?.tokenSymbol || 'LIB';
+    this.receiveBalanceSymbol.textContent = asset?.symbol || 'LIB';
     this.updateDisplayAddress();
   }
 
@@ -34373,8 +34348,8 @@ class ReceiveModal {
     const asset = this.getSelectedAsset();
     const paymentData = {
       u: this.session.account.username,
-      i: asset?.walletAsset?.id || 'liberdus',
-      s: asset?.tokenSymbol || 'LIB',
+      i: asset?.id || 'liberdus',
+      s: asset?.symbol || 'LIB',
       d: String(this.receiveBalanceSymbol.textContent || 'LIB').toUpperCase(),
     };
 
@@ -34471,9 +34446,9 @@ class ReceiveModal {
     this.toggleReceiveBalanceButton.disabled = true;
     try {
       const asset = this.getSelectedAsset();
-      const tokenSymbol = asset?.tokenSymbol || 'LIB';
+      const tokenSymbol = asset?.symbol || 'LIB';
       const isShowingToken = this.receiveBalanceSymbol.textContent !== 'USD';
-      const tokenPrice = Number(asset?.tokenPriceUsd);
+      const tokenPrice = Number(asset?.price);
       let conversionPrice = Number.isFinite(tokenPrice) && tokenPrice > 0 ? tokenPrice : null;
       if (conversionPrice === null) {
         await getNetworkParams();
@@ -34700,14 +34675,10 @@ evmAssets.configure({
     removeEvmPayment(record);
     saveState();
   },
-  getLiberdusAsset: () => myData?.wallet?.assets?.find((asset) => isLibAsset(asset))
-    || myData?.wallet?.assets?.[0]
-    || null,
   openQRScanner: (fill) => {
     qrScanModal.fillFunction = fill;
     qrScanModal.open();
   },
-  readQRFile: (event, target) => sendAssetFormModal.handleQRFileSelect(event, target),
   showToast,
   hideToast,
   syncSelect: (select) => PopupSelect.sync(select),
