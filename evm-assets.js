@@ -1,6 +1,7 @@
 import {
   base642bin,
   bin2utf8,
+  bin2base64,
   normalizeUnsignedFloat,
   BUTTON_COOLDOWN_MS,
   escapeHtml,
@@ -875,7 +876,8 @@ class WalletDiscoveryService {
     for (const asset of walletNetwork.assets) {
       const option = document.createElement('option');
       option.value = asset.key;
-      option.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
+      option.textContent = asset.tokenName === asset.tokenSymbol
+        ? asset.tokenSymbol : `${asset.tokenName} (${asset.tokenSymbol})`;
       fragment.appendChild(option);
     }
     select.replaceChildren(fragment);
@@ -1727,7 +1729,6 @@ class AssetDetailsModal {
     });
     document.getElementById('assetDetailsReceive').addEventListener('click', () => {
       this.controller.openContextualReceive({
-        mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
       });
@@ -1901,7 +1902,8 @@ export class EvmSendConfirmationModal {
     } = prepared;
     this.recipient.textContent = recipientLabel || validation.recipient;
     this.amount.textContent = `${displayAmount} ${asset.tokenSymbol}`;
-    this.asset.textContent = `${asset.tokenName} (${asset.tokenSymbol})`;
+    this.asset.textContent = asset.tokenName === asset.tokenSymbol
+      ? asset.tokenSymbol : `${asset.tokenName} (${asset.tokenSymbol})`;
     this.networkValue.textContent = `${network.name} (Chain ID ${network.chainId})`;
     this.feeValue.textContent = `${formatUnits(maximumFee, 18)} ${network.nativeSymbol}`;
     this.signingNotice.textContent = prepared.chat
@@ -2014,7 +2016,9 @@ class EvmSendModal {
       return false;
     }
     this.resetForm();
-    this.assetLabel.textContent = `${asset.tokenName} (${asset.tokenSymbol}) · ${walletNetwork.name}`;
+    const assetLabel = asset.tokenName === asset.tokenSymbol
+      ? asset.tokenSymbol : `${asset.tokenName} (${asset.tokenSymbol})`;
+    this.assetLabel.textContent = `${assetLabel} · ${walletNetwork.name}`;
     this.balanceSymbol.textContent = asset.tokenSymbol;
     this.balanceAmount.textContent = `${this.controller.formatTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
     if (!openModal(this.modal)) return false;
@@ -2172,13 +2176,170 @@ class EvmSendModal {
   }
 }
 
+class EvmReceiveModal {
+  constructor(controller) {
+    this.controller = controller;
+    this.session = null;
+  }
+
+  load() {
+    this.modal = document.getElementById('evmReceiveModal');
+    this.assetLabel = document.getElementById('evmReceiveAssetLabel');
+    this.amountInput = document.getElementById('evmReceiveAmount');
+    this.balanceSymbol = document.getElementById('evmReceiveSymbol');
+    this.toggleButton = document.getElementById('toggleEvmReceiveBalance');
+    this.displayAddress = document.getElementById('evmReceiveAddress');
+    this.copyButton = document.getElementById('copyEvmReceiveAddress');
+    this.qrcodeContainer = document.getElementById('evmReceiveQRCode');
+    this.preview = document.getElementById('evmReceiveQRPreview');
+    document.getElementById('closeEvmReceiveModal').addEventListener('click', () => this.close());
+    this.copyButton.addEventListener('click', () => this.copyAddress());
+    this.displayAddress.addEventListener('click', () => this.copyAddress());
+    this.toggleButton.addEventListener('click', () => this.handleToggleBalance());
+    this.amountInput.addEventListener('input', () => {
+      this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value);
+      this.scheduleQRCode();
+    });
+  }
+
+  open({ networkId, assetKey }) {
+    if (this.modal.classList.contains('active')) return false;
+    const account = this.controller.getAccount();
+    const { walletNetwork, asset } = this.controller.findAsset(networkId, assetKey, { evmOnly: true });
+    if (!account || !asset) {
+      this.controller.showToast('This asset is no longer available. Refresh and try again.', 3000, 'warning');
+      return false;
+    }
+    this.close();
+    this.session = { account, network: walletNetwork, asset, address: walletProbeAddress(account.keys.address) };
+    this.amountInput.value = '';
+    const assetLabel = asset.tokenName === asset.tokenSymbol
+      ? asset.tokenSymbol : `${asset.tokenName} (${asset.tokenSymbol})`;
+    this.assetLabel.textContent = `${assetLabel} · ${walletNetwork.name}`;
+    this.balanceSymbol.textContent = asset.tokenSymbol;
+    this.displayAddress.textContent = this.session.address;
+    this.updateQRCode();
+    if (!openModal(this.modal)) {
+      this.close();
+      return false;
+    }
+    this.refreshAsset(this.session);
+    return true;
+  }
+
+  isCurrentSession(session) {
+    return Boolean(session && this.session === session && session.account === this.controller.getAccount());
+  }
+
+  async refreshAsset(session) {
+    try {
+      await this.controller.refresh();
+      if (!this.isCurrentSession(session)) return;
+      const { asset } = this.controller.findAsset(session.network.id, session.asset.key, { evmOnly: true });
+      if (asset) session.asset = asset;
+    } catch (error) {
+      // Receiving still works with the selected address/asset; USD conversion may be unavailable.
+      if (this.isCurrentSession(session)) this.controller.showToast('Asset prices could not be refreshed', 3000, 'warning');
+    }
+  }
+
+  scheduleQRCode() {
+    clearTimeout(this.qrTimer);
+    const session = this.session;
+    this.qrTimer = setTimeout(() => {
+      if (this.isCurrentSession(session)) this.updateQRCode();
+    }, 300);
+  }
+
+  createQRPaymentData() {
+    const { account, network, asset, address } = this.session;
+    const data = {
+      u: account.username,
+      n: network.id,
+      c: network.chainId,
+      i: asset.contractAddress || asset.key,
+      s: asset.tokenSymbol,
+      d: this.balanceSymbol.textContent.toUpperCase(),
+      r: address,
+    };
+    const amount = this.amountInput.value.trim();
+    if (amount) data.a = amount;
+    return data;
+  }
+
+  updateQRCode() {
+    if (!this.isCurrentSession(this.session)) return;
+    this.qrcodeContainer.replaceChildren();
+    this.preview.style.display = 'none';
+    this.preview.textContent = '';
+    try {
+      const text = `liberdus://${bin2base64(utf82bin(JSON.stringify(this.createQRPaymentData())))}`;
+      const bytes = qr.encodeQR(text, 'gif', { scale: 4 });
+      const img = document.createElement('img');
+      img.src = `data:image/gif;base64,${bin2base64(new Uint8Array(bytes))}`;
+      img.width = 200;
+      img.height = 200;
+      img.alt = 'EVM payment request QR code';
+      this.qrcodeContainer.appendChild(img);
+      return text;
+    } catch (error) {
+      // A username-only fallback would lose the EVM network and asset identity.
+      this.preview.textContent = 'Unable to generate the payment QR code. You can still copy your address.';
+      this.preview.style.display = 'block';
+    }
+  }
+
+  handleToggleBalance() {
+    if (!this.isCurrentSession(this.session)) return;
+    const { asset } = this.session;
+    const price = Number(asset.tokenPriceUsd);
+    if (!Number.isFinite(price) || price <= 0) {
+      this.controller.showToast(`${asset.tokenSymbol}/USD price is unavailable`, 2500, 'warning');
+      return;
+    }
+    const showUsd = this.balanceSymbol.textContent !== 'USD';
+    this.balanceSymbol.textContent = showUsd ? 'USD' : asset.tokenSymbol;
+    const amount = this.amountInput.value.trim();
+    if (amount && Number.isFinite(Number(amount))) {
+      this.amountInput.value = String(showUsd ? Number(amount) * price : Number(amount) / price);
+    }
+    this.updateQRCode();
+  }
+
+  async copyAddress() {
+    const session = this.session;
+    if (!this.isCurrentSession(session)) return;
+    try {
+      await navigator.clipboard.writeText(session.address);
+      if (!this.isCurrentSession(session)) return;
+      this.controller.showToast('Address copied to clipboard', 2000, 'success');
+      this.copyButton.classList.add('success');
+      clearTimeout(this.copyTimer);
+      this.copyTimer = setTimeout(() => {
+        if (this.isCurrentSession(session)) this.copyButton.classList.remove('success');
+      }, 2000);
+    } catch (error) {
+      if (this.isCurrentSession(session)) this.controller.showToast('Failed to copy address', 3000, 'error');
+    }
+  }
+
+  close() {
+    this.session = null;
+    clearTimeout(this.qrTimer);
+    clearTimeout(this.copyTimer);
+    this.modal?.classList.remove('active');
+    this.copyButton?.classList.remove('success');
+    if (this.displayAddress) this.displayAddress.textContent = '';
+    this.qrcodeContainer?.replaceChildren();
+  }
+}
+
 class EvmAssetsController {
   constructor() {
     this.getAccount = () => null;
     this.getLiberdusAsset = () => null;
     this.openQRScanner = () => {};
     this.readQRFile = () => {};
-    this.openReceive = () => {};
     this.showToast = () => {};
     this.hideToast = () => {};
     this.syncSelect = () => {};
@@ -2226,6 +2387,7 @@ class EvmAssetsController {
     this.assetsModal = new AssetsModal(this);
     this.assetDetailsModal = new AssetDetailsModal(this);
     this.sendModal = new EvmSendModal(this);
+    this.receiveModal = new EvmReceiveModal(this);
   }
 
   configure({
@@ -2242,7 +2404,6 @@ class EvmAssetsController {
     dismissPayment,
     openQRScanner,
     readQRFile,
-    openReceive,
     showToast,
     hideToast,
     confirmTransfer,
@@ -2261,7 +2422,6 @@ class EvmAssetsController {
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openQRScanner === 'function') this.openQRScanner = openQRScanner;
     if (typeof readQRFile === 'function') this.readQRFile = readQRFile;
-    if (typeof openReceive === 'function') this.openReceive = openReceive;
     if (typeof showToast === 'function') this.showToast = showToast;
     if (typeof hideToast === 'function') this.hideToast = hideToast;
     if (typeof confirmTransfer === 'function') this.confirmTransfer = confirmTransfer;
@@ -2274,6 +2434,7 @@ class EvmAssetsController {
     this.assetDetailsModal.load();
     this.confirmationModal.load();
     this.sendModal.load();
+    this.receiveModal.load();
     document.getElementById('openAssets').addEventListener('click', () => this.assetsModal.open());
     this.loaded = true;
   }
@@ -2283,9 +2444,14 @@ class EvmAssetsController {
     this.transactions.paymentEvidence.clear();
     this.confirmationModal.reset();
     this.sendModal.close();
+    this.receiveModal.close();
   }
 
   close(modalId) {
+    if (modalId === 'evmReceiveModal') {
+      this.receiveModal.close();
+      return true;
+    }
     if (modalId === 'evmSendConfirmModal') {
       this.confirmationModal.reset();
       return true;
@@ -2358,7 +2524,7 @@ class EvmAssetsController {
   openContextualSend(options) {
     return this.sendModal.open(options);
   }
-  openContextualReceive(options) { return this.openReceive(options); }
+  openContextualReceive(options) { return this.receiveModal.open(options); }
   refreshSendButtonState(form) {
     const resolution = form.getResolvedRecipient();
     const amount = form.amountInput.value.trim();

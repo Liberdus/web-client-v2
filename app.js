@@ -555,6 +555,7 @@ function clearMyData() {
   stopEvmPaymentChecks();
   evmAssets.reset();
   sendAssetFormModal.reset();
+  receiveModal.close();
   multichain.reset();
   daoRepo.reset();
   daoModal.resetNotificationState();
@@ -34257,18 +34258,14 @@ const sendAssetConfirmModal = new SendAssetConfirmModal();
 
 class ReceiveModal {
   constructor() {
-    this.mode = 'liberdus';
+    this.session = null;
   }
 
   load() {
     this.modal = document.getElementById('receiveModal');
-    this.networkSelect = document.getElementById('receiveNetwork');
-    this.networkGroup = document.getElementById('receiveNetworkGroup');
-    this.networkStatus = document.getElementById('receiveNetworkStatus');
     this.assetSelect = document.getElementById('receiveAsset');
     this.amountInput = document.getElementById('receiveAmount');
     this.memoInput = document.getElementById('receiveMemo');
-    this.memoGroup = document.getElementById('receiveMemoGroup');
     this.displayAddress = document.getElementById('displayAddress');
     this.qrcodeContainer = document.getElementById('qrcode');
     this.previewElement = document.getElementById('qrDataPreview');
@@ -34276,9 +34273,6 @@ class ReceiveModal {
     this.toggleReceiveBalanceButton = document.getElementById('toggleReceiveBalance');
     this.receiveBalanceSymbol = document.getElementById('receiveBalanceSymbol');
     this.fullAddress = null; // Store full address for copying
-
-    // Create debounced function
-    this.debouncedUpdateQRCode = debounce(() => this.updateQRCode(), 300);
 
     // Modal close
     document.getElementById('closeReceiveModal').addEventListener('click', () => this.close());
@@ -34288,91 +34282,60 @@ class ReceiveModal {
     this.displayAddress.addEventListener('click', () => this.copyAddress());
     
     // QR code updates
-    this.networkSelect.addEventListener('change', () => this.handleNetworkChange());
     this.assetSelect.addEventListener('change', () => this.handleAssetChange());
     this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
-    this.amountInput.addEventListener('input', this.debouncedUpdateQRCode);
-    this.memoInput.addEventListener('input', this.debouncedUpdateQRCode);
+    this.amountInput.addEventListener('input', () => this.scheduleQRCode());
+    this.memoInput.addEventListener('input', () => this.scheduleQRCode());
     this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
   }
 
-  async open({ mode = 'liberdus', networkId = null, assetKey = null } = {}) {
-    this.mode = mode;
-    const hasFixedNetwork = mode === 'evm' && Boolean(networkId);
-    const hasFixedAsset = hasFixedNetwork && Boolean(assetKey);
-    this.networkGroup.hidden = mode !== 'evm' || hasFixedNetwork;
-    this.assetSelect.closest('.form-group').hidden = hasFixedAsset;
-    this.memoGroup.hidden = mode === 'evm';
-
-    // Clear input fields
+  open() {
+    if (this.modal.classList.contains('active') || !myAccount) return false;
+    this.close();
+    this.session = { account: myAccount };
     this.amountInput.value = '';
     this.memoInput.value = '';
-
-    if (this.mode === 'evm') {
-      this.prepareEvmContext(networkId, assetKey);
+    evmAssets.populateAssetSelect(this.assetSelect, 'liberdus');
+    this.receiveBalanceSymbol.textContent = 'LIB';
+    this.toggleReceiveBalanceButton.disabled = false;
+    this.updateDisplayAddress();
+    if (!openModal(this.modal)) {
+      this.close();
+      return false;
     }
-
-    if (!openModal(this.modal)) return;
-
-    if (this.mode === 'evm') {
-      await evmAssets.refresh();
-      return;
-    }
-
-    evmAssets.rebuildCatalog();
-    evmAssets.populateNetworkSelect(this.networkSelect, { selectedId: 'liberdus' });
-    await this.handleNetworkChange();
+    return true;
   }
 
-  prepareEvmContext(networkId, assetKey) {
-    evmAssets.populateNetworkSelect(this.networkSelect, {
-      selectedId: networkId || 'ethereum',
-      evmOnly: true,
-    });
-    evmAssets.populateAssetSelect(this.assetSelect, this.networkSelect.value);
-    if (assetKey && [...this.assetSelect.options].some((option) => option.value === assetKey)) {
-      this.assetSelect.value = assetKey;
-      PopupSelect.sync(this.assetSelect);
-    }
-
-    const walletNetwork = this.getSelectedNetwork();
-    const asset = this.getSelectedAsset();
-    this.networkStatus.textContent = `Receive on ${walletNetwork.name} using this account's shared EVM address.`;
-    this.networkStatus.dataset.status = walletNetwork.connected ? 'connected' : 'ready';
-    this.receiveBalanceSymbol.textContent = asset?.tokenSymbol || '';
-    this.updateReceiveAddresses();
+  isCurrentSession(session) {
+    return Boolean(session && this.session === session && session.account === myAccount);
   }
 
   close() {
-    this.modal.classList.remove('active');
-  }
-
-  getSelectedNetwork() {
-    return evmAssets.getNetwork(this.networkSelect.value);
+    this.session = null;
+    clearTimeout(this.qrTimer);
+    clearTimeout(this.copyTimer);
+    this.modal?.classList.remove('active');
+    this.copyButton?.classList.remove('success');
+    this.fullAddress = null;
+    if (this.displayAddress) this.displayAddress.textContent = '';
+    if (this.qrcodeContainer) this.qrcodeContainer.innerHTML = '';
   }
 
   getSelectedAsset() {
-    return evmAssets.getSelectedAsset(this.networkSelect.value, this.assetSelect);
+    return evmAssets.getSelectedAsset('liberdus', this.assetSelect);
   }
 
-  async handleNetworkChange() {
-    const walletNetwork = this.getSelectedNetwork();
-    evmAssets.populateAssetSelect(this.assetSelect, walletNetwork?.id || 'liberdus');
-    this.networkStatus.textContent = walletNetwork?.source === 'evm'
-      ? `Receive on ${walletNetwork.name} using this account's shared EVM address.`
-      : 'Receive Liberdus using your account address.';
-    this.networkStatus.dataset.status = walletNetwork?.connected ? 'connected' : 'ready';
-    await this.handleAssetChange();
+  scheduleQRCode() {
+    clearTimeout(this.qrTimer);
+    const session = this.session;
+    this.qrTimer = setTimeout(() => {
+      if (this.isCurrentSession(session)) this.updateQRCode();
+    }, 300);
   }
 
-  async handleAssetChange() {
+  handleAssetChange() {
     const asset = this.getSelectedAsset();
     this.receiveBalanceSymbol.textContent = asset?.tokenSymbol || 'LIB';
-    this.updateReceiveAddresses();
-  }
-
-  updateReceiveAddresses() {
-    // Update display address
     this.updateDisplayAddress();
   }
 
@@ -34380,7 +34343,7 @@ class ReceiveModal {
     // Clear previous QR code
     this.qrcodeContainer.innerHTML = '';
 
-    const address = myAccount.keys.address;
+    const address = this.session.account.keys.address;
     const addressWithPrefix = address.startsWith('0x') ? address : `0x${address}`;
     
     // Store full address for copying
@@ -34407,25 +34370,13 @@ class ReceiveModal {
 
   // Create QR payment data object based on form values
   createQRPaymentData() {
-    const walletNetwork = this.getSelectedNetwork();
     const asset = this.getSelectedAsset();
-
-    const paymentData = this.mode === 'evm'
-      ? {
-          u: myAccount.username,
-          n: walletNetwork?.id || 'ethereum',
-          c: walletNetwork?.chainId || 1,
-          i: asset?.contractAddress || asset?.key || 'native',
-          s: asset?.tokenSymbol || walletNetwork?.nativeSymbol || 'ETH',
-          d: String(this.receiveBalanceSymbol.textContent || asset?.tokenSymbol || 'ETH').toUpperCase(),
-          r: this.fullAddress,
-        }
-      : {
-          u: myAccount.username,
-          i: asset?.walletAsset?.id || 'liberdus',
-          s: asset?.tokenSymbol || 'LIB',
-          d: String(this.receiveBalanceSymbol.textContent || 'LIB').toUpperCase(),
-        };
+    const paymentData = {
+      u: this.session.account.username,
+      i: asset?.walletAsset?.id || 'liberdus',
+      s: asset?.tokenSymbol || 'LIB',
+      d: String(this.receiveBalanceSymbol.textContent || 'LIB').toUpperCase(),
+    };
 
     // Add optional fields if they have values
     const amount = this.amountInput.value.trim();
@@ -34443,6 +34394,7 @@ class ReceiveModal {
 
   // Update QR code with current payment data
   updateQRCode() {
+    if (!this.isCurrentSession(this.session)) return;
     this.qrcodeContainer.innerHTML = '';
     this.previewElement.style.display = 'none'; // Hide preview/error area initially
     this.previewElement.innerHTML = ''; // Clear any previous error message
@@ -34479,7 +34431,7 @@ class ReceiveModal {
       // Fallback to basic username QR code in liberdus:// format
       try {
         // Use short key 'u' for username
-        const fallbackData = { u: myAccount.username };
+        const fallbackData = { u: this.session.account.username };
         const fallbackJsonData = JSON.stringify(fallbackData);
         const fallbackBase64Data = btoa(fallbackJsonData);
         const fallbackQrText = `liberdus://${fallbackBase64Data}`;
@@ -34514,15 +34466,18 @@ class ReceiveModal {
    * Toggle LIB/USD display for the receive amount and update the QR accordingly
    */
   async handleToggleBalance() {
+    const session = this.session;
+    if (!this.isCurrentSession(session)) return;
+    this.toggleReceiveBalanceButton.disabled = true;
     try {
       const asset = this.getSelectedAsset();
       const tokenSymbol = asset?.tokenSymbol || 'LIB';
       const isShowingToken = this.receiveBalanceSymbol.textContent !== 'USD';
-      this.receiveBalanceSymbol.textContent = isShowingToken ? 'USD' : tokenSymbol;
       const tokenPrice = Number(asset?.tokenPriceUsd);
       let conversionPrice = Number.isFinite(tokenPrice) && tokenPrice > 0 ? tokenPrice : null;
-      if (conversionPrice === null && asset?.source === 'liberdus') {
+      if (conversionPrice === null) {
         await getNetworkParams();
+        if (!this.isCurrentSession(session)) return;
         const stabilityFactor = getStabilityFactor();
         conversionPrice = Number.isFinite(stabilityFactor) && stabilityFactor > 0
           ? stabilityFactor
@@ -34530,12 +34485,12 @@ class ReceiveModal {
       }
 
       if (conversionPrice === null) {
-        this.receiveBalanceSymbol.textContent = tokenSymbol;
         showToast(`${tokenSymbol}/USD price is unavailable`, 2500, 'warning');
         return;
       }
 
-      if (this.amountInput && this.amountInput.value.trim() !== '') {
+      this.receiveBalanceSymbol.textContent = isShowingToken ? 'USD' : tokenSymbol;
+      if (this.amountInput.value.trim() !== '') {
         const currentValue = parseFloat(this.amountInput.value);
         if (!isNaN(currentValue)) {
           if (this.receiveBalanceSymbol.textContent === 'USD') {
@@ -34549,20 +34504,26 @@ class ReceiveModal {
       this.updateQRCode();
     } catch (err) {
       console.error('Error toggling receive balance:', err);
+    } finally {
+      if (this.isCurrentSession(session)) this.toggleReceiveBalanceButton.disabled = false;
     }
   }
 
   async copyAddress() {
-    // Copy the full address, not the displayed truncated version and toast
-    const address = this.fullAddress || this.displayAddress.textContent;
+    const session = this.session;
+    if (!this.isCurrentSession(session)) return;
+    const address = this.fullAddress;
     try {
       await navigator.clipboard.writeText(address);
+      if (!this.isCurrentSession(session)) return;
       showToast('Address copied to clipboard', 2000, 'success');
       this.copyButton.classList.add('success');
-      setTimeout(() => {
-        this.copyButton.classList.remove('success');
+      clearTimeout(this.copyTimer);
+      this.copyTimer = setTimeout(() => {
+        if (this.isCurrentSession(session)) this.copyButton.classList.remove('success');
       }, 2000);
     } catch (err) {
+      if (!this.isCurrentSession(session)) return;
       console.error('Failed to copy:', err);
       showToast('Failed to copy address', 0, 'error');
     }
@@ -34747,7 +34708,6 @@ evmAssets.configure({
     qrScanModal.open();
   },
   readQRFile: (event, target) => sendAssetFormModal.handleQRFileSelect(event, target),
-  openReceive: (options) => receiveModal.open(options),
   showToast,
   hideToast,
   syncSelect: (select) => PopupSelect.sync(select),
@@ -38835,6 +38795,7 @@ const modalCloseHandlers = new Map([
   ['assetsModal', () => evmAssets.close('assetsModal')],
   ['assetDetailsModal', () => evmAssets.close('assetDetailsModal')],
   ['evmSendModal', () => evmAssets.close('evmSendModal')],
+  ['evmReceiveModal', () => evmAssets.close('evmReceiveModal')],
   ['evmSendConfirmModal', () => evmAssets.close('evmSendConfirmModal')],
   ['multichainModal', () => multichain.close('multichainModal')],
   ['multichainAssetModal', () => multichain.close('multichainAssetModal')],

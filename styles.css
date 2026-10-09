@@ -5805,7 +5805,7 @@ input[type='file'].form-control {
   align-items: center;
 }
 
-#receiveModal .form-group .address-container {
+:is(#receiveModal, #evmReceiveModal) .form-group .address-container {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
@@ -5828,7 +5828,7 @@ input[type='file'].form-control {
 }
 
 /* Reduce bottom margin for the form-group containing the address */
-#receiveModal .form-group:has(.address-container) {
+:is(#receiveModal, #evmReceiveModal) .form-group:has(.address-container) {
   margin-bottom: 0.5rem;
 }
 
@@ -5959,7 +5959,7 @@ input[type='file'].form-control {
 }
 
 /* QR code container */
-#qrcode,
+:is(#qrcode, #evmReceiveQRCode),
 #secretQRCode {
   margin: 0.75rem auto !important;
   padding: 0.75rem;
@@ -5971,8 +5971,8 @@ input[type='file'].form-control {
   align-items: center;
 }
 
-#qrcode img,
-#qrcode canvas,
+:is(#qrcode, #evmReceiveQRCode) img,
+:is(#qrcode, #evmReceiveQRCode) canvas,
 #secretQRCode img,
 #secretQRCode canvas {
   display: block;
@@ -7745,20 +7745,20 @@ mark {
 
 /* Adjust media query styles */
 @media (max-width: 400px), (max-height: 700px) {
-  #receiveModal .qr-data-preview {
+  :is(#receiveModal, #evmReceiveModal) .qr-data-preview {
     font-size: 0.8rem;
     padding: 8px 12px;
     min-height: auto;
     height: auto;
   }
 
-  #receiveModal .address-display {
+  :is(#receiveModal, #evmReceiveModal) .address-display {
     font-size: 0.75rem !important;
     padding: 5px 8px !important;
     line-height: 1.25 !important;
   }
 
-  #receiveModal .form-group .address-container {
+  :is(#receiveModal, #evmReceiveModal) .form-group .address-container {
     gap: 6px !important;
   }
 }
