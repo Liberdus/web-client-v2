@@ -242,7 +242,7 @@ function pickerRow(address, checked) {
   return `
       <li class="ui-list-row ui-list-pick">
         <label>
-          <input type="checkbox" value="${address}"${checked ? ' checked' : ''} />
+          <input type="checkbox" value="${escapeHtml(address)}"${checked ? ' checked' : ''} />
           <span class="ui-list-avatar">${addressAvatar(address, 28)}</span>
           <span class="ui-list-name">${escapeHtml(displayName(address))}</span>
           <span class="ui-list-check" aria-hidden="true"></span>
@@ -1520,7 +1520,7 @@ class GroupInfoModal {
             <span class="ui-list-label">${adding ? 'adding…' : 'wants to join'}</span>
             ${r.message ? `<span class="ui-list-note">${escapeHtml(r.message)}</span>` : ''}
           </span>
-          ${canManage ? `<button class="btn--tiny btn--tiny-primary" data-approve="${r.address}">Approve</button>` : ''}
+          ${canManage ? `<button class="btn--tiny btn--tiny-primary" data-approve="${escapeHtml(r.address)}">Approve</button>` : ''}
         </li>`);
     }
 
@@ -1533,7 +1533,7 @@ class GroupInfoModal {
           <span class="ui-list-avatar">${addressAvatar(address, 28)}</span>
           <span class="ui-list-name">${escapeHtml(isMe ? 'You' : displayName(address, this.groupId))}</span>
           ${admin ? '<span class="ui-badge ui-badge--accent">admin</span>' : ''}
-          ${canRemove ? `<button class="ui-list-more" data-menu="${address}" aria-label="More">⋯</button>` : ''}
+          ${canRemove ? `<button class="ui-list-more" data-menu="${escapeHtml(address)}" aria-label="More">⋯</button>` : ''}
         </li>`);
       /*
        * The row menu expands in place rather than floating. An anchored popover
@@ -1543,7 +1543,7 @@ class GroupInfoModal {
       if (canRemove && this.openMenuFor === address) {
         rows.push(`
         <li class="ui-list-actions">
-          <button class="btn--tiny btn--tiny-danger" data-remove="${address}">Remove from group</button>
+          <button class="btn--tiny btn--tiny-danger" data-remove="${escapeHtml(address)}">Remove from group</button>
         </li>`);
       }
     }

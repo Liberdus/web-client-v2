@@ -72,9 +72,11 @@ export function buildReplyQuote(item, ownerName, ownerIsMine) {
  */
 export function buildMessageBubble(o) {
   const cls = `message ${o.mine ? 'sent' : 'received'}${o.extraClass ? ` ${o.extraClass}` : ''}`;
-  const timestampAttr = `data-message-timestamp="${o.timestamp}"`;
-  const txidAttr = o.txid ? `data-txid="${o.txid}"` : '';
-  const statusAttr = o.status ? `data-status="${o.status}"` : '';
+  // Group messages carry fields from other members' payloads, so every value
+  // that lands in an attribute is escaped like 1:1 rendering does.
+  const timestampAttr = `data-message-timestamp="${escapeHtml(o.timestamp)}"`;
+  const txidAttr = o.txid ? `data-txid="${escapeHtml(o.txid)}"` : '';
+  const statusAttr = o.status ? `data-status="${escapeHtml(o.status)}"` : '';
   /*
    * The avatar sits inside the bubble, on the sender line, rather than in a
    * gutter beside it. A gutter avatar has to start at the very left edge of the
