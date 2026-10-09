@@ -2355,14 +2355,17 @@ class WalletScreen {
                   <div class="wallet-native-heading">
                       <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
                       <div class="asset-name">${asset.name}</div>
+                      <div class="asset-symbol">${assetPriceText}</div>
                   </div>
-                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)} <span class="wallet-native-symbol">${asset.symbol}</span></div>
+                  <div class="wallet-native-amount">
+                      <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)} <span class="wallet-native-symbol">${asset.symbol}</span></div>
+                  </div>
                   <div class="wallet-native-value">${assetNetworthText}</div>
-                  <div class="asset-symbol">${assetPriceText}</div>
               </div>
           `;
       })
       .join('');
+    this.assetsList.querySelector('.wallet-native-amount').appendChild(this.refreshBalanceButton);
   }
 
   // refresh wallet balance
