@@ -2347,9 +2347,7 @@ class WalletScreen {
     this.assetsList.innerHTML = walletData.assets
       .map((asset) => {
         const assetUsdPrice = getAssetUsdPrice(asset);
-        const assetNetworth = calculateAssetUsdValue(asset);
         const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)}`;
-        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
         return `
               <div class="asset-item">
                   <div class="wallet-native-heading">
@@ -2357,7 +2355,7 @@ class WalletScreen {
                       <div class="asset-name">${asset.name}</div>
                       <div class="wallet-native-pricing">
                           <div class="asset-symbol">1 ${asset.symbol} = ${assetPriceText}</div>
-                          <div class="wallet-native-value">Total: ${assetNetworthText}</div>
+                          <div class="wallet-native-value">${assetPriceText} / ${asset.symbol}</div>
                       </div>
                   </div>
                   <div class="wallet-native-amount">
