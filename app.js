@@ -2348,13 +2348,15 @@ class WalletScreen {
       .map((asset) => {
         const assetUsdPrice = getAssetUsdPrice(asset);
         const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)}`;
+        const assetPerUsd = assetUsdPrice > 0 ? 1 / assetUsdPrice : null;
+        const assetPerUsdText = Number.isFinite(assetPerUsd) ? assetPerUsd.toFixed(6) : 'N/A';
         return `
               <div class="asset-item">
                   <div class="wallet-native-heading">
                       <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
                       <div class="asset-name">${asset.name}</div>
                       <div class="wallet-native-pricing">
-                          <div class="asset-symbol">1 ${asset.symbol} = ${assetPriceText}</div>
+                          <div class="asset-symbol">${assetPerUsdText} ${asset.symbol} / $</div>
                           <div class="wallet-native-value">${assetPriceText} / ${asset.symbol}</div>
                       </div>
                   </div>
