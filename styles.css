@@ -5206,6 +5206,13 @@ input[type='file'].form-control::file-selector-button {
   color: var(--secondary-text-color);
 }
 
+.wallet-native-pricing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
 .wallet-native-value {
   font-size: var(--font-size-base);
   color: var(--secondary-text-color);
