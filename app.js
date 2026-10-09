@@ -2356,8 +2356,12 @@ class WalletScreen {
                       <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
                       <div class="asset-name">${asset.name}</div>
                       <div class="wallet-native-pricing">
-                          <div class="asset-symbol">${assetPerUsdText} ${asset.symbol} / $</div>
-                          <div class="wallet-native-value">${assetPriceText} / ${asset.symbol}</div>
+                          <div class="asset-symbol">
+                              <span>${assetPerUsdText} ${asset.symbol}</span><span>/</span><span>$</span>
+                          </div>
+                          <div class="wallet-native-value">
+                              <span>${assetPriceText}</span><span>/</span><span>${asset.symbol}</span>
+                          </div>
                       </div>
                   </div>
                   <div class="wallet-native-amount">

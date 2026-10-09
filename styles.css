@@ -5215,9 +5215,16 @@ input[type='file'].form-control::file-selector-button {
 
 .wallet-native-value,
 .wallet-native-pricing .asset-symbol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1ch 3ch;
+  column-gap: 4px;
   font-size: var(--font-size-xs);
   line-height: 14px;
   color: var(--secondary-text-color);
+}
+
+.wallet-native-pricing > div > :first-child {
+  text-align: right;
 }
 
 .wallet-native-balance .refresh-button {
