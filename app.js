@@ -2352,12 +2352,13 @@ class WalletScreen {
         const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
         return `
               <div class="asset-item">
-                  <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
-                  <div class="asset-info">
+                  <div class="wallet-native-heading">
+                      <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
                       <div class="asset-name">${asset.name}</div>
-                      <div class="asset-symbol">${assetPriceText}</div>
                   </div>
-                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">${assetNetworthText}</span></div>
+                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)} <span class="wallet-native-symbol">${asset.symbol}</span></div>
+                  <div class="wallet-native-value">${assetNetworthText}</div>
+                  <div class="asset-symbol">${assetPriceText}</div>
               </div>
           `;
       })
