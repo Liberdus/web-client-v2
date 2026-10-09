@@ -2348,7 +2348,7 @@ class WalletScreen {
       .map((asset) => {
         const assetUsdPrice = getAssetUsdPrice(asset);
         const assetNetworth = calculateAssetUsdValue(asset);
-        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)} / ${asset.symbol}`;
+        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)}`;
         const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
         return `
               <div class="asset-item">
@@ -2356,8 +2356,8 @@ class WalletScreen {
                       <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
                       <div class="asset-name">${asset.name}</div>
                       <div class="wallet-native-pricing">
-                          <div class="wallet-native-value">${assetNetworthText}</div>
-                          <div class="asset-symbol">${assetPriceText}</div>
+                          <div class="asset-symbol">1 ${asset.symbol} = ${assetPriceText}</div>
+                          <div class="wallet-native-value">Total: ${assetNetworthText}</div>
                       </div>
                   </div>
                   <div class="wallet-native-amount">
