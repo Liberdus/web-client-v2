@@ -5154,29 +5154,60 @@ input[type='file'].form-control::file-selector-button {
 }
 /* Wallet Styles */
 .wallet-native-balance {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  position: relative;
   margin: 1rem;
-}
-
-.wallet-native-balance #assetsList {
-  flex: 1;
-  min-width: 0;
+  padding: 16px 0;
 }
 
 .wallet-native-balance .asset-item {
+  flex-direction: column;
+  gap: 8px;
   padding: 0;
-  text-align: left;
+  text-align: center;
+}
+
+.wallet-native-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 40px;
+}
+
+.wallet-native-balance .asset-name {
+  margin-bottom: 0;
 }
 
 .wallet-native-balance .asset-logo {
   flex-shrink: 0;
-  margin-right: 8px;
+  width: 32px;
+  height: 32px;
+  margin-right: 0;
+}
+
+.wallet-native-balance .asset-balance {
+  max-width: 100%;
+  font-size: clamp(28px, 8vw, 36px);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.wallet-native-symbol {
+  font-size: var(--font-size-base);
+  color: var(--secondary-text-color);
+}
+
+.wallet-native-value {
+  font-size: var(--font-size-base);
+  color: var(--secondary-text-color);
 }
 
 .wallet-native-balance .refresh-button {
-  flex-shrink: 0;
+  position: absolute;
+  top: 12px;
+  right: 0;
 }
 
 .wallet-balance {
