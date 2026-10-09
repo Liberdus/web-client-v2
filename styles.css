@@ -5166,11 +5166,12 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .wallet-native-heading {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 136px;
   align-items: center;
-  justify-content: center;
   gap: 8px;
+  width: 100%;
+  text-align: left;
 }
 
 .wallet-native-amount {
@@ -5185,7 +5186,6 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .wallet-native-balance .asset-logo {
-  flex-shrink: 0;
   width: 32px;
   height: 32px;
   margin-right: 0;
