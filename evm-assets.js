@@ -1,4 +1,7 @@
 import {
+  base642bin,
+  bin2utf8,
+  normalizeUnsignedFloat,
   BUTTON_COOLDOWN_MS,
   escapeHtml,
   escapeHtmlAttribute,
@@ -1363,18 +1366,20 @@ export class EvmTransactionService {
     return null;
   }
 
-  async send({ network, asset, recipient, recipientLabel = null, amount, chat = null, beforeBroadcast = async () => {} }) {
+  async send({ network, asset, recipient, recipientLabel = null, amount, chat = null, beforeBroadcast = async () => {}, isCurrent = () => true }) {
     if (chat?.note && utf82bin(chat.note).length > EVM_NOTE_MAX_BYTES) throw new Error('Payment note exceeds 1000 bytes.');
     const prepared = await this.prepare({ network, asset, recipient, amount });
     prepared.recipientLabel = recipientLabel || prepared.validation.recipient;
     prepared.chat = chat;
+    if (!isCurrent()) return { status: 'cancelled', transactionHash: null };
     const confirmed = await this.confirmTransfer(
       this.confirmationText(prepared, amount, recipientLabel),
       prepared,
     );
-    if (!confirmed) return { status: 'cancelled', transactionHash: null };
+    if (!confirmed || !isCurrent()) return { status: 'cancelled', transactionHash: null };
 
     await beforeBroadcast();
+    if (!isCurrent()) return { status: 'cancelled', transactionHash: null };
     const rawTransaction = await signEvmTransaction(
       prepared.transaction,
       prepared.validation.privateKey,
@@ -1716,7 +1721,6 @@ class AssetDetailsModal {
     document.getElementById('closeAssetDetailsModal').addEventListener('click', () => this.close());
     document.getElementById('assetDetailsSend').addEventListener('click', () => {
       this.controller.openContextualSend({
-        mode: 'evm',
         networkId: this.networkId,
         assetKey: this.assetKey,
       });
@@ -2045,59 +2049,93 @@ export class EvmSendConfirmationModal {
   }
 }
 
-class EvmSendFormAdapter {
+class EvmSendModal {
   constructor(controller) {
     this.controller = controller;
     this.loaded = false;
-    this.refreshTimer = null;
+    this.session = null;
     this.recipientResolution = null;
   }
 
   load() {
     if (this.loaded) return;
-    this.modal = document.getElementById('sendAssetFormModal');
-    this.sendForm = document.getElementById('sendForm');
-    this.usernameInput = document.getElementById('sendToAddress');
-    this.amountInput = document.getElementById('sendAmount');
-    this.memoInput = document.getElementById('sendMemo');
-    this.memoGroup = document.getElementById('sendMemoGroup');
+    this.modal = document.getElementById('evmSendModal');
+    this.sendForm = document.getElementById('evmSendForm');
+    this.usernameInput = document.getElementById('evmSendRecipient');
+    this.amountInput = document.getElementById('evmSendAmount');
+    this.memoInput = document.getElementById('evmSendMemo');
+    this.memoGroup = document.getElementById('evmSendMemoGroup');
     this.memoCounter = this.memoGroup.querySelector('.memo-byte-counter');
-    this.submitButton = this.sendForm?.querySelector('button[type="submit"]');
-    this.networkSelect = document.getElementById('sendNetwork');
-    this.networkStatus = document.getElementById('sendNetworkStatus');
-    this.assetSelectDropdown = document.getElementById('sendAsset');
-    this.balanceWarning = document.getElementById('balanceWarning');
-    this.usernameAvailable = document.getElementById('sendToAddressError');
-    this.closeButton = document.getElementById('closeSendAssetFormModal');
-    if (!this.sendForm || !this.usernameInput || !this.amountInput || !this.submitButton) return;
-
-    this.memoInput.addEventListener('input', (event) => {
-      if (!this.isEvmSelected()) return;
-      event.stopImmediatePropagation();
-      this.scheduleRefresh();
-    }, true);
-    this.sendForm.addEventListener('submit', (event) => this.handleSubmit(event), true);
-    this.usernameInput.addEventListener(
-      'input',
-      (event) => this.handleRecipientInput(event),
-      true,
-    );
-    for (const element of [
-      this.amountInput,
-      this.networkSelect,
-      this.assetSelectDropdown,
-    ]) {
-      element?.addEventListener('input', () => this.scheduleRefresh());
-      element?.addEventListener('change', () => this.scheduleRefresh());
-    }
-    this.closeButton?.addEventListener('click', () => this.resetContext());
-    if (this.modal && globalThis.MutationObserver) {
-      this.modalObserver = new MutationObserver(() => {
-        if (!this.modal.classList.contains('active')) this.resetContext();
-      });
-      this.modalObserver.observe(this.modal, { attributes: true, attributeFilter: ['class'] });
-    }
+    this.submitButton = this.sendForm.querySelector('button[type="submit"]');
+    this.balanceWarning = document.getElementById('evmSendWarning');
+    this.usernameAvailable = document.getElementById('evmSendRecipientStatus');
+    this.balanceSymbol = document.getElementById('evmSendSymbol');
+    this.balanceAmount = document.getElementById('evmSendBalance');
+    this.assetLabel = document.getElementById('evmSendAssetLabel');
+    this.qrFileInput = document.getElementById('evmSendQRFile');
+    document.getElementById('closeEvmSendModal').addEventListener('click', () => this.close());
+    this.sendForm.addEventListener('submit', (event) => this.handleSubmit(event));
+    this.usernameInput.addEventListener('input', (event) => this.handleRecipientInput(event));
+    this.memoInput.addEventListener('input', () => this.refreshSendButtonDisabledState());
+    this.amountInput.addEventListener('input', () => {
+      this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value);
+      this.refreshSendButtonDisabledState();
+    });
+    document.getElementById('evmSendAvailable').addEventListener('click', () => this.fillAmount());
+    document.getElementById('evmSendScanQR').addEventListener('click', () => this.scanQR());
+    document.getElementById('evmSendUploadQR').addEventListener('click', () => this.qrFileInput.click());
+    this.qrFileInput.addEventListener('change', (event) => this.readQRFile(event));
     this.loaded = true;
+  }
+
+  open({ networkId, assetKey }) {
+    if (this.modal.classList.contains('active')) return false;
+    const { walletNetwork, asset } = this.controller.findAsset(networkId, assetKey, { evmOnly: true });
+    if (!asset) {
+      this.controller.showToast('This asset is no longer available. Refresh and try again.', 3000, 'warning');
+      return false;
+    }
+    this.resetForm();
+    this.assetLabel.textContent = `${asset.tokenName} (${asset.tokenSymbol}) · ${walletNetwork.name}`;
+    this.balanceSymbol.textContent = asset.tokenSymbol;
+    this.balanceAmount.textContent = `${this.controller.formatTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
+    if (!openModal(this.modal)) return false;
+    const session = this.session = { networkId, assetKey, account: this.controller.getAccount() };
+    this.refreshBalance(session);
+    return true;
+  }
+
+  isCurrentSession(session) {
+    return Boolean(session && this.session === session && session.account === this.controller.getAccount()
+      && this.modal.classList.contains('active'));
+  }
+
+  getSelectedAsset() {
+    if (!this.session) return null;
+    return this.controller.findAsset(this.session.networkId, this.session.assetKey, { evmOnly: true }).asset;
+  }
+
+  async refreshBalance(session) {
+    try {
+      await this.controller.refresh();
+      if (!this.isCurrentSession(session)) return;
+      const asset = this.getSelectedAsset();
+      this.balanceAmount.textContent = asset
+        ? `${this.controller.formatTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}` : 'Unavailable';
+      this.refreshSendButtonDisabledState();
+    } catch (error) {
+      if (!this.isCurrentSession(session)) return;
+      this.balanceAmount.textContent = 'Unavailable';
+      this.submitButton.disabled = true;
+      this.controller.showToast('Unable to refresh asset balance', 3000, 'warning');
+    }
+  }
+
+  fillAmount() {
+    const asset = this.getSelectedAsset();
+    if (!asset) return;
+    this.amountInput.value = asset.tokenAmount || '0';
+    this.refreshSendButtonDisabledState();
   }
 
   setRecipientStatus(message = '', status = 'error') {
@@ -2125,11 +2163,6 @@ class EvmSendFormAdapter {
   }
 
   handleRecipientInput(event) {
-    if (!this.isEvmSelected()) return;
-
-    // The shared Liberdus form has its own username/address listener. EVM Assets
-    // owns this event while an EVM asset is selected so the two flows cannot race.
-    event.stopImmediatePropagation();
     this.clearRecipientLookup();
     this.submitButton.disabled = true;
 
@@ -2138,13 +2171,13 @@ class EvmSendFormAdapter {
       event.target.value = recipient.username;
     }
     if (!recipient.input) {
-      this.scheduleRefresh();
+      this.refreshSendButtonDisabledState();
       return;
     }
 
     if (recipient.kind === 'username' && recipient.username.length < 3) {
       this.setRecipientStatus('too short');
-      this.scheduleRefresh();
+      this.refreshSendButtonDisabledState();
       return;
     }
 
@@ -2163,59 +2196,61 @@ class EvmSendFormAdapter {
       };
       this.setRecipientStatus(messages[error?.code] || error?.message || 'enter a valid recipient');
     }
-    this.scheduleRefresh();
+    this.refreshSendButtonDisabledState();
   }
 
-  isEvmSelected() {
-    return this.controller.getNetwork(this.networkSelect?.value)?.source === 'evm';
-  }
-
-  scheduleRefresh() {
-    clearTimeout(this.refreshTimer);
-    this.refreshTimer = setTimeout(() => {
-      if (!this.modal?.classList.contains('active') || !this.isEvmSelected()) return;
-      this.controller.refreshSendButtonState(this);
-    }, 0);
-  }
-
-  updateNetworkStatus() {
-    const network = this.controller.getNetwork(this.networkSelect?.value);
-    if (!this.networkStatus || network?.source !== 'evm') return;
-    this.networkStatus.textContent = `${network.name} is connected for balances, receiving, and sending.`;
-    this.networkStatus.dataset.status = network.connected ? 'connected' : 'ready';
-    this.usernameInput.placeholder = 'Enter username or 0x wallet address';
-  }
-
-  applyContext() {
-    this.clearRecipientLookup();
-    this.updateNetworkStatus();
-    this.scheduleRefresh();
-  }
-
-  resetContext() {
-    clearTimeout(this.refreshTimer);
-    this.clearRecipientLookup();
-  }
-
-  async handleSubmit(event) {
-    if (!this.isEvmSelected()) return;
+  handleSubmit(event) {
     event.preventDefault();
-    event.stopImmediatePropagation();
-    await this.controller.handleSendFormSubmit(this);
+    if (!this.isCurrentSession(this.session)) return;
+    return this.controller.handleSendFormSubmit(this);
   }
 
-  async close() {
-    this.resetContext();
-    if (this.closeButton) {
-      this.closeButton.click();
-    } else {
-      this.modal?.classList.remove('active');
-      this.sendForm?.reset();
+  refreshSendButtonDisabledState() {
+    if (this.isCurrentSession(this.session)) this.controller.refreshSendButtonState(this);
+  }
+
+  resetForm() {
+    this.sendForm.reset();
+    this.clearRecipientLookup();
+    this.balanceWarning.textContent = '';
+    this.balanceWarning.style.display = 'none';
+    this.submitButton.disabled = true;
+  }
+
+  close() {
+    this.session = null;
+    this.modal?.classList.remove('active');
+    if (this.loaded) this.resetForm();
+  }
+
+  scanQR() {
+    const session = this.session;
+    this.controller.openQRScanner((data) => {
+      if (this.isCurrentSession(session)) this.fillFromQR(data);
+    });
+  }
+
+  readQRFile(event) {
+    const session = this.session;
+    this.controller.readQRFile(event, {
+      fillFromQR: (data) => { if (this.isCurrentSession(session)) this.fillFromQR(data); },
+      resetForm: () => { if (this.isCurrentSession(session)) this.resetForm(); },
+    });
+  }
+
+  fillFromQR(data) {
+    this.resetForm();
+    try {
+      if (!data?.startsWith('liberdus://')) throw new Error('Invalid payment QR code format.');
+      const payment = JSON.parse(bin2utf8(base642bin(data.slice('liberdus://'.length))));
+      // Preserve the existing username/amount QR behavior; QR data does not change the selected asset.
+      this.usernameInput.value = payment.u || '';
+      this.amountInput.value = payment.a || '';
+      this.usernameInput.dispatchEvent(new Event('input'));
+      this.refreshSendButtonDisabledState();
+    } catch (error) {
+      this.controller.showToast('Invalid payment QR code format.', 3000, 'error');
     }
-  }
-
-  async refreshSendButtonDisabledState() {
-    this.controller.refreshSendButtonState(this);
   }
 }
 
@@ -2223,7 +2258,8 @@ class EvmAssetsController {
   constructor() {
     this.getAccount = () => null;
     this.getLiberdusAsset = () => null;
-    this.openSend = () => {};
+    this.openQRScanner = () => {};
+    this.readQRFile = () => {};
     this.openReceive = () => {};
     this.showToast = () => {};
     this.hideToast = () => {};
@@ -2271,7 +2307,7 @@ class EvmAssetsController {
     });
     this.assetsModal = new AssetsModal(this);
     this.assetDetailsModal = new AssetDetailsModal(this);
-    this.sendFormAdapter = new EvmSendFormAdapter(this);
+    this.sendModal = new EvmSendModal(this);
   }
 
   configure({
@@ -2286,7 +2322,8 @@ class EvmAssetsController {
     saveSubmission,
     checkPayment,
     dismissPayment,
-    openSend,
+    openQRScanner,
+    readQRFile,
     openReceive,
     showToast,
     hideToast,
@@ -2304,7 +2341,8 @@ class EvmAssetsController {
     if (typeof preparePaymentMessage === 'function') this.preparePaymentMessage = preparePaymentMessage;
     if (typeof sendChatPayment === 'function') this.sendChatPayment = sendChatPayment;
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
-    if (typeof openSend === 'function') this.openSend = openSend;
+    if (typeof openQRScanner === 'function') this.openQRScanner = openQRScanner;
+    if (typeof readQRFile === 'function') this.readQRFile = readQRFile;
     if (typeof openReceive === 'function') this.openReceive = openReceive;
     if (typeof showToast === 'function') this.showToast = showToast;
     if (typeof hideToast === 'function') this.hideToast = hideToast;
@@ -2317,7 +2355,7 @@ class EvmAssetsController {
     this.assetsModal.load();
     this.assetDetailsModal.load();
     this.confirmationModal.load();
-    this.sendFormAdapter.load();
+    this.sendModal.load();
     document.getElementById('openAssets').addEventListener('click', () => this.assetsModal.open());
     this.loaded = true;
   }
@@ -2326,9 +2364,14 @@ class EvmAssetsController {
     this.discovery.reset();
     this.transactions.paymentEvidence.clear();
     this.confirmationModal.reset();
+    this.sendModal.close();
   }
 
   close(modalId) {
+    if (modalId === 'evmSendModal') {
+      this.sendModal.close();
+      return true;
+    }
     if (modalId === 'assetsModal') {
       this.assetsModal.close();
       return true;
@@ -2377,7 +2420,7 @@ class EvmAssetsController {
       amount,
     });
   }
-  async sendTransfer({ networkId, assetKey, recipient, recipientLabel = null, amount, chat, beforeBroadcast }) {
+  async sendTransfer({ networkId, assetKey, recipient, recipientLabel = null, amount, chat, beforeBroadcast, isCurrent }) {
     const { walletNetwork, asset } = this.findAsset(networkId, assetKey, { evmOnly: true });
     return this.transactions.send({
       network: walletNetwork,
@@ -2387,12 +2430,11 @@ class EvmAssetsController {
       amount,
       chat,
       beforeBroadcast,
+      isCurrent,
     });
   }
   openContextualSend(options) {
-    const opening = this.openSend(options);
-    this.sendFormAdapter.applyContext();
-    return opening;
+    return this.sendModal.open(options);
   }
   openContextualReceive(options) { return this.openReceive(options); }
   refreshSendButtonState(form) {
@@ -2400,8 +2442,8 @@ class EvmAssetsController {
     const amount = form.amountInput.value.trim();
     const validation = resolution && amount
       ? this.validateTransfer({
-        networkId: form.networkSelect.value,
-        assetKey: form.assetSelectDropdown.value,
+        networkId: form.session.networkId,
+        assetKey: form.session.assetKey,
         recipient: resolution.address,
         amount,
       })
@@ -2551,13 +2593,15 @@ class EvmAssetsController {
       const network = this.getEvmCatalog().find((item) => item.chainId === payment.chainId);
       const asset = network?.assets?.find((item) => (item.contractAddress?.toLowerCase() || null) === payment.contractAddress);
       if (!asset) throw new Error('Refresh EVM Assets to load this asset before retrying it.');
-      await this.openSend({ mode: 'evm', networkId: network.id, assetKey: asset.key });
-      const form = this.sendFormAdapter;
+      if (this.getAccount() !== account) return;
+      const form = this.sendModal;
+      if (!form.open({ networkId: network.id, assetKey: asset.key })) return;
       form.usernameInput.value = recipient;
       form.amountInput.value = evmPaymentAmount(payment);
       form.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
       // Restore the note after recipient input clears the memo.
       form.memoInput.value = payment.note || '';
+      form.refreshSendButtonDisabledState();
       this.showToast('Review the recipient and amount. Nothing has been sent.', 5000, 'info');
     } catch (error) {
       this.showToast(error.message, 0, 'warning');
@@ -2568,9 +2612,11 @@ class EvmAssetsController {
     if (this.sending) return;
     this.sending = true;
     const account = this.getAccount();
+    const session = form.session;
+    const isCurrent = () => form.isCurrentSession(session);
     const input = form.usernameInput.value;
     const note = form.memoInput.value.trim();
-    const selection = { networkId: form.networkSelect.value, assetKey: form.assetSelectDropdown.value, amount: form.amountInput.value.trim() };
+    const selection = { networkId: session.networkId, assetKey: session.assetKey, amount: form.amountInput.value.trim() };
     form.submitButton.disabled = true;
     try {
       const network = this.getNetwork(selection.networkId);
@@ -2587,6 +2633,7 @@ class EvmAssetsController {
         record.broadcastState = 'nonce_used';
         this.savePayment(record, account);
       }
+      if (!isCurrent()) return { status: 'cancelled', transactionHash: null };
       const previousResolution = form.getResolvedRecipient();
       if (!previousResolution) {
         throw new EvmTransferError(
@@ -2621,17 +2668,19 @@ class EvmAssetsController {
       };
       const result = await this.sendTransfer({
         ...selection,
+        isCurrent,
         chat,
         beforeBroadcast,
         recipient: resolution.address,
         recipientLabel: resolution.username || resolution.display,
       });
-      if (['pending', 'confirmed', 'reverted'].includes(result.status)) {
+      if (isCurrent() && ['pending', 'confirmed', 'reverted'].includes(result.status)) {
         await form.close();
       }
       return result;
     } catch (error) {
       console.error('EVM transfer failed:', error);
+      if (!isCurrent()) return { status: 'cancelled', transactionHash: null };
       if (error?.code === 'USERNAME_ASSOCIATION_CHANGED') {
         form.clearRecipientLookup({ hideStatus: false });
         form.setRecipientStatus('recipient changed—review username');
@@ -2640,7 +2689,7 @@ class EvmAssetsController {
       return { status: 'failed', error };
     } finally {
       this.sending = false;
-      await form.refreshSendButtonDisabledState();
+      form.refreshSendButtonDisabledState();
     }
   }
   getConnectionText() { return this.discovery.getConnectionText(); }
