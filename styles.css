@@ -5154,7 +5154,6 @@ input[type='file'].form-control::file-selector-button {
 }
 /* Wallet Styles */
 .wallet-native-balance {
-  position: relative;
   margin: 1rem;
   padding: 16px 0;
 }
@@ -5168,10 +5167,17 @@ input[type='file'].form-control::file-selector-button {
 
 .wallet-native-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 0 40px;
+}
+
+.wallet-native-amount {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  width: 100%;
 }
 
 .wallet-native-balance .asset-name {
@@ -5186,6 +5192,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .wallet-native-balance .asset-balance {
+  grid-column: 2;
   max-width: 100%;
   font-size: clamp(28px, 8vw, 36px);
   line-height: 1.2;
@@ -5205,9 +5212,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .wallet-native-balance .refresh-button {
-  position: absolute;
-  top: 12px;
-  right: 0;
+  grid-column: 3;
 }
 
 .wallet-balance {
