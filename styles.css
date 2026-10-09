@@ -8000,14 +8000,14 @@ small {
   margin-top: 8px;
 }
 
-#sendAssetConfirmModal .confirmation-details {
+:is(#sendAssetConfirmModal, #evmSendConfirmModal) .confirmation-details {
   margin-bottom: 24px;
   background-color: var(--hover-background-purple);
   border-radius: 12px;
   padding: 16px;
 }
 
-#sendAssetConfirmModal label {
+:is(#sendAssetConfirmModal, #evmSendConfirmModal) label {
   display: block;
   font-size: var(--font-size-sm);
   color: var(--secondary-text-color);
@@ -8015,7 +8015,7 @@ small {
   font-weight: var(--font-weight-medium);
 }
 
-#sendAssetConfirmModal .confirm-value {
+:is(#sendAssetConfirmModal, #evmSendConfirmModal) .confirm-value {
   font-size: var(--font-size-base);
   color: var(--text-color);
   padding: 12px 16px;
@@ -8026,8 +8026,8 @@ small {
   border: 1px solid var(--border-color);
 }
 
-#sendAssetConfirmModal .btn,
-#sendAssetConfirmModal .btn.btn--secondary {
+:is(#sendAssetConfirmModal, #evmSendConfirmModal) .btn,
+:is(#sendAssetConfirmModal, #evmSendConfirmModal) .btn.btn--secondary {
   width: calc(100% - 32px);
   height: 48px;
   border-radius: 24px;
@@ -8038,30 +8038,30 @@ small {
   transition: all 0.2s ease;
 }
 
-#sendAssetConfirmModal .btn.btn--primary {
+:is(#sendAssetConfirmModal, #evmSendConfirmModal) .btn.btn--primary {
   background-color: var(--primary-color);
   color: var(--background-color);
   border: none;
 }
 
-#sendAssetConfirmModal #confirmAmount {
+:is(#confirmAmount, #evmConfirmAmount).confirm-value {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--text-color);
 }
 
-#sendAssetConfirmModal #confirmMemoGroup {
+:is(#confirmMemoGroup, #evmConfirmMemoGroup) {
   opacity: 0.8;
 }
 
-#sendAssetConfirmModal #confirmMemo {
+:is(#confirmMemo, #evmConfirmMemo).confirm-value {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-style: italic;
   background-color: var(--primary-tint-04);
 }
 
-#sendAssetConfirmModal .usd-equivalent {
+:is(#sendAssetConfirmModal, #evmSendConfirmModal) .usd-equivalent {
   font-size: 0.92em;
   color: var(--secondary-text-color);
   opacity: 0.7;
@@ -8070,7 +8070,7 @@ small {
   font-weight: var(--font-weight-medium);
 }
 
-#sendAssetConfirmModal .usd-equivalent {
+:is(#sendAssetConfirmModal, #evmSendConfirmModal) .usd-equivalent {
   position: absolute;
   right: 16px;           /* Align to the right edge */
   left: auto;            /* Ensure left is not set */
@@ -8085,8 +8085,7 @@ small {
   width: calc(100% - 32px); /* Ensure it doesn't overflow the input */
 }
 
-#sendAssetConfirmModal:has(#evmConfirmFeeGroup:not([hidden])) #confirmAmountUSD,
-#sendAssetConfirmModal #evmConfirmFeeUSD {
+#evmSendConfirmModal .usd-equivalent {
   position: static;
   width: auto;
   margin: 4px 16px 0;

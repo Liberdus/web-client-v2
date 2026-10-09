@@ -1845,61 +1845,23 @@ export class EvmSendConfirmationModal {
 
   load() {
     if (this.loaded) return;
-    this.modal = document.getElementById('sendAssetConfirmModal');
-    this.details = this.modal?.querySelector('.confirmation-details');
-    this.recipient = document.getElementById('confirmRecipient');
-    this.amount = document.getElementById('confirmAmount');
-    this.amountUsd = document.getElementById('confirmAmountUSD');
-    this.asset = document.getElementById('confirmAsset');
-    this.memoGroup = document.getElementById('confirmMemoGroup');
-    this.confirmButton = document.getElementById('confirmSendButton');
-    this.cancelButton = document.getElementById('cancelSendButton');
-    this.closeButton = document.getElementById('closeSendAssetConfirmModal');
-    if (
-      !this.modal
-      || !this.details
-      || !this.recipient
-      || !this.amount
-      || !this.asset
-      || !this.confirmButton
-      || !this.cancelButton
-    ) {
-      return;
-    }
-
-    this.networkGroup = this.createDetailGroup(
-      'evmConfirmNetworkGroup',
-      'Network',
-      'evmConfirmNetwork',
-    );
-    this.feeGroup = this.createDetailGroup(
-      'evmConfirmFeeGroup',
-      'Maximum network fee',
-      'evmConfirmFee',
-    );
-    this.signingNotice = this.createSigningNotice();
-    this.networkValue = this.networkGroup.querySelector('.confirm-value');
-    this.feeValue = this.feeGroup.querySelector('.confirm-value');
-    this.feeUsd = document.getElementById('evmConfirmFeeUSD') || document.createElement('div');
-    this.feeUsd.id = 'evmConfirmFeeUSD';
-    this.feeUsd.className = 'confirm-value-secondary usd-equivalent';
-    this.feeGroup.appendChild(this.feeUsd);
-
-    this.confirmButton.addEventListener(
-      'click',
-      (event) => this.handleAction(event, true),
-      true,
-    );
-    this.cancelButton.addEventListener(
-      'click',
-      (event) => this.handleAction(event, false),
-      true,
-    );
-    this.closeButton?.addEventListener(
-      'click',
-      (event) => this.handleAction(event, false),
-      true,
-    );
+    this.modal = document.getElementById('evmSendConfirmModal');
+    this.recipient = document.getElementById('evmConfirmRecipient');
+    this.amount = document.getElementById('evmConfirmAmount');
+    this.amountUsd = document.getElementById('evmConfirmAmountUSD');
+    this.asset = document.getElementById('evmConfirmAsset');
+    this.memoGroup = document.getElementById('evmConfirmMemoGroup');
+    this.memo = document.getElementById('evmConfirmMemo');
+    this.confirmButton = document.getElementById('confirmEvmSendButton');
+    this.cancelButton = document.getElementById('cancelEvmSendButton');
+    this.closeButton = document.getElementById('closeEvmSendConfirmModal');
+    this.networkValue = document.getElementById('evmConfirmNetwork');
+    this.feeValue = document.getElementById('evmConfirmFee');
+    this.feeUsd = document.getElementById('evmConfirmFeeUSD');
+    this.signingNotice = document.getElementById('evmConfirmSigningNotice');
+    this.confirmButton.addEventListener('click', (event) => this.handleAction(event, true));
+    this.cancelButton.addEventListener('click', (event) => this.handleAction(event, false));
+    this.closeButton.addEventListener('click', (event) => this.handleAction(event, false));
 
     if (globalThis.MutationObserver) {
       this.modalObserver = new MutationObserver(() => {
@@ -1910,39 +1872,6 @@ export class EvmSendConfirmationModal {
       this.modalObserver.observe(this.modal, { attributes: true, attributeFilter: ['class'] });
     }
     this.loaded = true;
-  }
-
-  createDetailGroup(groupId, labelText, valueId) {
-    let group = document.getElementById(groupId);
-    if (group) return group;
-
-    group = document.createElement('div');
-    group.id = groupId;
-    group.className = 'form-group';
-    group.hidden = true;
-    const label = document.createElement('label');
-    label.textContent = labelText;
-    const value = document.createElement('div');
-    value.id = valueId;
-    value.className = 'confirm-value';
-    group.append(label, value);
-    this.details.appendChild(group);
-    return group;
-  }
-
-  createSigningNotice() {
-    let notice = document.getElementById('evmConfirmSigningNotice');
-    if (notice) return notice;
-
-    notice = document.createElement('div');
-    notice.id = 'evmConfirmSigningNotice';
-    notice.hidden = true;
-    notice.style.color = 'var(--secondary-text-color)';
-    notice.style.fontSize = 'var(--font-size-sm)';
-    notice.style.lineHeight = '1.4';
-    notice.style.padding = '4px 0';
-    this.details.appendChild(notice);
-    return notice;
   }
 
   getUsdEstimate(amountInUnits, rawPrice) {
@@ -1997,11 +1926,7 @@ export class EvmSendConfirmationModal {
     this.feeUsd.textContent = feeEstimate;
     this.feeUsd.style.display = feeEstimate ? 'block' : 'none';
     this.memoGroup.style.display = prepared.chat?.note ? 'block' : 'none';
-    document.getElementById('confirmMemo').textContent = prepared.chat?.note || '';
-    for (const group of [this.networkGroup, this.feeGroup]) {
-      group.hidden = false;
-    }
-    this.signingNotice.hidden = false;
+    this.memo.textContent = prepared.chat?.note || '';
   }
 
   confirm(message, prepared) {
@@ -2009,22 +1934,21 @@ export class EvmSendConfirmationModal {
     if (!this.modal || !prepared) {
       return Promise.resolve(globalThis.confirm?.(message) ?? false);
     }
-    if (this.pending) this.settle(false);
-
-    if (!openModal(this.modal)) throw new EvmTransferError('Please wait for the current modal to open, then try again.', 'MODAL_BUSY');
-    const amountUsdDisplay = this.amountUsd?.style.display;
+    if (this.pending || this.modal.classList.contains('active')) {
+      throw new EvmTransferError('A transfer is already awaiting confirmation.', 'MODAL_BUSY');
+    }
     this.render(prepared);
+    if (!openModal(this.modal)) throw new EvmTransferError('Please wait for the current modal to open, then try again.', 'MODAL_BUSY');
     this.confirmButton.disabled = false;
     this.cancelButton.disabled = false;
     return new Promise((resolve) => {
-      this.pending = { resolve, amountUsdDisplay };
+      this.pending = { resolve };
     });
   }
 
   handleAction(event, confirmed) {
     if (!this.pending) return;
     event.preventDefault();
-    event.stopImmediatePropagation();
     this.confirmButton.disabled = true;
     this.cancelButton.disabled = true;
     this.settle(confirmed);
@@ -2035,12 +1959,6 @@ export class EvmSendConfirmationModal {
     if (!pending) return;
     this.pending = null;
     if (close) this.modal.classList.remove('active');
-    for (const group of [this.networkGroup, this.feeGroup]) {
-      group.hidden = true;
-    }
-    this.signingNotice.hidden = true;
-    // The LIB confirmation shares this element and controls its own USD text.
-    if (this.amountUsd) this.amountUsd.style.display = pending.amountUsdDisplay;
     pending.resolve(Boolean(confirmed));
   }
 
@@ -2368,6 +2286,10 @@ class EvmAssetsController {
   }
 
   close(modalId) {
+    if (modalId === 'evmSendConfirmModal') {
+      this.confirmationModal.reset();
+      return true;
+    }
     if (modalId === 'evmSendModal') {
       this.sendModal.close();
       return true;
