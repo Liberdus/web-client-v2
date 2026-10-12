@@ -13599,7 +13599,7 @@ async function processChats(chats, keys) {
           if (payload.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) {
             needsUpcomingCallsUiRefresh = true;
           }
-          if (payload.type === EVM_CHAT_MESSAGE_TYPE) {
+          if (payload.type === EVM_CHAT_MESSAGE_TYPE || payload.type === INTENTS_CHAT_MESSAGE_TYPE) {
             if (!mine) playTransferSound();
           } else if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
             playChatSound();
