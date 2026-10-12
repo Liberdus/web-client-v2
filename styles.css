@@ -9547,15 +9547,6 @@ small {
   color: var(--background-color);
 }
 
-#daoModal .dao-list-heading {
-  margin: 0;
-  padding: 16px 16px 8px;
-  color: var(--text-color);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-normal);
-  line-height: 1.4;
-  text-align: left;
-}
 #daoModal [hidden] { display: none !important; }
 
 #daoModal #daoProposalList {

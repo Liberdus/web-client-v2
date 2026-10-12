@@ -2827,7 +2827,6 @@ class DaoModal {
     this.list = document.getElementById('daoProposalList');
     this.emptyState = document.getElementById('daoProposalEmptyState');
     this.loadMoreButton = document.getElementById('daoLoadMoreButton');
-    this.listHeading = document.getElementById('daoListHeading');
     this.addButton = document.getElementById('daoAddProposalButton');
 
     if (this.closeButton) this.closeButton.addEventListener('click', () => this.close());
@@ -3214,12 +3213,7 @@ class DaoModal {
     counts[DAO_ALL_FILTER.key] = metadataEntries.length;
     counts[DAO_CLAIMABLE_FILTER.key] = claimCandidateMetadataEntries.length;
 
-    const label = DAO_FILTER_OPTIONS.find((filter) => filter.key === this.selectedFilterKey)?.label
-      || this.selectedFilterKey;
     if (this.titleEl) this.titleEl.textContent = 'DAO';
-    if (this.listHeading) this.listHeading.textContent = isClaimableFilter ? 'Your claims'
-      : this.selectedFilterKey === 'all' ? 'All DAO items'
-      : `${label} ${DAO_PROJECT_FILTER_KEYS.has(this.selectedFilterKey) ? 'projects' : 'proposals'}`;
     if (this.filterBar) this.renderFilterArea();
 
     for (const filter of DAO_FILTER_OPTIONS) {
