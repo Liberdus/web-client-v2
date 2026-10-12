@@ -13599,8 +13599,9 @@ async function processChats(chats, keys) {
           if (payload.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) {
             needsUpcomingCallsUiRefresh = true;
           }
-          // if we are not in the chatModal of who sent it, playChatSound or if device visibility is hidden play sound
-          if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
+          if (payload.type === EVM_CHAT_MESSAGE_TYPE) {
+            if (!mine) playTransferSound();
+          } else if (!inActiveChatWithSender || document.visibilityState === 'hidden') {
             playChatSound();
           }
           if (!mine){
