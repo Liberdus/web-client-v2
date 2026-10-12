@@ -1,0 +1,298 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Send and receive</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <script src="../external/qr.js"></script>
+    <style>
+      body { margin:0; background:#ececed; font-family:'Inter',sans-serif; }
+      .page { max-width:1240px; margin:0 auto; padding:26px 20px 90px; }
+      h2 { font-size:15px; margin:34px 0 4px; letter-spacing:-.01em }
+      .why { font-size:12.5px; line-height:1.6; color:#65676b; margin:0 0 14px; max-width:78ch }
+      .why code { background:#e2e2e8; padding:1px 4px; border-radius:3px; font-size:.9em }
+      .why b { color:#3a3c48 }
+      .pair { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start }
+      .col { width:340px }
+      .lbl { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#797c8c; margin-bottom:6px }
+      .lbl b.now { color:#8a2018 } .lbl b.rec { color:#1f6b2a }
+      .stage { background:#fff; border:1px solid #dcdce4; border-radius:12px; height:660px;
+               display:flex; flex-direction:column; overflow:hidden }
+      .stage .modal-header { flex:none }
+      .body { flex:1; overflow-y:auto; min-height:0 }
+
+      /* =====================================================================
+         REFINEMENTS ONLY. Same screens, same fields, same order. Nothing
+         below moves anything — it changes how the existing pieces are drawn.
+         ===================================================================== */
+
+      /* A label the same size and colour as the value it labels is not a
+         label, it is a second value. 16px -> 13px, semibold, muted. */
+      .r .form-group > label { font-size:13px; font-weight:600; color:var(--secondary-text-color);
+                               margin-top:0; margin-bottom:6px; letter-spacing:.01em }
+      .r .form-group { margin-bottom:18px }
+
+      /* The two QR buttons were hand-rolled inline SVGs filled #007bff — a blue
+         that appears nowhere else in this app. Same buttons, same place, drawn
+         in the app's own icon language. */
+      .r-iconbtn { width:44px; height:44px; flex:none; padding:0; border:1px solid var(--border-color);
+                   border-radius:12px; background-color:var(--background-color);
+                   background-position:center; background-repeat:no-repeat; background-size:20px;
+                   cursor:pointer; opacity:.85 }
+      .r-iconbtn:hover { background-color:var(--hover-background); opacity:1 }
+
+      /* 18px of gap made the unit toggle read as a separate control from the
+         field it belongs to. 10px reads as one input with a suffix. */
+      .r .amount-container { gap:10px }
+      .r .toggle-balance { height:56px; border-radius:12px; border:1px solid var(--border-color);
+                           font-weight:600; min-width:64px }
+
+      /* Available constrains what you can do; Fee is an extra charge. They were
+         the same colour at the same size on the same line. */
+      .r-balance { display:flex; align-items:center; justify-content:space-between; gap:10px;
+                   margin-top:8px; font-size:12.5px; font-variant-numeric:tabular-nums;
+                   white-space:nowrap }
+      .r-balance > span { min-width:0; overflow:hidden; text-overflow:ellipsis }
+      .r-avail { color:var(--text-color) }
+      .r-avail .n { font-weight:600 }
+      .r-fee { color:var(--secondary-text-color) }
+      /* Max sits at the end of a line that already exists — no new row. */
+      .r-max { border:0; background:var(--hover-background-purple); color:var(--primary-color);
+               font-family:var(--font-primary); font-size:12px; font-weight:600; cursor:pointer;
+               padding:3px 10px; border-radius:999px; margin-left:8px }
+
+      /* Errors: token, and revealed by :empty rather than a display:none the JS
+         has to remember to undo. */
+      .r-err { display:block; margin-top:6px; font-size:12.5px; color:var(--danger-color) }
+      .r-err:empty { display:none }
+      .r .form-control.is-invalid { border-color:var(--danger-color) }
+
+      /* ---------- receive ---------- */
+      /* Was a .form-control: an input's clothes on a value you cannot type
+         into, with word-break:break-all wrapping it over two lines. */
+      .r-addr { display:flex; align-items:center; gap:6px; padding:8px 8px 8px 14px;
+                border-radius:999px; background:var(--input-background) }
+      .r-addr code { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+                     font-family:ui-monospace,Menlo,monospace; font-size:12.5px; color:var(--text-color);
+                     cursor:pointer }
+      .r-addr .address-copy-button { width:28px; height:28px; padding:0; flex:none }
+      /* No tint, no padding box. The code is the content, not a thing in a box. */
+      .r-qr { display:flex; justify-content:center; margin:16px 0 0 }
+      .r-qr img { image-rendering:pixelated }
+      /* The QR silently re-encodes as you type. This says what it currently is. */
+      .r-qr-note { margin-top:10px; text-align:center; font-size:12.5px; color:var(--secondary-text-color) }
+      .r-qr-note b { color:var(--text-color); font-variant-numeric:tabular-nums }
+
+      /* ---------- confirm ---------- */
+      /* Was a purple card containing bordered white boxes: a rectangle inside a
+         rectangle for every value, and read-only data wearing input clothes.
+         Same rows, same order, one frame. */
+      .r-conf { padding:4px 0 }
+      .r-conf-row { padding:12px 0; border-top:1px solid var(--border-color) }
+      .r-conf-row:first-child { border-top:0 }
+      .r-conf-k { display:block; font-size:12.5px; font-weight:600; color:var(--secondary-text-color);
+                  margin-bottom:3px }
+      .r-conf-v { font-size:16px; font-weight:500; color:var(--text-color); word-break:break-word;
+                  font-variant-numeric:tabular-nums }
+      .r-conf-sub { font-size:13px; color:var(--secondary-text-color); margin-top:2px;
+                    font-variant-numeric:tabular-nums }
+      .r-conf-row--total .r-conf-v { font-weight:700 }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+    <script type="module">
+      const page = document.getElementById('page');
+      const cs = getComputedStyle(document.documentElement);
+      const ICON = (n) => cs.getPropertyValue(`--icon-${n}`).trim();
+
+      const qrImg = (text, forced) => {
+        const bytes = qr.encodeQR(text, 'gif', { scale: 4 });
+        const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(bytes)));
+        // forced === null means: let the encoder's own pixel size stand
+        const size = forced ? ` width="${forced}" height="${forced}"` : '';
+        return `<img alt=""${size} src="data:image/gif;base64,${b64}">`;
+      };
+      const PAYLOAD = 'liberdus://' + btoa('{"u":"thantsintoe","a":"25.00","m":"For lunch","s":"LIB"}');
+
+      const header = (t) => `<div class="modal-header"><button class="back-button"></button>
+        <div class="modal-title">${t}</div></div>`;
+
+      // ============================ SEND ============================
+      const sendNow = `
+        ${header('Send')}
+        <div class="body"><div class="form-container"><div class="form--narrow">
+          <div class="form-group"><label>Asset</label>
+            <select class="form-control"><option>Liberdus (LIB)</option></select></div>
+          <div class="form-group"><label>Recipient <span style="color:#dc3545">Not found</span></label>
+            <div style="display:flex;align-items:center;gap:.5rem">
+              <input class="form-control" value="anaa" style="flex:1">
+              <button class="icon-button" style="flex-shrink:0"><svg viewBox="0 0 24 24" width="24" height="24" style="fill:#007bff"><path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"/></svg></button>
+              <button class="icon-button" style="flex-shrink:0"><svg viewBox="0 0 24 24" width="24" height="24" style="fill:#007bff"><path d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z"/></svg></button>
+            </div></div>
+          <div class="form-group"><label>Amount</label>
+            <div class="amount-container"><input class="form-control">
+              <button class="toggle-balance"><span>LIB</span></button></div>
+            <div class="available-balance"><div class="balance-info">
+              <span>Available: <span>1,234.50 LIB</span></span>
+              <span class="fee-info">Fee: <span>0.01 LIB</span></span></div></div></div>
+          <div class="form-group"><label>Memo (Optional)</label>
+            <textarea class="form-control"></textarea></div>
+          <div class="form-actions"><button class="btn btn--primary btn--pill btn--full">Send</button></div>
+        </div></div></div>`;
+
+      const sendNew = (err) => `
+        ${header('Send')}
+        <div class="body r"><div class="form-container"><div class="form--narrow">
+          <div class="form-group"><label>Asset</label>
+            <select class="form-control"><option>Liberdus (LIB)</option></select></div>
+          <div class="form-group"><label>Recipient</label>
+            <div class="amount-container">
+              <input class="form-control ${err ? 'is-invalid' : ''}" style="flex:1" value="${err ? 'anaa' : 'ana'}">
+              <button class="r-iconbtn" title="Upload a QR code" data-icon="file-image"></button>
+              <button class="r-iconbtn" title="Scan a QR code" data-icon="camera"></button>
+            </div>
+            <span class="r-err">${err ? 'No account called “anaa”.' : ''}</span></div>
+          <div class="form-group"><label>Amount</label>
+            <div class="amount-container"><input class="form-control" placeholder="0.00">
+              <button class="toggle-balance"><span>LIB</span></button></div>
+            <div class="r-balance">
+              <span class="r-avail">Available <span class="n">1,234.50 LIB</span><button class="r-max">Max</button></span>
+              <span class="r-fee">Fee 0.01 LIB</span></div></div>
+          <div class="form-group"><label>Memo (Optional)</label>
+            <textarea class="form-control"></textarea></div>
+          <div class="form-actions"><button class="btn btn--primary btn--pill btn--full">Send</button></div>
+        </div></div></div>`;
+
+      // ============================ RECEIVE ============================
+      const recvNow = `
+        ${header('Receive')}
+        <div class="body"><div class="form-container">
+          <div class="form-group"><label>Your Address</label>
+            <div class="address-container">
+              <div class="form-control address-display">0x18ed49a5c07b3f61d2904ae8b5731cf0a629d4e7</div>
+              <button class="icon-button address-copy-button"></button></div>
+            <div id="qrcode">${qrImg(PAYLOAD, 200)}</div></div>
+          <div class="form-group"><label>Asset</label>
+            <select class="form-control"><option>Liberdus (LIB)</option></select></div>
+          <div class="form-group"><label>Amount (Optional)</label>
+            <div class="amount-container"><input class="form-control" placeholder="Enter amount">
+              <button class="toggle-balance"><span>LIB</span></button></div></div>
+          <div class="form-group"><label>Memo (Optional)</label>
+            <textarea class="form-control" placeholder="Add a note for the payment"></textarea></div>
+        </div></div>`;
+
+      const recvNew = (amount) => `
+        ${header('Receive')}
+        <div class="body r"><div class="form-container">
+          <div class="form-group"><label>Your Address</label>
+            <div class="r-addr"><code>0x18ed49a5…29d4e7</code>
+              <button class="icon-button address-copy-button"></button></div>
+            <div class="r-qr">${qrImg(PAYLOAD, null)}</div>
+            <div class="r-qr-note">${amount
+              ? 'This code requests <b>25.00 LIB</b>'
+              : 'Scan to send to this account'}</div></div>
+          <div class="form-group"><label>Asset</label>
+            <select class="form-control"><option>Liberdus (LIB)</option></select></div>
+          <div class="form-group"><label>Amount (Optional)</label>
+            <div class="amount-container"><input class="form-control" placeholder="Enter amount" value="${amount ? '25.00' : ''}">
+              <button class="toggle-balance"><span>LIB</span></button></div></div>
+          <div class="form-group"><label>Memo (Optional)</label>
+            <textarea class="form-control" placeholder="Add a note for the payment"></textarea></div>
+        </div></div>`;
+
+      // ============================ CONFIRM ============================
+      const confNow = `
+        ${header('Confirm Transaction')}
+        <div class="body"><div class="form-container"><div class="form--narrow">
+          <div class="confirmation-details" style="background:var(--hover-background-purple);border-radius:12px;padding:16px">
+            <div class="form-group"><label>Recipient</label><div class="confirm-value" style="padding:12px 16px;background:var(--background-color);border:1px solid var(--border-color);border-radius:8px">ana</div></div>
+            <div class="form-group"><label>Amount</label><div class="confirm-value" style="padding:12px 16px;background:var(--background-color);border:1px solid var(--border-color);border-radius:8px">25.00 LIB</div>
+              <div class="confirm-value-secondary" style="font-size:13px;color:var(--secondary-text-color);margin-top:4px">≈ $25.50</div></div>
+            <div class="form-group" style="margin-bottom:0"><label>Asset</label><div class="confirm-value" style="padding:12px 16px;background:var(--background-color);border:1px solid var(--border-color);border-radius:8px">Liberdus (LIB)</div></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn--primary btn--pill btn--full">Confirm Send</button>
+            <button class="btn btn--danger btn--pill btn--full">Cancel</button></div>
+        </div></div></div>`;
+
+      const confNew = `
+        ${header('Confirm Transaction')}
+        <div class="body r"><div class="form-container"><div class="form--narrow">
+          <div class="r-conf">
+            <div class="r-conf-row"><span class="r-conf-k">Recipient</span>
+              <div class="r-conf-v">ana</div></div>
+            <div class="r-conf-row"><span class="r-conf-k">Amount</span>
+              <div class="r-conf-v">25.00 LIB</div><div class="r-conf-sub">≈ $25.50</div></div>
+            <div class="r-conf-row"><span class="r-conf-k">Memo</span>
+              <div class="r-conf-v">For lunch</div></div>
+            <div class="r-conf-row"><span class="r-conf-k">Network fee</span>
+              <div class="r-conf-v">0.01 LIB</div></div>
+            <div class="r-conf-row r-conf-row--total"><span class="r-conf-k">Total</span>
+              <div class="r-conf-v">25.01 LIB</div><div class="r-conf-sub">≈ $25.51</div></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn--primary btn--pill btn--full">Confirm Send</button>
+            <button class="btn btn--secondary btn--pill btn--full">Cancel</button></div>
+        </div></div></div>`;
+
+      page.innerHTML = `
+        <h2>Send — same four fields, same order</h2>
+        <p class="why">Nothing moves. <b>Labels drop from 16px to 13px semibold and go muted</b> — at
+        <code>--font-size-base</code> in <code>--text-color</code> they were the same size and colour as the
+        values they label, so every field read as two values. <b>The QR buttons keep their place</b> but are
+        drawn in the app's own icon language instead of hand-rolled SVGs filled <code>#007bff</code>, a blue
+        that exists nowhere else here.</p>
+        <p class="why"><b>Max joins the line that already exists</b>, and Available stops matching Fee — one
+        constrains what you can do, the other is a charge on top. <b>The error is a real element</b>, using
+        <code>--danger-color</code> and revealed by <code>:empty</code>, not an inline
+        <code>display:none</code> the JS has to remember to undo — the same bug that made join-group errors
+        invisible. And the unit toggle sits 10px from its input rather than 18, so it reads as one field.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div><div class="stage">${sendNow}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Refined</b></div><div class="stage">${sendNew(false)}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Refined — bad recipient</b></div><div class="stage">${sendNew(true)}</div></div>
+        </div>
+
+        <h2>Receive — same order, one real bug fixed</h2>
+        <p class="why"><b>The QR is forced to 200px and should not be.</b> This payload encodes to 45
+        modules, so the encoder emits 180px; forcing 200 gives <b>4.44 pixels per module</b> — module edges
+        on fractions, and the module count changes as the memo grows, so it is wrong at most lengths. Both
+        codes below are the same data: the left one is scaled to 200, the right one is left alone. Drop the
+        width/height and add <code>image-rendering: pixelated</code>.</p>
+        <p class="why">The tinted padded box around it is not doing work, and <b>"Your Address" is a
+        <code>form-control</code></b> — an input's clothes on a value you cannot type into, wrapped over two
+        lines by <code>word-break: break-all</code>. One line, truncated, full value on the clipboard.
+        <b>And one line under the code says what it currently encodes</b>: the QR already re-encodes as you
+        type an amount, debounced, with nothing on screen admitting it.</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div><div class="stage">${recvNow}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Refined</b></div><div class="stage">${recvNew(false)}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Refined — amount set</b></div><div class="stage">${recvNew(true)}</div></div>
+        </div>
+
+        <h2>Confirm — same rows, one frame, and Cancel stops being red</h2>
+        <p class="why">Every value sits in <b>a bordered white box inside a purple tinted card</b> — a
+        rectangle inside a rectangle, four times, and read-only data wearing input clothes. Same rows, same
+        order, one frame: a rule between each.</p>
+        <p class="why"><b>Cancel is <code>btn--danger</code></b>, a full-width red bar, while Confirm Send is
+        the calm indigo one. Red marks the irreversible action everywhere else in this app — it is on Delete
+        this account and nothing else. Here it is on the safe one, on the last screen before money moves.
+        <b>The fee is also missing</b>, so the number you confirm is not the number that leaves; it joins as
+        two more rows of the kind already there. Asset goes: it said "Liberdus (LIB)" directly beneath an
+        amount reading "25.00 LIB".</p>
+        <div class="pair">
+          <div class="col"><div class="lbl"><b class="now">Now</b></div><div class="stage">${confNow}</div></div>
+          <div class="col"><div class="lbl"><b class="rec">Refined</b></div><div class="stage">${confNew}</div></div>
+        </div>`;
+
+      // Assigned here, never interpolated into a style attribute: the token's
+      // value is url("data:…") and those inner quotes terminate the attribute,
+      // leaving background-image: url("").
+      for (const el of page.querySelectorAll('.r-iconbtn[data-icon]')) {
+        el.style.backgroundImage = ICON(el.dataset.icon);
+      }
+    </script>
+  </body>
+</html>

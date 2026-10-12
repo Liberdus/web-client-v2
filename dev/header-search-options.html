@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Header &amp; search options</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      body { margin: 0; background: #ececed; font-family: 'Inter', sans-serif; }
+      .page { max-width: 900px; margin: 0 auto; padding: 28px 20px 80px; }
+      h2 { font-size: 15px; margin: 34px 0 4px; letter-spacing: -0.01em; }
+      .note { font-size: 13px; color: #65676b; margin: 0 0 10px; max-width: 62ch; line-height: 1.5; }
+      .frame { width: 430px; background: #fff; border: 1px solid #dcdce4; border-radius: 12px; overflow: hidden; }
+      .tag { display: inline-block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+             padding: 2px 7px; border-radius: 3px; margin-left: 8px; vertical-align: 2px; font-weight: 600; }
+      .now { background: #f3d6d4; color: #8a2018; }
+      .rec { background: #d7e7d8; color: #1f6b2a; }
+      /* the header is display:none until .active in the real app */
+      .frame .header { display: flex; height: 60px; }
+      .frame .search-bar-container { position: static; }
+      .demo-body { height: 60px; border-top: 1px solid #dee2e6; }
+
+      /* ---- option scaffolding (proposal only, not in styles.css) ---- */
+      .hdr-title { font-family: var(--font-primary); font-size: var(--font-size-lg);
+                   font-weight: var(--font-weight-semibold); color: var(--text-color); }
+      .hdr-title--centred { flex: 1; text-align: center; }
+      .hdr-spacer { flex: 1; }
+      .avatar-btn { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 0;
+                    padding: 0; background: var(--light-color); cursor: pointer; flex: none; }
+      .avatar-btn svg { width: 100%; height: 100%; display: block; }
+      .avatar-btn--lg { width: 36px; height: 36px; }
+
+      /* ---- proposed search ---- */
+      .search-bar--pill { border-radius: 999px; background: var(--input-background); padding: 10px 14px; }
+      .search-bar--pill:hover { background: var(--hover-background-dark); }
+    </style>
+  </head>
+  <body>
+    <div class="page" id="page"></div>
+
+    <script type="module">
+      const { generateAvatar } = await import('../lib.js');
+      const me = '18ed49a5c07b3f61d2904ae8b5731cf0a629d4e7'.padEnd(64, '0');
+      const av = (s) => generateAvatar(me, s);
+      const page = document.getElementById('page');
+
+      const icons = `
+        <button class="icon-button" id="x1" style="background-image:var(--icon-menu)"></button>`;
+
+      const gear = `<button class="icon-button" aria-label="Settings"
+        style="background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%231c1c21' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.61.76 1 1.41 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/%3E%3C/svg%3E&quot;);background-size:20px;background-position:center;background-repeat:no-repeat"></button>`;
+
+      const burger = `<button class="icon-button" aria-label="More"
+        style="background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%231c1c21' stroke-width='2' stroke-linecap='round'%3E%3Cline x1='3' y1='6' x2='21' y2='6'/%3E%3Cline x1='3' y1='12' x2='21' y2='12'/%3E%3Cline x1='3' y1='18' x2='21' y2='18'/%3E%3C/svg%3E&quot;);background-size:20px;background-position:center;background-repeat:no-repeat"></button>`;
+
+      const logo = `<div id="logo"><img src="../media/liberdus_logo_50.png" alt="" /></div>`;
+
+      const block = (title, tag, note, headerHTML, searchHTML = '') => `
+        <h2>${title}${tag}</h2>
+        <p class="note">${note}</p>
+        <div class="frame">
+          <header class="header">${headerHTML}</header>
+          ${searchHTML}
+          <div class="demo-body"></div>
+        </div>`;
+
+      page.innerHTML = [
+        block(
+          'Header — today', '<span class="tag now">now</span>',
+          'Two identity marks side by side: the app logo and your own avatar + username. The username is the largest, boldest text in the header — the one thing you already know. There is no screen title, so the header cannot tell you whether you are on Chats, Contacts or Wallet.',
+          `${logo}
+           <div class="app-name-container"><div class="app-name-avatar">${av(40)}</div><div class="app-name">thantsintoe</div></div>
+           <div class="header-icons">${gear}${burger}</div>`,
+        ),
+        block(
+          'A — your proposal: avatar joins the icon row', '',
+          'Logo keeps the left, the screen title returns, and the avatar becomes a real button beside the gear. Fixes the redundancy and the missing title. Downside: a coloured disc sitting between two line icons reads as a different kind of object, and the right side is now three controls.',
+          `${logo}
+           <div class="hdr-title" style="margin-left:12px">Chats</div>
+           <div class="hdr-spacer"></div>
+           <div class="header-icons"><button class="avatar-btn" aria-label="Your profile">${av(32)}</button>${gear}${burger}</div>`,
+        ),
+        block(
+          'B — avatar takes the left, logo goes', '',
+          'Identity sits where Telegram, Signal and Gmail put it. One identity mark instead of two, title reads clearly, only two controls on the right. The logo is on the welcome and sign-in screens, which is where branding actually does work — once you are inside, you know which app you are in.',
+          `<button class="avatar-btn avatar-btn--lg" aria-label="Your profile">${av(36)}</button>
+           <div class="hdr-title" style="margin-left:12px">Chats</div>
+           <div class="hdr-spacer"></div>
+           <div class="header-icons">${gear}${burger}</div>`,
+        ),
+        block(
+          'C — same, but the title is centred', '<span class="tag rec">recommended</span>',
+          'Identical to B except the title centres — which makes the app header exactly the shape every modal header in this app already has: something on the left, a centred title, actions on the right. One header pattern for the whole app instead of two.',
+          `<button class="avatar-btn avatar-btn--lg" aria-label="Your profile">${av(36)}</button>
+           <div class="hdr-title hdr-title--centred">Chats</div>
+           <div class="header-icons">${gear}${burger}</div>`,
+        ),
+        block(
+          'Search — today', '<span class="tag now">now</span>',
+          'A purple-tinted 8px rectangle. It is the odd one out on all three axes: the app has 12px bordered form fields and a 24px filled composer, and the accent colour is supposed to mean "this does something", not "text goes here".',
+          `<button class="avatar-btn avatar-btn--lg">${av(36)}</button>
+           <div class="hdr-title hdr-title--centred">Chats</div>
+           <div class="header-icons">${gear}${burger}</div>`,
+          `<div class="search-bar-container"><div class="search-bar">
+             <span class="search-icon"></span>
+             <input class="search-input" placeholder="Search messages..." readonly />
+           </div></div>`,
+        ),
+        block(
+          'Search — filled pill', '<span class="tag rec">recommended</span>',
+          'Matches the message composer, which is the app\'s existing answer to "a place you type": filled, round, no border. Grey rather than a purple tint, because the accent is reserved for actions. Round also matches every button, chip and badge on screen.',
+          `<button class="avatar-btn avatar-btn--lg">${av(36)}</button>
+           <div class="hdr-title hdr-title--centred">Chats</div>
+           <div class="header-icons">${gear}${burger}</div>`,
+          `<div class="search-bar-container"><div class="search-bar search-bar--pill">
+             <span class="search-icon"></span>
+             <input class="search-input" placeholder="Search messages..." readonly />
+           </div></div>`,
+        ),
+      ].join('');
+    </script>
+  </body>
+</html>
