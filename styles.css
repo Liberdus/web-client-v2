@@ -5159,76 +5159,48 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .wallet-native-balance .asset-item {
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) max-content 40px;
   gap: 8px;
   padding: 0;
+}
+
+.wallet-native-balance .asset-info {
   text-align: center;
 }
 
-.wallet-native-heading {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 136px;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-}
-
-.wallet-native-amount {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 40px;
-  align-items: center;
-  width: 100%;
-}
-
-.wallet-native-balance .asset-name {
-  margin-bottom: 0;
-}
-
 .wallet-native-balance .asset-logo {
-  width: 32px;
-  height: 32px;
   margin-right: 0;
 }
 
 .wallet-native-balance .asset-balance {
-  grid-column: 2;
-  max-width: 100%;
-  font-size: clamp(28px, 8vw, 36px);
-  line-height: 1.2;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-  text-align: center;
+  white-space: nowrap;
 }
 
-.wallet-native-symbol {
-  font-size: var(--font-size-base);
-  color: var(--secondary-text-color);
-}
+@media (max-width: 360px) {
+  .wallet-native-balance .asset-item {
+    grid-template-columns: 32px minmax(0, 1fr) max-content 32px;
+    gap: 4px;
+  }
 
-.wallet-native-pricing {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  text-align: left;
-}
+  .wallet-native-balance .asset-logo {
+    width: 32px;
+    height: 32px;
+  }
 
-.wallet-native-value,
-.wallet-native-pricing .asset-symbol {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 1ch 3ch;
-  column-gap: 4px;
-  font-size: var(--font-size-xs);
-  line-height: 14px;
-  color: var(--secondary-text-color);
-}
+  .wallet-native-balance .asset-name,
+  .wallet-native-balance .asset-balance {
+    font-size: var(--font-size-sm);
+  }
 
-.wallet-native-pricing > div > :first-child {
-  text-align: right;
-}
+  .wallet-native-balance .asset-symbol {
+    font-size: var(--font-size-xs);
+  }
 
-.wallet-native-balance .refresh-button {
-  grid-column: 3;
+  .wallet-native-balance .refresh-button {
+    width: 32px;
+  }
 }
 
 .wallet-balance {
