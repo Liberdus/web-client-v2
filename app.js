@@ -23755,11 +23755,17 @@ class ChatModal {
         const walletNetwork = evmAssets.getNetwork(payment.networkId);
         const networkName = walletNetwork?.id === payment.networkId && walletNetwork.chainId === payment.chainId
           ? walletNetwork.name : `EVM chain ${payment.chainId}`;
+        const transactionHash = payment.transactionHash;
+        const shortHash = `${transactionHash.slice(0, 10)}…${transactionHash.slice(-8)}`;
+        const transactionUrl = evmAssets.getPaymentExplorerUrl(payment);
         messageTextHTML = `
           <div class="intents-payment-message evm-payment-message" data-verified="${escapeHtml(verified)}" data-evm-payment="${escapeHtml(evmPaymentId(payment))}">
             <div class="intents-payment-amount">${item.my ? '−' : '+'}${escapeHtml(evmPaymentAmount(payment))} ${escapeHtml(payment.symbol)}</div>
             <div class="intents-payment-chain">${escapeHtml(networkName)}</div>
             ${payment.contractAddress ? `<div class="intents-payment-chain" style="overflow-wrap:anywhere">Token: ${escapeHtml(payment.contractAddress)}</div>` : ''}
+            <div class="evm-payment-transaction">Transaction: ${transactionUrl
+              ? `<a href="${escapeHtmlAttribute(transactionUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttribute(transactionHash)}" aria-label="View transaction ${escapeHtmlAttribute(transactionHash)} in block explorer">${escapeHtml(shortHash)}</a>`
+              : `<span title="${escapeHtmlAttribute(transactionHash)}">${escapeHtml(shortHash)}</span>`}</div>
             ${payment.note ? `<div class="intents-payment-note">${escapeHtml(payment.note)}</div>` : ''}
             <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
           </div>`;
