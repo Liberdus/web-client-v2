@@ -12694,4 +12694,45 @@ button.multichain-token-chip:hover {
 .evm-payment-transaction { margin-top: 8px; font-size: var(--font-size-xs); overflow-wrap: anywhere; }
 .evm-payment-transaction a { color: var(--primary-color); text-decoration: underline; }
 
-.evm-payment-message .intents-payment-note { white-space: pre-wrap; }
+.message.evm-payment-bubble { padding: 16px 18px 12px; border-radius: 20px; }
+.message.sent.evm-payment-bubble { border-bottom-right-radius: 4px; }
+.message.received.evm-payment-bubble { border-bottom-left-radius: 4px; }
+.evm-payment-message {
+  --evm-payment-divider: var(--border-color);
+  width: 280px;
+  max-width: 100%;
+  min-width: 0;
+}
+.message.sent .evm-payment-message { --evm-payment-divider: rgba(255, 255, 255, 0.22); }
+.evm-payment-message .intents-payment-amount {
+  font-size: var(--font-size-xl);
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.evm-payment-unit { font-size: var(--font-size-base); font-weight: var(--font-weight-medium); letter-spacing: normal; }
+.evm-payment-contract { margin-top: 6px; font-size: var(--font-size-xs); opacity: 0.75; overflow-wrap: anywhere; }
+.evm-payment-message .intents-payment-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--evm-payment-divider);
+  white-space: pre-wrap;
+}
+.evm-payment-message .intents-payment-verified { margin-top: 12px; }
+.evm-payment-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
+.evm-payment-footer .evm-payment-transaction { margin-top: 0; min-width: 0; }
+.evm-payment-footer a { text-underline-offset: 3px; }
+.evm-payment-message .evm-payment-footer .message-time { align-self: center; margin-top: 0; white-space: nowrap; }
+.evm-payment-details { border-top: 1px solid var(--evm-payment-divider); margin-top: 10px; cursor: default; user-select: text; }
+.evm-payment-details summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; list-style: none; font-size: var(--font-size-xs); cursor: pointer; }
+.evm-payment-details summary::-webkit-details-marker { display: none; }
+.evm-payment-details summary::after { content: ''; width: 6px; height: 6px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg); margin-right: 2px; }
+.evm-payment-details[open] summary::after { transform: rotate(225deg); }
+.evm-payment-details dl { display: grid; gap: 10px; margin: 6px 0 0; font-size: var(--font-size-xs); }
+.evm-payment-details dt { opacity: 0.75; }
+.evm-payment-details dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+.evm-payment-details code { font-family: var(--font-monospace); font-size: inherit; color: inherit; }
+@media (pointer: coarse) {
+  .evm-payment-details summary, .evm-payment-footer a { min-height: 44px; }
+  .evm-payment-footer a { display: inline-flex; align-items: center; gap: 4px; }
+}
