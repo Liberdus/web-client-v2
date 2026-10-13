@@ -151,7 +151,8 @@ function groupHealth(view) {
   if (!view) return 'fine';
   if (view.removed) return 'removed';
   if (view.invitePending) return 'invited';
-  if (view.joinRequested) return 'awaiting';
+  // Still asking, or told the answer: the pending bar says which.
+  if (view.joinRequested || view.joinRequestOutcome === 'declined') return 'awaiting';
   /*
    * Nothing on this device can fix it: rejoining from the checkpoint was tried
    * and failed, or we committed something the network rejected and are ahead of
@@ -815,7 +816,11 @@ class GroupChatModal {
       health === 'removed'
         ? 'You are no longer a member'
         : awaitingApproval
-          ? 'Waiting for approval'
+          ? view.joinRequestOutcome === 'declined'
+            ? 'Request declined'
+            : view.joinRequestOutcome === 'expired'
+              ? 'Request expired'
+              : 'Waiting for approval'
           : invite
             ? 'You have been invited'
             : `${count} member${count === 1 ? '' : 's'}`;
@@ -835,10 +840,19 @@ class GroupChatModal {
       pendingBar.hidden = !awaitingApproval;
       if (awaitingApproval) {
         const held = BigInt(view.joinRequested?.escrow || 0);
+        const outcome = view.joinRequestOutcome;
         $('groupPendingText').textContent =
-          held > 0n
-            ? `Waiting for an admin to approve you. ${formatLib(held)} LIB is held and comes back if you withdraw.`
-            : 'Waiting for an admin to approve your request to join.';
+          outcome === 'declined'
+            ? 'An admin declined your request to join. Anything held has been returned.'
+            : outcome === 'expired'
+              ? held > 0n
+                ? `Your request expired before an admin answered. ${formatLib(held)} LIB is held and comes back if you withdraw.`
+                : 'Your request expired before an admin answered.'
+              : held > 0n
+                ? `Waiting for an admin to approve you. ${formatLib(held)} LIB is held and comes back if you withdraw.`
+                : 'Waiting for an admin to approve your request to join.';
+        // A declined request is already settled; there is nothing to withdraw.
+        $('groupPendingWithdraw').textContent = outcome === 'declined' ? 'Dismiss' : 'Withdraw request';
       }
     }
     if (inviteBar && composer) {
@@ -901,7 +915,7 @@ class GroupChatModal {
      * that fixed them, and mixed with the conversation. This one is not a
      * warning — it is the whole content of an otherwise empty screen.
      */
-    if (awaitingApproval) {
+    if (awaitingApproval && !view.joinRequestOutcome) {
       this.list.insertAdjacentHTML(
         'beforeend',
         buildSystemMessage(
@@ -998,11 +1012,16 @@ class GroupChatModal {
   /**
    * Withdraws our own join request and takes the escrow back.
    *
-   * An admin ignoring a request is how a group says no — charging the group a
-   * fee to reject a spammer would be backwards — so this is the only way the
-   * money comes home.
+   * Also how the escrow of an expired request comes home. A declined one is
+   * already settled, so the button only dismisses it.
    */
   async withdrawRequest() {
+    if (this.view()?.joinRequestOutcome === 'declined') {
+      await groups.forgetGroup(this.groupId);
+      this.close();
+      deps.onChatListChanged && deps.onChatListChanged();
+      return;
+    }
     const button = $('groupPendingWithdraw');
     button.disabled = true;
     button.textContent = 'Withdrawing…';
@@ -1265,6 +1284,9 @@ class GroupInfoModal {
       const approve = e.target.closest('button[data-approve]');
       if (approve) return this.approve(approve.dataset.approve, approve);
 
+      const decline = e.target.closest('button[data-decline]');
+      if (decline) return this.decline(decline.dataset.decline, decline);
+
       const menu = e.target.closest('button[data-menu]');
       if (menu) {
         this.openMenuFor = this.openMenuFor === menu.dataset.menu ? null : menu.dataset.menu;
@@ -1520,7 +1542,7 @@ class GroupInfoModal {
             <span class="ui-list-label">${adding ? 'adding…' : 'wants to join'}</span>
             ${r.message ? `<span class="ui-list-note">${escapeHtml(r.message)}</span>` : ''}
           </span>
-          ${canManage ? `<button class="btn--tiny btn--tiny-primary" data-approve="${escapeHtml(r.address)}">Approve</button>` : ''}
+          ${canManage && !adding ? `<span class="ui-list-actions"><button class="btn--tiny" data-decline="${escapeHtml(r.address)}">Decline</button><button class="btn--tiny btn--tiny-primary" data-approve="${escapeHtml(r.address)}">Approve</button></span>` : ''}
         </li>`);
     }
 
@@ -1708,6 +1730,25 @@ class GroupInfoModal {
       toast(`Could not approve: ${err.message}`, 5000, 'error');
       button.disabled = false;
       button.textContent = 'Approve';
+    }
+  }
+
+  /**
+   * Turns a request down. Not confirmed: nothing is lost -- any escrow goes back,
+   * and the requester may ask again.
+   */
+  async decline(address, button) {
+    button.disabled = true;
+    button.textContent = 'Declining…';
+    try {
+      await groups.declineJoinRequests(this.groupId, [address]);
+      this.requests = (this.requests || []).filter((r) => r.address !== address);
+      this.render();
+      toast('Declined.', 3000, 'success');
+    } catch (err) {
+      toast(`Could not decline: ${err.message}`, 5000, 'error');
+      button.disabled = false;
+      button.textContent = 'Decline';
     }
   }
 

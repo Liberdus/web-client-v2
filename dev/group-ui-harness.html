@@ -197,6 +197,11 @@
         'chat: needs attention': () => { reset(); view().applyFailedAtEpoch = 6; view().chainEpoch = 7; groupChatModal.open(GROUP.groupId); },
         'chat: unrecoverable': () => { reset(); view().needsRecovery = true; groupChatModal.open(GROUP.groupId); },
         'chat: invited': () => { reset(); view().invitePending = { from: addr(2) }; groupChatModal.open(GROUP.groupId); },
+        // Asked to join and waiting, then the two endings that used to leave
+        // "waiting" on screen forever (threat model T8).
+        'chat: request pending': () => { reset(); view().joinRequested = { since: Date.now(), escrow: '500000000000000000' }; groupChatModal.open(GROUP.groupId); },
+        'chat: request expired': () => { reset(); view().joinRequested = { since: Date.now() - 8 * 864e5, escrow: '500000000000000000' }; view().joinRequestOutcome = 'expired'; groupChatModal.open(GROUP.groupId); },
+        'chat: request declined': () => { reset(); view().joinRequestOutcome = 'declined'; groupChatModal.open(GROUP.groupId); },
         'chat: removed': () => { reset(); view().removed = true; groupChatModal.open(GROUP.groupId); },
         'create': () => { closeAll(); createGroupModal.open(); },
         'info: admin': () => {

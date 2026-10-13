@@ -680,7 +680,8 @@ export async function previewGroup(groupId) {
     maxMembers: info.group.maxMembers,
     joinFee: reqs?.joinFee || '0',
     alreadyMember: (info.group.members || []).map(norm).includes(me),
-    requestPending: (reqs?.requests || []).some((r) => norm(r.address) === me),
+    // An expired request no longer counts; asking again replaces it.
+    requestPending: (reqs?.requests || []).some((r) => norm(r.address) === me && r.live !== false),
   };
 }
 
@@ -715,6 +716,7 @@ export async function requestToJoin(groupId, message = '') {
 
   const view = ensureGroupView(groupId);
   view.joinRequested = { since: Date.now(), escrow: preview.joinFee };
+  delete view.joinRequestOutcome;
   /*
    * Placeholder name. The real one lives in `meta`, encrypted under the MLS
    * exporter secret, so it cannot be read until we are actually a member — until
@@ -727,17 +729,15 @@ export async function requestToJoin(groupId, message = '') {
 }
 
 /**
- * Withdraws our join request and takes the escrow back.
- *
- * An admin ignoring a request is how a group says no — making the group pay a
- * fee to reject a spammer would be backwards — so this is the only way the
- * money comes home.
+ * Withdraws our join request and takes the escrow back. Works on an expired
+ * request too; an admin who declines returns the escrow without this.
  */
 export async function reclaimJoinRequest(groupId) {
   await submitAndConfirm({ ...baseTx('group_join_reclaim'), groupId });
   const view = deps.getMyData().groups?.[groupId];
   if (view) {
     delete view.joinRequested;
+    delete view.joinRequestOutcome;
     if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
   }
   return true;
@@ -746,7 +746,8 @@ export async function reclaimJoinRequest(groupId) {
 /** Requests awaiting an admin's decision, for the approval queue. */
 export async function listJoinRequests(groupId) {
   const res = await deps.queryNetwork(`/group/${groupId}/requests`);
-  const requests = Array.isArray(res?.requests) ? res.requests : [];
+  // Expired requests can no longer be approved, so they are not offered.
+  const requests = Array.isArray(res?.requests) ? res.requests.filter((r) => r.live !== false) : [];
   const normalised = requests.map((r) => ({ ...r, address: norm(r.address) }));
 
   /*
@@ -765,6 +766,51 @@ export async function listJoinRequests(groupId) {
  */
 export async function approveJoinRequest(groupId, address) {
   return addMembers(groupId, [address]);
+}
+
+/**
+ * Turns down join requests; any escrow goes back to the requesters. One
+ * transaction for up to ten, so clearing a flood costs far less than it did to
+ * send (threat model T8).
+ */
+export async function declineJoinRequests(groupId, addresses) {
+  const requesters = addresses.map((a) => longAddress(a).toLowerCase());
+  for (let i = 0; i < requesters.length; i += 10) {
+    await submitAndConfirm({ ...baseTx('group_join_decline'), groupId, requesters: requesters.slice(i, i + 10) });
+  }
+  if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+  return true;
+}
+
+/**
+ * What became of a join request we are waiting on.
+ *
+ * Approval arrives as a Welcome and is handled by the ordinary sync. This
+ * covers the other two endings, which used to leave "waiting for an admin"
+ * on screen forever: an admin declined it (the request is gone and we are not
+ * on the roster), or it expired unanswered (still there, no longer live, and
+ * its escrow still ours to withdraw).
+ */
+async function checkOwnJoinRequest(groupId) {
+  const view = deps.getMyData().groups?.[groupId];
+  if (!view?.joinRequested) return false;
+  const res = await deps.queryNetwork(`/group/${groupId}/requests`);
+  if (!res || res.error) return false;
+  const me = myAddress();
+  const mine = (res.requests || []).find((r) => norm(r.address) === me);
+  let outcome = null;
+  if (mine && mine.live === false) {
+    outcome = 'expired';
+  } else if (!mine) {
+    const info = await deps.queryNetwork(`/group/${groupId}`);
+    const members = (info?.group?.members || []).map(norm);
+    // On the roster means approved: the Welcome path takes it from here.
+    if (members.length > 0 && !members.includes(me)) outcome = 'declined';
+  }
+  if (!outcome || view.joinRequestOutcome === outcome) return false;
+  view.joinRequestOutcome = outcome;
+  if (outcome === 'declined') delete view.joinRequested;
+  return true;
 }
 
 
@@ -2005,6 +2051,20 @@ export async function syncAllGroups() {
   const groupIds = [...new Set([...fromChain, ...fromLocal])];
 
   let updated = 0;
+
+  // Groups we have asked to join but are not in yet appear in neither list.
+  for (const [groupId, view] of Object.entries(deps.getMyData().groups || {})) {
+    if (!view?.joinRequested || groupIds.includes(groupId)) continue;
+    try {
+      if (await checkOwnJoinRequest(groupId)) {
+        updated++;
+        if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+      }
+    } catch (e) {
+      console.warn(`[groups] could not check the join request for ${groupId}`, e);
+    }
+  }
+
   for (const groupId of groupIds) {
     /*
      * Settling optimistic sends is independent of MLS sync and must not depend
