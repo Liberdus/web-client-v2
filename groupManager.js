@@ -16,6 +16,7 @@ import { mlsStore, onGroupChanged, locksSupported } from './mlsStore.js';
 import { applyIncomingReaction, getContactReactionsForTarget } from './reactions.js';
 import { hashBytes, encryptChacha, decryptChacha, generateRandomBytes } from './crypto.js';
 import { longAddress, normalizeAddress, bin2hex, bin2base64 } from './lib.js';
+import { departedMembers, designatedRemover, shouldRemoveDeparted } from './groupDeparture.js';
 
 /** How many single-use KeyPackages to keep published. X-Wing ones are ~2.6 kB. */
 const KEY_PACKAGE_POOL = 5;
@@ -133,6 +134,14 @@ const PATH_UPDATE_STAGGER_MS = 12000;
 const PATH_UPDATE_SLOTS = 10;
 /** After losing a race, wait rather than immediately re-racing the winner. */
 const PATH_UPDATE_BACKOFF_MS = 15000;
+
+/*
+ * How long the designated member gets to remove a departed leaf before any
+ * member may (groupDeparture.js). Long enough that a member who is online does
+ * it alone; short enough that one who is not cannot leave a leaver reading for
+ * long.
+ */
+const DEPARTURE_GRACE_MS = 2 * 60 * 1000;
 
 /**
  * How long this member waits before its first path-update attempt.
@@ -2028,15 +2037,74 @@ export async function syncAllGroups() {
      * act, so this costs a local tree walk on every sync and nothing else.
      */
     try {
+      /*
+       * Removing a member who left comes first: until it lands they can still
+       * read the group. Its commit carries an UpdatePath, so it repairs as it
+       * goes, and the path updates below then usually have nothing left to do.
+       */
+      if (await maybeRemoveDeparted(groupId)) updated++;
       // Our own obligation first (decision 1), then the shared tree repair
       // (decision 2). flushPathUpdate is a no-op unless we personally owe one.
-      if (await flushPathUpdate(groupId)) updated++;
+      else if (await flushPathUpdate(groupId)) updated++;
       else if (await maybeUpdatePath(groupId)) updated++;
     } catch (e) {
       console.error(`[groups] path update failed for ${groupId}`, e);
     }
   }
   return updated;
+}
+
+/**
+ * Commits the Remove for members who have left (threat model T3).
+ *
+ * group_leave takes a member off the roster but leaves their leaf in the tree,
+ * so they keep reading until someone removes it. The network lets any member do
+ * that and the group's upkeep balance pays; groupDeparture.js decides which
+ * member, so that normally exactly one commit is made.
+ *
+ * Only when this device is in step with the chain: a stale tree or roster would
+ * name the wrong leaves, and the network would refuse the commit anyway.
+ */
+async function maybeRemoveDeparted(groupId) {
+  const view = deps.getMyData().groups?.[groupId];
+  if (!view || view.removed || view.needsReset || view.pendingChange) return false;
+  if (view.applyFailedAtEpoch !== undefined || view.needsRecovery || !Array.isArray(view.members)) return false;
+
+  const me = myAddress();
+  if (!view.members.includes(me)) return false;
+  const local = await mls.getGroupView(me, groupId);
+  if (!local || typeof view.chainEpoch !== 'number' || local.epoch !== view.chainEpoch) return false;
+
+  const departed = departedMembers(local.roster, view.members, me);
+  // When each departure was first seen here, for the grace period.
+  const now = Date.now();
+  const since = {};
+  for (const address of departed) since[address] = view.departedSince?.[address] ?? now;
+  view.departedSince = since;
+  if (departed.length === 0) return false;
+
+  const go = shouldRemoveDeparted({
+    departed,
+    designated: designatedRemover(local.roster, view.members),
+    me,
+    oldestSince: Math.min(...Object.values(since)),
+    now,
+    graceMs: DEPARTURE_GRACE_MS,
+  });
+  if (!go) return false;
+  if (typeof view.departureRemovalNotBefore === 'number' && now < view.departureRemovalNotBefore) return false;
+
+  try {
+    await removeMembers(groupId, departed);
+    delete view.departureRemovalNotBefore;
+    delete view.departedSince;
+    return true;
+  } catch (e) {
+    // Most often another member removed them first; the next sync sees that.
+    view.departureRemovalNotBefore = now + PATH_UPDATE_BACKOFF_MS;
+    console.warn(`[groups] ${groupId}: removing departed members did not land (${e.message})`);
+    return false;
+  }
 }
 
 /** Restores the view model for every locally-known group after sign-in. */
