@@ -33,6 +33,7 @@ import {
   createCommit,
   joinGroup,
   joinGroupExternal,
+  createGroupInfoWithExternalPub,
   createApplicationMessage,
   processPrivateMessage,
   processPublicMessage,
@@ -69,6 +70,7 @@ import { utf82bin, bin2utf8, hex2bin, bin2base64, base642bin, longAddress } from
 
 import { mlsStore, keyPackageStore, withGroupLock, announceGroupChanged } from './mlsStore.js';
 import { hashBytes } from './crypto.js';
+import { checkCommitAgainstRecord } from './groupCommitCheck.js';
 
 /** Pinned ciphersuite. Stored on the group account; members must agree. */
 export const MLS_CIPHERSUITE_NAME = 'MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519';
@@ -95,6 +97,48 @@ const CAPABILITIES = {
   proposals: [],
   credentials: ['basic'],
 };
+
+/*
+ * Commits travel as MLS PublicMessages so the network can read their proposals.
+ *
+ * The server compares what a commit really adds and removes with what the
+ * transaction declares, and applies the admin rule to the real change
+ * (liberdus-server src/utils/mlsCommit.ts). A private commit hides its
+ * proposals, which let any member declare "no change" and add an outsider or
+ * remove someone anyway. The UpdatePath inside stays encrypted to the group;
+ * the membership it reveals is already public on chain.
+ */
+const COMMIT_WIRE = { wireAsPublicMessage: true };
+
+/*
+ * Epoch 0's confirmation tag, sent with a group's first commit and with no other.
+ *
+ * The network tracks the group's GroupContext from the public commits so it can
+ * check each commit's signature, and the transcript hash it starts from chains
+ * through this tag, which is derived from our secrets and appears in no public
+ * message. Every later epoch's tag is public in its commit anyway, so sending
+ * this one reveals nothing new. Read it before the commit replaces the state.
+ */
+const foundingTagFields = (entry) =>
+  epochOf(entry) === 0 ? { foundingConfirmationTag: bin2base64(entry.clientState.confirmationTag) } : {};
+
+/*
+ * The GroupInfo for the epoch `state` is at, published with every commit as the
+ * group's recovery checkpoint. A member whose device falls out of step rejoins
+ * from it by external commit (resync below). The network checks it against the
+ * epoch it computed; only the external_pub key inside depends on our secrets.
+ */
+const checkpointFor = async (state, cs) =>
+  bin2base64(
+    encodeMlsMessage({
+      wireformat: 'mls_group_info',
+      version: 'mls10',
+      groupInfo: await createGroupInfoWithExternalPub(state, [], cs),
+    }),
+  );
+
+/** One more PSK step, when the count is being kept at all. */
+const nextPskCount = (entry) => (typeof entry.pskCount === 'number' ? entry.pskCount + 1 : undefined);
 
 let cipherSuitePromise = null;
 export function cipherSuite() {
@@ -272,6 +316,9 @@ async function loadEntry(address, groupId) {
     psk: rec.psk,
     pskId: rec.pskId,
     pskNonce: rec.pskNonce,
+    // Undefined for state stored before the count existed; such a group cannot
+    // be recovered by rejoining, only by a reset.
+    pskCount: typeof rec.pskCount === 'number' ? rec.pskCount : undefined,
     lastMessageTimestamp: rec.lastMessageTimestamp || 0,
     lastHandshakeEpoch: rec.lastHandshakeEpoch || 0,
     memberSinceEpoch: rec.memberSinceEpoch || 0,
@@ -291,6 +338,7 @@ async function persist(entry) {
     psk: entry.psk,
     pskId: entry.pskId,
     pskNonce: entry.pskNonce,
+    pskCount: entry.pskCount,
     lastMessageTimestamp: entry.lastMessageTimestamp || 0,
     lastHandshakeEpoch: entry.lastHandshakeEpoch || 0,
     memberSinceEpoch: entry.memberSinceEpoch || 0,
@@ -370,6 +418,7 @@ export async function createGroup(identity, groupId, mlsGroupId) {
       psk: generateRandomBytes(32), // psk[0]
       pskId: generateRandomBytes(16),
       pskNonce: generateRandomBytes(cs.kdf.size),
+      pskCount: 0,
       lastMessageTimestamp: 0,
       lastHandshakeEpoch: 0,
       memberSinceEpoch: 0,
@@ -575,10 +624,11 @@ export async function selfUpdate(identity, groupId) {
      */
     const commit = await createCommit(
       { state: entry.clientState, cipherSuite: cs, pskIndex: makePskIndex(undefined, {}) },
-      {},
+      { ...COMMIT_WIRE },
     );
 
     const priorEpoch = epochOf(entry);
+    const founding = foundingTagFields(entry);
     const treeBefore = entry.clientState.ratchetTree;
     const delta = treeDelta(treeBefore, commit.newState.ratchetTree);
     /*
@@ -608,11 +658,12 @@ export async function selfUpdate(identity, groupId) {
       pskNonce: '',
       ratchetTree: '',
       treeDelta: delta,
-      groupInfo: '',
+      groupInfo: await checkpointFor(entry.clientState, cs),
       welcomes: [],
       addedMembers: [],
       removedMembers: [],
       consumedKeyPackages: [],
+      ...founding,
     };
   });
 }
@@ -638,6 +689,7 @@ export async function addMembers(identity, groupId, newMembers) {
     const commit = await createCommit(
       { state: entry.clientState, cipherSuite: cs, pskIndex: pskIndexFor(nextPskId, nextPsk) },
       {
+        ...COMMIT_WIRE,
         extraProposals: [
           ...newMembers.map((m) => ({
             proposalType: 'add',
@@ -649,12 +701,14 @@ export async function addMembers(identity, groupId, newMembers) {
     );
 
     const priorEpoch = epochOf(entry);
+    const founding = foundingTagFields(entry);
     // Capture the tree before the commit lands, so the delta can be diffed.
     const treeBefore = entry.clientState.ratchetTree;
     entry.clientState = commit.newState;
     entry.psk = nextPsk;
     entry.pskId = nextPskId;
     entry.pskNonce = nextPskNonce;
+    entry.pskCount = nextPskCount(entry);
     entry.lastHandshakeEpoch = epochOf(entry);
     await persist(entry);
     commit.consumed.forEach((b) => b.fill(0));
@@ -685,10 +739,9 @@ export async function addMembers(identity, groupId, newMembers) {
        */
       ratchetTree: baseline,
       treeDelta: delta,
-      // Placeholder: a real GroupInfo (createGroupInfoWithExternalPub) is the
-      // checkpoint for external re-join, which is not implemented yet. It must
-      // never be group state.
-      groupInfo: '',
+      // The recovery checkpoint. A GroupInfo is public by design; it is never
+      // group state.
+      groupInfo: await checkpointFor(entry.clientState, cs),
       welcomes: newMembers.map((m) => ({
         address: m.address,
         envelope: {
@@ -710,6 +763,7 @@ export async function addMembers(identity, groupId, newMembers) {
       addedMembers: newMembers.map((m) => m.address),
       removedMembers: [],
       consumedKeyPackages: newMembers.map((m) => ({ address: m.address, keyPackage: m.keyPackage })),
+      ...founding,
     };
   });
 }
@@ -735,6 +789,7 @@ export async function removeMembers(identity, groupId, addresses) {
     const commit = await createCommit(
       { state: entry.clientState, cipherSuite: cs, pskIndex: pskIndexFor(nextPskId, nextPsk) },
       {
+        ...COMMIT_WIRE,
         extraProposals: [
           ...leafIndexes.map((removed) => ({ proposalType: 'remove', remove: { removed } })),
           pskProposal(nextPskId, nextPskNonce),
@@ -743,12 +798,14 @@ export async function removeMembers(identity, groupId, addresses) {
     );
 
     const priorEpoch = epochOf(entry);
+    const founding = foundingTagFields(entry);
     // Capture the tree before the commit lands, so the delta can be diffed.
     const treeBefore = entry.clientState.ratchetTree;
     entry.clientState = commit.newState;
     entry.psk = nextPsk;
     entry.pskId = nextPskId;
     entry.pskNonce = nextPskNonce;
+    entry.pskCount = nextPskCount(entry);
     entry.lastHandshakeEpoch = epochOf(entry);
     await persist(entry);
     commit.consumed.forEach((b) => b.fill(0));
@@ -763,14 +820,12 @@ export async function removeMembers(identity, groupId, addresses) {
       // for whoever joins next.
       ratchetTree: '',
       treeDelta: treeDelta(treeBefore, entry.clientState.ratchetTree),
-      // Placeholder: a real GroupInfo (createGroupInfoWithExternalPub) is the
-      // checkpoint for external re-join, which is not implemented yet. It must
-      // never be group state.
-      groupInfo: '',
+      groupInfo: await checkpointFor(entry.clientState, cs),
       welcomes: [],
       addedMembers: [],
       removedMembers: addresses.map((a) => String(a).toLowerCase()),
       consumedKeyPackages: [],
+      ...founding,
     };
   });
 }
@@ -791,7 +846,10 @@ export async function applyCommit(identity, groupId, record) {
     const nextPsk = hasPsk ? ratchetPsk(entry.psk) : entry.psk;
     const pskIndex = hasPsk ? pskIndexFor(base642bin(record.pskId), nextPsk) : makePskIndex(undefined, {});
 
-    const res = await processAny(decodeWire(record.commit), entry.clientState, pskIndex, cs);
+    // Before ts-mls sees it: the commit must do what the network recorded.
+    const message = decodeWire(record.commit);
+    checkCommitAgainstRecord(message, entry.clientState.ratchetTree, record);
+    const res = await processAny(message, entry.clientState, pskIndex, cs);
     if (res.kind !== 'newState') throw new Error(`expected a commit, got ${res.kind}`);
 
     entry.clientState = res.newState;
@@ -799,11 +857,93 @@ export async function applyCommit(identity, groupId, record) {
       entry.psk = nextPsk;
       entry.pskId = base642bin(record.pskId);
       entry.pskNonce = base642bin(record.pskNonce);
+      entry.pskCount = nextPskCount(entry);
     }
     entry.lastHandshakeEpoch = epochOf(entry);
     await persist(entry);
     res.consumed.forEach((b) => b.fill(0));
     return epochOf(entry);
+  });
+}
+
+/**
+ * Rejoins a group this device has fallen out of step with, by external commit
+ * (RFC 9420 s12.4.3.2 resynchronisation).
+ *
+ * For when replaying the group's commits cannot work: a commit will not apply,
+ * or the ones we missed have been pruned. MLS secrets cannot be rebuilt from the
+ * public transcript, but they do not need to be. The checkpoint every commit
+ * publishes is enough to join the group at its current epoch directly, swapping
+ * our former leaf for a fresh one, with no other member's help.
+ *
+ * What the checkpoint cannot supply is our post-quantum PSK: it is ours, not
+ * the group's public state. Members step it once per commit that carries one,
+ * so we step our stored one forward by the network's count of those commits.
+ * State stored before the count existed cannot be recovered this way.
+ *
+ * Returns the payload for a group_commit. As with any commit, the new state is
+ * persisted first, so the caller snapshots beforehand and restores on failure.
+ *
+ * @param {{groupInfo: string, ratchetTree: string, pskCount: number}} checkpoint
+ *   from GET /group/:id/checkpoint
+ */
+export async function resync(identity, groupId, checkpoint) {
+  const cs = await cipherSuite();
+  return withGroupLock(identity.address, groupId, async () => {
+    const entry = await loadEntry(identity.address, groupId);
+    if (!entry) throw new Error('no local MLS state for this group');
+    if (typeof entry.pskCount !== 'number' || typeof checkpoint.pskCount !== 'number') {
+      throw new Error('this device cannot work out the group\'s current PSK');
+    }
+    if (checkpoint.pskCount < entry.pskCount) throw new Error('this device is ahead of the group\'s PSK; it cannot step back');
+    if (typeof checkpoint.ratchetTree !== 'string' || checkpoint.ratchetTree.length === 0) {
+      throw new Error('the network has no ratchet tree for the checkpoint epoch');
+    }
+
+    const message = decodeWire(checkpoint.groupInfo);
+    if (!message || message.wireformat !== 'mls_group_info') throw new Error('the checkpoint is not a GroupInfo');
+    const groupInfo = message.groupInfo;
+
+    let psk = entry.psk;
+    for (let i = entry.pskCount; i < checkpoint.pskCount; i++) psk = ratchetPsk(psk);
+
+    const treeBefore = treeFromWire(checkpoint.ratchetTree);
+    // Same signature key as before (it derives from the account), which is how
+    // ts-mls finds the former leaf to remove.
+    const keyPackage = await generateKeyPackage(identity);
+    const out = await joinGroupExternal(
+      groupInfo,
+      keyPackage.publicPackage,
+      keyPackage.privatePackage,
+      true,
+      cs,
+      treeBefore,
+      CLIENT_CONFIG,
+    );
+
+    entry.clientState = { ...out.newState, clientConfig: CLIENT_CONFIG };
+    entry.psk = psk;
+    entry.pskCount = checkpoint.pskCount;
+    entry.lastHandshakeEpoch = epochOf(entry);
+    // As for a joiner: messages from the epochs we skipped cannot be decrypted.
+    entry.memberSinceEpoch = epochOf(entry);
+    await persist(entry);
+
+    return {
+      epoch: Number(groupInfo.groupContext.epoch), // the epoch this commit targets
+      commit: bin2base64(encodeMlsMessage({ wireformat: 'mls_public_message', version: 'mls10', publicMessage: out.publicMessage })),
+      proposals: [],
+      // An external commit carries no PSK, so members do not step theirs.
+      pskId: '',
+      pskNonce: '',
+      ratchetTree: '',
+      treeDelta: treeDelta(treeBefore, entry.clientState.ratchetTree),
+      groupInfo: await checkpointFor(entry.clientState, cs),
+      welcomes: [],
+      addedMembers: [],
+      removedMembers: [],
+      consumedKeyPackages: [],
+    };
   });
 }
 
@@ -873,6 +1013,8 @@ export async function joinFromWelcome(identity, groupId, envelope) {
       psk,
       pskId,
       pskNonce: base642bin(envelope.pskNonce),
+      // Stamped by the network when it applied the commit that added us.
+      pskCount: typeof envelope.pskCount === 'number' ? envelope.pskCount : undefined,
       lastMessageTimestamp: 0,
       lastHandshakeEpoch: Number(clientState.groupContext.epoch),
       // Everything before this epoch is undecryptable by design (forward secrecy)
@@ -919,8 +1061,9 @@ export async function encryptMessage(identity, groupId, payloadObject) {
 /**
  * Decrypts one transcript record.
  *
- * Returns null for records that are not application messages (own echoes, for
- * instance). Throws on a sender mismatch, which is the anti-replay check.
+ * Throws, leaving the stored state untouched, for a record that is not an
+ * application message, and on a sender mismatch, which is the anti-replay
+ * check. The caller skips past either. Our own messages never reach here.
  */
 export async function decryptMessage(identity, groupId, record) {
   const cs = await cipherSuite();
@@ -929,11 +1072,20 @@ export async function decryptMessage(identity, groupId, record) {
     if (!entry) throw new Error('no local MLS state for this group');
 
     const res = await processAny(decodeWire(record.message), entry.clientState, pskIndexFor(entry.pskId, entry.psk), cs);
+    /*
+     * The transcript carries application messages only; commits arrive through
+     * the handshake path. Anything else here is refused WITHOUT keeping the new
+     * state. A proposal processed here would sit in our state and be bundled,
+     * by reference, into our next commit: a member could make an admin commit
+     * their hidden Remove. The network refuses commits carrying references, so
+     * keeping it would instead leave every commit we build refused.
+     */
+    if (res.kind !== 'applicationMessage') {
+      throw new Error(`not an application message (${res.kind}) in the transcript`);
+    }
     entry.clientState = res.newState;
     if (record.timestamp > entry.lastMessageTimestamp) entry.lastMessageTimestamp = record.timestamp;
     await persist(entry);
-
-    if (res.kind !== 'applicationMessage') return null;
     res.consumed.forEach((b) => b.fill(0));
 
     const payload = JSON.parse(bin2utf8(res.message));

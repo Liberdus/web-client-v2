@@ -199,6 +199,9 @@ async function run() {
 
   const bobEpoch = await mls.applyCommit(idB, GID, {
     commit: commit2.commit, pskId: commit2.pskId, pskNonce: commit2.pskNonce,
+    // As the network records it (/group/:id/handshakes); applyCommit checks the
+    // commit against these.
+    from: idA.address, addedMembers: commit2.addedMembers, removedMembers: commit2.removedMembers,
   });
   result('existing member applies it by ratcheting locally (no sealed blob)',
     bobEpoch === 2, `epoch ${bobEpoch}`);
@@ -206,6 +209,9 @@ async function run() {
   // --- group secret convergence ---------------------------------------------
   await mls.applyCommit(idC, GID, {
     commit: commit2.commit, pskId: commit2.pskId, pskNonce: commit2.pskNonce,
+    // As the network records it (/group/:id/handshakes); applyCommit checks the
+    // commit against these.
+    from: idA.address, addedMembers: commit2.addedMembers, removedMembers: commit2.removedMembers,
   });
   const sA = bin2hex(await mls.exportGroupSecret(idA, GID));
   const sB = bin2hex(await mls.exportGroupSecret(idB, GID));

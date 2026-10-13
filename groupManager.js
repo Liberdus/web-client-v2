@@ -1024,6 +1024,7 @@ export async function resetGroupState(groupId) {
 
   const view = ensureGroupView(groupId);
   view.needsReset = false;
+  delete view.rejoinFailed;
   view.epoch = 0;
   view.memberSinceEpoch = 0;
   if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
@@ -1228,6 +1229,12 @@ function ensureGroupView(groupId) {
  */
 function noteHistoryGap(groupId, timestamp) {
   const view = ensureGroupView(groupId);
+  // After a rejoin the hidden messages are the ones sent while this device was
+  // out of step, not ones from before we joined.
+  const message =
+    typeof view.rejoinedAtEpoch === 'number'
+      ? 'Messages sent while this device was out of step are not available'
+      : 'Messages sent before you joined are not available';
   const last = view.messages[view.messages.length - 1];
   // Extend the current gap rather than emitting one marker per hidden message.
   if (last && last.system === 'gap') {
@@ -1237,7 +1244,7 @@ function noteHistoryGap(groupId, timestamp) {
   view.messages.push({
     system: 'gap',
     txid: `gap-${timestamp}`,
-    message: 'Messages sent before you joined are not available',
+    message,
     timestamp,
   });
 }
@@ -1865,6 +1872,58 @@ async function tryJoinFromWelcome(groupId) {
  */
 
 /**
+ * Rejoins the group at its current epoch from the checkpoint the last commit
+ * published, by external commit (RFC 9420 s12.4.3.2). For a device whose MLS
+ * state can no longer be brought forward by replaying commits.
+ *
+ * Needs no other member: the checkpoint is public, the network accepts the
+ * rejoin from accounts on the roster only, and it swaps our leaf for a fresh
+ * one without adding or removing anyone. Messages sent while this device was
+ * out of step stay unreadable; that is forward secrecy working.
+ *
+ * Built like any commit: the MLS state advances before the transaction exists,
+ * so it is snapshotted and restored if the network does not apply it.
+ */
+export async function resyncGroup(groupId) {
+  const id = identity();
+  const cp = await deps.queryNetwork(`/group/${groupId}/checkpoint`);
+  if (!cp || cp.error || !cp.checkpoint?.groupInfo) {
+    throw new Error(cp?.error || 'the group has no checkpoint to rejoin from yet');
+  }
+  if (!cp.ratchetTree || typeof cp.pskCount !== 'number') {
+    // The checkpoint lags the group for a moment after each commit.
+    throw new Error('the group is changing; try again in a moment');
+  }
+
+  const snapshot = await mls.snapshotGroup(id.address, groupId);
+  const commit = await mls.resync(id, groupId, {
+    groupInfo: cp.checkpoint.groupInfo,
+    ratchetTree: cp.ratchetTree,
+    pskCount: cp.pskCount,
+  });
+  const view = ensureGroupView(groupId);
+  const tx = {
+    ...baseTx('group_commit'),
+    groupId,
+    ...commit,
+    meta: await encryptMeta(groupId, { name: view?.name || '' }),
+  };
+  try {
+    await submitAndConfirm(tx);
+  } catch (e) {
+    await mls.restoreGroup(snapshot);
+    throw e;
+  }
+
+  delete view.applyFailedAtEpoch;
+  delete view.needsRecovery;
+  delete view.rejoinFailed;
+  view.rejoinedAtEpoch = commit.epoch + 1;
+  await upsertGroupView(groupId);
+  if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+}
+
+/**
  * Re-applies whatever the network still holds for this group, right now.
  *
  * Deliberately NOT a "rebuild": MLS state cannot be reconstructed from anything
@@ -1879,8 +1938,9 @@ async function tryJoinFromWelcome(groupId) {
  *     by another tab) is retried, rather than the group staying marked stuck
  *
  * If the commits we need have been pruned, or the commit itself is genuinely
- * unapplyable, no amount of retrying helps and the group has to be reset and
- * rejoined. The returned status says which case we are in.
+ * unapplyable, no amount of retrying helps, so it rejoins from the checkpoint
+ * instead (resyncGroup). Only if that fails too does the group need a reset.
+ * The returned status says which case we are in.
  */
 export async function forceCatchUp(groupId) {
   const me = myAddress();
@@ -1895,10 +1955,24 @@ export async function forceCatchUp(groupId) {
   const after = (await mls.getGroupView(me, groupId))?.epoch ?? null;
   const chainEpoch = view.chainEpoch ?? null;
 
-  if (view.applyFailedAtEpoch !== undefined) {
-    return { status: 'stuck', before, after, chainEpoch, failedAt: view.applyFailedAtEpoch };
+  /*
+   * Replaying cannot win: a commit will not apply, or the ones we missed were
+   * pruned. Rejoin from the checkpoint instead -- the next rung of the ladder,
+   * still safe, before anything destructive (DESIGN.md s1.4).
+   */
+  if (view.applyFailedAtEpoch !== undefined || view.needsRecovery) {
+    const status = view.applyFailedAtEpoch !== undefined ? 'stuck' : 'pruned';
+    try {
+      await resyncGroup(groupId);
+      const rejoined = (await mls.getGroupView(me, groupId))?.epoch ?? null;
+      return { status: 'rejoined', before, after: rejoined, chainEpoch: view.chainEpoch ?? null };
+    } catch (e) {
+      console.warn(`[groups] ${groupId}: rejoining from the checkpoint failed`, e);
+      view.rejoinFailed = true;
+      if (deps.onGroupUpdated) deps.onGroupUpdated(groupId);
+      return { status, before, after, chainEpoch, failedAt: view.applyFailedAtEpoch, reason: e.message };
+    }
   }
-  if (view.needsRecovery) return { status: 'pruned', before, after, chainEpoch };
   if (after !== before) return { status: 'advanced', before, after, chainEpoch };
   if (chainEpoch !== null && after !== null && after < chainEpoch) {
     return { status: 'behind', before, after, chainEpoch };

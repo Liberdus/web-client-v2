@@ -58,6 +58,23 @@ export { filteredDirectPath } from 'ts-mls/ratchetTree.js';
 // array is short and every width-derived calculation (and therefore every tree
 // hash) comes out wrong.
 export { extendRatchetTree } from 'ts-mls/ratchetTree.js';
+// For the NETWORK, not this client: liberdus-server vendors this exact bundle
+// and replays each public commit against its stored tree, so the tree it hands
+// joiners is derived rather than taken from the committer's delta. These are the
+// steps ts-mls's own processCommit takes on the public tree, minus anything that
+// needs group secrets. applyTreeMutations, validateProposals and emptyProposals
+// are private upstream; exportForTheNetwork below exports them.
+export { applyTreeMutations, validateProposals, emptyProposals } from 'ts-mls/clientState.js';
+export { validateLeafNodeUpdateOrCommit, validateLeafNodeCredentialAndKeyUniqueness } from 'ts-mls/clientState.js';
+export { applyUpdatePath } from 'ts-mls/updatePath.js';
+export { treeHashRoot } from 'ts-mls/treeHash.js';
+export { removeLeafNode, addLeafNode } from 'ts-mls/ratchetTree.js';
+// Also for the network: it tracks each epoch's GroupContext from the public
+// commits and checks every commit's signature against it, as members do.
+export { verifyFramedContentSignature } from 'ts-mls/framedContent.js';
+export { nextEpochContext } from 'ts-mls/clientState.js';
+// And verifies the GroupInfo every commit publishes as the recovery checkpoint.
+export { verifyGroupInfoSignature } from 'ts-mls/groupInfo.js';
 `,
 );
 
@@ -77,6 +94,32 @@ export { extendRatchetTree } from 'ts-mls/ratchetTree.js';
  * silently drop it, and so the change is visible in this script rather than in
  * a file nobody reads. Remove once fixed upstream.
  */
+/**
+ * PATCH: export three private clientState.js helpers for liberdus-server.
+ *
+ * The network replays every public commit on its stored ratchet tree with the
+ * same steps processCommit takes, so the tree joiners receive is computed, not
+ * taken on trust from the committer (threat model T15). Upstream keeps these
+ * module-private. Adding `export` changes no behaviour in this client.
+ */
+const NETWORK_EXPORTS = [
+  'async function applyTreeMutations(',
+  'async function validateProposals(',
+  'const emptyProposals = {',
+];
+function exportForTheNetwork(src) {
+  for (const declaration of NETWORK_EXPORTS) {
+    if (src.split(declaration).length !== 2) {
+      throw new Error(
+        `build-ts-mls: expected exactly one "${declaration}" in clientState.js. ` +
+          'ts-mls may have changed; re-check what liberdus-server replays before rebuilding.',
+      );
+    }
+    src = src.replace(declaration, `export ${declaration}`);
+  }
+  return src;
+}
+
 const rfc9420UpdatePath = {
   name: 'rfc9420-update-path',
   setup(b) {
@@ -94,7 +137,7 @@ const rfc9420UpdatePath = {
             'and run test/removal-effective.mjs before removing this patch.',
         );
       }
-      return { contents: src.replace(from, to), loader: 'js' };
+      return { contents: exportForTheNetwork(src.replace(from, to)), loader: 'js' };
     });
   },
 };

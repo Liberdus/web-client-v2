@@ -20,7 +20,9 @@
     "test:reactions": "node test/reactions.mjs",
     "test:upkeep": "node test/maintenance-health.mjs",
     "test:joincount": "node test/join-count-signal.mjs",
-    "test:mls": "npm run test:security && npm run test:tree && npm run test:paths && npm run test:reply && npm run test:reactions && npm run test:upkeep && npm run test:joincount"
+    "test:authority": "node test/commit-authority.mjs",
+    "test:resync": "node test/resync.mjs",
+    "test:mls": "npm run test:security && npm run test:tree && npm run test:paths && npm run test:reply && npm run test:reactions && npm run test:upkeep && npm run test:joincount && npm run test:authority && npm run test:resync"
   },
   "devDependencies": {
     "@hpke/chacha20poly1305": "1.7.1",

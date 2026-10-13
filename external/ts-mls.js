@@ -20169,6 +20169,9 @@ init_mod5();
 init_ed25519();
 export {
   acceptAll,
+  addLeafNode,
+  applyTreeMutations,
+  applyUpdatePath,
   branchGroup,
   bytesToBase64,
   ciphersuites,
@@ -20197,6 +20200,7 @@ export {
   defaultPaddingConfig,
   defaultProposalTypes,
   ed25519,
+  emptyProposals,
   emptyPskIndex,
   encodeExternalSender,
   encodeGroupState,
@@ -20217,6 +20221,7 @@ export {
   joinGroupWithExtensions,
   makePskIndex,
   mlsExporter,
+  nextEpochContext,
   nobleCryptoProvider,
   processMessage,
   processPrivateMessage,
@@ -20226,7 +20231,14 @@ export {
   protocolVersions,
   reinitCreateNewGroup,
   reinitGroup,
+  removeLeafNode,
   resumptionPSKUsages,
   senderTypes,
+  treeHashRoot,
+  validateLeafNodeCredentialAndKeyUniqueness,
+  validateLeafNodeUpdateOrCommit,
+  validateProposals,
+  verifyFramedContentSignature,
+  verifyGroupInfoSignature,
   zeroOutUint8Array
 };

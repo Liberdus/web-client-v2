@@ -153,14 +153,14 @@ function groupHealth(view) {
   if (view.invitePending) return 'invited';
   if (view.joinRequested) return 'awaiting';
   /*
-   * No amount of syncing helps: either the updates we missed have been pruned,
-   * or we committed something the network rejected and are ahead of the chain.
-   * MLS state cannot be rebuilt from the public transcript.
+   * Nothing on this device can fix it: rejoining from the checkpoint was tried
+   * and failed, or we committed something the network rejected and are ahead of
+   * the chain (a rejoin cannot step the PSK back).
    */
-  if (view.needsRecovery || view.needsReset) return 'unrecoverable';
-  // A commit would not apply. forceCatchUp clears the marker and retries, so
-  // this one is worth attempting before giving up on it.
-  if (typeof view.applyFailedAtEpoch === 'number') return 'needs-attention';
+  if (view.needsReset || view.rejoinFailed) return 'unrecoverable';
+  // A commit would not apply, or the ones we missed were pruned. forceCatchUp
+  // retries, then rejoins from the checkpoint, so both are worth attempting.
+  if (typeof view.applyFailedAtEpoch === 'number' || view.needsRecovery) return 'needs-attention';
   if (typeof view.chainEpoch === 'number' && view.chainEpoch > view.epoch) return 'catching-up';
   return 'fine';
 }
@@ -191,7 +191,7 @@ const HEALTH_BANNER = {
     icon: '△',
     tone: 'ui-banner--attention',
     title: 'This device can’t catch up on its own.',
-    sub: 'The updates it missed are no longer stored.',
+    sub: 'Another member will need to add it back.',
     action: 'Reset and rejoin',
   },
   removed: {
@@ -1827,7 +1827,9 @@ class GroupInfoModal {
       const r = await groups.forceCatchUp(this.groupId);
       this.render();
       groupChatModal.render();
-      if (r.status === 'advanced' || r.status === 'current') {
+      if (r.status === 'rejoined') {
+        toast('Back in step with the group. Messages sent while it was out of step can’t be shown.', 6000, 'success');
+      } else if (r.status === 'advanced' || r.status === 'current') {
         toast('This group is up to date.', 4000, 'success');
       } else if (r.status === 'behind') {
         toast('Still catching up. It will finish on its own.', 5000, 'info');
