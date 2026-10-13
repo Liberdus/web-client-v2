@@ -12691,4 +12691,7 @@ button.multichain-token-chip:hover {
 .evm-payment-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .evm-payment-actions .secondary-button { width: auto; margin: 0; padding: 6px 10px; font-size: var(--font-size-xs); }
 
+.evm-payment-transaction { margin-top: 8px; font-size: var(--font-size-xs); overflow-wrap: anywhere; }
+.evm-payment-transaction a { color: var(--primary-color); text-decoration: underline; }
+
 .evm-payment-message .intents-payment-note { white-space: pre-wrap; }
