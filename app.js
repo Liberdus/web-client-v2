@@ -23560,6 +23560,12 @@ class ChatModal {
     return `https://maps.google.com/?q=${query}`;
   }
 
+  renderEvmPaymentDetailLink(value, url, label) {
+    const code = `<code>${escapeHtml(value)}</code>`;
+    if (!url) return code;
+    return `<a href="${escapeHtmlAttribute(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttribute(value)}" aria-label="View ${escapeHtmlAttribute(label)} ${escapeHtmlAttribute(value)} in block explorer">${code} <span aria-hidden="true">↗</span></a>`;
+  }
+
   renderEvmPaymentMessage(item, messageTimeHTML) {
     const payment = parseEvmTransferMessage(item.payment);
     if (!payment) return '';
@@ -23570,6 +23576,7 @@ class ChatModal {
     const transactionHash = payment.transactionHash;
     const shortHash = `${transactionHash.slice(0, 10)}…${transactionHash.slice(-8)}`;
     const transactionUrl = evmAssets.getPaymentExplorerUrl(payment);
+    const tokenUrl = evmAssets.getPaymentTokenExplorerUrl(payment);
     const shortContract = payment.contractAddress
       ? `${payment.contractAddress.slice(0, 6)}…${payment.contractAddress.slice(-4)}` : '';
     return `
@@ -23588,9 +23595,9 @@ class ChatModal {
         <details class="evm-payment-details">
           <summary>Payment details</summary>
           <dl>
-            ${payment.contractAddress ? `<div><dt>Token contract</dt><dd><code>${escapeHtml(payment.contractAddress)}</code></dd></div>` : ''}
+            ${payment.contractAddress ? `<div><dt>Token contract</dt><dd>${this.renderEvmPaymentDetailLink(payment.contractAddress, tokenUrl, 'token contract')}</dd></div>` : ''}
             <div><dt>Network</dt><dd>${escapeHtml(networkName)} · Chain ID ${payment.chainId}</dd></div>
-            <div><dt>Transaction</dt><dd><code>${escapeHtml(transactionHash)}</code></dd></div>
+            <div><dt>Transaction</dt><dd>${this.renderEvmPaymentDetailLink(transactionHash, transactionUrl, 'transaction')}</dd></div>
           </dl>
         </details>
       </div>`;
