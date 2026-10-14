@@ -144,6 +144,31 @@ const PATH_UPDATE_BACKOFF_MS = 15000;
 const DEPARTURE_GRACE_MS = 2 * 60 * 1000;
 
 /**
+ * The most text one group message may carry, in UTF-8 bytes: the same as 1:1
+ * (MAX_CHAT_MESSAGE_BYTES in app.js). Encrypted, with a reply, that is about
+ * 2 kB on chain; the network refuses group messages over 4 kB, because every
+ * message travels with the group's whole account (threat model T7).
+ */
+export const GROUP_MESSAGE_MAX_BYTES = 1000;
+
+/**
+ * The size of a draft, and whether it can be sent.
+ *
+ * Measured as the text travels: JSON-encoded inside the payload. That is the
+ * UTF-8 size for ordinary text, but a quote, backslash or newline costs two
+ * bytes and a control character six, so measuring the raw text would let 1,000
+ * control characters encrypt to ~8 kB, over the network's limit.
+ *
+ * @param {string} text
+ * @returns {{ bytes: number, max: number, ok: boolean }}
+ */
+export function groupMessageSize(text) {
+  // Less the two quotes JSON.stringify wraps a string in.
+  const bytes = new TextEncoder().encode(JSON.stringify(String(text ?? ''))).length - 2;
+  return { bytes, max: GROUP_MESSAGE_MAX_BYTES, ok: bytes <= GROUP_MESSAGE_MAX_BYTES };
+}
+
+/**
  * How long this member waits before its first path-update attempt.
  *
  * Derived from the leaf index alone, so every client computes the same slot for
@@ -1110,6 +1135,8 @@ export async function forgetGroup(groupId) {
  *   answer for every member — an address has the same answer for all of them.
  */
 export async function sendGroupMessage(groupId, text, reply = null) {
+  const size = groupMessageSize(text);
+  if (!size.ok) throw new Error(`Message is too long: ${size.bytes} bytes, and the limit is ${size.max}.`);
   const id = identity();
   const sentTimestamp = deps.getTransactionTimestamp();
   const payload = {

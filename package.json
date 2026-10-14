@@ -17,13 +17,14 @@
     "test:tree": "node test/tree-delta.mjs",
     "test:paths": "node test/path-maintenance.mjs",
     "test:reply": "node test/reply-roundtrip.mjs",
+    "test:size": "node test/group-message-size.mjs",
     "test:reactions": "node test/reactions.mjs",
     "test:upkeep": "node test/maintenance-health.mjs",
     "test:joincount": "node test/join-count-signal.mjs",
     "test:authority": "node test/commit-authority.mjs",
     "test:resync": "node test/resync.mjs",
     "test:leave": "node test/leave-effective.mjs",
-    "test:mls": "npm run test:security && npm run test:tree && npm run test:paths && npm run test:reply && npm run test:reactions && npm run test:upkeep && npm run test:joincount && npm run test:authority && npm run test:resync && npm run test:leave"
+    "test:mls": "npm run test:security && npm run test:tree && npm run test:paths && npm run test:reply && npm run test:reactions && npm run test:upkeep && npm run test:joincount && npm run test:authority && npm run test:resync && npm run test:leave && npm run test:size"
   },
   "devDependencies": {
     "@hpke/chacha20poly1305": "1.7.1",

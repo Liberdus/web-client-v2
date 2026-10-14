@@ -579,6 +579,7 @@ class GroupChatModal {
     this.list = $('groupMessagesList');
     this.input = $('groupMessageInput');
     this.sendButton = $('groupSendButton');
+    this.byteCounter = $('groupByteCounter');
     this.title = $('groupChatTitle');
     this.subtitle = $('groupChatSubtitle');
     this.avatar = $('groupChatAvatar');
@@ -603,6 +604,7 @@ class GroupChatModal {
         this.send();
       }
     });
+    this.input.addEventListener('input', () => this.updateComposer());
 
     /*
      * Guarded rather than assumed. load() already returns early on a missing
@@ -873,9 +875,9 @@ class GroupChatModal {
      * has moved on: the sender sees it in their own transcript and nobody else
      * ever does. Better to say we are catching up than to talk into the void.
      */
-    const blocked = health !== 'fine';
-    this.input.disabled = blocked;
-    this.sendButton.disabled = blocked;
+    this.blocked = health !== 'fine';
+    this.input.disabled = this.blocked;
+    this.updateComposer();
     this.input.placeholder = HEALTH_PLACEHOLDER[health] || HEALTH_PLACEHOLDER.fine;
 
     const items = [...(view.messages || [])].sort((a, b) => a.timestamp - b.timestamp);
@@ -1054,9 +1056,27 @@ class GroupChatModal {
     }
   }
 
+  /**
+   * Shows how much room is left once a draft nears the byte limit, and blocks
+   * sending past it or while the group is not healthy. The same thresholds and
+   * wording as 1:1's counter (validateMessageSize in app.js).
+   */
+  updateComposer() {
+    const { bytes, max, ok } = groups.groupMessageSize(this.input.value.trim());
+    this.sendButton.disabled = Boolean(this.blocked) || !ok;
+    if (!this.byteCounter) return;
+    const near = bytes >= max * 0.9;
+    this.byteCounter.style.display = near ? 'block' : 'none';
+    this.byteCounter.classList.toggle('message-byte-counter--warning', near && ok);
+    this.byteCounter.classList.toggle('message-byte-counter--over', !ok);
+    this.byteCounter.textContent = !near ? '' : ok ? `${max - bytes} bytes - left` : `${bytes - max} bytes - over limit`;
+  }
+
   async send() {
     const text = this.input.value.trim();
     if (!text || !this.groupId) return;
+    // Enter reaches here even while the button is disabled.
+    if (!groups.groupMessageSize(text).ok) return;
 
     const reply = this.replyTo;
     this.sendButton.disabled = true;
@@ -1078,7 +1098,7 @@ class GroupChatModal {
       }
       toast(`Could not send: ${err.message}`, 5000, 'error');
     } finally {
-      this.sendButton.disabled = false;
+      this.updateComposer();
       this.input.focus();
     }
   }

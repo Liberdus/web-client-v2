@@ -4750,6 +4750,15 @@ input[type='file'].form-control::file-selector-button {
   padding-right: 63px;
 }
 
+/* Group composer only; 1:1 sets these colours inline. */
+.message-byte-counter--warning {
+  color: var(--warning-color);
+}
+
+.message-byte-counter--over {
+  color: var(--danger-color);
+}
+
 .message-input {
   width: 100%;
   padding: 12px 56px 12px 16px; /* Right padding for buttons */
