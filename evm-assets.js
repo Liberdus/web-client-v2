@@ -833,6 +833,14 @@ class WalletDiscoveryService {
 }
 
 export class EvmTransactionService {
+  static getPaymentClaimKey(value) {
+    const payment = parseEvmTransferMessage(value);
+    if (!payment) return null;
+    // Editing chat text must not disconnect a card from its transfer evidence.
+    delete payment.note;
+    return JSON.stringify(payment);
+  }
+
   constructor({
     getAccount,
     refreshAssets,
@@ -2427,6 +2435,9 @@ class EvmAssetsController {
   getStatus() { return this.discovery.getStatus(); }
   getUpdatedAt() { return this.discovery.getUpdatedAt(); }
   getNetwork(networkId) { return this.discovery.getNetwork(networkId); }
+  getPaymentClaimKey(value) {
+    return EvmTransactionService.getPaymentClaimKey(value);
+  }
   getPaymentExplorerUrl({ chainId, transactionHash }) {
     if (!Number.isSafeInteger(chainId) || chainId <= 0
       || typeof transactionHash !== 'string' || !EVM_HASH_PATTERN.test(transactionHash)) return null;

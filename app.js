@@ -12404,7 +12404,7 @@ const DELETE_FOR_ALL_ACTION_GUARD_MS = 10000;
  * @param {string} contactAddress
  * @param {{
  *   targetTxid: string,
- *   previousMessage: { message: string, edited?: number, edited_timestamp?: number },
+ *   previousMessage: { message: string, paymentNote?: string, edited?: number, edited_timestamp?: number },
  *   previousHistory:
  *     | { kind: 'none' }
  *     | { kind: 'payment', memo?: string, edited?: number, edited_timestamp?: number },
@@ -12423,17 +12423,7 @@ function restorePendingMessageEdit(pendingTxid, contactAddress, editPending) {
   const message = contact.messages.find((item) => item.txid === targetTxid);
   assert(message, `Missing message for pending edit: ${targetTxid}`);
 
-  message.message = previousMessage.message;
-  if (typeof previousMessage.edited !== 'undefined') {
-    message.edited = previousMessage.edited;
-  } else {
-    delete message.edited;
-  }
-  if (typeof previousMessage.edited_timestamp !== 'undefined') {
-    message.edited_timestamp = previousMessage.edited_timestamp;
-  } else {
-    delete message.edited_timestamp;
-  }
+  ChatModal.restoreMessageEdit(message, previousMessage);
 
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === contactAddress);
   if (existingChatIndex !== -1 && myData.chats[existingChatIndex].txid === pendingTxid) {
@@ -12497,7 +12487,8 @@ function evmPaymentMessages(record, account) {
   const own = `0x${normalizeAddress(account.keys.address)}`;
   const address = normalizeAddress(record.payment.from === own ? record.payment.to : record.payment.from);
   return (myData.contacts[address]?.messages || []).filter((message) => !message.deleted
-    && message.type === EVM_CHAT_MESSAGE_TYPE && stringify(message.payment) === stringify(record.payment)
+    && message.type === EVM_CHAT_MESSAGE_TYPE
+    && evmAssets.getPaymentClaimKey(message.payment) === evmAssets.getPaymentClaimKey(record.payment)
     && message.my === (record.payment.from === own));
 }
 
@@ -12533,7 +12524,7 @@ function settleEvmPaymentMessage(txid, delivered) {
 
 async function recheckEvmPayment(payment) {
   evmAssets.transactions.paymentEvidence.clear();
-  const record = loadEvmPayments().find((item) => stringify(item.payment) === stringify(payment))
+  const record = loadEvmPayments().find((item) => evmAssets.getPaymentClaimKey(item.payment) === evmAssets.getPaymentClaimKey(payment))
     || { kind: 'verification', payment, assetState: 'unknown', createdAt: Date.now() };
   record.checkAttempts = 0;
   record.nextCheckAt = 0;
@@ -13285,14 +13276,12 @@ async function processChats(chats, keys) {
                         const editTs = Number(tx.timestamp || 0);
                         const CLIENT_EDIT_ACCEPT_MS = EDIT_WINDOW_MS + (5 * 60 * 1000);
                         // Ignore invalid/missing timestamps, edits older than window, or edits that predate the original
-                        if ( editTs < originalTs || (editTs - originalTs) >= CLIENT_EDIT_ACCEPT_MS) {
+                        if (!Number.isFinite(originalTs) || originalTs <= 0 || !Number.isFinite(editTs)
+                          || editTs < originalTs || (editTs - originalTs) >= CLIENT_EDIT_ACCEPT_MS) {
                           console.warn('Ignoring edit outside allowed time window', { originalTs, editTs, txid: txidToEdit });
                           continue; // too old or invalid edit; skip processing this control message
                         }
-                        // Update chat message memo/text
-                        messageToEdit.message = newText;
-                        messageToEdit.edited = 1;
-                        messageToEdit.edited_timestamp = tx.timestamp;
+                        if (!ChatModal.applyMessageEdit(messageToEdit, newText, tx.timestamp)) continue;
                         syncChatLatestActivityTimestamp(from, contact);
                         // Also update wallet history entry memo if present
                         if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
@@ -13522,7 +13511,8 @@ async function processChats(chats, keys) {
             syncedEvmPayment = true;
             syncedOwnEvmPayment ||= mine;
             const existing = contact.messages.find((message) => message.type === EVM_CHAT_MESSAGE_TYPE
-              && message.my === mine && stringify(message.payment) === stringify(payload.payment));
+              && message.my === mine
+              && evmAssets.getPaymentClaimKey(message.payment) === evmAssets.getPaymentClaimKey(payload.payment));
             if (existing) {
               existing.paymentMessageConfirmed = true;
               existing.status = 'sent';
@@ -22295,11 +22285,13 @@ class ChatModal {
     let editTargetTxId = '';
     let currentAddress = '';
     let chatIndex = -1;
+    let txid;
+    let message = '';
 
     try {
       this.messageInput.focus(); // Add focus back to keep keyboard open
 
-      const message = this.messageInput.value.trim();
+      message = this.messageInput.value.trim();
       if (!message && !this.fileAttachments?.length) {
         return;
       }
@@ -22355,21 +22347,21 @@ class ChatModal {
       // Build message object: either normal message or edit control
       let messageObj;
       if (editTargetTxId) {
-        // Validate we still can edit
         const contactMsgs = myData.contacts[currentAddress].messages;
         editMessage = contactMsgs.find((item) => item.txid === editTargetTxId);
-        if (!editMessage) {
-          // Original disappeared; fallback to normal send
-          console.warn('Edit target message not found locally; sending as new message');
-        } else if (!editMessage.my) {
-          console.warn('Attempt to edit a message not owned by user');
-        } else if (isDeleted(editMessage)) {
-          console.warn('Attempt to edit a deleted message');
-        } else if ((Date.now() - Number(editMessage.timestamp || 0)) > EDIT_WINDOW_MS) {
-          showToast('Edit window expired', 3000, 'info');
-        } else {
-          isEdit = true;
+        if (!ChatModal.canEditMessage(editMessage)) {
+          showToast('This message can no longer be edited.', 3000, 'info');
+          return;
         }
+        if (!ChatModal.isValidEditText(editMessage, message)) {
+          showToast('Invalid payment note. Notes must contain text and fit within 1000 bytes.', 3000, 'error');
+          return;
+        }
+        if (hasPendingEditForTarget(currentAddress, editTargetTxId)) {
+          showToast('This message already has a pending edit.', 3000, 'info');
+          return;
+        }
+        isEdit = true;
       }
 
       if (isEdit) {
@@ -22411,7 +22403,7 @@ class ChatModal {
           ? 0n
           : getEffectiveTollLibWei(this.toll)
 
-      let payload, chatMessageObj, txid;
+      let payload, chatMessageObj;
       try {
         ({ payload, chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
           currentAddress,
@@ -22441,6 +22433,8 @@ class ChatModal {
       if (isEdit) {
         // Optimistic update of original message (record original so we can revert on failure)
         assert(editMessage, `Missing edit message for ${editTargetTxId}`);
+        // Another send may have finished preparing while this one was awaiting encryption.
+        if (!ChatModal.canEditMessage(editMessage) || hasPendingEditForTarget(currentAddress, editTargetTxId)) return;
         chatIndex = chatsData.chats.findIndex((chat) => chat.address === currentAddress);
         assert(chatIndex !== -1, `Missing chat list entry for pending edit: ${currentAddress}`);
 
@@ -22455,18 +22449,12 @@ class ChatModal {
             };
         const editPending = {
           targetTxid: editTargetTxId,
-          previousMessage: {
-            message: editMessage.message,
-            edited: editMessage.edited,
-            edited_timestamp: editMessage.edited_timestamp
-          },
+          previousMessage: ChatModal.snapshotMessageEdit(editMessage),
           previousHistory
         };
 
         trackPendingMessageEditBeforeInject(txid, currentAddress, editPending);
-        editMessage.message = message;
-        editMessage.edited = 1;
-        editMessage.edited_timestamp = payload.sent_timestamp;
+        assert(ChatModal.applyMessageEdit(editMessage, message, payload.sent_timestamp), 'Invalid message edit');
 
         if (previousHistory.kind === 'payment') {
           myData.wallet.history[previousHistoryIndex].memo = message;
@@ -22584,12 +22572,8 @@ class ChatModal {
           restorePendingMessageEdit(txid, currentAddress, pendingTxInfo.editPending);
           this.appendChatModal();
           // Restore edit UI state to allow user to retry or cancel
-          editInput.value = editTargetTxId;
-          this.cancelEditButton.style.display = '';
-          this.addAttachmentButton.disabled = true;
-          // Restore the attempted edit text in the input
-          this.messageInput.value = message;
-          this.messageInput.focus();
+          this.restoreEditComposer(editTargetTxId, message);
+          saveState();
         }
 
         // Remove from pending transactions as injectTx itself indicated failure
@@ -22613,6 +22597,8 @@ class ChatModal {
         if (pendingTxInfo?.editPending) {
           restorePendingMessageEdit(txid, currentAddress, pendingTxInfo.editPending);
           this.appendChatModal();
+          this.restoreEditComposer(editTargetTxId, message);
+          saveState();
         }
       }
     } finally {
@@ -23200,7 +23186,7 @@ class ChatModal {
     const contact = myData.contacts[address];
     if (!contact) return;
     const existing = contact.messages.find((message) => message.my && message.type === EVM_CHAT_MESSAGE_TYPE
-      && stringify(message.payment) === stringify(record.payment));
+      && evmAssets.getPaymentClaimKey(message.payment) === evmAssets.getPaymentClaimKey(record.payment));
     // Message sync can finish while injectTx is still waiting for a response.
     if (existing?.paymentMessageConfirmed || existing?.deleted || (!existing && record.cardCreated)) return;
     const message = existing || { message: '', type: EVM_CHAT_MESSAGE_TYPE, payment: record.payment, my: true, paymentVerified: 'unchecked' };
@@ -25386,16 +25372,8 @@ class ChatModal {
       if (editResendOption) editResendOption.style.display = isFailedPayment ? 'flex' : 'none';
       // Determine if edit should be shown
       if (editOption) {
-        // Conditions: own plain message OR own payment with memo text, not deleted/failed/voice, within 15 minutes
-        const isMine = messageEl.classList.contains('sent');
-        const createdTs = parseInt(messageEl.dataset.messageTimestamp || messageEl.dataset.timestamp || '0', 10);
-        const ageOk = createdTs && (Date.now() - createdTs) < EDIT_WINDOW_MS;
-        const isDeleted = messageEl.classList.contains('deleted-message');
-        const isPayment = messageEl.classList.contains('payment-info');
-        const hasMemo = !!messageEl.querySelector('.payment-memo');
-        const isVoice = !!messageEl.querySelector('.voice-message');
-        const allowedType = messageRecord?.type !== EVM_CHAT_MESSAGE_TYPE && (!isPayment || hasMemo);
-        const show = isMine && !isDeleted && allowedType && !isVoice && !isFailedPayment && ageOk;
+        const show = ChatModal.canEditMessage(messageRecord)
+          && !hasPendingEditForTarget(this.address, messageRecord.txid);
         editOption.style.display = show ? 'flex' : 'none';
       }
     }
@@ -27077,6 +27055,70 @@ class ChatModal {
     return true;
   }
 
+  static getEditText(message) {
+    return message.type === EVM_CHAT_MESSAGE_TYPE ? message.payment?.note || '' : message.message || '';
+  }
+
+  static canEditMessage(message) {
+    if (!message?.my || isDeleted(message) || message.status === 'failed') return false;
+    // Multichain note editing is a separate feature, not a generic text edit.
+    if (message.type === INTENTS_CHAT_MESSAGE_TYPE) return false;
+    const timestamp = Number(message.timestamp);
+    const text = ChatModal.getEditText(message);
+    return Boolean(Number.isFinite(timestamp) && timestamp > 0 && Date.now() - timestamp < EDIT_WINDOW_MS
+      && text.trim() && ChatModal.isValidEditText(message, text));
+  }
+
+  static isValidEditText(message, text) {
+    if (typeof text !== 'string') return false;
+    if (message.type !== EVM_CHAT_MESSAGE_TYPE) return true;
+    const payment = parseEvmTransferMessage(message.payment);
+    return Boolean(payment?.note?.trim() && text.trim() && message.status !== 'failed'
+      && parseEvmTransferMessage({ ...payment, note: text }));
+  }
+
+  static applyMessageEdit(message, text, timestamp) {
+    if (isDeleted(message) || !ChatModal.isValidEditText(message, text)) return false;
+    if (message.type === EVM_CHAT_MESSAGE_TYPE) {
+      if (message.edited_timestamp > timestamp) return false;
+      message.payment = Object.freeze({ ...message.payment, note: text });
+    } else {
+      message.message = text;
+    }
+    message.edited = 1;
+    message.edited_timestamp = timestamp;
+    return true;
+  }
+
+  static snapshotMessageEdit(message) {
+    // Rollback restores text and edit markers, not newer verification evidence.
+    return {
+      message: message.message,
+      ...(message.type === EVM_CHAT_MESSAGE_TYPE ? { paymentNote: message.payment.note } : {}),
+      edited: message.edited,
+      edited_timestamp: message.edited_timestamp,
+    };
+  }
+
+  static restoreMessageEdit(message, previous) {
+    message.message = previous.message;
+    if (message.type === EVM_CHAT_MESSAGE_TYPE && typeof previous.paymentNote === 'string') {
+      message.payment = Object.freeze({ ...message.payment, note: previous.paymentNote });
+    }
+    for (const field of ['edited', 'edited_timestamp']) {
+      if (previous[field] === undefined) delete message[field];
+      else message[field] = previous[field];
+    }
+  }
+
+  restoreEditComposer(txid, text) {
+    document.getElementById('editOfTxId').value = txid;
+    this.cancelEditButton.style.display = '';
+    this.addAttachmentButton.disabled = true;
+    this.messageInput.value = text;
+    this.messageInput.focus();
+  }
+
   /**
    * Initiates editing of a message: fills input with existing text and stores txid
    * @param {HTMLElement} messageEl
@@ -27085,33 +27127,24 @@ class ChatModal {
     try {
       this.cancelReply();
       const txid = messageEl.dataset.txid;
-      const timestamp = parseInt(messageEl.dataset.messageTimestamp || '0', 10);
       if (!txid) return;
+      const record = this.getMessageRecordFromElement(messageEl);
+      if (!ChatModal.canEditMessage(record)) return;
+      const text = ChatModal.getEditText(record);
       if (hasPendingEditForTarget(this.address, txid)) {
         return showToast('This message already has a pending edit.', 3000, 'info');
       }
-      // Enforce edit window in case UI got out of sync
-      if (timestamp && (Date.now() - timestamp) > EDIT_WINDOW_MS) {
-        return showToast('Edit window expired', 3000, 'info');
-      }
-
       // One-time toast
       if (!checkFirstTimeTip('editMessageFee')) {
         showToast('Editing a message costs the same transaction fee as sending a new message.', 0, 'info');
         setFirstTimeTipShown('editMessageFee');
       }
 
-      // If this is a payment, edit the memo; else edit plain message content
-      const contentEl = messageEl.classList.contains('payment-info')
-        ? messageEl.querySelector('.payment-memo')
-        : messageEl.querySelector('.message-content');
-      if (!contentEl) return;
       // Editing does not support attachments; abort in-flight uploads and clear staged files.
       this.cancelAllOperations();
       if (this.fileAttachments?.length) {
         this.clearComposerAttachments({ deleteFromServer: true });
       }
-      const text = contentEl.textContent || '';
       this.messageInput.value = text;
       const editInput = document.getElementById('editOfTxId');
       if (editInput) editInput.value = txid;
@@ -34717,8 +34750,8 @@ function queueEvmPaymentMessage(message) {
     return;
   }
   queueEvmPaymentMessage.warningAccount = null;
-  const claim = stringify(payment);
-  const existing = records.find((record) => stringify(record.payment) === claim);
+  const claim = evmAssets.getPaymentClaimKey(payment);
+  const existing = records.find((record) => evmAssets.getPaymentClaimKey(record.payment) === claim);
   if (!existing && ['settled', 'failed'].includes(message.paymentVerified)
     && Date.now() - (message.paymentCheckedAt || 0) < EVM_RECHECK_MS) return;
   const record = existing || { kind: 'verification', payment, assetState: 'unknown', createdAt: Date.now() };
