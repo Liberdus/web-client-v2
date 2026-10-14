@@ -551,6 +551,7 @@ function newDataRecord(myAccount) {
  * This function centralizes the clearing of user data to ensure consistency
  */
 function clearMyData() {
+  chatModal.resetPendingMessageConfirmations();
   myData = null;
   myAccount = null;
   stopEvmPaymentChecks();
@@ -1069,6 +1070,7 @@ function handleBeforeUnload(e) {
 
 // This is for installed apps where we can't stop the back button; just save the state
 function handleVisibilityChange() {
+  chatModal.resetPendingMessageConfirmations();
   if (document.visibilityState === 'hidden') {
     reactNativeApp.handleNativeAppSubscribe();
     if (reactNativeApp.isReactNativeWebView) {
@@ -9304,6 +9306,7 @@ class SignInModal {
     myData = loadState(`${username}_${netid}`);
     assert(myData, `Account data missing for ${username}`);
     myAccount = myData.account;
+    chatModal.resetPendingMessageConfirmations();
     logsModal.log(`SignIn as ${username}_${netid}`)
     this.recordRecentSignInUsername(username);
 
@@ -16089,6 +16092,7 @@ function hideToast(toastId) {
 
 // Handle online/offline events
 async function handleConnectivityChange() {
+  chatModal.resetPendingMessageConfirmations();
   if (isOnline) {
     await getNetworkParams();
     if (!isOnline) return;
@@ -20583,10 +20587,13 @@ const CHAT_REACTION_SHEET_TAB_ICONS = {
 };
 
 class ChatModal {
+  static CONFIRMATION_WINDOW_MS = 30_000;
+
   constructor() {
     this.newestReceivedMessage = null;
     this.newestSentMessage = null;
     this.lastMessageCount = null;
+    this.messageConfirmationController = null;
 
     // used by updateTollValue and updateTollRequired
     this.toll = null;
@@ -20640,6 +20647,40 @@ class ChatModal {
     this.recentDeleteForAllGuardsByTxid = new Map();
 
     this.chatRenderedOldestIndex = CHAT_INITIAL_RENDER_COUNT - 1;
+  }
+
+  /** Give unresolved messages a fresh window after sign-in or interruption. */
+  resetPendingMessageConfirmations() {
+    this.messageConfirmationController?.abort();
+    this.messageConfirmationController = null;
+    for (const pendingTxInfo of myData?.pending || []) {
+      if (pendingTxInfo.type === 'message' && !pendingTxInfo.reactionPending && !pendingTxInfo.editPending) {
+        pendingTxInfo.checkedts = 0;
+      }
+    }
+  }
+
+  /**
+   * Bound a message receipt lookup by its current verification window.
+   * @param {{checkedts?: number}} pendingTxInfo
+   * @param {string} endpointPath
+   * @returns {Promise<{response: unknown, cancelled: boolean}>}
+   */
+  async checkPendingMessageReceipt(pendingTxInfo, endpointPath) {
+    pendingTxInfo.checkedts ||= getCorrectedTimestamp();
+    const controller = new AbortController();
+    this.messageConfirmationController = controller;
+    const remainingMs = Math.max(0, pendingTxInfo.checkedts + ChatModal.CONFIRMATION_WINDOW_MS - getCorrectedTimestamp());
+    const timeoutId = setTimeout(() => controller.abort(), remainingMs);
+    try {
+      const response = await queryNetwork(endpointPath, controller.signal);
+      return { response, cancelled: this.messageConfirmationController !== controller };
+    } finally {
+      clearTimeout(timeoutId);
+      if (this.messageConfirmationController === controller) {
+        this.messageConfirmationController = null;
+      }
+    }
   }
 
   /**
@@ -36873,22 +36914,39 @@ async function checkPendingTransactionsOnce() {
     const pendingTxInfo = myData.pending[i];
     const { txid, type, submittedts } = pendingTxInfo;
     const reactionPending = pendingTxInfo.reactionPending;
+    const isPendingMessage = type === 'message' && !reactionPending && !pendingTxInfo.editPending;
     const isPendingDaoTransaction = isDaoTransactionType(type);
     if (reactionPending && reactionPending.status !== 'pending') {
+      continue;
+    }
+    if (isPendingMessage && (!isOnline || document.visibilityState === 'hidden')) {
       continue;
     }
 
     if (submittedts < eightSecondsAgo) {
 
       let endpointPath = `/transaction/${txid}`;
-      if (submittedts < twentySecondsAgo || submittedts < thirtySecondsAgo) {
+      if (submittedts < twentySecondsAgo) {
         endpointPath = `/collector/api/transaction?appReceiptId=${txid}`;
       }
       //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
-      const res = await queryNetwork(endpointPath);
-      if (myAccount !== account) return;
+      let res;
+      if (isPendingMessage) {
+        const result = await chatModal.checkPendingMessageReceipt(pendingTxInfo, endpointPath);
+        if (myAccount !== account) return;
+        if (result.cancelled || !pendingTxInfo.checkedts || !isOnline || document.visibilityState === 'hidden') continue;
+        res = result.response;
+      } else {
+        res = await queryNetwork(endpointPath);
+        if (myAccount !== account) return;
+      }
       //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
-      if (submittedts < thirtySecondsAgo && (res.transaction === null || Object.keys(res.transaction).length === 0)) {
+      const receipt = res?.transaction;
+      const confirmationTimedOut = isPendingMessage
+        ? receipt?.success !== true && receipt?.success !== false
+          && getCorrectedTimestamp() - pendingTxInfo.checkedts >= ChatModal.CONFIRMATION_WINDOW_MS
+        : submittedts < thirtySecondsAgo && (!receipt || Object.keys(receipt).length === 0);
+      if (confirmationTimedOut) {
         console.error(`DEBUG: txid ${txid} timed out, removing completely`);
         if (reactionPending) {
           const outcome = settleAndQueueReactionCleanup(pendingTxInfo, 'failure');
