@@ -43,7 +43,7 @@ const network = {
   },
   // Google Drive OAuth config for backup
   "googleDrive": {
-    "oauthServerUrl": "https://dev.liberdus.com:5173",
+    "oauthServerUrl": "https://oauth.liberdus.com",
     "backupFolder": "Liberdus_backup"
   }
 }
