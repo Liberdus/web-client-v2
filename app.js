@@ -23577,20 +23577,20 @@ class ChatModal {
     const shortHash = `${transactionHash.slice(0, 10)}…${transactionHash.slice(-8)}`;
     const transactionUrl = evmAssets.getPaymentExplorerUrl(payment);
     const tokenUrl = evmAssets.getPaymentTokenExplorerUrl(payment);
-    const shortContract = payment.contractAddress
-      ? `${payment.contractAddress.slice(0, 6)}…${payment.contractAddress.slice(-4)}` : '';
     return `
       <div class="intents-payment-message evm-payment-message" data-verified="${escapeHtmlAttribute(verified)}" data-evm-payment="${escapeHtmlAttribute(evmPaymentId(payment))}">
+        <div class="evm-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
         <div class="intents-payment-amount">${item.my ? '−' : '+'}${escapeHtml(evmPaymentAmount(payment))} <span class="evm-payment-unit">${escapeHtml(payment.symbol)}</span></div>
         <div class="intents-payment-chain">${escapeHtml(networkName)}</div>
-        ${shortContract ? `<div class="evm-payment-contract">Contract · <span title="${escapeHtmlAttribute(payment.contractAddress)}">${escapeHtml(shortContract)}</span></div>` : ''}
-        ${payment.note ? `<div class="intents-payment-note">${escapeHtml(payment.note)}</div>` : ''}
-        <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
-        <div class="evm-payment-footer">
-          <div class="evm-payment-transaction">Tx ${transactionUrl
-            ? `<a href="${escapeHtmlAttribute(transactionUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttribute(transactionHash)}" aria-label="View transaction ${escapeHtmlAttribute(transactionHash)} in block explorer">${escapeHtml(shortHash)} <span aria-hidden="true">↗</span></a>`
-            : `<span title="${escapeHtmlAttribute(transactionHash)}">${escapeHtml(shortHash)}</span>`}</div>
-          ${messageTimeHTML}
+        ${payment.note ? `<section class="evm-payment-note" aria-label="Payment note"><div class="evm-payment-label">Note</div><div class="intents-payment-note">${escapeHtml(payment.note)}</div></section>` : ''}
+        <div class="evm-payment-meta">
+          <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
+          <div class="evm-payment-footer">
+            <div class="evm-payment-transaction">Tx ${transactionUrl
+              ? `<a href="${escapeHtmlAttribute(transactionUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttribute(transactionHash)}" aria-label="View transaction ${escapeHtmlAttribute(transactionHash)} in block explorer">${escapeHtml(shortHash)} <span aria-hidden="true">↗</span></a>`
+              : `<span title="${escapeHtmlAttribute(transactionHash)}">${escapeHtml(shortHash)}</span>`}</div>
+            ${messageTimeHTML}
+          </div>
         </div>
         <details class="evm-payment-details">
           <summary>Payment details</summary>
