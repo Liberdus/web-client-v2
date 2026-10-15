@@ -36934,7 +36934,7 @@ async function checkPendingTransactionsOnce() {
       if (isPendingMessage) {
         const result = await chatModal.checkPendingMessageReceipt(pendingTxInfo, endpointPath);
         if (myAccount !== account) return;
-        if (result.cancelled || !pendingTxInfo.checkedts || !isOnline || document.visibilityState === 'hidden') continue;
+        if (result.cancelled || !isOnline || document.visibilityState === 'hidden') continue;
         res = result.response;
       } else {
         res = await queryNetwork(endpointPath);
