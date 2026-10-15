@@ -2653,7 +2653,7 @@
       <div class="modal fixed-header" id="receiveModal">
         <div class="modal-header">
           <button class="back-button" id="closeReceiveModal"></button>
-          <div class="modal-title">Receive</div>
+          <div class="modal-title">Receive LIB</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
@@ -2677,13 +2677,6 @@
               </div>
             </div>
 
-            <!-- Payment Request Options (New) -->
-            <div class="form-group">
-              <label for="receiveAsset">Asset</label>
-              <select id="receiveAsset" class="form-control">
-                <!-- Will be populated with assets in JavaScript -->
-              </select>
-            </div>
             <div class="form-group">
               <label for="receiveAmount">Amount (Optional)</label>
               <div class="amount-container">
@@ -2790,15 +2783,11 @@
       <div class="modal fixed-header" id="sendAssetFormModal">
         <div class="modal-header">
           <button class="back-button" id="closeSendAssetFormModal"></button>
-          <div class="modal-title">Send</div>
+          <div class="modal-title">Send LIB</div>
         </div>
         <div class="modal-content">
           <div class="form-container">
             <form id="sendForm" class="form--narrow">
-              <div class="form-group">
-                <label for="sendAsset">Asset</label>
-                <select id="sendAsset" class="form-control" required></select>
-              </div>
               <div class="form-group">
                 <label for="sendToAddress"
                   >Recipient <span id="sendToAddressError" style="color: #dc3545; display: none"></span
