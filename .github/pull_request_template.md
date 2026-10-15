@@ -1,6 +1,40 @@
-## Summary
+<!--
+Inspect the final branch/PR diff before writing this description. Keep it concise
+and describe the resulting behavior, rather than listing implementation history.
+When the scope changes, rewrite stale content and preserve issue-closing links.
+-->
+
+## What Changed
+
+<!--
+Lead with one sentence describing the concrete outcome. Add focused bullets for
+the important changes and why they matter. Name functions or concepts when they
+help a reviewer follow the diff; avoid vague claims such as "improved handling".
+-->
+
+## Fixed Flow
+
+<!--
+For behavioral fixes, races, async flows or multi-step interactions, describe:
+1. The initial state or user action.
+2. The event or transition.
+3. The new behavior.
+4. The resulting protected or fixed outcome.
+Remove this section when it does not help explain the change.
+-->
+
+## Why
+
+<!--
+Explain the previous failure mode or missing behavior and why this change fixes
+its cause. Describe the relevant state or source of truth; treat extra UI guards
+as safety nets when appropriate. Avoid repeating the change list.
+-->
 
 ## Validation
+
+<!-- List exact commands that actually ran and their results. State any checks
+that could not run and the concrete reason; do not imply unrun checks passed. -->
 
 ## Companion regression tests
 
@@ -8,3 +42,8 @@
 - Test files, branch and commit IDs:
 - Tested client revision, commands and results:
 - Remaining actions and reminder: commit / integrate into `codex/local-client-tests` / push / none / N/A with reason.
+
+## Related Issues
+
+<!-- Link relevant issues and preserve required closing references, such as
+Closes #<issue-number>. Replace the placeholder with the actual issue number. -->
