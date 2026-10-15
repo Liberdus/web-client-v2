@@ -23560,6 +23560,49 @@ class ChatModal {
     return `https://maps.google.com/?q=${query}`;
   }
 
+  renderEvmPaymentDetailLink(value, url, label) {
+    const code = `<code>${escapeHtml(value)}</code>`;
+    if (!url) return code;
+    return `<a href="${escapeHtmlAttribute(url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttribute(value)}" aria-label="View ${escapeHtmlAttribute(label)} ${escapeHtmlAttribute(value)} in block explorer">${code} <span aria-hidden="true">↗</span></a>`;
+  }
+
+  renderEvmPaymentMessage(item, messageTimeHTML) {
+    const payment = parseEvmTransferMessage(item.payment);
+    if (!payment) return '';
+    const verified = item.paymentVerified || 'unchecked';
+    const walletNetwork = evmAssets.getNetwork(payment.networkId);
+    const networkName = walletNetwork?.id === payment.networkId && walletNetwork.chainId === payment.chainId
+      ? walletNetwork.name : `EVM chain ${payment.chainId}`;
+    const transactionHash = payment.transactionHash;
+    const shortHash = `${transactionHash.slice(0, 10)}…${transactionHash.slice(-8)}`;
+    const transactionUrl = evmAssets.getPaymentExplorerUrl(payment);
+    const tokenUrl = evmAssets.getPaymentTokenExplorerUrl(payment);
+    return `
+      <div class="intents-payment-message evm-payment-message" data-verified="${escapeHtmlAttribute(verified)}" data-evm-payment="${escapeHtmlAttribute(evmPaymentId(payment))}">
+        <div class="evm-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
+        <div class="intents-payment-amount">${item.my ? '−' : '+'}${escapeHtml(evmPaymentAmount(payment))} <span class="evm-payment-unit">${escapeHtml(payment.symbol)}</span></div>
+        <div class="intents-payment-chain">${escapeHtml(networkName)}</div>
+        ${payment.note ? `<section class="evm-payment-note" aria-label="Payment note"><div class="evm-payment-label">Note</div><div class="intents-payment-note">${escapeHtml(payment.note)}</div></section>` : ''}
+        <div class="evm-payment-meta">
+          <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
+          <div class="evm-payment-footer">
+            <div class="evm-payment-transaction">Tx ${transactionUrl
+              ? `<a href="${escapeHtmlAttribute(transactionUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttribute(transactionHash)}" aria-label="View transaction ${escapeHtmlAttribute(transactionHash)} in block explorer">${escapeHtml(shortHash)} <span aria-hidden="true">↗</span></a>`
+              : `<span title="${escapeHtmlAttribute(transactionHash)}">${escapeHtml(shortHash)}</span>`}</div>
+            ${messageTimeHTML}
+          </div>
+        </div>
+        <details class="evm-payment-details">
+          <summary>Payment details</summary>
+          <dl>
+            ${payment.contractAddress ? `<div><dt>Token contract</dt><dd>${this.renderEvmPaymentDetailLink(payment.contractAddress, tokenUrl, 'token contract')}</dd></div>` : ''}
+            <div><dt>Network</dt><dd>${escapeHtml(networkName)} · Chain ID ${payment.chainId}</dd></div>
+            <div><dt>Transaction</dt><dd>${this.renderEvmPaymentDetailLink(transactionHash, transactionUrl, 'transaction')}</dd></div>
+          </dl>
+        </details>
+      </div>`;
+  }
+
   renderChatMessageHTML(item, { contact, lastReadTs }) {
     const timeString = formatTime(item.timestamp);
     // Use a consistent timestamp attribute for potential future use (e.g., message jumping)
@@ -23682,6 +23725,9 @@ class ChatModal {
       }).join('');
     }
 
+    const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
+    const messageTimeHTML = `<div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>`;
+
     // --- Render message text (if any) ---
     let messageTextHTML = '';
     switch (messageType) {
@@ -23748,23 +23794,9 @@ class ChatModal {
               </div>`;
         break;
       }
-      case EVM_CHAT_MESSAGE_TYPE: {
-        const payment = parseEvmTransferMessage(item.payment);
-        if (!payment) break;
-        const verified = item.paymentVerified || 'unchecked';
-        const walletNetwork = evmAssets.getNetwork(payment.networkId);
-        const networkName = walletNetwork?.id === payment.networkId && walletNetwork.chainId === payment.chainId
-          ? walletNetwork.name : `EVM chain ${payment.chainId}`;
-        messageTextHTML = `
-          <div class="intents-payment-message evm-payment-message" data-verified="${escapeHtml(verified)}" data-evm-payment="${escapeHtml(evmPaymentId(payment))}">
-            <div class="intents-payment-amount">${item.my ? '−' : '+'}${escapeHtml(evmPaymentAmount(payment))} ${escapeHtml(payment.symbol)}</div>
-            <div class="intents-payment-chain">${escapeHtml(networkName)}</div>
-            ${payment.contractAddress ? `<div class="intents-payment-chain" style="overflow-wrap:anywhere">Token: ${escapeHtml(payment.contractAddress)}</div>` : ''}
-            ${payment.note ? `<div class="intents-payment-note">${escapeHtml(payment.note)}</div>` : ''}
-            <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
-          </div>`;
+      case EVM_CHAT_MESSAGE_TYPE:
+        messageTextHTML = this.renderEvmPaymentMessage(item, messageTimeHTML);
         break;
-      }
       case INTENTS_CHAT_MESSAGE_TYPE: {
         const payment = item.payment;
         if (payment) {
@@ -23817,13 +23849,13 @@ class ChatModal {
     }
 
     const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${escapeHtmlAttribute(item.callTime)}"` : '';
-    const showEditedDot = !item.my && item.edited && item.edited_timestamp && item.edited_timestamp > lastReadTs && !isDeleted(item);
+    const evmPayment = messageType === EVM_CHAT_MESSAGE_TYPE && messageTextHTML !== '';
     return `
-            <div class="message ${messageClass}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
+            <div class="message ${messageClass}${evmPayment ? ' evm-payment-bubble' : ''}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
               ${replyHTML}
               ${attachmentsHTML}
               ${messageTextHTML}
-              <div class="message-time">${timeString}${item.edited ? ' <span class="message-edited-label">edited</span>' : ''}${showEditedDot ? ' <span class="edited-new-dot" title="Edited since last read"></span>' : ''}</div>
+              ${evmPayment ? '' : messageTimeHTML}
             </div>
           `;
   }
@@ -23910,8 +23942,15 @@ class ChatModal {
       0
     );
 
+    const expandedPayments = new Set(Array.from(
+      this.messagesList.querySelectorAll('.evm-payment-details[open]'),
+      (details) => details.parentElement.dataset.evmPayment
+    ));
     // Replace the list once to avoid one DOM mutation per message.
     this.messagesList.innerHTML = range.html;
+    for (const details of this.messagesList.querySelectorAll('.evm-payment-details')) {
+      if (expandedPayments.has(details.parentElement.dataset.evmPayment)) details.open = true;
+    }
     this.syncAllRenderedReactionChips();
     // Straight after rendering, ahead of the early returns below: it used to
     // sit at the end of this method, which only the highlight path reaches,
@@ -25192,6 +25231,7 @@ class ChatModal {
     if (e.target.closest('.voice-message-speed-button')) return;
     if (e.target.closest('.voice-message-seek')) return;
     if (e.target.closest('.reply-quote')) return;
+    if (e.target.closest('.evm-payment-details')) return;
 
     // Check if keyboard is open - if so, don't show context menu
     if (this.isKeyboardOpen()) {

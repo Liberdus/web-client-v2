@@ -53,6 +53,16 @@ const DEFAULT_EVM_RPC_URLS = Object.freeze({
   ]),
 });
 
+// Keep payment explorers available even when discovery has no holdings on a chain.
+const DEFAULT_EVM_EXPLORER_URLS = Object.freeze({
+  1: 'https://etherscan.io',
+  10: 'https://optimistic.etherscan.io',
+  56: 'https://bscscan.com',
+  137: 'https://polygonscan.com',
+  8453: 'https://basescan.org',
+  42161: 'https://arbiscan.io',
+});
+
 const ERC20_TRANSFER_TOPIC = bytesToHex(keccak256(utf82bin('Transfer(address,address,uint256)')));
 
 export const EVM_CHAT_MESSAGE_TYPE = 'evm_transfer';
@@ -310,7 +320,7 @@ const REQUIRED_NETWORKS = Object.freeze([
     chainId: 1,
     nativeSymbol: 'ETH',
     logoUrl: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png',
-    explorerUrl: 'https://etherscan.io',
+    explorerUrl: DEFAULT_EVM_EXPLORER_URLS[1],
     source: 'evm',
     rpcUrls: DEFAULT_EVM_RPC_URLS.ethereum,
   }),
@@ -321,7 +331,7 @@ const REQUIRED_NETWORKS = Object.freeze([
     chainId: 56,
     nativeSymbol: 'BNB',
     logoUrl: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/info/logo.png',
-    explorerUrl: 'https://bscscan.com',
+    explorerUrl: DEFAULT_EVM_EXPLORER_URLS[56],
     source: 'evm',
     rpcUrls: DEFAULT_EVM_RPC_URLS.bsc,
   }),
@@ -332,7 +342,7 @@ const REQUIRED_NETWORKS = Object.freeze([
     chainId: 137,
     nativeSymbol: 'POL',
     logoUrl: 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/polygon/info/logo.png',
-    explorerUrl: 'https://polygonscan.com',
+    explorerUrl: DEFAULT_EVM_EXPLORER_URLS[137],
     source: 'evm',
     rpcUrls: DEFAULT_EVM_RPC_URLS.polygon,
   }),
@@ -647,6 +657,12 @@ class WalletDiscoveryService {
 
   getNetwork(networkId) {
     return this.getCatalog().find((network) => network.id === networkId) || null;
+  }
+
+  getExplorerUrl(chainId) {
+    return DEFAULT_EVM_EXPLORER_URLS[chainId]
+      || this.portfolio?.chains.find((chain) => chain.chainId === chainId)?.explorerUrl
+      || null;
   }
 
   async getNativeCurrency({ id, chainId }) {
@@ -1522,6 +1538,9 @@ class AssetsModal {
         const network = this.controller.getNetwork(record.networkId);
         const asset = network?.assets?.find((item) => (item.contractAddress?.toLowerCase() || null) === record.payment.contractAddress);
         const recipient = record.username || `${record.payment.to.slice(0, 8)}…${record.payment.to.slice(-6)}`;
+        const transactionHash = record.payment.transactionHash;
+        const shortHash = `${transactionHash.slice(0, 10)}…${transactionHash.slice(-8)}`;
+        const transactionUrl = this.controller.getPaymentExplorerUrl(record.payment);
         const actions = this.controller.getPaymentActions(record.payment);
         const button = (action, label) => `<button type="button" class="secondary-button" data-recover-payment="${escapeHtml(evmPaymentId(record.payment))}" data-recovery-action="${action}">${label}</button>`;
         const buttons = [
@@ -1544,6 +1563,9 @@ class AssetsModal {
             <div class="asset-info">
               <div class="asset-name">${escapeHtml(evmPaymentAmount(record.payment))} ${escapeHtml(record.payment.symbol)}</div>
               <div class="asset-symbol">To ${escapeHtml(recipient)} · ${escapeHtml(network?.name || record.networkId)}</div>
+              <div class="evm-payment-transaction">Transaction: ${transactionUrl
+                ? `<a href="${escapeHtmlAttribute(transactionUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttribute(transactionHash)}" aria-label="View transaction ${escapeHtmlAttribute(transactionHash)} in block explorer">${escapeHtml(shortHash)}</a>`
+                : `<span title="${escapeHtmlAttribute(transactionHash)}">${escapeHtml(shortHash)}</span>`}</div>
               <div class="evm-payment-status">${escapeHtml(status)}</div>
               ${buttons ? `<div class="evm-payment-actions">${buttons}</div>` : ''}
             </div>
@@ -2405,6 +2427,19 @@ class EvmAssetsController {
   getStatus() { return this.discovery.getStatus(); }
   getUpdatedAt() { return this.discovery.getUpdatedAt(); }
   getNetwork(networkId) { return this.discovery.getNetwork(networkId); }
+  getPaymentExplorerUrl({ chainId, transactionHash }) {
+    if (!Number.isSafeInteger(chainId) || chainId <= 0
+      || typeof transactionHash !== 'string' || !EVM_HASH_PATTERN.test(transactionHash)) return null;
+    const baseUrl = normalizeExplorerBaseUrl(this.discovery.getExplorerUrl(chainId));
+    if (!baseUrl) return null;
+    return new URL(`tx/${transactionHash.toLowerCase()}`, baseUrl).toString();
+  }
+  getPaymentTokenExplorerUrl({ chainId, contractAddress }) {
+    if (!Number.isSafeInteger(chainId) || chainId <= 0) return null;
+    return buildEvmTokenExplorerUrl(
+      { explorerUrl: this.discovery.getExplorerUrl(chainId) }, contractAddress,
+    );
+  }
   findAsset(networkId, assetKey) {
     return this.discovery.findAsset(networkId, assetKey);
   }

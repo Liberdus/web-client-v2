@@ -12691,4 +12691,60 @@ button.multichain-token-chip:hover {
 .evm-payment-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .evm-payment-actions .secondary-button { width: auto; margin: 0; padding: 6px 10px; font-size: var(--font-size-xs); }
 
-.evm-payment-message .intents-payment-note { white-space: pre-wrap; }
+.evm-payment-transaction { margin-top: 8px; font-size: var(--font-size-xs); overflow-wrap: anywhere; }
+.evm-payment-transaction a { color: var(--primary-color); text-decoration: underline; }
+
+.message.evm-payment-bubble { padding: 16px 18px 12px; border-radius: 20px; }
+.message.sent.evm-payment-bubble { border-bottom-right-radius: 4px; }
+.message.received.evm-payment-bubble { border-bottom-left-radius: 4px; }
+.evm-payment-message {
+  --evm-payment-divider: var(--border-color);
+  --evm-payment-secondary: var(--secondary-text-color);
+  --evm-payment-note-background: var(--background-color);
+  width: 280px;
+  max-width: 100%;
+  min-width: 0;
+}
+.message.sent .evm-payment-message {
+  --evm-payment-divider: rgba(255, 255, 255, 0.22);
+  --evm-payment-secondary: rgba(255, 255, 255, 0.8);
+  --evm-payment-note-background: rgba(255, 255, 255, 0.1);
+}
+.evm-payment-label { color: var(--evm-payment-secondary); font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); letter-spacing: 0.06em; text-transform: uppercase; }
+.evm-payment-message .intents-payment-amount {
+  margin-top: 5px;
+  font-size: var(--font-size-xl);
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.evm-payment-unit { font-size: var(--font-size-base); font-weight: var(--font-weight-medium); letter-spacing: normal; }
+.evm-payment-message .intents-payment-chain { color: var(--evm-payment-secondary); opacity: 1; }
+.evm-payment-note { margin-top: 16px; padding: 12px; border-radius: 10px; background: var(--evm-payment-note-background); }
+.evm-payment-message .intents-payment-note {
+  margin-top: 5px;
+  font-size: var(--font-size-base);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.evm-payment-meta { border-top: 1px solid var(--evm-payment-divider); margin-top: 16px; padding-top: 12px; }
+.evm-payment-message .intents-payment-verified { margin-top: 0; }
+.evm-payment-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
+.evm-payment-footer .evm-payment-transaction { margin-top: 0; min-width: 0; }
+.evm-payment-footer a, .evm-payment-details a { text-underline-offset: 3px; }
+.evm-payment-message .evm-payment-footer .message-time { align-self: center; margin-top: 0; white-space: nowrap; }
+.evm-payment-details { margin-top: 10px; cursor: default; user-select: text; }
+.evm-payment-details summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; list-style: none; font-size: var(--font-size-xs); cursor: pointer; }
+.evm-payment-details summary::-webkit-details-marker { display: none; }
+.evm-payment-details summary::after { content: ''; width: 6px; height: 6px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg); margin-right: 2px; }
+.evm-payment-details[open] summary::after { transform: rotate(225deg); }
+.evm-payment-details dl { display: grid; gap: 10px; margin: 6px 0 0; font-size: var(--font-size-xs); }
+.evm-payment-details dt { opacity: 0.75; }
+.evm-payment-details dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+.evm-payment-details a { color: var(--primary-color); text-decoration: underline; }
+.evm-payment-details code { font-family: var(--font-monospace); font-size: inherit; color: inherit; }
+@media (pointer: coarse) {
+  .evm-payment-details summary, .evm-payment-footer a { min-height: 44px; }
+  .evm-payment-footer a { display: inline-flex; align-items: center; gap: 4px; }
+  .evm-payment-details a { display: block; min-height: 44px; }
+}
