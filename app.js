@@ -33263,7 +33263,30 @@ class SendAssetFormModal {
     return Boolean(session && this.session === session);
   }
 
+  getAmountWei() {
+    const amountWei = SendAssetFormModal.toLibWei(this.amountInput.value.trim(), this.balanceSymbol.textContent);
+    return amountWei !== null && amountWei > 0n ? amountWei : null;
+  }
+
+  static toLibWei(amount, unit) {
+    const decimal = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+    if (!decimal.test(amount) || (unit !== 'LIB' && unit !== 'USD')) return null;
+
+    try {
+      let libAmount = amount;
+      if (unit === 'USD') {
+        const price = parameters?.current?.stabilityFactorStr;
+        if (typeof price !== 'string' || !decimal.test(price) || EthNum.toWei(price) <= 0n) return null;
+        libAmount = EthNum.div(amount, price);
+      }
+      return EthNum.toWei(libAmount);
+    } catch {
+      return null;
+    }
+  }
+
   reset() {
+    sendAssetConfirmModal.close();
     this.session = null;
     clearTimeout(this.sendAssetFormModalCheckTimeout);
     this.sendAssetFormModalCheckTimeout = null;
@@ -33489,6 +33512,7 @@ class SendAssetFormModal {
     event.preventDefault();
     const session = this.session;
     const recipient = this.foundAddressObject;
+    if (!this.isCurrentSession(session) || sendAssetConfirmModal.isActive()) return;
 
     const hasPendingTransfer =
       Array.isArray(myData?.pending) &&
@@ -33502,14 +33526,6 @@ class SendAssetFormModal {
       return;
     }
 
-    // Get form values
-    const asset = walletScreen.getLibAsset();
-    if (!asset) {
-      showToast('Liberdus asset is unavailable.', 3000, 'warning');
-      return;
-    }
-    const amount = this.amountInput.value;
-    const memo = this.memoInput.value;
     const confirmButton = sendAssetConfirmModal.confirmSendButton;
     const cancelButton = sendAssetConfirmModal.cancelButton;
 
@@ -33542,23 +33558,39 @@ class SendAssetFormModal {
       return;
     }
 
-    const stabilityFactor = getStabilityFactor();
-
-    // get `usdAmount` and `libAmount`
-    let usdAmount;
-    let libAmount;
-    const isLib = this.balanceSymbol.textContent === 'LIB';
-    if (!isLib) {
-      usdAmount = this.amountInput.value;
-      libAmount = amount / stabilityFactor;
-    } else {
-      usdAmount = amount * stabilityFactor;
-      libAmount = amount;
+    const asset = walletScreen.getLibAsset();
+    if (!asset) {
+      showToast('Liberdus asset is unavailable.', 3000, 'warning');
+      return;
     }
+    const amountText = this.amountInput.value.trim();
+    const amountUnit = this.balanceSymbol.textContent;
+    const username = this.usernameInput.value.trim();
+    const memo = this.memoInput.value.trim();
+    const amountWei = this.getAmountWei();
+    if (amountWei === null) {
+      showToast('Unable to calculate the LIB amount. Check the amount and LIB/USD price.', 3000, 'warning');
+      return;
+    }
+
+    const warning = document.createElement('span');
+    const assetIndex = myData.wallet.assets.indexOf(asset);
+    const hasBalance = await validateBalance(amountWei, assetIndex, warning);
+    if (!this.isCurrentSession(session) || this.foundAddressObject !== recipient
+      || this.amountInput.value.trim() !== amountText || this.balanceSymbol.textContent !== amountUnit
+      || this.usernameInput.value.trim() !== username || this.memoInput.value.trim() !== memo) return;
+    this.balanceWarning.textContent = warning.textContent;
+    this.balanceWarning.style.display = warning.style.display;
+    if (!hasBalance || !this.validateToll(amountWei)) return;
+
+    const payment = { session, amountWei, username, memo, retryTxId: this.retryTxIdInput.value };
+    if (!sendAssetConfirmModal.open(payment)) return;
+    const libAmount = EthNum.toStr(amountWei);
+    const usdAmount = amountUnit === 'USD' ? Number(amountText) : Number(libAmount) * getStabilityFactor();
 
     // Update confirmation modal with values
     sendAssetConfirmModal.confirmAmountUSD.textContent = `≈ $${parseFloat(usdAmount).toFixed(6)} USD`;
-    sendAssetConfirmModal.confirmRecipient.textContent = this.usernameInput.value;
+    sendAssetConfirmModal.confirmRecipient.textContent = username;
     sendAssetConfirmModal.confirmAmount.textContent = `${libAmount}`;
     sendAssetConfirmModal.confirmAsset.textContent = asset.name === asset.symbol
       ? asset.symbol : `${asset.name} (${asset.symbol})`;
@@ -33574,7 +33606,6 @@ class SendAssetFormModal {
 
     confirmButton.disabled = false;
     cancelButton.disabled = false;
-    sendAssetConfirmModal.open();
   }
 
   /**
@@ -33688,12 +33719,19 @@ class SendAssetFormModal {
       this.usernameAvailable.style.display === 'inline' && this.usernameAvailable.textContent === 'found';
 
     const amount = this.amountInput.value.trim();
+    const unit = this.balanceSymbol.textContent;
 
     if (amount == '' || parseFloat(amount) == 0) {
       this.balanceWarning.textContent = '';
       this.balanceWarning.style.display = 'none';
       this.submitButton.disabled = true;
       return;
+    }
+
+    if (unit === 'USD') {
+      await getNetworkParams();
+      if (!this.isCurrentSession(session) || this.amountInput.value.trim() !== amount
+        || this.balanceSymbol.textContent !== unit) return;
     }
 
     const selectedAsset = walletScreen.getLibAsset();
@@ -33703,24 +33741,20 @@ class SendAssetFormModal {
       return;
     }
 
-    // Check if amount is in USD and convert to LIB for validation
-    const isUSD = this.balanceSymbol.textContent === 'USD';
-    let amountForValidation = amount;
-    if (isUSD && amount) {
-      await getNetworkParams();
-      if (!this.isCurrentSession(session) || this.amountInput.value.trim() !== amount) return;
-      const stabilityFactor = getStabilityFactor();
-      amountForValidation = parseFloat(amount) / stabilityFactor;
+    const amountBigInt = this.getAmountWei();
+    if (amountBigInt === null) {
+      this.balanceWarning.textContent = 'Unable to calculate the LIB amount.';
+      this.balanceWarning.style.display = 'inline';
+      this.submitButton.disabled = true;
+      return;
     }
-
-    // convert amount to bigint
-    const amountBigInt = bigxnum2big(wei, amountForValidation.toString());
 
     // returns false if the amount/balance is invalid.
     // Validate into a detached element so an old request cannot change a newer form.
     const warning = document.createElement('span');
     const isAmountAndBalanceValid = await validateBalance(amountBigInt, assetIndex, warning);
-    if (!this.isCurrentSession(session) || this.foundAddressObject !== recipient || this.amountInput.value.trim() !== amount) return;
+    if (!this.isCurrentSession(session) || this.foundAddressObject !== recipient
+      || this.amountInput.value.trim() !== amount || this.balanceSymbol.textContent !== unit) return;
     this.balanceWarning.textContent = warning.textContent;
     this.balanceWarning.style.display = warning.style.display;
 
@@ -33742,9 +33776,16 @@ class SendAssetFormModal {
     // check if user is required to pay a toll
     if (this.tollInfo.required == 1) {
       if (this.memoInput.value.trim() != '') {
-        let amountInLIB = amount;
-        const tollInLIB = getEffectiveTollLibWei(normalizeTollToLibWei(this.tollInfo.toll, this.tollInfo.tollUnit));
-        if (tollInLIB > amountInLIB) {
+        const toll = typeof this.tollInfo.toll === 'bigint' ? this.tollInfo.toll : 0n;
+        if (toll === 0n) return true;
+        const tollWei = SendAssetFormModal.toLibWei(EthNum.toStr(toll), this.tollInfo.tollUnit || 'LIB');
+        if (tollWei === null) {
+          this.balanceWarning.textContent = 'Unable to calculate the memo toll.';
+          this.balanceWarning.style.display = 'inline';
+          return false;
+        }
+        const tollInLIB = getEffectiveTollLibWei(tollWei);
+        if (tollInLIB > amount) {
           this.balanceWarning.textContent = 'less than toll for memo';
           this.balanceWarning.style.display = 'inline';
           return false;
@@ -33793,6 +33834,7 @@ class SendAssetFormModal {
     }
 
     this.updateBalanceAndFeeDisplay(balanceInLIB, feeInLIB, !isLib, stabilityFactor);
+    await this.refreshSendButtonDisabledState();
   }
 
   /**
@@ -33835,12 +33877,15 @@ class SendAssetFormModal {
   async reopen() {
     const tempUsername = this.usernameInput?.value;
     const tempAmount = this.amountInput?.value;
+    const tempUnit = this.balanceSymbol.textContent;
     const tempMemo = this.memoInput?.value;
     await this.close();
     this.username = tempUsername;
     if (!await this.open()) return;
     this.amountInput.value = tempAmount;
+    this.balanceSymbol.textContent = tempUnit;
     this.memoInput.value = tempMemo || '';
+    await this.updateAvailableBalance();
     if (this.foundAddressObject.address && !this.needTollInfo) await this.validateForm();
   }
 
@@ -33959,6 +34004,7 @@ const sendAssetFormModal = new SendAssetFormModal();
 
 class SendAssetConfirmModal {
   constructor() {
+    this.payment = null;
   }
 
   load() {
@@ -33984,12 +34030,20 @@ class SendAssetConfirmModal {
     this.cancelButton.addEventListener('click', this.close.bind(this));
   }
 
-  open() {
-    openModal(this.modal);
+  open(payment) {
+    if (!openModal(this.modal)) return false;
+    this.payment = payment;
+    return true;
   }
 
   close() {
-    this.modal.classList.remove('active');
+    this.payment = null;
+    this.modal?.classList.remove('active');
+  }
+
+  isCurrentPayment(payment) {
+    return Boolean(payment && this.payment === payment
+      && sendAssetFormModal.isCurrentSession(payment.session) && payment.session.account === myAccount);
   }
   isActive() {
     return this.modal?.classList.contains('active') || false;
@@ -34004,6 +34058,11 @@ class SendAssetConfirmModal {
    */
   async handleSendAsset(event) {
     event.preventDefault();
+    const payment = this.payment;
+    if (!this.isCurrentPayment(payment)) {
+      this.close();
+      return;
+    }
     const selectedAsset = walletScreen.getLibAsset();
     if (!selectedAsset) {
       showToast('Liberdus asset is unavailable.', 3000, 'warning');
@@ -34011,7 +34070,7 @@ class SendAssetConfirmModal {
       return;
     }
 
-    const rawInput = sendAssetFormModal.usernameInput.value.trim();
+    const rawInput = payment.username;
     if (isValidEthereumAddress(rawInput)) {
       showToast('Address not supported; enter username instead.', 0, 'error');
       return;
@@ -34029,15 +34088,17 @@ class SendAssetConfirmModal {
       showToast('Liberdus asset is unavailable.', 0, 'error');
       return;
     }
-    const amount = bigxnum2big(wei, sendAssetFormModal.amountInput.value);
-    const memoIn = sendAssetFormModal.memoInput.value || '';
-    const memo = memoIn.trim();
-    const keys = myAccount.keys;
+    const amount = payment.amountWei;
+    const memo = payment.memo;
+    const keys = payment.session.account.keys;
     let toAddress;
 
     // Validate amount including transaction fee
-    if (!(await validateBalance(amount, assetIndex))) {
+    const hasBalance = await validateBalance(amount, assetIndex);
+    if (!this.isCurrentPayment(payment)) return;
+    if (!hasBalance) {
       await getNetworkParams();
+      if (!this.isCurrentPayment(payment)) return;
       const txFeeInLIB = getTransactionFeeWei();
       const balance = BigInt(wallet.assets[assetIndex].balance);
       const amountStr = big2str(amount, 18).slice(0, -16);
@@ -34062,6 +34123,7 @@ class SendAssetConfirmModal {
           const data = await response.json();
   */
       const data = await queryNetwork(`/address/${usernameHash}`);
+      if (!this.isCurrentPayment(payment)) return;
       if (!data || !data.address) {
         showToast('Username not found', 0, 'error');
         return;
@@ -34085,6 +34147,7 @@ class SendAssetConfirmModal {
 
     // Ensure recipient keys exist locally; function handles local check and network fetch.
     await ensureContactKeys(toAddress);
+    if (!this.isCurrentPayment(payment)) return;
     const recipientPubKey = myData.contacts[toAddress]?.public;
     const pqRecPubKey = myData.contacts[toAddress]?.pqPublic;
     let pqEncSharedKey = '';
@@ -34166,6 +34229,7 @@ class SendAssetConfirmModal {
 
     try {
       // Send the transaction using postAssetTransfer
+      if (!this.isCurrentPayment(payment)) return;
       const response = await postAssetTransfer(toAddress, amount, payload, keys, assetIndex);
 
       if (!response || !response.result || !response.result.success) {
@@ -34179,9 +34243,9 @@ class SendAssetConfirmModal {
       }
 
       // hidden input field retryOfTxId value is not an empty string
-      if (sendAssetFormModal.retryTxIdInput.value) {
+      if (payment.retryTxId) {
         // remove from myData use txid from hidden field retryOfPaymentTxId
-        removeFailedTx(sendAssetFormModal.retryTxIdInput.value, toAddress);
+        removeFailedTx(payment.retryTxId, toAddress);
 
         // clear the field
         failedTransactionModal.txid = '';
