@@ -6199,10 +6199,8 @@ function parseDaoVoteSpendMultiple(value) {
 function getDaoUsdAsLibWei(usdValue) {
   const usdText = String(usdValue ?? '').trim();
   const stabilityText = String(parameters?.current?.stabilityFactorStr ?? '').trim();
-  if (!usdText || !stabilityText) return null;
   try {
-    const weiAmount = EthNum.toWei(EthNum.div(usdText, stabilityText));
-    return weiAmount >= 0n ? weiAmount : null;
+    return EthNum.usdToWei(usdText, stabilityText);
   } catch {
     return null;
   }
@@ -33273,13 +33271,10 @@ class SendAssetFormModal {
     if (!decimal.test(amount) || (unit !== 'LIB' && unit !== 'USD')) return null;
 
     try {
-      let libAmount = amount;
       if (unit === 'USD') {
-        const price = parameters?.current?.stabilityFactorStr;
-        if (typeof price !== 'string' || !decimal.test(price) || EthNum.toWei(price) <= 0n) return null;
-        libAmount = EthNum.div(amount, price);
+        return EthNum.usdToWei(amount, parameters?.current?.stabilityFactorStr);
       }
-      return EthNum.toWei(libAmount);
+      return EthNum.toWei(amount);
     } catch {
       return null;
     }

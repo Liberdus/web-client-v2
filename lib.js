@@ -989,6 +989,23 @@ export class EthNum {
   }
 
   /**
+   * Converts a USD amount to LIB Wei, truncating any fraction below one Wei.
+   * @param {string} usdAmount Unsigned decimal USD amount, with up to 18 decimal places.
+   * @param {string} usdPerLib Positive decimal USD price per LIB, with up to 18 decimal places.
+   * @returns {bigint} The LIB amount in Wei.
+   * @throws {Error} If either input is invalid or the price is not positive.
+   */
+  static usdToWei(usdAmount, usdPerLib) {
+    const decimal = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+    if (typeof usdAmount !== 'string' || !decimal.test(usdAmount)
+      || typeof usdPerLib !== 'string' || !decimal.test(usdPerLib)) {
+      throw new Error('USD amount and LIB price must be unsigned decimal strings');
+    }
+    if (EthNum.toWei(usdPerLib) <= 0n) throw new Error('LIB price must be positive');
+    return EthNum.toWei(EthNum.div(usdAmount, usdPerLib));
+  }
+
+  /**
    * Converts a BigInt representation of an Ethereum-like number (Wei)
    * back into a base 10 string with up to 18 decimal places.
    * @param {bigint} wei The BigInt to convert.
