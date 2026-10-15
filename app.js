@@ -2314,25 +2314,8 @@ class WalletScreen {
     return network?.name === 'Mainnet';
   }
 
-  getAssets() {
-    return (myData?.wallet?.assets || []).filter((asset) => isLibAsset(asset));
-  }
-
-  getAsset(assetId) {
-    const assets = this.getAssets();
-    return assets.find((asset) => asset.id === assetId) || assets[0] || null;
-  }
-
-  populateAssetSelect(select) {
-    const options = this.getAssets().map((asset) => {
-      const option = document.createElement('option');
-      option.value = asset.id;
-      option.textContent = asset.name === asset.symbol
-        ? asset.symbol : `${asset.name} (${asset.symbol})`;
-      return option;
-    });
-    select.replaceChildren(...options);
-    PopupSelect.sync(select);
+  getLibAsset() {
+    return (myData?.wallet?.assets || []).find((asset) => isLibAsset(asset)) || null;
   }
 
   // Update wallet view; refresh wallet
@@ -33263,7 +33246,6 @@ class SendAssetFormModal {
     this.retryTxIdInput = document.getElementById('retryOfPaymentTxId');
     this.usernameAvailable = document.getElementById('sendToAddressError');
     this.submitButton = document.querySelector('#sendForm button[type="submit"]');
-    this.assetSelectDropdown = document.getElementById('sendAsset');
     this.balanceSymbol = document.getElementById('balanceSymbol');
     this.availableBalance = document.getElementById('availableBalance');
     this.toggleBalanceButton = document.getElementById('toggleBalance');
@@ -33289,7 +33271,6 @@ class SendAssetFormModal {
     });
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
-    this.assetSelectDropdown.addEventListener('change', () => this.handleAssetChange());
     // amount input listener for normalizing
     this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     // amount input listener for real-time balance validation
@@ -33337,7 +33318,6 @@ class SendAssetFormModal {
     this.balanceSymbol.textContent = 'LIB';
     this.balanceAmount.textContent = 'Loading…';
     this.transactionFee.textContent = 'Loading…';
-    walletScreen.populateAssetSelect(this.assetSelectDropdown);
 
     if (!openModal(this.modal)) return false;
     const session = this.session = { account: myAccount };
@@ -33360,10 +33340,6 @@ class SendAssetFormModal {
     return this.isCurrentSession(session);
   }
 
-  getSelectedAsset() {
-    return walletScreen.getAsset(this.assetSelectDropdown.value);
-  }
-
   isCurrentSession(session) {
     return Boolean(session && this.session === session);
   }
@@ -33380,12 +33356,6 @@ class SendAssetFormModal {
     this.modal?.classList.remove('active');
   }
 
-  async handleAssetChange() {
-    const asset = this.getSelectedAsset();
-    this.balanceSymbol.textContent = asset?.symbol || 'LIB';
-    await this.updateAvailableBalance();
-  }
-
   /**
    * Closes the send asset modal
    * @returns {Promise<void>}
@@ -33393,7 +33363,6 @@ class SendAssetFormModal {
   async close() {
     chatsScreen.updateChatList();
     this.reset();
-    PopupSelect.syncAll(this.sendForm);
     this.username = null;
   }
 
@@ -33615,7 +33584,11 @@ class SendAssetFormModal {
     }
 
     // Get form values
-    const assetSymbol = this.assetSelectDropdown.options[this.assetSelectDropdown.selectedIndex].text;
+    const asset = walletScreen.getLibAsset();
+    if (!asset) {
+      showToast('Liberdus asset is unavailable.', 3000, 'warning');
+      return;
+    }
     const amount = this.amountInput.value;
     const memo = this.memoInput.value;
     const confirmButton = sendAssetConfirmModal.confirmSendButton;
@@ -33668,7 +33641,8 @@ class SendAssetFormModal {
     sendAssetConfirmModal.confirmAmountUSD.textContent = `≈ $${parseFloat(usdAmount).toFixed(6)} USD`;
     sendAssetConfirmModal.confirmRecipient.textContent = this.usernameInput.value;
     sendAssetConfirmModal.confirmAmount.textContent = `${libAmount}`;
-    sendAssetConfirmModal.confirmAsset.textContent = assetSymbol;
+    sendAssetConfirmModal.confirmAsset.textContent = asset.name === asset.symbol
+      ? asset.symbol : `${asset.name} (${asset.symbol})`;
 
     // Show/hide memo if present
     const memoGroup = sendAssetConfirmModal.confirmMemoGroup;
@@ -33690,7 +33664,7 @@ class SendAssetFormModal {
    */
   async fillAmount() {
     const session = this.session;
-    const asset = this.getSelectedAsset();
+    const asset = walletScreen.getLibAsset();
     if (!asset) return;
 
     await getNetworkParams();
@@ -33718,7 +33692,7 @@ class SendAssetFormModal {
    * @returns {void}
    */
   async updateAvailableBalance() {
-    const selectedAsset = this.getSelectedAsset();
+    const selectedAsset = walletScreen.getLibAsset();
     if (!selectedAsset) {
       this.updateBalanceDisplay(null);
       await this.refreshSendButtonDisabledState();
@@ -33737,8 +33711,8 @@ class SendAssetFormModal {
   async updateBalanceDisplay(asset) {
     const session = this.session;
     if (!asset) {
-      this.balanceAmount.textContent = '0.0000';
-      this.transactionFee.textContent = '0.00';
+      this.balanceAmount.textContent = 'Unavailable';
+      this.transactionFee.textContent = 'Unavailable';
       return;
     }
 
@@ -33767,7 +33741,7 @@ class SendAssetFormModal {
    * @returns {void}
    */
   updateSendAddresses() {
-    if (!this.getSelectedAsset()) {
+    if (!walletScreen.getLibAsset()) {
       showToast('No addresses available', 0, 'error');
       return;
     }
@@ -33803,7 +33777,7 @@ class SendAssetFormModal {
       return;
     }
 
-    const selectedAsset = this.getSelectedAsset();
+    const selectedAsset = walletScreen.getLibAsset();
     const assetIndex = myData.wallet.assets.indexOf(selectedAsset);
     if (assetIndex < 0) {
       this.submitButton.disabled = true;
@@ -33886,7 +33860,7 @@ class SendAssetFormModal {
     const stabilityFactor = getStabilityFactor();
 
     // Get the raw values in LIB format
-    const asset = this.getSelectedAsset();
+    const asset = walletScreen.getLibAsset();
     if (!asset) return;
     const txFeeInWei = getTransactionFeeWei();
     const balanceInLIB = big2str(BigInt(asset.balance), 18).slice(0, -12);
@@ -33965,7 +33939,6 @@ class SendAssetFormModal {
    */
   resetForm(){
     this.sendForm?.reset();
-    PopupSelect.syncAll(this.sendForm);
     this.usernameAvailable.textContent = '';
     this.balanceWarning.textContent = '';
   }
@@ -34112,9 +34085,9 @@ class SendAssetConfirmModal {
    */
   async handleSendAsset(event) {
     event.preventDefault();
-    const selectedAsset = sendAssetFormModal.getSelectedAsset();
+    const selectedAsset = walletScreen.getLibAsset();
     if (!selectedAsset) {
-      showToast('Selected Liberdus asset is unavailable.', 3000, 'warning');
+      showToast('Liberdus asset is unavailable.', 3000, 'warning');
       this.close();
       return;
     }
@@ -34134,7 +34107,7 @@ class SendAssetConfirmModal {
     const wallet = myData.wallet;
     const assetIndex = wallet.assets.indexOf(selectedAsset);
     if (assetIndex < 0) {
-      showToast('Selected Liberdus asset is unavailable.', 0, 'error');
+      showToast('Liberdus asset is unavailable.', 0, 'error');
       return;
     }
     const amount = bigxnum2big(wei, sendAssetFormModal.amountInput.value);
@@ -34405,7 +34378,6 @@ class ReceiveModal {
 
   load() {
     this.modal = document.getElementById('receiveModal');
-    this.assetSelect = document.getElementById('receiveAsset');
     this.amountInput = document.getElementById('receiveAmount');
     this.memoInput = document.getElementById('receiveMemo');
     this.displayAddress = document.getElementById('displayAddress');
@@ -34424,7 +34396,6 @@ class ReceiveModal {
     this.displayAddress.addEventListener('click', () => this.copyAddress());
     
     // QR code updates
-    this.assetSelect.addEventListener('change', () => this.handleAssetChange());
     this.amountInput.addEventListener('input', () => this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value));
     this.amountInput.addEventListener('input', () => this.scheduleQRCode());
     this.memoInput.addEventListener('input', () => this.scheduleQRCode());
@@ -34437,7 +34408,6 @@ class ReceiveModal {
     this.session = { account: myAccount };
     this.amountInput.value = '';
     this.memoInput.value = '';
-    walletScreen.populateAssetSelect(this.assetSelect);
     this.receiveBalanceSymbol.textContent = 'LIB';
     this.toggleReceiveBalanceButton.disabled = false;
     this.updateDisplayAddress();
@@ -34463,19 +34433,9 @@ class ReceiveModal {
     if (this.qrcodeContainer) this.qrcodeContainer.innerHTML = '';
   }
 
-  getSelectedAsset() {
-    return walletScreen.getAsset(this.assetSelect.value);
-  }
-
   scheduleQRCode() {
     clearTimeout(this.qrTimer);
     this.qrTimer = setTimeout(() => this.updateQRCode(), 300);
-  }
-
-  handleAssetChange() {
-    const asset = this.getSelectedAsset();
-    this.receiveBalanceSymbol.textContent = asset?.symbol || 'LIB';
-    this.updateDisplayAddress();
   }
 
   updateDisplayAddress() {
@@ -34509,7 +34469,7 @@ class ReceiveModal {
 
   // Create QR payment data object based on form values
   createQRPaymentData() {
-    const asset = this.getSelectedAsset();
+    const asset = walletScreen.getLibAsset();
     const paymentData = {
       u: this.session.account.username,
       i: asset?.id || 'liberdus',
@@ -34609,7 +34569,7 @@ class ReceiveModal {
     if (!this.isCurrentSession(session)) return;
     this.toggleReceiveBalanceButton.disabled = true;
     try {
-      const asset = this.getSelectedAsset();
+      const asset = walletScreen.getLibAsset();
       const tokenSymbol = asset?.symbol || 'LIB';
       const isShowingToken = this.receiveBalanceSymbol.textContent !== 'USD';
       const tokenPrice = Number(asset?.price);
