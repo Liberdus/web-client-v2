@@ -33348,13 +33348,12 @@ class SendAssetFormModal {
   }
 
   static toLibWei(amount, unit) {
-    const decimal = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
-    if (!decimal.test(amount) || (unit !== 'LIB' && unit !== 'USD')) return null;
-
     try {
       if (unit === 'USD') {
         return EthNum.usdToWei(amount, parameters?.current?.stabilityFactorStr);
       }
+      const decimal = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+      if (unit !== 'LIB' || !decimal.test(amount)) return null;
       return EthNum.toWei(amount);
     } catch {
       return null;
@@ -34116,9 +34115,6 @@ class SendAssetConfirmModal {
     this.modal?.classList.remove('active');
   }
 
-  isCurrentPayment(payment) {
-    return Boolean(payment && this.payment === payment);
-  }
   isActive() {
     return this.modal?.classList.contains('active') || false;
   }
@@ -34133,7 +34129,7 @@ class SendAssetConfirmModal {
   async handleSendAsset(event) {
     event.preventDefault();
     const payment = this.payment;
-    if (!this.isCurrentPayment(payment)) {
+    if (!payment) {
       this.close();
       return;
     }
@@ -34169,10 +34165,10 @@ class SendAssetConfirmModal {
 
     // Validate amount including transaction fee
     const hasBalance = await validateBalance(amount, assetIndex);
-    if (!this.isCurrentPayment(payment)) return;
+    if (this.payment !== payment) return;
     if (!hasBalance) {
       await getNetworkParams();
-      if (!this.isCurrentPayment(payment)) return;
+      if (this.payment !== payment) return;
       const txFeeInLIB = getTransactionFeeWei();
       const balance = BigInt(wallet.assets[assetIndex].balance);
       const amountStr = big2str(amount, 18).slice(0, -16);
@@ -34197,7 +34193,7 @@ class SendAssetConfirmModal {
           const data = await response.json();
   */
       const data = await queryNetwork(`/address/${usernameHash}`);
-      if (!this.isCurrentPayment(payment)) return;
+      if (this.payment !== payment) return;
       if (!data || !data.address) {
         showToast('Username not found', 0, 'error');
         return;
@@ -34221,7 +34217,7 @@ class SendAssetConfirmModal {
 
     // Ensure recipient keys exist locally; function handles local check and network fetch.
     await ensureContactKeys(toAddress);
-    if (!this.isCurrentPayment(payment)) return;
+    if (this.payment !== payment) return;
     const recipientPubKey = myData.contacts[toAddress]?.public;
     const pqRecPubKey = myData.contacts[toAddress]?.pqPublic;
     let pqEncSharedKey = '';
