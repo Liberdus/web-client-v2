@@ -33588,7 +33588,6 @@ class SendAssetFormModal {
     event.preventDefault();
     const session = this.session;
     const recipient = this.foundAddressObject;
-    if (!this.isCurrentSession(session) || sendAssetConfirmModal.isActive()) return;
 
     const hasPendingTransfer =
       Array.isArray(myData?.pending) &&
@@ -33659,7 +33658,7 @@ class SendAssetFormModal {
     this.balanceWarning.style.display = warning.style.display;
     if (!hasBalance || !this.validateToll(amountWei)) return;
 
-    const payment = { session, amountWei, username, memo, retryTxId: this.retryTxIdInput.value };
+    const payment = { amountWei, username, memo, retryTxId: this.retryTxIdInput.value };
     if (!sendAssetConfirmModal.open(payment)) return;
     const libAmount = EthNum.toStr(amountWei);
     const usdAmount = amountUnit === 'USD' ? Number(amountText) : Number(libAmount) * getStabilityFactor();
@@ -34118,8 +34117,7 @@ class SendAssetConfirmModal {
   }
 
   isCurrentPayment(payment) {
-    return Boolean(payment && this.payment === payment
-      && sendAssetFormModal.isCurrentSession(payment.session) && payment.session.account === myAccount);
+    return Boolean(payment && this.payment === payment);
   }
   isActive() {
     return this.modal?.classList.contains('active') || false;
@@ -34166,7 +34164,7 @@ class SendAssetConfirmModal {
     }
     const amount = payment.amountWei;
     const memo = payment.memo;
-    const keys = payment.session.account.keys;
+    const keys = myAccount.keys;
     let toAddress;
 
     // Validate amount including transaction fee
@@ -34305,7 +34303,6 @@ class SendAssetConfirmModal {
 
     try {
       // Send the transaction using postAssetTransfer
-      if (!this.isCurrentPayment(payment)) return;
       const response = await postAssetTransfer(toAddress, amount, payload, keys, assetIndex);
 
       if (!response || !response.result || !response.result.success) {
