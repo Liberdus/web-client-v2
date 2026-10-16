@@ -551,7 +551,7 @@
         <section class="showcase-panel" id="showcase-panel-dao" role="tabpanel" aria-labelledby="showcase-tab-dao" data-showcase-panel="dao">
           <div class="current-note">
             <strong>What changed from the old mock</strong>
-            Backend proposal data, proposal and project filters, review confirmation, committee decisions, weighted voting, finalization, reward claims, and parameter application are all represented below. Project-specific authoring, preview, and lifecycle states are collected in the Proposals tab.
+            Current DAO navigation separates Proposals and Projects, with shared All and Claim filters. Review confirmation, committee decisions, weighted voting, finalization, rewards, and parameter application are represented below. Project-specific authoring, preview, and lifecycle states are collected in the Proposals tab.
           </div>
 
           <section class="flow-section" aria-labelledby="current-flow-title">
@@ -584,46 +584,63 @@
                   <div class="screen-label">2. DAO proposal list</div>
                   <div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Any user</span></div>
                 </div>
-                <div class="screen-note"><strong>Default state</strong>The modal opens on Vote unless a DAO notification selects Vote or Claim.</div>
+                <div class="screen-note"><strong>Default state</strong>The DAO remembers the selected filter. Voting or claim notifications select the relevant view; the toolbar scrolls with the list.</div>
                 <div class="modal fixed-header active">
                   <div class="modal-header">
                     <button class="back-button" type="button" aria-label="Back"></button>
-                    <div class="modal-title">DAO - Vote</div>
+                    <div class="modal-title">DAO</div>
                   </div>
                   <div class="modal-content">
-                    <div class="dao-toolbar">
-                      <div class="dao-filter-bar" role="tablist" aria-label="Proposal and project filters">
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Review</span><span class="dao-filter-chip-count">2</span></button>
-                        <button class="dao-filter-chip active" type="button"><span class="dao-filter-chip-label">Vote</span><span class="dao-filter-chip-count">3</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Accepted</span><span class="dao-filter-chip-count">1</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Claim</span><span class="dao-filter-chip-count">1</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Withheld</span><span class="dao-filter-chip-count">2</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Rejected</span><span class="dao-filter-chip-count">1</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Applied</span><span class="dao-filter-chip-count">4</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">17</span></button>
-                        <div class="dao-project-filter-row" role="presentation">
-                          <span class="dao-filter-row-label" aria-hidden="true">Projects:</span>
-                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Executing</span><span class="dao-filter-chip-count">1</span></button>
-                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Terminated</span><span class="dao-filter-chip-count">1</span></button>
-                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Completed</span><span class="dao-filter-chip-count">1</span></button>
+                    <div class="dao-list-pane">
+                      <div class="dao-toolbar">
+                        <div class="dao-filter-bar" id="daoFilterBar" aria-label="DAO navigation">
+                          <div class="dao-filter-row" role="group" aria-label="All DAO items and claims">
+                            <button class="dao-filter-chip" type="button" data-filter-key="all" aria-pressed="false"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">17</span></button>
+                            <button class="dao-filter-chip" type="button" data-filter-key="claimable" aria-pressed="false"><span class="dao-filter-chip-label">Claim</span><span class="dao-filter-chip-count">1</span></button>
+                          </div>
+                          <div class="dao-context-switch" role="group" aria-label="DAO section">
+                            <button type="button" data-dao-context="proposals" aria-pressed="true">Proposals</button>
+                            <button type="button" data-dao-context="projects" aria-pressed="false">Projects</button>
+                          </div>
+                          <div class="dao-filter-label">Filter</div>
+                          <div class="dao-filter-slot">
+                            <div class="dao-context-filters" data-dao-filters="proposals">
+                              <div class="dao-filter-row" role="group" aria-label="Review filters">
+                                <button class="dao-filter-chip" type="button" data-filter-key="review" aria-pressed="false"><span class="dao-filter-chip-label">Review</span><span class="dao-filter-chip-count">2</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="withheld" aria-pressed="false"><span class="dao-filter-chip-label">Withheld</span><span class="dao-filter-chip-count">2</span></button>
+                              </div>
+                              <div class="dao-filter-row dao-filter-row--outcomes" role="group" aria-label="Voting and result filters">
+                                <button class="dao-filter-chip active" type="button" data-filter-key="voting" aria-pressed="true"><span class="dao-filter-chip-label">Vote</span><span class="dao-filter-chip-count">3</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="rejected" aria-pressed="false"><span class="dao-filter-chip-label">Rejected</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="accepted" aria-pressed="false"><span class="dao-filter-chip-label">Accepted</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="applied" aria-pressed="false"><span class="dao-filter-chip-label">Applied</span><span class="dao-filter-chip-count">4</span></button>
+                              </div>
+                            </div>
+                            <div class="dao-context-filters dao-filter-inactive" data-dao-filters="projects" inert aria-hidden="true">
+                              <div class="dao-filter-row dao-filter-row--projects" role="group" aria-label="Project filters">
+                                <button class="dao-filter-chip" type="button" data-filter-key="executing" aria-pressed="false"><span class="dao-filter-chip-label">Executing</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="terminated" aria-pressed="false"><span class="dao-filter-chip-label">Terminated</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="completed" aria-pressed="false"><span class="dao-filter-chip-label">Completed</span><span class="dao-filter-chip-count">1</span></button>
+                              </div>
+                            </div>
+                            <div class="dao-filter-placeholder dao-filter-inactive" aria-hidden="true">Showing all proposals and projects.</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div class="dao-list-pane">
                       <ul class="chat-list" id="daoProposalList">
-                        <li class="dao-proposal-row">
+                        <li class="chat-item dao-proposal-row has-notification">
                           <div class="dao-row-content">
-                            <div class="dao-row-title notification-dot">Increase vote exponent</div>
+                            <div class="dao-row-title">Increase vote exponent</div>
                             <div class="dao-row-meta"><span>Governance</span><div class="dao-row-previews"><span class="dao-row-preview">Ends 4:30 PM</span></div></div>
                           </div>
                         </li>
-                        <li class="dao-proposal-row">
+                        <li class="chat-item dao-proposal-row">
                           <div class="dao-row-content">
                             <div class="dao-row-title">Adjust minimum spend</div>
                             <div class="dao-row-meta"><span>Economic</span><div class="dao-row-previews"><span class="dao-row-preview">Ends Aug 29, 2026</span></div></div>
                           </div>
                         </li>
-                        <li class="dao-proposal-row">
+                        <li class="chat-item dao-proposal-row">
                           <div class="dao-row-content">
                             <div class="dao-row-title">Protocol fee schedule</div>
                             <div class="dao-row-meta"><span>Protocol</span><div class="dao-row-previews"><span class="dao-row-preview">Ready to finalize</span></div></div>
@@ -734,31 +751,48 @@
                 </div>
                 <div class="screen-note"><strong>After submission</strong>The confirmation and draft close back to the prior filter. After settlement, select Review to see the new proposal.</div>
                 <div class="modal fixed-header active">
-                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">DAO - Review</div></div>
+                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">DAO</div></div>
                   <div class="modal-content">
-                    <div class="dao-toolbar">
-                      <div class="dao-filter-bar" role="tablist" aria-label="Proposal and project filters">
-                        <button class="dao-filter-chip active" type="button"><span class="dao-filter-chip-label">Review</span><span class="dao-filter-chip-count">3</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Vote</span><span class="dao-filter-chip-count">3</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Accepted</span><span class="dao-filter-chip-count">1</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Claim</span><span class="dao-filter-chip-count">1</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Withheld</span><span class="dao-filter-chip-count">2</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Rejected</span><span class="dao-filter-chip-count">1</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Applied</span><span class="dao-filter-chip-count">4</span></button>
-                        <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">18</span></button>
-                        <div class="dao-project-filter-row" role="presentation">
-                          <span class="dao-filter-row-label" aria-hidden="true">Projects:</span>
-                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Executing</span><span class="dao-filter-chip-count">1</span></button>
-                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Terminated</span><span class="dao-filter-chip-count">1</span></button>
-                          <button class="dao-filter-chip" type="button"><span class="dao-filter-chip-label">Completed</span><span class="dao-filter-chip-count">1</span></button>
+                    <div class="dao-list-pane">
+                      <div class="dao-toolbar">
+                        <div class="dao-filter-bar" id="daoFilterBar" aria-label="DAO navigation">
+                          <div class="dao-filter-row" role="group" aria-label="All DAO items and claims">
+                            <button class="dao-filter-chip" type="button" data-filter-key="all" aria-pressed="false"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">18</span></button>
+                            <button class="dao-filter-chip" type="button" data-filter-key="claimable" aria-pressed="false"><span class="dao-filter-chip-label">Claim</span><span class="dao-filter-chip-count">1</span></button>
+                          </div>
+                          <div class="dao-context-switch" role="group" aria-label="DAO section">
+                            <button type="button" data-dao-context="proposals" aria-pressed="true">Proposals</button>
+                            <button type="button" data-dao-context="projects" aria-pressed="false">Projects</button>
+                          </div>
+                          <div class="dao-filter-label">Filter</div>
+                          <div class="dao-filter-slot">
+                            <div class="dao-context-filters" data-dao-filters="proposals">
+                              <div class="dao-filter-row" role="group" aria-label="Review filters">
+                                <button class="dao-filter-chip active" type="button" data-filter-key="review" aria-pressed="true"><span class="dao-filter-chip-label">Review</span><span class="dao-filter-chip-count">3</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="withheld" aria-pressed="false"><span class="dao-filter-chip-label">Withheld</span><span class="dao-filter-chip-count">2</span></button>
+                              </div>
+                              <div class="dao-filter-row dao-filter-row--outcomes" role="group" aria-label="Voting and result filters">
+                                <button class="dao-filter-chip" type="button" data-filter-key="voting" aria-pressed="false"><span class="dao-filter-chip-label">Vote</span><span class="dao-filter-chip-count">3</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="rejected" aria-pressed="false"><span class="dao-filter-chip-label">Rejected</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="accepted" aria-pressed="false"><span class="dao-filter-chip-label">Accepted</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="applied" aria-pressed="false"><span class="dao-filter-chip-label">Applied</span><span class="dao-filter-chip-count">4</span></button>
+                              </div>
+                            </div>
+                            <div class="dao-context-filters dao-filter-inactive" data-dao-filters="projects" inert aria-hidden="true">
+                              <div class="dao-filter-row dao-filter-row--projects" role="group" aria-label="Project filters">
+                                <button class="dao-filter-chip" type="button" data-filter-key="executing" aria-pressed="false"><span class="dao-filter-chip-label">Executing</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="terminated" aria-pressed="false"><span class="dao-filter-chip-label">Terminated</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="completed" aria-pressed="false"><span class="dao-filter-chip-label">Completed</span><span class="dao-filter-chip-count">1</span></button>
+                              </div>
+                            </div>
+                            <div class="dao-filter-placeholder dao-filter-inactive" aria-hidden="true">Showing all proposals and projects.</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div class="dao-list-pane">
                       <ul class="chat-list" id="daoProposalList">
-                        <li class="dao-proposal-row" data-flow-source="review-row"><div class="dao-row-content"><div class="dao-row-title notification-dot">Increase vote exponent</div><div class="dao-row-meta"><span>Governance</span><div class="dao-row-previews"><span class="dao-row-preview">Ends Aug 29, 2026</span></div></div></div></li>
-                        <li class="dao-proposal-row"><div class="dao-row-content"><div class="dao-row-title">Reduce proposal fee</div><div class="dao-row-meta"><span>Economic</span><div class="dao-row-previews"><span class="dao-row-preview dao-row-preview--accepted">Approved</span><span class="dao-row-preview">Ready to finalize</span></div></div></div></li>
-                        <li class="dao-proposal-row"><div class="dao-row-content"><div class="dao-row-title">Emergency endpoint patch</div><div class="dao-row-meta"><span>Protocol</span><div class="dao-row-previews"><span class="dao-row-preview dao-row-preview--emergency">Emergency</span><span class="dao-row-preview">Starts 2:00 PM</span></div></div></div></li>
+                        <li class="chat-item dao-proposal-row has-notification" data-flow-source="review-row"><div class="dao-row-content"><div class="dao-row-title">Increase vote exponent</div><div class="dao-row-meta"><span>Governance</span><div class="dao-row-previews"><span class="dao-row-preview">Ends Aug 29, 2026</span></div></div></div></li>
+                        <li class="chat-item dao-proposal-row"><div class="dao-row-content"><div class="dao-row-title">Reduce proposal fee</div><div class="dao-row-meta"><span>Economic</span><div class="dao-row-previews"><span class="dao-row-preview dao-row-preview--accepted">Approved</span><span class="dao-row-preview">Ready to finalize</span></div></div></div></li>
+                        <li class="chat-item dao-proposal-row"><div class="dao-row-content"><div class="dao-row-title">Emergency endpoint patch</div><div class="dao-row-meta"><span>Protocol</span><div class="dao-row-previews"><span class="dao-row-preview dao-row-preview--emergency">Emergency</span><span class="dao-row-preview">Starts 2:00 PM</span></div></div></div></li>
                       </ul>
                     </div>
                     <button class="floating-button" id="daoAddProposalButton" type="button" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
@@ -902,6 +936,61 @@
             <strong>Proposal and milestone states</strong>
             Scroll each phone and expand its milestone and action cards. These independent previews do not submit transactions.
           </div>
+          <div class="preview-subsection">
+            <div class="section-heading"><h2 class="section-title">Project navigation</h2><div class="section-note">Projects share the DAO list, with their own remembered lifecycle filter.</div></div>
+            <div class="preview-grid preview-grid--single">
+              <article class="screen" data-app-modal="daoModal" data-proposal-type="project" data-proposal-phase="executing">
+                <div class="screen-label-row"><div class="screen-label">DAO projects</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">Executing</span></div></div>
+                <div class="screen-note"><strong>Projects context</strong>Executing, Terminated, and Completed filters replace proposal outcomes. All and Claim remain shared.</div>
+                <div class="modal fixed-header active" id="daoModal">
+                  <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="modal-title">DAO</div></div>
+                  <div class="modal-content">
+                    <div class="dao-list-pane">
+                      <div class="dao-toolbar">
+                        <div class="dao-filter-bar" id="daoFilterBar" aria-label="DAO navigation">
+                          <div class="dao-filter-row" role="group" aria-label="All DAO items and claims">
+                            <button class="dao-filter-chip" type="button" data-filter-key="all" aria-pressed="false"><span class="dao-filter-chip-label">All</span><span class="dao-filter-chip-count">17</span></button>
+                            <button class="dao-filter-chip" type="button" data-filter-key="claimable" aria-pressed="false"><span class="dao-filter-chip-label">Claim</span><span class="dao-filter-chip-count">1</span></button>
+                          </div>
+                          <div class="dao-context-switch" role="group" aria-label="DAO section">
+                            <button type="button" data-dao-context="proposals" aria-pressed="false">Proposals</button>
+                            <button type="button" data-dao-context="projects" aria-pressed="true">Projects</button>
+                          </div>
+                          <div class="dao-filter-label">Filter</div>
+                          <div class="dao-filter-slot">
+                            <div class="dao-context-filters dao-filter-inactive" data-dao-filters="proposals" inert aria-hidden="true">
+                              <div class="dao-filter-row" role="group" aria-label="Review filters">
+                                <button class="dao-filter-chip" type="button" data-filter-key="review" aria-pressed="false"><span class="dao-filter-chip-label">Review</span><span class="dao-filter-chip-count">2</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="withheld" aria-pressed="false"><span class="dao-filter-chip-label">Withheld</span><span class="dao-filter-chip-count">2</span></button>
+                              </div>
+                              <div class="dao-filter-row dao-filter-row--outcomes" role="group" aria-label="Voting and result filters">
+                                <button class="dao-filter-chip" type="button" data-filter-key="voting" aria-pressed="false"><span class="dao-filter-chip-label">Vote</span><span class="dao-filter-chip-count">3</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="rejected" aria-pressed="false"><span class="dao-filter-chip-label">Rejected</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="accepted" aria-pressed="false"><span class="dao-filter-chip-label">Accepted</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="applied" aria-pressed="false"><span class="dao-filter-chip-label">Applied</span><span class="dao-filter-chip-count">4</span></button>
+                              </div>
+                            </div>
+                            <div class="dao-context-filters" data-dao-filters="projects" aria-hidden="false">
+                              <div class="dao-filter-row dao-filter-row--projects" role="group" aria-label="Project filters">
+                                <button class="dao-filter-chip active" type="button" data-filter-key="executing" aria-pressed="true"><span class="dao-filter-chip-label">Executing</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="terminated" aria-pressed="false"><span class="dao-filter-chip-label">Terminated</span><span class="dao-filter-chip-count">1</span></button>
+                                <button class="dao-filter-chip" type="button" data-filter-key="completed" aria-pressed="false"><span class="dao-filter-chip-label">Completed</span><span class="dao-filter-chip-count">1</span></button>
+                              </div>
+                            </div>
+                            <div class="dao-filter-placeholder dao-filter-inactive" aria-hidden="true">Showing all proposals and projects.</div>
+                          </div>
+                        </div>
+                      </div>
+                      <ul class="chat-list" id="daoProposalList">
+                        <li class="chat-item dao-proposal-row" role="button" tabindex="0"><div class="dao-row-content"><div class="dao-row-title">Developer documentation sprint</div><div class="dao-row-meta"><span class="dao-row-meta-item dao-row-meta-item--type">Project</span><div class="dao-row-previews"><span class="dao-row-preview">Executing</span></div></div></div></li>
+                      </ul>
+                    </div>
+                    <button class="floating-button visible" id="daoAddProposalButton" type="button" aria-label="Add proposal"><span class="plus-glyph" aria-hidden="true">+</span></button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
           <div id="proposal-state-gallery"></div>
           <div class="preview-subsection">
           <div class="section-heading"><h2 class="section-title">Project authoring and review</h2><div class="section-note">Scroll each phone to inspect the live form and proposal components.</div></div>
@@ -971,14 +1060,15 @@
           <div class="preview-grid">
             <article class="screen" data-app-modal="chatsScreen">
               <div class="screen-label-row"><div class="screen-label">Chats screen</div><div class="screen-badges"><span class="screen-badge">Current</span></div></div>
-              <div class="screen-note"><strong>Conversation list</strong>Unread, failed, payment, call, voice, location, and draft previews use the live list styles.</div>
+              <div class="screen-note"><strong>Conversation list</strong>Unread, failed, LIB and EVM payments, call, voice, location, and draft previews use the live list styles. The header shows a voting and claim notification.</div>
               <div data-device-root>
-                <header class="header active" id="header"><div id="logo"><a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link"><img src="../media/liberdus_logo_50.png" alt="" /></a></div><div class="app-name-container"><div class="app-name-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#dcdcf8"/><path d="M8 15h16v16H8zM24 7h16v16H24zM24 31h16v10H24z" fill="#3d3dce"/></svg></div><div class="app-name">alex</div></div><div class="header-icons"><div class="offline-indicator" id="offlineIndicator">Offline</div><button class="icon-button" id="upcomingCallsBtn" aria-label="Upcoming calls"></button><button class="icon-button" id="daoNotificationsBtn" aria-label="Open DAO notifications" hidden></button><button class="icon-button" id="toggleSettings" aria-label="Settings"></button><button class="icon-button" id="toggleMenu" aria-label="Menu"></button></div></header>
+                <header class="header active" id="header"><div id="logo"><a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link"><img src="../media/liberdus_logo_50.png" alt="" /></a></div><div class="app-name-container"><div class="app-name-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#dcdcf8"/><path d="M8 15h16v16H8zM24 7h16v16H24zM24 31h16v10H24z" fill="#3d3dce"/></svg></div><div class="app-name">alex</div></div><div class="header-icons"><div class="offline-indicator" id="offlineIndicator">Offline</div><button class="icon-button" id="upcomingCallsBtn" aria-label="Upcoming calls"></button><button class="icon-button dao-notification-glow" id="daoNotificationsBtn" title="Open DAO voting and claim notifications" aria-label="Open DAO voting and claim notifications"></button><button class="icon-button" id="toggleSettings" aria-label="Settings"></button><button class="icon-button" id="toggleMenu" aria-label="Menu"></button></div></header>
                 <div class="app-screen active" id="chatsScreen">
                   <div class="search-bar-container"><div class="search-bar"><span class="search-icon"></span><input class="search-input" placeholder="Search messages..." readonly /></div></div>
                   <ul class="chat-list" id="chatList">
                     <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#dcdcf8"/><path d="M8 15h16v16H8zM24 7h16v16H24zM24 31h16v10H24z" fill="#3d3dce"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Ari Rivera</div><div class="chat-time">4:30 PM</div></div><div class="chat-message"><span class="chat-unread">3</span> &gt; Can you review the latest flow?</div></div></li>
                     <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e9f7ee"/><path d="M12 12h24v10H12zM12 26h10v10H12zM26 26h10v10H26z" fill="#1e7e34"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Jordan Lee</div><div class="chat-time">3:12 PM</div></div><div class="chat-message">&lt; <span class="payment-preview">- 12.500000 LIB</span> <span class="memo-preview">| Proposal deposit</span></div></div></li>
+                    <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e0f2fe"/><path d="M10 10h12v28H10zM26 10h12v12H26zM26 26h12v12H26z" fill="#0369a1"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Noah Patel</div><div class="chat-time">2:58 PM</div></div><div class="chat-message">&gt; <span class="payment-preview">+ 25 USDC</span></div></div></li>
                     <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e0f2fe"/><path d="M10 10h12v28H10zM26 10h12v12H26zM26 26h12v12H26z" fill="#0369a1"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Kai Nelson</div><div class="chat-time">2:45 PM</div></div><div class="chat-message">&gt; <i>Join call</i></div></div></li>
                     <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#fff0da"/><path d="M9 9h13v13H9zM26 9h13v30H26zM9 26h13v13H9z" fill="#d97706"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Mina Chen</div><div class="chat-time">1:08 PM</div></div><div class="chat-message">&gt; <i>Voice message</i></div></div></li>
                     <li class="chat-item"><div class="chat-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#e8eefc"/><path d="M8 8h14v32H8zM26 8h14v14H26zM26 26h14v14H26z" fill="#3157a4"/></svg></div><div class="chat-content"><div class="chat-header"><div class="chat-name">Sam Okafor</div><div class="chat-time">Yesterday</div></div><div class="chat-message"><span class="chat-failed-indicator" title="Not sent" aria-label="Not sent">!</span>&lt; <i>Shared location</i></div></div></li>
@@ -1014,7 +1104,7 @@
 
             <article class="screen" data-app-modal="walletScreen">
               <div class="screen-label-row"><div class="screen-label">Wallet screen</div><div class="screen-badges"><span class="screen-badge">Current</span></div></div>
-              <div class="screen-note"><strong>Balances and actions</strong>Current wallet markup with sample LIB and Multichain balances, actions, and footer navigation.</div>
+              <div class="screen-note"><strong>Balances and actions</strong>Current wallet markup with the native LIB balance, Other Assets summaries for Multichain and EVM Assets, actions, and footer navigation.</div>
               <div data-device-root>
                 <header class="header active" id="header"><div id="logo"><a href="https://liberdus.com" target="_blank" title="Visit Liberdus website" class="logo-link"><img src="../media/liberdus_logo_50.png" alt="" /></a></div><div class="app-name-container"><div class="app-name-avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="24" fill="#dcdcf8"/><path d="M8 15h16v16H8zM24 7h16v16H24zM24 31h16v10H24z" fill="#3d3dce"/></svg></div><div class="app-name">alex</div></div><div class="header-icons"><div class="offline-indicator" id="offlineIndicator">Offline</div><button class="icon-button" id="upcomingCallsBtn" style="display:none" aria-label="Upcoming calls"></button><button class="icon-button" id="daoNotificationsBtn" aria-label="Open DAO notifications" hidden></button><button class="icon-button" id="toggleSettings" aria-label="Settings"></button><button class="icon-button" id="toggleMenu" aria-label="Menu"></button></div></header>
                 <div data-production-wallet></div>
@@ -1095,6 +1185,7 @@
             <button class="showcase-tab" type="button" data-chat-filter="images" aria-pressed="false">Images</button>
             <button class="showcase-tab" type="button" data-chat-filter="files" aria-pressed="false">Files</button>
             <button class="showcase-tab" type="button" data-chat-filter="payments" aria-pressed="false">LIB payments</button>
+            <button class="showcase-tab" type="button" data-chat-filter="evm" aria-pressed="false">EVM payments</button>
             <button class="showcase-tab" type="button" data-chat-filter="multichain" aria-pressed="false">Multichain</button>
             <button class="showcase-tab" type="button" data-chat-filter="calls" aria-pressed="false">Calls</button>
             <button class="showcase-tab" type="button" data-chat-filter="voice" aria-pressed="false">Voice</button>
@@ -1111,7 +1202,7 @@
           <div class="preview-grid" data-chat-gallery>
             <article class="screen" data-app-modal="chatModal" data-chat-template>
               <div class="screen-label-row"><div class="screen-label">Message gallery</div><div class="screen-badges"><span class="screen-badge">Current</span><span class="screen-badge role">All variants</span></div></div>
-              <div class="screen-note"><strong>Real chat bubble classes</strong>Text, replies, attachments, payments, calls, voice, location, deletion, reactions, edits, toll changes, and failure are represented.</div>
+              <div class="screen-note"><strong>Real chat bubble classes</strong>Text, replies, attachments, LIB, EVM and Multichain payments, calls, voice, location, deletion, reactions, edits, toll changes, and failure are represented.</div>
               <div class="modal fixed-header active" id="chatModal">
                 <div class="modal-header"><button class="back-button" type="button" aria-label="Back"></button><div class="chat-user-info"><div class="modal-avatar"><svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="20" fill="#dcdcf8"/><path d="M7 13h13v13H7zM20 6h13v13H20zM20 27h13v8H20z" fill="#3d3dce"/></svg></div><div class="modal-title">Ari Rivera</div></div><div class="header-actions"><button class="icon-button add-friend-icon" type="button" aria-label="Add friend"></button><button class="icon-button menu-icon" type="button" aria-label="More options"></button></div></div>
                 <div class="messages-container"><div class="messages-list">
@@ -1132,6 +1223,14 @@
                   <div data-chat-message-types="edits" class="message received"><div class="message-content">Updated response.</div><div class="message-time">9:53 AM <span class="message-edited-label">edited</span> <span class="edited-new-dot" title="Edited since last read"></span></div></div>
                   <div data-chat-message-types="deleted" class="message received deleted-message"><div class="message-content deleted-content">This message was deleted</div><div class="message-time">9:55 AM</div></div>
                   <div data-chat-message-types="failed" class="message sent" data-status="failed"><div class="message-content">This outgoing message failed.</div><div class="message-time">9:57 AM</div></div>
+                  <div data-chat-message-types="evm" class="message sent"><div class="intents-payment-message evm-payment-message" data-verified="settled" data-evm-payment="mock-evm-payment-0"><div class="intents-payment-amount">−25 USDC</div><div class="intents-payment-chain">Base</div><div class="intents-payment-chain" style="overflow-wrap:anywhere">Token: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913</div><div class="intents-payment-note">Thanks for the design review.
+Milestone 1 approved.</div><div class="intents-payment-verified">Confirmed</div></div><div class="message-time">10:10 AM</div></div>
+                  <div data-chat-message-types="evm" class="message received"><div class="intents-payment-message evm-payment-message" data-verified="settled" data-evm-payment="mock-evm-payment-1"><div class="intents-payment-amount">+0.01 ETH</div><div class="intents-payment-chain">Ethereum</div><div class="intents-payment-note">Native asset payment</div><div class="intents-payment-verified">Confirmed</div></div><div class="message-time">10:11 AM</div></div>
+                  <div data-chat-message-types="evm" class="message received"><div class="intents-payment-message evm-payment-message" data-verified="unchecked" data-evm-payment="mock-evm-payment-2"><div class="intents-payment-amount">+25 USDC</div><div class="intents-payment-chain">Base</div><div class="intents-payment-chain" style="overflow-wrap:anywhere">Token: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913</div><div class="intents-payment-verified">Checking…</div></div><div class="message-time">10:12 AM</div></div>
+                  <div data-chat-message-types="evm" class="message sent"><div class="intents-payment-message evm-payment-message" data-verified="pending" data-evm-payment="mock-evm-payment-3"><div class="intents-payment-amount">−0.01 ETH</div><div class="intents-payment-chain">Ethereum</div><div class="intents-payment-note">Confirming transfer</div><div class="intents-payment-verified">Confirming…</div></div><div class="message-time">10:13 AM</div></div>
+                  <div data-chat-message-types="evm" class="message received"><div class="intents-payment-message evm-payment-message" data-verified="failed" data-evm-payment="mock-evm-payment-4"><div class="intents-payment-amount">+10 USDC</div><div class="intents-payment-chain">Base</div><div class="intents-payment-chain" style="overflow-wrap:anywhere">Token: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913</div><div class="intents-payment-note">Payment could not be confirmed</div><div class="intents-payment-verified">Not confirmed</div></div><div class="message-time">10:14 AM</div></div>
+                  <div data-chat-message-types="evm" class="message received"><div class="intents-payment-message evm-payment-message" data-verified="expired" data-evm-payment="mock-evm-payment-5"><div class="intents-payment-amount">+5 USDC</div><div class="intents-payment-chain">Base</div><div class="intents-payment-chain" style="overflow-wrap:anywhere">Token: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913</div><div class="intents-payment-verified">Too old to check</div></div><div class="message-time">10:15 AM</div></div>
+                  <div data-chat-message-types="evm" class="message received"><div class="intents-payment-message evm-payment-message" data-verified="unverifiable" data-evm-payment="mock-evm-payment-6"><div class="intents-payment-amount">+0.5 ETH</div><div class="intents-payment-chain">EVM chain 999999</div><div class="intents-payment-note">Network verification is unavailable.</div><div class="intents-payment-verified">Could not check yet</div></div><div class="message-time">10:16 AM</div></div>
                   <div data-chat-message-types="multichain" class="message sent"><div class="intents-payment-message" data-verified="settled" data-intent-hash="mock-payment-0"><div class="intents-payment-amount" title="25 USDC">−25 USDC</div><div class="intents-payment-chain">Ethereum</div><div class="intents-payment-note">Thanks for the design review.</div><div class="intents-payment-verified">Confirmed</div></div><div class="message-time">10:00 AM</div></div>
                   <div data-chat-message-types="multichain" class="message received"><div class="intents-payment-message" data-verified="settled" data-intent-hash="mock-payment-1"><div class="intents-payment-amount" title="0.002 BTC">+0.002 BTC</div><div class="intents-payment-chain">Bitcoin</div><div class="intents-payment-note">Milestone payment</div><div class="intents-payment-verified">Confirmed</div></div><div class="message-time">10:01 AM</div></div>
                   <div data-chat-message-types="multichain" class="message received"><div class="intents-payment-message" data-verified="unchecked" data-intent-hash="mock-payment-2"><div class="intents-payment-amount" title="25 USDC">+25 USDC</div><div class="intents-payment-chain">Base</div><div class="intents-payment-verified">Checking…</div></div><div class="message-time">10:02 AM</div></div>
@@ -1161,8 +1260,10 @@
               <article class="screen" data-app-modal="callScheduleChoiceModal" data-chat-overlay="call-choice" data-chat-types="calls"><div class="screen-label-row"><div class="screen-label">Start a Call</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Call choice</strong>Start immediately or continue into scheduling.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="dateTimePickerModal" data-chat-overlay="date-time" data-chat-types="calls"><div class="screen-label-row"><div class="screen-label">Schedule call</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Date and time</strong>Production date, hour, minute, and AM/PM controls.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="durationPickerModal" data-chat-overlay="duration" data-chat-types="calls"><div class="screen-label-row"><div class="screen-label">Call duration</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Duration picker</strong>Days, hours, and minutes use the shared picker dialog.</div><div data-device-root></div></article>
-              <article class="screen" data-app-modal="chatHeaderContextMenu" data-chat-overlay="chat-menu" data-chat-types="calls payments multichain"><div class="screen-label-row"><div class="screen-label">Chat actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Header menu</strong>Call, pay, and contact info actions open from the Chat header.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="chatHeaderContextMenu" data-chat-overlay="chat-menu" data-chat-types="calls payments evm multichain"><div class="screen-label-row"><div class="screen-label">Chat actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Header menu</strong>Call, pay, and contact info actions open from the Chat header.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="messageContextMenu" data-chat-overlay="message-menu" data-chat-types="text replies reactions edits deleted failed"><div class="screen-label-row"><div class="screen-label">Message actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Bubble menu</strong>Quick reactions, reply, copy, edit, and deletion actions.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="messageContextMenu" data-chat-overlay="evm-check" data-chat-types="evm"><div class="screen-label-row"><div class="screen-label">Check EVM transfer</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Verification action</strong>Check again is available while the transfer result needs verification.</div><div data-device-root></div></article>
+              <article class="screen" data-app-modal="failedMessageContextMenu" data-chat-overlay="evm-retry" data-chat-types="evm"><div class="screen-label-row"><div class="screen-label">Retry EVM transfer</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Transfer recovery</strong>Retry transfer reviews an eligible failed transfer before signing again.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="imageAttachmentContextMenu" data-chat-overlay="image-menu" data-chat-types="images"><div class="screen-label-row"><div class="screen-label">Image actions</div><div class="screen-badges"><span class="screen-badge">Popover</span></div></div><div class="screen-note"><strong>Attachment menu</strong>Open launches the cache-first viewer; save, share, reply, reactions, and deletion remain available.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="attachmentOptionsContextMenu" data-chat-overlay="attachments" data-chat-types="images files location"><div class="screen-label-row"><div class="screen-label">Add attachment</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Attachment menu</strong>Camera, library, files, contacts, and location entry points.</div><div data-device-root></div></article>
               <article class="screen" data-app-modal="locationSharePanel" data-chat-overlay="location" data-chat-types="location"><div class="screen-label-row"><div class="screen-label">Share location</div><div class="screen-badges"><span class="screen-badge">Overlay</span></div></div><div class="screen-note"><strong>Location confirmation</strong>Coordinates and accuracy are reviewed before sending.</div><div data-device-root></div></article>
@@ -1266,12 +1367,17 @@
         });
         const walletOverview = canvas.querySelector('.screen[data-app-modal="walletScreen"]').cloneNode(true);
         walletGallery.querySelector('[data-wallet-type="lib"] .preview-grid').prepend(walletOverview);
-        // EVM send/receive reuse the same production modal IDs as LIB transfers.
         const evmGrid = walletGallery.querySelector('[data-wallet-type="evm"] .preview-grid');
-        ["sendAssetFormModal", "sendAssetConfirmModal", "receiveModal"].forEach((id) => {
-          const preview = walletGallery.querySelector(`[data-catalog-modal="${id}"]`).cloneNode(true);
-          evmGrid.append(preview);
-        });
+        for (const id of ["evmSendModal", "evmSendConfirmModal"]) {
+          const usernamePreview = evmGrid.querySelector(`[data-catalog-modal="${id}"]`);
+          const addressPreview = usernamePreview.cloneNode(true);
+          usernamePreview.querySelector(".screen-label").textContent = id === "evmSendModal" ? "Send to username" : "Confirm username payment";
+          usernamePreview.querySelector(".screen-note").innerHTML = "<strong>Username payment</strong>Transfer the EVM asset to a contact and share a payment message in Chat.";
+          addressPreview.dataset.walletRecipient = "address";
+          addressPreview.querySelector(".screen-label").textContent = id === "evmSendModal" ? "Send to wallet address" : "Confirm wallet transfer";
+          addressPreview.querySelector(".screen-note").innerHTML = "<strong>Wallet address</strong>Transfer the EVM asset directly to a wallet without sending a chat message.";
+          evmGrid.append(addressPreview);
+        }
         document.getElementById("proposal-state-gallery").innerHTML = window.PROPOSAL_STATE_MARKUP;
 
         const chatPanel = document.getElementById("showcase-panel-chat");
@@ -1285,7 +1391,7 @@
           screen.dataset.chatTypes = type;
           screen.querySelector(".screen-label").textContent = button.textContent;
           screen.querySelector(".screen-badge.role").textContent = "Messages";
-          screen.querySelector(".screen-note").textContent = type === "multichain"
+          screen.querySelector(".screen-note").textContent = type === "evm" || type === "multichain"
             ? "Sent and received payments with every verification status. Fixed examples; no transfers are submitted."
             : `${button.textContent} examples using production chat styles.`;
           screen.querySelectorAll("[data-chat-message-types]").forEach((message) => {
@@ -1345,7 +1451,7 @@
           return `<div class="proposal-more-content">${sections.join("")}</div>`;
         };
 
-        const renderChatBackdrop = () => `
+        const renderChatBackdrop = (kind) => `
           <div class="modal fixed-header active is-transition-complete" id="chatModal" aria-hidden="true">
             <div class="modal-header">
               <button class="back-button" type="button" aria-label="Back"></button>
@@ -1353,8 +1459,10 @@
               <div class="header-actions"><button class="icon-button menu-icon" type="button" aria-label="More options"></button></div>
             </div>
             <div class="messages-container"><div class="messages-list">
-              <div class="message received"><div class="message-content">Chat remains visible behind this overlay.</div><div class="message-time">9:30 AM</div></div>
-              <div class="message sent"><div class="message-content">The overlay keeps its production position and backdrop.</div><div class="message-time">9:31 AM</div></div>
+              ${kind.startsWith("evm-") ? `
+                <div class="message sent"${kind === "evm-retry" ? ' data-status="failed"' : ""}><div class="intents-payment-message evm-payment-message" data-verified="${kind === "evm-retry" ? "failed" : "pending"}" data-evm-payment="mock-evm-recovery"><div class="intents-payment-amount">−0.01 ETH</div><div class="intents-payment-chain">Ethereum</div><div class="intents-payment-note">Milestone payment</div><div class="intents-payment-verified">${kind === "evm-retry" ? "Not confirmed" : "Confirming…"}</div></div><div class="message-time">10:13 AM</div></div>` : `
+                <div class="message received"><div class="message-content">Chat remains visible behind this overlay.</div><div class="message-time">9:30 AM</div></div>
+                <div class="message sent"><div class="message-content">The overlay keeps its production position and backdrop.</div><div class="message-time">9:31 AM</div></div>`}
             </div></div>
             <div class="message-input-container"><div class="message-input-row"><button class="icon-button add-attachment-button" type="button" aria-label="Add attachment"></button><div class="message-input-wrapper"><textarea class="message-input" placeholder="Type a message..."></textarea><button class="icon-button voice-record-button" type="button" aria-label="Record voice message"></button><button class="send-button" type="button" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg></button></div></div></div>
           </div>`;
@@ -1381,6 +1489,12 @@
             case "message-menu":
               return `
                 <div class="message-context-menu" id="messageContextMenu" style="display: block; right: 18px; top: 210px"><div class="message-context-reactions" aria-label="Quick reactions">${["👍", "❤️", "😂", "😮", "👎"].map((emoji) => `<button class="message-context-reaction-button" type="button">${emoji}</button>`).join("")}<button class="message-context-reaction-button message-context-reaction-button-more" type="button"><span class="plus-glyph">+</span></button></div><div class="context-menu-option" data-icon="reply"><span class="context-menu-icon"></span><span class="context-menu-text">Reply</span></div><div class="context-menu-option" data-icon="copy"><span class="context-menu-icon"></span><span class="context-menu-text">Copy</span></div><div class="context-menu-option" data-icon="edit"><span class="context-menu-icon"></span><span class="context-menu-text">Edit</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for me</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for all</span></div></div>`;
+            case "evm-check":
+              return `
+                <div class="message-context-menu" id="messageContextMenu" style="display: block; right: 18px; top: 210px"><div class="context-menu-option" data-action="evm-check" data-icon="retry"><span class="context-menu-icon"></span><span class="context-menu-text">Check again</span></div><div class="context-menu-option" data-action="copy" data-icon="copy"><span class="context-menu-icon"></span><span class="context-menu-text">Copy</span></div><div class="context-menu-option" data-action="delete" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for me</span></div></div>`;
+            case "evm-retry":
+              return `
+                <div class="failed-message-context-menu" id="failedMessageContextMenu" style="display: block; right: 18px; top: 210px"><div class="context-menu-option" data-action="evm-review" data-icon="retry"><span class="context-menu-icon"></span><span class="context-menu-text">Retry transfer</span></div><div class="context-menu-option" data-action="delete" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for me</span></div></div>`;
             case "image-menu":
               return `
                 <div class="message-context-menu" id="imageAttachmentContextMenu" style="display: block; left: 18px; top: 210px"><div class="message-context-reactions" aria-label="Quick reactions">${["👍", "❤️", "😂", "😮", "👎"].map((emoji) => `<button class="message-context-reaction-button" type="button">${emoji}</button>`).join("")}<button class="message-context-reaction-button message-context-reaction-button-more" type="button"><span class="plus-glyph">+</span></button></div><div class="context-menu-option" data-icon="eye"><span class="context-menu-icon"></span><span class="context-menu-text">Open</span></div><div class="context-menu-option" data-icon="download"><span class="context-menu-icon"></span><span class="context-menu-text">Save</span></div><div class="context-menu-option" data-icon="share"><span class="context-menu-icon"></span><span class="context-menu-text">Share</span></div><div class="context-menu-option" data-icon="reply"><span class="context-menu-icon"></span><span class="context-menu-text">Reply</span></div><div class="context-menu-option" data-icon="delete"><span class="context-menu-icon"></span><span class="context-menu-text">Delete for me</span></div></div>`;
@@ -1524,13 +1638,13 @@
               modal.hidden = false;
               modal.classList.add("active", "is-transition-complete");
             } else if (screen.dataset.chatOverlay) {
-              deviceRoot.innerHTML = renderChatBackdrop() + renderChatOverlay(screen.dataset.chatOverlay);
+              deviceRoot.innerHTML = renderChatBackdrop(screen.dataset.chatOverlay) + renderChatOverlay(screen.dataset.chatOverlay);
             } else if (deviceRoot.matches(".modal")) {
               deviceRoot.id = screen.dataset.appModal;
               deviceRoot.classList.add("is-transition-complete");
             }
 
-            window.populateWalletPreview(deviceRoot, screen.dataset.appModal, screen.closest("[data-wallet-type]")?.dataset.walletType || "lib");
+            window.populateWalletPreview(deviceRoot, screen.dataset.appModal, screen.dataset.walletRecipient || "username");
 
             const details = deviceRoot.querySelector(".proposal-more");
             if (details && !details.querySelector(".proposal-more-content")) {

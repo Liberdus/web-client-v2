@@ -1,23 +1,22 @@
 # DAO Screen Flow
 
-This reference follows the DAO project lifecycle on `main` at `d6228bf0`. The interactive reference is [`mock/index.html`](mock/index.html).
+This reference follows the UI and DAO project lifecycle on `main` at `cc0cc31e` (October 16, 2026). The interactive reference is [`mock/index.html`](mock/index.html).
 
 Its device frames use the iPhone 17 Pro logical viewport (`402 × 874`) and load the production stylesheet. Proposal previews use the production responsive layout without milestone style overrides.
 
 ## Entry and list
 
-The Devnet-only **DAO** Menu item opens `daoModal`. The modal loads proposal metadata and details from the DAO backend and defaults to the **Vote** filter. A DAO notification can choose **Vote** or **Claim** as the initial filter.
+The Devnet-only **DAO** Menu item opens `daoModal`. The modal loads proposal metadata and details from the DAO backend, initially selects **Vote**, and remembers the selected filter. A DAO notification can choose **Vote** or **Claim** as the initial filter.
 
-The fixed, two-row filter bar contains:
+The modal title stays **DAO**. Navigation scrolls with the list and contains:
 
-1. Review
-2. Vote
-3. Accepted
-4. Claim
-5. Withheld
-6. Rejected
-7. Applied
-8. All
+- **All** and **Claim**, available in both contexts.
+- A **Proposals / Projects** context switch.
+- Proposal filters grouped as **Review / Withheld** and **Vote / Rejected / Accepted / Applied**.
+- Project filters **Executing / Terminated / Completed**.
+
+Only the selected context's filters are active. The mock includes proposal and
+project list examples with the same production navigation and responsive styles.
 
 All except **Claim** and **All** are server proposal-status filters. **All** contains every metadata entry. **Claim** is account-specific: it starts with locally tracked claim candidates, loads fresh proposal details, and only displays rows that are currently claimable.
 
@@ -166,7 +165,7 @@ so they do not represent the application's default open/closed state.
 ## Chat message gallery
 
 Open `mock/index.html?tab=chat`. The message-type filter offers All, Text, Replies,
-Images, Files, LIB payments, Multichain, Calls, Voice, Location, Reactions, Edits,
+Images, Files, LIB payments, EVM payments, Multichain, Calls, Voice, Location, Reactions, Edits,
 Deleted, Failed, and Toll changes. Each type has a phone preview using production
 chat markup and styles; related viewers and overlays follow the same filter.
 The selection is retained when switching tabs.
@@ -174,7 +173,9 @@ The selection is retained when switching tabs.
 Multichain examples show a confirmed outgoing payment and incoming payments in
 all six verification states: Checking…, Confirming…, Confirmed, Not confirmed,
 Too old to check, and Could not check yet. Amount signs, chain names, optional
-notes, and status styling follow the production renderer. These fixed previews
+notes, and status styling follow the production renderer. EVM examples also show
+receipt verification, message delivery failures, and the corresponding retry and
+check actions. These fixed previews
 do not verify payments, access wallets, or submit transfers.
 
 
@@ -182,14 +183,18 @@ do not verify payments, access wallets, or submit transfers.
 
 Open `mock/index.html?tab=wallet`. Filters select All, LIB Wallet, EVM Assets,
 or Multichain and retain their selection when changing tabs. The gallery has
-23 previews: 9 LIB wallet screens, 5 EVM screens, and 9 Multichain screens.
-Shared send, confirmation, and receive modals have separate LIB and EVM examples.
+25 previews: 9 LIB wallet screens, 7 EVM screens, and 9 Multichain screens.
+LIB and EVM use separate production Send, Confirm Transaction, and Receive modals.
 
-The wallet overview now includes the production Multichain balance row. Its
-shell and all 69 modal shells are generated from `index.html`; the DAO menu also
+The wallet overview uses the native LIB asset card with its refresh control and
+the Multichain and EVM Assets summary rows. Its shell and all 72 modal shells are
+generated from `index.html`; the DAO menu also
 uses the generated production menu. `wallet-previews.js` supplies illustrative
 runtime values and markup for balances, asset details, payment forms, activity,
 token/contact selection, deposits, swaps, withdrawals, and confirmations.
+EVM examples include username and wallet-address recipients, an optional note,
+network fees in ETH and USD, the corresponding chat fee/toll or wallet-only
+notice, and a recoverable chat-message delivery failure.
 Token marks come from the production icon renderer at catalog-generation time.
 QR codes encode a preview label, not a payment address. Forms never submit.
 

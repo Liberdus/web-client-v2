@@ -13,7 +13,7 @@ function humanizeModalId(id) {
 
 function modalCategory(id) {
   if (/^multichain|^chatSend/.test(id)) return 'Multichain';
-  if (['assetsModal', 'assetDetailsModal'].includes(id)) return 'EVM Assets';
+  if (['assetsModal', 'assetDetailsModal', 'evmSendModal', 'evmSendConfirmModal', 'evmReceiveModal'].includes(id)) return 'EVM Assets';
   if (['receiveModal', 'historyModal', 'sendAssetFormModal', 'sendAssetConfirmModal', 'bridgeModal', 'farmModal', 'stakeModal', 'validatorModal'].includes(id)) return 'LIB Wallet';
   if (/chat|contact|friend|message|avatar|toll/i.test(id)) return 'Chat & People';
   if (/asset|send|receive|history|stake|farm|bridge|validator/i.test(id)) return 'Wallet & Assets';

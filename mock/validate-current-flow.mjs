@@ -50,14 +50,14 @@ for (const [symbol, sizes] of Object.entries(catalogWindow.WALLET_ASSET_MARKS)) 
     assert.equal(markup, assetIconMarkup(symbol, { size: Number(size) }), `Regenerate stale wallet icon: ${symbol}`);
   }
 }
-for (const hook of ['multichainSummary', 'multichainSummaryValue', 'walletTotalBalance', 'assetsList']) {
+for (const hook of ['multichainSummary', 'multichainSummaryValue', 'evmAssetsSummary', 'evmAssetsSummaryValue', 'assetsList', 'refreshBalance']) {
   assert.ok(catalogWindow.PRODUCTION_WALLET_MARKUP.includes(`id="${hook}"`), `Generated wallet is missing ${hook}`);
 }
 for (const entry of catalog) {
   if (/^multichain|^chatSend/.test(entry.id)) assert.equal(entry.category, 'Multichain');
-  if (['assetsModal', 'assetDetailsModal'].includes(entry.id)) assert.equal(entry.category, 'EVM Assets');
+  if (['assetsModal', 'assetDetailsModal', 'evmSendModal', 'evmSendConfirmModal', 'evmReceiveModal'].includes(entry.id)) assert.equal(entry.category, 'EVM Assets');
 }
-for (const id of ['assetsModal', 'assetDetailsModal', 'sendAssetFormModal', 'sendAssetConfirmModal', 'receiveModal', ...catalog.filter((entry) => entry.category === 'Multichain').map((entry) => entry.id)]) {
+for (const id of ['assetsModal', 'assetDetailsModal', 'sendAssetFormModal', 'sendAssetConfirmModal', 'receiveModal', 'evmSendModal', 'evmSendConfirmModal', 'evmReceiveModal', ...catalog.filter((entry) => entry.category === 'Multichain').map((entry) => entry.id)]) {
   assert.ok(walletFixtures.includes(`case '${id}':`), `Missing runtime wallet fixture for ${id}`);
 }
 
@@ -71,11 +71,12 @@ const mockFilterLabels = [...mockHtml.matchAll(
 assert.ok(productionFilterLabels.length > 0, 'Production DAO filters are unavailable');
 assert.equal(
   mockFilterLabels.length,
-  productionFilterLabels.length * 2,
-  'Expected two complete DAO filter bars in the mock',
+  productionFilterLabels.length * 3,
+  'Expected Vote, Review, and Projects DAO filter bars in the mock',
 );
 assert.deepEqual(mockFilterLabels.slice(0, productionFilterLabels.length), productionFilterLabels);
-assert.deepEqual(mockFilterLabels.slice(productionFilterLabels.length), productionFilterLabels);
+assert.deepEqual(mockFilterLabels.slice(productionFilterLabels.length, productionFilterLabels.length * 2), productionFilterLabels);
+assert.deepEqual(mockFilterLabels.slice(productionFilterLabels.length * 2), productionFilterLabels);
 
 const productionActions = [
   'Review Draft',
@@ -170,7 +171,7 @@ assert.ok(!mockHtml.includes('[data-device-root] { display: contents; }'), 'Devi
 
 assert.equal(
   [...mockHtml.matchAll(/<article\b[^>]*\bdata-app-modal="[^"]+"/g)].length,
-  34,
+  37,
   'Every authored preview and the generated catalog template must expose a device-frame hook',
 );
 
@@ -194,7 +195,8 @@ for (const screenHook of [
   'app-name-avatar',
   'contact-section-header',
   'chat-failed-indicator',
-  'walletTotalBalance',
+  'wallet-native-balance',
+  'evmAssetsSummary',
   'refreshBalance',
   'wallet-action-button',
 ]) {
@@ -219,11 +221,8 @@ assert.equal(
   1,
   'The default runtime wallet must show its single LIB asset',
 );
-assert.ok(
-  walletFixtures.includes("text('walletTotalBalance', '248.42')"),
-  'Wallet total must omit a literal currency prefix supplied by production CSS',
-);
-assert.ok(walletFixtures.includes('$248.420000</span>'), 'Asset net worth must use runtime precision');
+assert.ok(!catalogWindow.PRODUCTION_WALLET_MARKUP.includes('walletTotalBalance'), 'Wallet must use the current native-asset balance layout');
+assert.ok(walletFixtures.includes('$248.420803</span>'), 'Asset net worth must use runtime precision');
 assert.ok(!primaryScreensMarkup.includes('<div class="asset-name">Ethereum</div>'), 'Mock must not invent a non-default wallet asset');
 
 const projectsPanelStart = mockHtml.indexOf('id="showcase-panel-projects"');
@@ -429,10 +428,11 @@ const chatOverlayIds = [
   'locationSharePanel',
   'chatReactionSheetOverlay',
   'cameraCaptureOverlay',
+  'failedMessageContextMenu',
 ];
 assert.equal(
   [...mockHtml.matchAll(/data-chat-overlay="[^"]+"/g)].length,
-  chatOverlayIds.length,
+  chatOverlayIds.length + 1,
   'Expected every requested chat overlay to have a device preview',
 );
 for (const overlayId of chatOverlayIds) {
