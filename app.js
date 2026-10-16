@@ -33663,9 +33663,12 @@ class SendAssetFormModal {
     const usdAmount = amountUnit === 'USD' ? Number(amountText) : Number(libAmount) * getStabilityFactor();
 
     // Update confirmation modal with values
-    sendAssetConfirmModal.confirmAmountUSD.textContent = `≈ $${parseFloat(usdAmount).toFixed(6)} USD`;
+    const usdText = Number.isFinite(usdAmount) && usdAmount > 0
+      ? usdAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: usdAmount < 0.01 ? 6 : 2 })
+      : '';
+    sendAssetConfirmModal.confirmAmountUSD.textContent = usdText ? `≈ ${usdText} USD` : '';
     sendAssetConfirmModal.confirmRecipient.textContent = username;
-    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount}`;
+    sendAssetConfirmModal.confirmAmount.textContent = `${libAmount} LIB`;
     sendAssetConfirmModal.confirmAsset.textContent = asset.name === asset.symbol
       ? asset.symbol : `${asset.name} (${asset.symbol})`;
 
