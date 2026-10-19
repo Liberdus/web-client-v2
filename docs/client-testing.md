@@ -7,6 +7,11 @@ feature commits. The GitHub organization does not prescribe a local directory
 layout. Keep client changes here and companion changes on a separate test topic
 branch. Commit them separately and link their PRs in both directions.
 
+Create a companion branch and PR only when the client task needs new or updated
+companion tests. Running existing tests does not require a companion PR. For
+documentation-only work or changes already covered by existing tests, report
+the validation performed and mark companion changes N/A with a reason.
+
 ## Find or clone the companion repository
 
 Start from the implementation checkout, including when it is a Git worktree:
@@ -104,8 +109,9 @@ branch/commit, command and result. Record any pre-existing failures before
 making changes; some preserved suites require particular client features. See
 the companion repository's `local-tests/REPAIRS.md` for the documented baseline.
 
-Add or update focused tests in `$CLIENT_TESTING_ROOT/local-tests/tests/`, using
-synthetic fixtures. Run the focused tests after implementation and broaden
+When additional coverage is needed, add or update focused tests in
+`$CLIENT_TESTING_ROOT/local-tests/tests/`, using synthetic fixtures. Run the
+focused tests after implementation and broaden
 validation when appropriate. The full default offline command is:
 
 ```bash
@@ -125,8 +131,12 @@ companion README; select and authorize a suitable environment before live runs.
 
 ## Open linked PRs and respect client dependencies
 
-Follow the user's commit/push authorization and stage only task-owned changes.
-Commit companion changes on the topic branch, then publish that topic branch:
+When creating the client PR, create or update a relevant companion test PR if
+the task adds or changes companion tests. Otherwise mark the companion section
+N/A with a reason and skip companion branch/PR creation.
+
+For companion test changes, follow the user's commit/push authorization and stage
+only task-owned changes. Commit on the topic branch, then publish that branch:
 
 ```bash
 git -C "$CLIENT_TESTING_ROOT" push --set-upstream origin codex/issue-number-tests

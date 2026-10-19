@@ -38,7 +38,7 @@ that could not run and the concrete reason; do not imply unrun checks passed. --
 
 ## Companion regression tests
 
-- [ ] Companion changes have a topic-branch PR targeting `codex/local-client-tests`, linked in both directions, or N/A with a reason.
+- [ ] Relevant new/updated companion tests have a topic-branch PR targeting `codex/local-client-tests`, linked in both directions; otherwise N/A with a reason (no companion PR required).
 - Companion PR URL (link this client PR back from it):
 - Test files, topic branch and commit IDs:
 - Tested client revision, commands, results and known baseline failures:

@@ -17,8 +17,8 @@ local checkout can live anywhere.
   Report clone/access failures or a missing remote branch explicitly.
 - Read its `AGENTS.md` and `local-tests/README.md`. Set `WEB_CLIENT_ROOT` to the
   absolute path of the implementation checkout, including when working in a
-  worktree. Run relevant existing tests and add or update focused regression
-  coverage in `client-testing/local-tests/tests/`.
+  worktree. Run relevant existing tests; when additional coverage is needed,
+  add or update focused tests in `client-testing/local-tests/tests/`.
 - Keep reusable tests committed on a task-specific `client-testing` branch;
   avoid new ignored test directories here. Commit client and companion changes
   separately. Do not commit, merge, cherry-pick or push changes directly into
@@ -26,10 +26,12 @@ local checkout can live anywhere.
 - Preserve other agents' branches and local work. Create an isolated companion
   topic worktree from the published shared branch for test changes. Do not
   switch a shared checkout's branch while another agent is using it.
-- At PR creation, link the companion test PR from the client PR and link back
-  from the companion PR. Report test files, branch/commit IDs, tested client
-  revision, commands, results and known baseline failures. Use N/A with a reason
-  when no companion changes are needed.
+- When creating a client PR that needs new or updated companion tests, create or
+  update the relevant `client-testing` PR targeting `codex/local-client-tests`
+  and link it from the client PR; link back from the companion PR. Report test
+  files, branch/commit IDs, tested client revision, commands, results and known
+  baseline failures. If no companion test changes are needed, report N/A with a
+  reason; do not create a companion PR solely because a client PR exists.
 - Keep tests requiring unmerged client features on their companion PR branch.
   Before merging changed tests into the shared branch, confirm every required
   feature is on client main and rerun focused tests against that main revision.
