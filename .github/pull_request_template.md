@@ -38,11 +38,11 @@ that could not run and the concrete reason; do not imply unrun checks passed. --
 
 ## Companion regression tests
 
-- [ ] Relevant new/updated companion tests have a topic-branch PR targeting `codex/local-client-tests`, linked in both directions; otherwise N/A with a reason (no companion PR required).
-- Companion PR URL (link this client PR back from it):
+- [ ] Relevant new/updated companion tests have a topic-branch PR targeting `client-testing/main` (or a parent test branch for a genuine stack), linked in both directions while this client PR is open; otherwise N/A with a reason (no companion PR required).
+- Companion PR URL and base; parent test PR if stacked (link this client PR back from it):
 - Test files, topic branch and commit IDs:
 - Tested client revision, commands, results and known baseline failures:
-- Required client PRs/features and readiness to merge tests after they reach main:
+- Required client PRs/features, readiness after focused validation on client main, and child retarget/rebase steps after a parent test PR merges:
 - Remaining actions and reminder: commit / push topic / open or link PR / review / wait for client dependencies and revalidate before merge / none / N/A with reason.
 
 ## Related Issues

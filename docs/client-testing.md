@@ -2,10 +2,12 @@
 
 Reusable regression tests belong in the GitHub repository
 [`Liberdus/client-testing`](https://github.com/Liberdus/client-testing).
-`codex/local-client-tests` is the shared review target, not a branch for direct
+`main` is the permanent shared review target, not a branch for direct
 feature commits. The GitHub organization does not prescribe a local directory
 layout. Keep client changes here and companion changes on a separate test topic
-branch. Commit them separately and link their PRs in both directions.
+branch. Commit them separately and link their PRs in both directions while the
+client PR is open. Preserve `codex/local-client-tests` as historical work only;
+do not use it as the base for new test changes.
 
 Create a companion branch and PR only when the client task needs new or updated
 companion tests. Running existing tests does not require a companion PR. For
@@ -52,11 +54,11 @@ do not overwrite an existing directory:
 
 ```bash
 export CLIENT_TESTING_ROOT=/absolute/path/chosen-for/client-testing
-git clone --branch codex/local-client-tests --single-branch \
+git clone --branch main --single-branch \
   https://github.com/Liberdus/client-testing.git "$CLIENT_TESTING_ROOT"
 ```
 
-The testing branch must be published before clone-based setup can work. Report
+The shared `main` branch must be available for clone-based setup. Report
 authentication, network or filesystem failures, or a missing remote branch;
 do not silently fall back to the default branch or claim tests were run.
 
@@ -67,11 +69,12 @@ repository was originally cloned with a different single branch:
 
 ```bash
 git -C "$CLIENT_TESTING_ROOT" fetch origin \
-  refs/heads/codex/local-client-tests:refs/remotes/origin/codex/local-client-tests
+  refs/heads/main:refs/remotes/origin/main
 ```
 
-If a local `codex/local-client-tests` branch has unpublished commits, report
-them and coordinate a separate review; do not publish them as part of this task.
+If a local `main` or historical `codex/local-client-tests` branch has unpublished
+commits, report them and coordinate a separate review; do not publish them as
+part of this task.
 For every new test change, create a topic branch and isolated worktree from the
 published shared branch, even if the existing checkout is clean and exclusively
 owned. Choose an unused task-specific branch name and a new absolute destination:
@@ -80,14 +83,22 @@ owned. Choose an unused task-specific branch name and a new absolute destination
 export CLIENT_TESTING_WORKTREE=/absolute/path/chosen-for/issue-tests
 git -C "$CLIENT_TESTING_ROOT" worktree add \
   -b codex/issue-number-tests "$CLIENT_TESTING_WORKTREE" \
-  origin/codex/local-client-tests
+  origin/main
 export CLIENT_TESTING_ROOT="$CLIENT_TESTING_WORKTREE"
 ```
 
-A checkout of `codex/local-client-tests` can be used for read-only baseline runs;
+A checkout of `main` can be used for read-only baseline runs;
 all edits belong on the topic branch. Reuse that task's topic checkout when
 updating its existing PR. Do not commit, merge, cherry-pick or push changes
 directly into the shared branch, or switch another agent's checkout.
+
+For a genuine stack of dependent test changes, a child topic branch may start
+from its published parent test branch and its PR may target that parent branch.
+Record the parent PR and the parent tip used as the child's base. After the
+parent merges, fetch `origin/main`, rebase only the child's commits onto it, and
+retarget the child PR to `main`. If the parent was squash-merged, use the recorded
+parent tip as the rebase boundary so its original commits are not replayed.
+Inspect the resulting diff to confirm it contains only the child test changes.
 
 Read the selected checkout's `AGENTS.md` and `local-tests/README.md` before
 adding tests or installing dependencies.
@@ -106,8 +117,9 @@ node "$CLIENT_TESTING_ROOT/local-tests/run.mjs" dao-timeline.test.mjs
 Replace the example filename with relevant suites from `local-tests/tests/`.
 Record the client revision (`git -C "$WEB_CLIENT_ROOT" rev-parse HEAD`), test
 branch/commit, command and result. Record any pre-existing failures before
-making changes; some preserved suites require particular client features. See
-the companion repository's `local-tests/REPAIRS.md` for the documented baseline.
+making changes; suites on test topic branches may require particular client
+features. See the companion repository's `local-tests/README.md` for its
+documented baseline and supported commands.
 
 When additional coverage is needed, add or update focused tests in
 `$CLIENT_TESTING_ROOT/local-tests/tests/`, using synthetic fixtures. Run the
@@ -118,10 +130,10 @@ validation when appropriate. The full default offline command is:
 node "$CLIENT_TESTING_ROOT/local-tests/run.mjs"
 ```
 
-Record both the companion revision and the exact client revision. A shared
-baseline may already contain historical or feature-specific failures; creating
-a topic branch does not repair them. Explain prerequisites or stale expectations
-without weakening tests or silently skipping failures to obtain a green run.
+Record both the companion revision and the exact client revision. Tests on a
+dependent topic branch may fail until its required client features are present.
+Explain prerequisites or stale expectations without weakening tests or silently
+skipping failures to obtain a green run.
 
 Report new regressions and known baseline failures separately. Keep generated
 reports, credentials, account data and browser profiles out of commits. Avoid
@@ -142,13 +154,15 @@ only task-owned changes. Commit on the topic branch, then publish that branch:
 git -C "$CLIENT_TESTING_ROOT" push --set-upstream origin codex/issue-number-tests
 ```
 
-Open a companion PR in `Liberdus/client-testing` with base
-`codex/local-client-tests`, not the repository's default branch. Keep the diff
+Open a companion PR in `Liberdus/client-testing` with base `main`, or its parent
+test branch for a genuine stack as described above. Keep the diff
 focused on the task. Review and merge through that PR; never bypass it with a
 local merge, cherry-pick or direct push to the shared branch.
 
-Link the companion PR in the `web-client-v2` PR and add a link back to the client
-PR in the companion description. In both, record the tested client and companion
+For an open `web-client-v2` PR, link the companion PR there and add a link back
+in the companion description. When migrating tests for an already merged client
+PR, link that existing PR from the companion PR only; do not edit the merged PR
+or create a replacement client PR. Record the tested client and companion
 commit IDs, exact commands/results, known baseline failures, and all required
 client PRs or features. A published topic branch preserves tests without making
 them part of the shared suite.
@@ -169,8 +183,8 @@ topic SHA survives a squash merge.
 When creating a PR, fill in the companion-test section of the PR template and
 include the same status in the handoff:
 
-- Companion PR URL with a link back to the client PR, test files, topic
-  branch/commit IDs, and the tested client revision.
+- Companion PR URL and base, parent test PR if stacked, a link back to the client
+  PR, test files, topic branch/commit IDs, and the tested client revision.
 - Exact commands, results and relevant baseline failures, or why companion
   coverage does not apply (for example, a documentation-only change).
 - The actual remaining steps: **commit**, **push the topic branch**, **open/link
