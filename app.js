@@ -38178,13 +38178,8 @@ class ThumbnailCache {
         resolve(this.db);
       };
 
-      request.onupgradeneeded = () => {
-        try {
-          this.upgradeStores(request.transaction);
-        } catch (error) {
-          console.warn('Failed to upgrade attachment caches:', error);
-          request.transaction.abort();
-        }
+      request.onupgradeneeded = (event) => {
+        this.runMigrations(request.transaction, event.oldVersion);
       };
     });
 
@@ -38192,30 +38187,105 @@ class ThumbnailCache {
   }
 
   /**
-   * Preserve ID-keyed stores and migrate URL-keyed stores in the upgrade transaction.
-   * @param {IDBTransaction} transaction
+   * Each entry upgrades the schema to its one-based version and calls done when finished.
+   * Continue synchronously or from an IndexedDB callback to keep the transaction active.
+   * @returns {Array<(transaction: IDBTransaction, done: () => void) => void>}
    */
-  upgradeStores(transaction) {
-    const db = transaction.db;
-    for (const storeName of [this.storeName, this.fullImageStoreName]) {
-      const existingStore = db.objectStoreNames.contains(storeName)
-        ? transaction.objectStore(storeName)
-        : null;
+  get migrations() {
+    return [this.migrateToVersion1, this.migrateToVersion2, this.migrateToVersion3];
+  }
 
-      if (existingStore?.keyPath === 'id') {
-        if (!existingStore.indexNames.contains('cachedAt')) {
-          existingStore.createIndex('cachedAt', 'cachedAt', { unique: false });
-        }
+  /**
+   * Run every required version in order within the same upgrade transaction.
+   * @param {IDBTransaction} transaction
+   * @param {number} oldVersion
+   */
+  runMigrations(transaction, oldVersion) {
+    const migrations = this.migrations;
+    let version = oldVersion;
+
+    const next = () => {
+      if (version >= transaction.db.version) return;
+      try {
+        const migration = migrations[version];
+        if (!migration) throw new Error(`Missing attachment cache migration to version ${version + 1}`);
+        version++;
+        migration.call(this, transaction, next);
+      } catch (error) {
+        console.warn('Failed to upgrade attachment caches:', error);
+        transaction.abort();
+      }
+    };
+    next();
+  }
+
+  /**
+   * Version 1 introduced URL-keyed thumbnails.
+   * @param {IDBTransaction} transaction
+   * @param {() => void} done
+   */
+  migrateToVersion1(transaction, done) {
+    const store = ThumbnailCache.ensureLegacyStore(transaction, this.storeName);
+    // Wait for schema requests before starting the next version.
+    store.count().onsuccess = done;
+  }
+
+  /**
+   * Version 2 added URL-keyed full images.
+   * @param {IDBTransaction} transaction
+   * @param {() => void} done
+   */
+  migrateToVersion2(transaction, done) {
+    const store = ThumbnailCache.ensureLegacyStore(transaction, this.fullImageStoreName);
+    store.count().onsuccess = done;
+  }
+
+  /**
+   * Version 3 preserves ID-keyed stores and converts URL keys to attachment IDs.
+   * @param {IDBTransaction} transaction
+   * @param {() => void} done
+   */
+  migrateToVersion3(transaction, done) {
+    const db = transaction.db;
+    const storeNames = [this.storeName, this.fullImageStoreName];
+    let remaining = storeNames.length;
+    const storeFinished = () => {
+      remaining--;
+      if (remaining === 0) done();
+    };
+
+    for (const storeName of storeNames) {
+      const source = ThumbnailCache.ensureLegacyStore(transaction, storeName);
+      if (source.keyPath === 'id') {
+        source.count().onsuccess = storeFinished;
         continue;
       }
-      if (existingStore && existingStore.keyPath !== 'url') {
-        throw new Error(`Unsupported attachment cache key path: ${storeName}`);
-      }
 
-      const store = db.createObjectStore(existingStore ? `${storeName}_ids` : storeName, { keyPath: 'id' });
+      const store = db.createObjectStore(`${storeName}_ids`, { keyPath: 'id' });
       store.createIndex('cachedAt', 'cachedAt', { unique: false });
-      if (existingStore) ThumbnailCache.migrateStore(existingStore, store);
+      ThumbnailCache.migrateStore(source, store, storeFinished);
     }
+  }
+
+  /**
+   * Create missing historical stores while preserving and validating existing schemas.
+   * @param {IDBTransaction} transaction
+   * @param {string} storeName
+   * @returns {IDBObjectStore}
+   */
+  static ensureLegacyStore(transaction, storeName) {
+    const db = transaction.db;
+    const store = db.objectStoreNames.contains(storeName)
+      ? transaction.objectStore(storeName)
+      : db.createObjectStore(storeName, { keyPath: 'url' });
+
+    if (store.keyPath !== 'url' && store.keyPath !== 'id') {
+      throw new Error(`Unsupported attachment cache key path: ${storeName}`);
+    }
+    if (!store.indexNames.contains('cachedAt')) {
+      store.createIndex('cachedAt', 'cachedAt', { unique: false });
+    }
+    return store;
   }
 
   /**
@@ -38223,8 +38293,9 @@ class ThumbnailCache {
    * Keep the newest timestamp when hostname aliases resolve to the same ID.
    * @param {IDBObjectStore} source
    * @param {IDBObjectStore} destination
+   * @param {() => void} done
    */
-  static migrateStore(source, destination) {
+  static migrateStore(source, destination, done) {
     const request = source.openCursor();
     request.onsuccess = () => {
       const cursor = request.result;
@@ -38233,6 +38304,7 @@ class ThumbnailCache {
         const storeName = source.name;
         source.transaction.db.deleteObjectStore(storeName);
         destination.name = storeName;
+        done();
         return;
       }
 
