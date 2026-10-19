@@ -14,6 +14,17 @@ companion tests. Running existing tests does not require a companion PR. For
 documentation-only work or changes already covered by existing tests, report
 the validation performed and mark companion changes N/A with a reason.
 
+**Temporary migration:** the shared `local-tests` runner will be available on
+`client-testing/main` after [foundation PR #90](https://github.com/Liberdus/client-testing/pull/90)
+merges. Keep all `client-testing` PRs unmerged until all `web-client-v2` PRs have
+merged, including the workflow documentation PR. This guide can therefore merge
+before the foundation. Until then, run existing foundation tests from an isolated,
+read-only checkout of the published `codex/offline-test-foundation` branch, or
+explicitly report the shared runner as unavailable. Fetch that topic branch
+explicitly and record its selected branch and exact commit alongside the client
+revision; do not describe it as integrated on `main` or silently fall back to
+`codex/local-client-tests`.
+
 ## Find or clone the companion repository
 
 Start from the implementation checkout, including when it is a Git worktree:
