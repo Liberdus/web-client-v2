@@ -14281,6 +14281,8 @@ function sibling(x, leafWidth2) {
 }
 function directPath(nodeIndex, leafWidth2) {
   const r = root(leafWidth2);
+  if (nodeIndex < 0 || nodeIndex > 2 * r)
+    throw new InternalError("Node index is outside the tree");
   if (nodeIndex === r)
     return [];
   const d = [];

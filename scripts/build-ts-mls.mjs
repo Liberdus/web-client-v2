@@ -142,6 +142,35 @@ const rfc9420UpdatePath = {
   },
 };
 
+/**
+ * Reject a path outside the root's subtree before walking it. Removing the
+ * last leaf shrinks the tree; the removed member's retained leaf can then sit
+ * beyond the new root. Upstream directPath keeps climbing and growing its
+ * array forever instead of rejecting that state. The existing leave-effective
+ * test exercises this case without changing the adversarial removal check.
+ */
+class MlsTreeMathPatch {
+  name = 'bounded-mls-tree-path';
+
+  setup(builder) {
+    builder.onLoad({ filter: /ts-mls[\\/]dist[\\/]src[\\/]treemath\.js$/ }, (args) => MlsTreeMathPatch.load(args));
+  }
+
+  static async load(args) {
+    const source = await fs.promises.readFile(args.path, 'utf8');
+    const from = 'export function directPath(nodeIndex, leafWidth) {\n    const r = root(leafWidth);';
+    const to = `${from}
+    if (nodeIndex < 0 || nodeIndex > 2 * r)
+        throw new InternalError("Node index is outside the tree");`;
+    if (source.split(from).length !== 2) {
+      throw new Error(
+        'build-ts-mls: directPath patch target changed; re-check tree bounds and run test/leave-effective.mjs.',
+      );
+    }
+    return { contents: source.replace(from, to), loader: 'js' };
+  }
+}
+
 const result = await build({
   entryPoints: [entry],
   bundle: true,
@@ -163,7 +192,7 @@ const result = await build({
   // Keep upstream license headers rather than stripping them.
   legalComments: 'inline',
   metafile: true,
-  plugins: [rfc9420UpdatePath],
+  plugins: [rfc9420UpdatePath, new MlsTreeMathPatch()],
   logLevel: 'error',
 });
 
