@@ -38178,18 +38178,82 @@ class ThumbnailCache {
         resolve(this.db);
       };
 
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        // Discard URL-keyed caches on upgrade; backups are normalized on import.
-        for (const storeName of [this.storeName, this.fullImageStoreName]) {
-          if (db.objectStoreNames.contains(storeName)) db.deleteObjectStore(storeName);
-          const store = db.createObjectStore(storeName, { keyPath: 'id' });
-          store.createIndex('cachedAt', 'cachedAt', { unique: false });
+      request.onupgradeneeded = () => {
+        try {
+          this.upgradeStores(request.transaction);
+        } catch (error) {
+          console.warn('Failed to upgrade attachment caches:', error);
+          request.transaction.abort();
         }
       };
     });
 
     return this.openPromise;
+  }
+
+  /**
+   * Preserve ID-keyed stores and migrate URL-keyed stores in the upgrade transaction.
+   * @param {IDBTransaction} transaction
+   */
+  upgradeStores(transaction) {
+    const db = transaction.db;
+    for (const storeName of [this.storeName, this.fullImageStoreName]) {
+      const existingStore = db.objectStoreNames.contains(storeName)
+        ? transaction.objectStore(storeName)
+        : null;
+
+      if (existingStore?.keyPath === 'id') {
+        if (!existingStore.indexNames.contains('cachedAt')) {
+          existingStore.createIndex('cachedAt', 'cachedAt', { unique: false });
+        }
+        continue;
+      }
+      if (existingStore && existingStore.keyPath !== 'url') {
+        throw new Error(`Unsupported attachment cache key path: ${storeName}`);
+      }
+
+      const store = db.createObjectStore(existingStore ? `${storeName}_ids` : storeName, { keyPath: 'id' });
+      store.createIndex('cachedAt', 'cachedAt', { unique: false });
+      if (existingStore) ThumbnailCache.migrateStore(existingStore, store);
+    }
+  }
+
+  /**
+   * Copy legacy records without loading all cached blobs into memory.
+   * Keep the newest timestamp when hostname aliases resolve to the same ID.
+   * @param {IDBObjectStore} source
+   * @param {IDBObjectStore} destination
+   */
+  static migrateStore(source, destination) {
+    const request = source.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) {
+        // Swap stores only after copying; an aborted upgrade restores the original.
+        const storeName = source.name;
+        source.transaction.db.deleteObjectStore(storeName);
+        destination.name = storeName;
+        return;
+      }
+
+      const { url, ...record } = cursor.value;
+      let id;
+      try {
+        id = ThumbnailCache.getAttachmentId(url);
+      } catch (error) {
+        console.warn('Failed to migrate cached attachment:', error);
+        source.transaction.abort();
+        return;
+      }
+
+      const existing = destination.get(id);
+      existing.onsuccess = () => {
+        if (!existing.result || record.cachedAt > existing.result.cachedAt) {
+          destination.put({ ...record, id });
+        }
+        cursor.continue();
+      };
+    };
   }
 
   /**
