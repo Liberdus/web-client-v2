@@ -24990,7 +24990,7 @@ class ChatModal {
 
   /**
    * Resolves image metadata from the backing message record.
-   * The attachment URL is the cache identity; filenames are export metadata only.
+   * The URL is used for fetching; caches derive a hostname-independent attachment ID.
    * @param {Object} item - message containing the attachment metadata
    * @param {HTMLElement} linkEl - rendered attachment row
    * @returns {{url: string, type: string}}
@@ -38107,10 +38107,29 @@ class ThumbnailCache {
     this.dbName = 'liberdus_thumbnails';
     this.storeName = 'thumbnails';
     this.fullImageStoreName = 'fullImages';
-    this.dbVersion = 2;
+    this.dbVersion = 3;
     this.db = null;
     this.openPromise = null;
     this.maxCacheSize = 50 * 1024 * 1024; // 50MB in bytes
+  }
+
+  /**
+   * Resolve a shared attachment-storage ID from a fetch URL or a backup key.
+   * @param {string} urlOrId - HTTP(S) /get/{id} URL or an exported attachment ID
+   * @returns {string} Attachment ID, independent of hostname, scheme, and port
+   */
+  static getAttachmentId(urlOrId) {
+    if (typeof urlOrId !== 'string' || !urlOrId) {
+      throw new Error('Missing attachment URL or ID');
+    }
+    if (/^[^/:?#\s]+$/.test(urlOrId)) return urlOrId;
+
+    const url = new URL(urlOrId);
+    const match = url.pathname.match(/^\/get\/([^/]+)\/?$/);
+    if (!/^https?:$/.test(url.protocol) || !match) {
+      throw new Error('Invalid attachment URL');
+    }
+    return match[1];
   }
 
   /**
@@ -38161,14 +38180,10 @@ class ThumbnailCache {
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        // Create object store if it doesn't exist
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          const store = db.createObjectStore(this.storeName, { keyPath: 'url' });
-          store.createIndex('cachedAt', 'cachedAt', { unique: false });
-        }
-
-        if (!db.objectStoreNames.contains(this.fullImageStoreName)) {
-          const store = db.createObjectStore(this.fullImageStoreName, { keyPath: 'url' });
+        // Discard URL-keyed caches on upgrade; backups are normalized on import.
+        for (const storeName of [this.storeName, this.fullImageStoreName]) {
+          if (db.objectStoreNames.contains(storeName)) db.deleteObjectStore(storeName);
+          const store = db.createObjectStore(storeName, { keyPath: 'id' });
           store.createIndex('cachedAt', 'cachedAt', { unique: false });
         }
       };
@@ -38377,12 +38392,13 @@ class ThumbnailCache {
 
   /**
    * Save a thumbnail to IndexedDB
-   * @param {string} attachmentUrl - The attachment URL (used as key)
+   * @param {string} attachmentUrl - The attachment URL or exported attachment ID
    * @param {Blob} thumbnailBlob - The thumbnail blob to store
    * @param {string} originalType - Original MIME type
    * @returns {Promise<void>}
    */
   async save(attachmentUrl, thumbnailBlob, originalType) {
+    const id = ThumbnailCache.getAttachmentId(attachmentUrl);
     if (!this.db) {
       await this.init();
     }
@@ -38401,7 +38417,7 @@ class ThumbnailCache {
       const store = tx.objectStore(this.storeName);
 
       const data = {
-        url: attachmentUrl,
+        id,
         thumbnail: thumbnailBlob,
         originalType: originalType,
         cachedAt: Date.now()
@@ -38422,10 +38438,11 @@ class ThumbnailCache {
 
   /**
    * Retrieve a cached thumbnail from IndexedDB
-   * @param {string} attachmentUrl - The attachment URL
+   * @param {string} attachmentUrl - The attachment URL or exported attachment ID
    * @returns {Promise<Blob|null>} The thumbnail blob or null if not found
    */
   async get(attachmentUrl) {
+    const id = ThumbnailCache.getAttachmentId(attachmentUrl);
     if (!this.db) {
       await this.init();
     }
@@ -38433,7 +38450,7 @@ class ThumbnailCache {
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction([this.storeName], 'readonly');
       const store = tx.objectStore(this.storeName);
-      const request = store.get(attachmentUrl);
+      const request = store.get(id);
 
       request.onsuccess = () => {
         const result = request.result;
@@ -38453,11 +38470,12 @@ class ThumbnailCache {
 
   /**
    * Delete a cached thumbnail from IndexedDB
-   * @param {string} attachmentUrl - The attachment URL (key)
+   * @param {string} attachmentUrl - The attachment URL or exported attachment ID
    * @returns {Promise<void>}
    */
   async delete(attachmentUrl) {
     if (!attachmentUrl) return;
+    const id = ThumbnailCache.getAttachmentId(attachmentUrl);
     if (!this.db) {
       await this.init();
     }
@@ -38465,7 +38483,7 @@ class ThumbnailCache {
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction([this.storeName], 'readwrite');
       const store = tx.objectStore(this.storeName);
-      const request = store.delete(attachmentUrl);
+      const request = store.delete(id);
 
       request.onsuccess = () => resolve();
 
@@ -38478,7 +38496,7 @@ class ThumbnailCache {
 
   /**
    * Export all thumbnails as an object with base64-encoded data
-   * @returns {Promise<Object>} Object mapping url to { data: base64, type: mimeType, originalType: string }
+   * @returns {Promise<Object>} Object mapping attachment ID to { data: base64, type: mimeType, originalType: string }
    */
   async exportAll() {
     if (!this.db) {
@@ -38492,20 +38510,20 @@ class ThumbnailCache {
 
       request.onsuccess = async () => {
         const results = request.result;
-        const thumbnails = {};
+        const thumbnails = Object.create(null);
 
         for (const item of results) {
-          if (item.url && item.thumbnail) {
+          if (item.id && item.thumbnail) {
             try {
               // Convert blob to base64
               const base64 = await this.blobToBase64(item.thumbnail);
-              thumbnails[item.url] = {
+              thumbnails[item.id] = {
                 data: base64,
                 type: item.thumbnail.type || 'image/jpeg',
                 originalType: item.originalType || 'image/jpeg'
               };
             } catch (e) {
-              console.warn(`Failed to export thumbnail for ${item.url}:`, e);
+              console.warn(`Failed to export thumbnail for ${item.id}:`, e);
             }
           }
         }
@@ -38522,7 +38540,7 @@ class ThumbnailCache {
 
   /**
    * Import thumbnails from exported data
-   * @param {Object} thumbnailsData - Object mapping url to { data: base64, type: mimeType, originalType: string }
+   * @param {Object} thumbnailsData - Object mapping attachment IDs or legacy URLs to { data: base64, type: mimeType, originalType: string }
    * @param {boolean} overwrite - Whether to overwrite existing thumbnails
    * @returns {Promise<number>} Number of thumbnails imported
    */
@@ -38537,22 +38555,22 @@ class ThumbnailCache {
 
     let importedCount = 0;
 
-    for (const [url, thumbInfo] of Object.entries(thumbnailsData)) {
+    for (const [urlOrId, thumbInfo] of Object.entries(thumbnailsData)) {
       if (!thumbInfo || !thumbInfo.data) continue;
 
       try {
         // Check if thumbnail already exists
         if (!overwrite) {
-          const existing = await this.get(url);
+          const existing = await this.get(urlOrId);
           if (existing) continue;
         }
 
         // Convert base64 back to blob
         const blob = this.base64ToBlob(thumbInfo.data, thumbInfo.type || 'image/jpeg');
-        await this.save(url, blob, thumbInfo.originalType || thumbInfo.type || 'image/jpeg');
+        await this.save(urlOrId, blob, thumbInfo.originalType || thumbInfo.type || 'image/jpeg');
         importedCount++;
       } catch (e) {
-        console.warn(`Failed to import thumbnail for ${url}:`, e);
+        console.warn(`Failed to import thumbnail for ${urlOrId}:`, e);
       }
     }
 
@@ -39332,10 +39350,11 @@ class FullImageCache {
   }
 
   async getRecord(attachmentUrl) {
+    const id = ThumbnailCache.getAttachmentId(attachmentUrl);
     const db = await this.database.init();
     const transaction = db.transaction(this.database.fullImageStoreName, 'readonly');
     const store = transaction.objectStore(this.database.fullImageStoreName);
-    return this.getRequestResult(store.get(attachmentUrl));
+    return this.getRequestResult(store.get(id));
   }
 
   async getCacheSize() {
@@ -39354,6 +39373,7 @@ class FullImageCache {
     if (!(blob instanceof Blob)) throw new Error('Full-image cache requires a Blob');
     if (blob.size > this.maxCacheSize) return false;
 
+    const id = ThumbnailCache.getAttachmentId(attachmentUrl);
     const db = await this.database.init();
     if (shouldCache && !shouldCache()) return false;
 
@@ -39370,10 +39390,10 @@ class FullImageCache {
       if (cursor) {
         const recordSize = Number(cursor.value?.size || 0);
         currentSize += recordSize;
-        if (cursor.value?.url === attachmentUrl) {
+        if (cursor.primaryKey === id) {
           existingSize = recordSize;
         } else {
-          evictionCandidates.push({ url: cursor.primaryKey, size: recordSize });
+          evictionCandidates.push({ id: cursor.primaryKey, size: recordSize });
         }
         cursor.continue();
         return;
@@ -39382,12 +39402,12 @@ class FullImageCache {
       let bytesToFree = Math.max(0, currentSize - existingSize + blob.size - this.maxCacheSize);
       for (const record of evictionCandidates) {
         if (bytesToFree <= 0) break;
-        store.delete(record.url);
+        store.delete(record.id);
         bytesToFree -= record.size;
       }
 
       store.put({
-        url: attachmentUrl,
+        id,
         mimeType,
         size: blob.size,
         blob,
@@ -39400,9 +39420,10 @@ class FullImageCache {
   }
 
   async delete(attachmentUrl) {
+    const id = ThumbnailCache.getAttachmentId(attachmentUrl);
     const db = await this.database.init();
     const transaction = db.transaction(this.database.fullImageStoreName, 'readwrite');
-    transaction.objectStore(this.database.fullImageStoreName).delete(attachmentUrl);
+    transaction.objectStore(this.database.fullImageStoreName).delete(id);
     await this.waitForTransaction(transaction);
   }
 
