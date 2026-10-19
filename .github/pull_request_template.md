@@ -38,10 +38,12 @@ that could not run and the concrete reason; do not imply unrun checks passed. --
 
 ## Companion regression tests
 
-- [ ] Companion-test status is recorded below, including pending actions or N/A with a reason.
-- Test files, branch and commit IDs:
-- Tested client revision, commands and results:
-- Remaining actions and reminder: commit / integrate into `codex/local-client-tests` / push / none / N/A with reason.
+- [ ] Companion changes have a topic-branch PR targeting `codex/local-client-tests`, linked in both directions, or N/A with a reason.
+- Companion PR URL (link this client PR back from it):
+- Test files, topic branch and commit IDs:
+- Tested client revision, commands, results and known baseline failures:
+- Required client PRs/features and readiness to merge tests after they reach main:
+- Remaining actions and reminder: commit / push topic / open or link PR / review / wait for client dependencies and revalidate before merge / none / N/A with reason.
 
 ## Related Issues
 
