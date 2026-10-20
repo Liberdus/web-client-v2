@@ -33,12 +33,15 @@ as safety nets when appropriate. Avoid repeating the change list.
 
 ## Validation
 
-<!-- List exact commands that actually ran and their results. State any checks
-that could not run and the concrete reason; do not imply unrun checks passed. -->
+<!-- Keep validation proportional. Prefer behavior checks and reuse existing
+automated runners/CI. For bug fixes, report failure before the fix and success
+afterward when practical, or explain the limitation. List exact commands that
+actually ran and their results; identify manual checks and unrun checks with
+the concrete reason. -->
 
 ## Companion regression tests
 
-- [ ] Relevant new/updated companion tests have a topic-branch PR targeting `client-testing/main` (or a parent test branch for a genuine stack), linked in both directions while this client PR is open; otherwise N/A with a reason (no companion PR required).
+- [ ] Companion changes have a linked topic-branch PR, or N/A with a reason.
 - Companion PR URL and base; parent test PR if stacked (link this client PR back from it):
 - Test files, topic branch and commit IDs:
 - Tested client revision, commands, results and known baseline failures:

@@ -6,24 +6,16 @@ Reusable regression tests belong in the GitHub repository
 feature commits. The GitHub organization does not prescribe a local directory
 layout. Keep client changes here and companion changes on a separate test topic
 branch. Commit them separately and link their PRs in both directions while the
-client PR is open. Preserve `codex/local-client-tests` as historical work only;
-do not use it as the base for new test changes.
+client PR is open.
 
 Create a companion branch and PR only when the client task needs new or updated
 companion tests. Running existing tests does not require a companion PR. For
 documentation-only work or changes already covered by existing tests, report
 the validation performed and mark companion changes N/A with a reason.
 
-**Temporary migration:** the shared `local-tests` runner will be available on
-`client-testing/main` after [foundation PR #90](https://github.com/Liberdus/client-testing/pull/90)
-merges. Keep all `client-testing` PRs unmerged until all `web-client-v2` PRs have
-merged, including the workflow documentation PR. This guide can therefore merge
-before the foundation. Until then, run existing foundation tests from an isolated,
-read-only checkout of the published `codex/offline-test-foundation` branch, or
-explicitly report the shared runner as unavailable. Fetch that topic branch
-explicitly and record its selected branch and exact commit alongside the client
-revision; do not describe it as integrated on `main` or silently fall back to
-`codex/local-client-tests`.
+If the published shared branch lacks the required runner or instructions,
+report setup as unavailable. Do not silently select another branch or claim
+validation passed.
 
 ## Find or clone the companion repository
 
@@ -83,9 +75,8 @@ git -C "$CLIENT_TESTING_ROOT" fetch origin \
   refs/heads/main:refs/remotes/origin/main
 ```
 
-If a local `main` or historical `codex/local-client-tests` branch has unpublished
-commits, report them and coordinate a separate review; do not publish them as
-part of this task.
+If an existing checkout has unrelated unpublished commits, report them and
+coordinate a separate review; do not publish them as part of this task.
 For every new test change, create a topic branch and isolated worktree from the
 published shared branch, even if the existing checkout is clean and exclusively
 owned. Choose an unused task-specific branch name and a new absolute destination:
@@ -116,6 +107,20 @@ adding tests or installing dependencies.
 
 ## Run and extend regression coverage
 
+Keep validation proportional to the task:
+
+- **Scope:** start with relevant existing tests and broaden checks according to
+  the changed behavior and risk. Existing coverage can be sufficient; new test
+  changes and a companion PR are only needed when coverage needs updating.
+- **Behavior:** prefer tests of inputs, outputs, UI state and side effects over
+  source-text assertions or other implementation details.
+- **Regression proof:** for bug fixes, run the focused regression before and
+  after the fix when practical, showing failure followed by success. Record any
+  limitation that prevents that comparison.
+- **Repeatability:** reuse existing automated runners and CI checks for routine
+  validation. Record exact commands and results; identify manual checks and
+  automation gaps without adding new CI work to every task.
+
 Use Node.js 20.19 or newer. The offline runner uses synthetic fixtures and needs
 no live account. With `WEB_CLIENT_ROOT` still pointing to the implementation
 checkout, run relevant existing tests before changing behavior:
@@ -134,8 +139,7 @@ documented baseline and supported commands.
 
 When additional coverage is needed, add or update focused tests in
 `$CLIENT_TESTING_ROOT/local-tests/tests/`, using synthetic fixtures. Run the
-focused tests after implementation and broaden
-validation when appropriate. The full default offline command is:
+focused tests after implementation. The full default offline command is:
 
 ```bash
 node "$CLIENT_TESTING_ROOT/local-tests/run.mjs"
@@ -171,8 +175,8 @@ focused on the task. Review and merge through that PR; never bypass it with a
 local merge, cherry-pick or direct push to the shared branch.
 
 For an open `web-client-v2` PR, link the companion PR there and add a link back
-in the companion description. When migrating tests for an already merged client
-PR, link that existing PR from the companion PR only; do not edit the merged PR
+in the companion description. For an already merged client PR, link that PR
+from the companion PR only; do not edit the merged PR
 or create a replacement client PR. Record the tested client and companion
 commit IDs, exact commands/results, known baseline failures, and all required
 client PRs or features. A published topic branch preserves tests without making

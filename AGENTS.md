@@ -22,8 +22,11 @@ local checkout can live anywhere.
 - Keep reusable tests committed on a task-specific `client-testing` branch;
   avoid new ignored test directories here. Commit client and companion changes
   separately. Do not commit, merge, cherry-pick or push changes directly into
-  `main`; use a reviewed companion PR even when working alone. Preserve
-  `codex/local-client-tests` as historical work; do not use it as a new test base.
+  `main`; use a reviewed companion PR even when working alone.
+- Keep validation proportional to the change and risk. Prefer observable behavior
+  over source-text assertions; for bug fixes, demonstrate failure before the fix
+  and success afterward when practical. Reuse existing automated runners and CI,
+  and report limitations instead of adding unnecessary process.
 - Preserve other agents' branches and local work. Create an isolated companion
   topic worktree from the published shared branch for test changes. Do not
   switch a shared checkout's branch while another agent is using it.
@@ -35,7 +38,7 @@ local checkout can live anywhere.
   files, branch/commit IDs, tested client revision, commands, results and known
   baseline failures. If no companion test changes are needed, report N/A with a
   reason; do not create a companion PR solely because a client PR exists.
-- When migrating tests for an already merged client PR, link that PR from the
+- For tests covering an already merged client PR, link that PR from the
   companion PR only. Do not edit the merged client PR or create a replacement.
 - Keep tests requiring unmerged client features on their companion PR branch.
   Before merging changed tests into the shared branch, confirm every required
