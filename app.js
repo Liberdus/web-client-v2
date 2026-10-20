@@ -507,7 +507,8 @@ function newDataRecord(myAccount) {
     chats: [],
     wallet: {
       networth: 0.0,
-      timestamp: 0, // last balance update timestamp
+      timestamp: 0, // balance refresh throttle
+      balanceUpdatedAt: 0, // last complete successful balance refresh
       priceTimestamp: 0, // last time when prices were updated
       assets: [
         {
@@ -554,6 +555,7 @@ function clearMyData() {
   chatModal.resetPendingMessageConfirmations();
   myData = null;
   myAccount = null;
+  walletScreen.reset();
   stopEvmPaymentChecks();
   evmAssets.reset();
   sendAssetFormModal.reset();
@@ -2204,6 +2206,8 @@ class WalletScreen {
   constructor() {
     this.firstTimeLoad = true;
     this.isFaucetRequestInProgress = false;
+    this.balanceUpdatedTimer = null;
+    this.balanceRefreshId = 0;
   }
 
   load() {
@@ -2211,6 +2215,7 @@ class WalletScreen {
     this.screen = document.getElementById('walletScreen');
     // balance elements
     this.refreshBalanceButton = document.getElementById('refreshBalance');
+    this.balanceUpdatedLabel = document.getElementById('walletBalanceUpdated');
     // assets list
     this.assetsList = document.getElementById('assetsList');
     // action buttons
@@ -2294,6 +2299,7 @@ class WalletScreen {
 
   open() {
     this.screen.classList.add('active');
+    this.startBalanceUpdatedTimer();
     // Show testnet warning toast once per account (first-time tip).
     if (!this.isMainnet() && !checkFirstTimeTip('testnetWarning')) {
       showToast('The LIB in this Testnet is not of any value and will not be transferred to the Mainnet.', 0, 'info');
@@ -2303,6 +2309,14 @@ class WalletScreen {
 
   close() {
     this.screen.classList.remove('active');
+    this.stopBalanceUpdatedTimer();
+  }
+
+  reset() {
+    this.stopBalanceUpdatedTimer();
+    this.balanceRefreshId++;
+    this.firstTimeLoad = true;
+    this.updateBalanceUpdatedAt();
   }
 
   isActive() {
@@ -2318,9 +2332,54 @@ class WalletScreen {
     return (myData?.wallet?.assets || []).find((asset) => isLibAsset(asset)) || null;
   }
 
+  isCurrentWallet(account, wallet) {
+    return Boolean(account && wallet && myAccount === account && myData?.wallet === wallet);
+  }
+
+  getBalanceUpdatedText(timestamp, now = getCorrectedTimestamp()) {
+    if (!Number.isFinite(timestamp) || timestamp <= 0 || !Number.isFinite(new Date(timestamp).getTime())) {
+      return 'Not updated yet';
+    }
+    const minutes = Math.max(0, Math.floor((now - timestamp) / 60000));
+    if (minutes === 0) return 'LIB updated just now';
+    if (minutes < 60) return `LIB updated ${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `LIB updated ${hours}h ago`;
+    return `LIB updated ${Math.floor(hours / 24)}d ago`;
+  }
+
+  updateBalanceUpdatedAt() {
+    if (!this.balanceUpdatedLabel) return;
+    const timestamp = myData?.wallet?.balanceUpdatedAt;
+    const text = this.getBalanceUpdatedText(timestamp);
+    this.balanceUpdatedLabel.textContent = text;
+    if (text === 'Not updated yet') {
+      this.balanceUpdatedLabel.removeAttribute('datetime');
+      this.balanceUpdatedLabel.removeAttribute('title');
+      return;
+    }
+    const date = new Date(timestamp);
+    this.balanceUpdatedLabel.setAttribute('datetime', date.toISOString());
+    this.balanceUpdatedLabel.title = `LIB balance updated ${date.toLocaleString()}`;
+  }
+
+  startBalanceUpdatedTimer() {
+    this.updateBalanceUpdatedAt();
+    if (this.balanceUpdatedTimer !== null) return;
+    this.balanceUpdatedTimer = setInterval(() => this.updateBalanceUpdatedAt(), 30000);
+  }
+
+  stopBalanceUpdatedTimer() {
+    if (this.balanceUpdatedTimer === null) return;
+    clearInterval(this.balanceUpdatedTimer);
+    this.balanceUpdatedTimer = null;
+  }
+
   // Update wallet view; refresh wallet
   async updateWalletView() {
-    const walletData = myData.wallet;
+    const account = myAccount;
+    const walletData = myData?.wallet;
+    if (!this.isCurrentWallet(account, walletData)) return;
 
     // Show loading toast if we're about to fetch fresh data
     let loadingToastId = null;
@@ -2341,6 +2400,9 @@ class WalletScreen {
       }
     }
 
+    if (!this.isCurrentWallet(account, walletData)) return;
+    this.updateBalanceUpdatedAt();
+
     // Refresh external asset summaries without blocking the native balance.
     multichain.updateSummary({ refresh: true }).catch(() => {});
     evmAssets.refresh().catch(() => {});
@@ -2349,7 +2411,7 @@ class WalletScreen {
     walletData.networth = walletUsdValue ?? 0.0;
 
     if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
-      this.assetsList.querySelector('.empty-state').style.display = 'block';
+      this.assetsList.innerHTML = '<div class="empty-state"><div></div><div>No Assets Yet</div><div>Your assets will appear here</div></div>';
       return;
     }
 
@@ -2357,84 +2419,81 @@ class WalletScreen {
       .map((asset) => {
         const assetUsdPrice = getAssetUsdPrice(asset);
         const assetNetworth = calculateAssetUsdValue(asset);
-        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)} / ${asset.symbol}`;
-        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toFixed(6)}`;
+        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)}`;
+        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const [whole, fraction] = formatDisplayAmount(big2str(asset.balance, 18), 6).split('.');
+        const assetQuantityText = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '');
         return `
               <div class="asset-item">
                   <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
                   <div class="asset-info">
-                      <div class="asset-name">${asset.name}</div>
-                      <div class="asset-symbol">${assetPriceText}</div>
+                      <div class="asset-name">${escapeHtml(asset.name)}</div>
+                      <div class="asset-symbol">1 ${escapeHtml(asset.symbol)} = ${assetPriceText}</div>
                   </div>
-                  <div class="asset-balance">${(Number(asset.balance) / Number(wei)).toFixed(6)}<br><span class="asset-symbol">${assetNetworthText}</span></div>
+                  <div class="asset-balance"><span class="wallet-native-quantity">${assetQuantityText} ${escapeHtml(asset.symbol)}</span><span class="wallet-native-usd">${assetNetworthText}</span></div>
               </div>
           `;
       })
       .join('');
-    this.assetsList.querySelector('.asset-item').appendChild(this.refreshBalanceButton);
   }
 
   // refresh wallet balance
   async updateWalletBalances() {
-    if (!myAccount || !myData || !myData.wallet || !myData.wallet.assets) {
+    const account = myAccount;
+    const wallet = myData?.wallet;
+    if (!account || !Array.isArray(wallet?.assets)) {
       console.error('No wallet data available');
       return;
     }
 
     await updateAssetPricesIfNeeded();
+    if (!this.isCurrentWallet(account, wallet)) return;
     if (!isOnline) {
       console.warn('Not online. Not updating wallet balances');
       return;
     }
 
     const now = getCorrectedTimestamp();
-    if (!myData.wallet.timestamp) {
-      myData.wallet.timestamp = 0;
-    }
-    if (now - myData.wallet.timestamp < 5000) {
+    if (now - (wallet.timestamp || 0) < 5000) {
       return;
     }
-
-    let totalWalletNetworth = 0.0;
-    let failedToGetBalance = false;
-    // Update balances for each asset and address
-    for (const asset of myData.wallet.assets) {
-      let assetTotalBalance = 0n;
-
-      // Get balance for each address in the asset
-      for (const addr of asset.addresses) {
-        try {
+    const refreshId = ++this.balanceRefreshId;
+    const assets = wallet.assets;
+    const updates = [];
+    try {
+      for (const asset of assets) {
+        if (!Array.isArray(asset.addresses) || asset.addresses.length === 0) continue;
+        let balance = 0n;
+        const addresses = [];
+        for (const addr of asset.addresses) {
           const address = longAddress(addr.address);
           const data = await queryNetwork(`/account/${address}/balance`);
-          if (!data) {
-            failedToGetBalance = true;
-            console.error(`Error fetching balance for address ${addr.address}:`, data);
-            continue;
+          if (!this.isCurrentWallet(account, wallet) || wallet.assets !== assets || refreshId !== this.balanceRefreshId) return;
+          if (typeof data?.balance !== 'bigint' || data.balance < 0n) {
+            throw new Error('Balance response is missing a valid nonnegative balance');
           }
-          if (data?.balance !== undefined) {
-            // Update address balance
-            addr.balance = data.balance;
-          }
-          assetTotalBalance += addr.balance;
-        } catch (error) {
-          console.error(`Error fetching balance for address ${addr.address}:`, error);
+          addresses.push({ address: addr, balance: data.balance });
+          balance += data.balance;
         }
+        updates.push({ asset, balance, addresses });
       }
-      asset.balance = assetTotalBalance;
-      asset.networth = calculateAssetUsdValue(asset) ?? 0.0;
-
-      // Add this asset's total to wallet total
-      totalWalletNetworth += asset.networth;
-    }
-
-    if (failedToGetBalance) {
+    } catch (error) {
+      if (!this.isCurrentWallet(account, wallet) || refreshId !== this.balanceRefreshId) return;
       showToast(`Error fetching balance. Try again later.`, 0, 'error');
-      console.error('Failed to get balance for some addresses');
+      console.error('Failed to update wallet balances:', error);
+      return;
     }
-
-    // Update total wallet balance
-    myData.wallet.networth = totalWalletNetworth;
-    myData.wallet.timestamp = now;
+    if (updates.length === 0 || !this.isCurrentWallet(account, wallet) || wallet.assets !== assets) return;
+    // Commit only a complete refresh so failed requests cannot erase cached balances.
+    for (const { asset, balance, addresses } of updates) {
+      for (const update of addresses) update.address.balance = update.balance;
+      asset.balance = balance;
+      asset.networth = calculateAssetUsdValue(asset) ?? 0.0;
+    }
+    wallet.networth = calculateWalletUsdValue(assets) ?? 0.0;
+    wallet.timestamp = getCorrectedTimestamp();
+    wallet.balanceUpdatedAt = wallet.timestamp;
+    this.updateBalanceUpdatedAt();
   }
 
   /**

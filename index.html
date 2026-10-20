@@ -172,6 +172,13 @@
       <button class="floating-button" id="newChatButton" aria-label="New chat"><span class="plus-glyph" aria-hidden="true">+</span></button>
 
       <div class="app-screen" id="walletScreen">
+        <div class="wallet-heading">
+          <h2>Wallet</h2>
+          <div class="wallet-balance-status">
+            <button type="button" class="refresh-button" id="refreshBalance" aria-label="Refresh wallet balances">↻</button>
+            <time id="walletBalanceUpdated">Not updated yet</time>
+          </div>
+        </div>
         <div class="wallet-native-balance">
           <div id="assetsList">
             <div class="empty-state">
@@ -181,47 +188,46 @@
             </div>
             <!-- List of native assets will be inserted here -->
           </div>
-          <button type="button" class="refresh-button" id="refreshBalance" aria-label="Refresh wallet balances">↻</button>
         </div>
-        <div class="wallet-actions">
-          <button class="wallet-action-button" id="openSendAssetFormModal">
-            <span class="action-icon"></span>
+        <div class="wallet-actions" role="group" aria-label="Liberdus actions">
+          <button type="button" class="wallet-action-button wallet-action-primary" id="openSendAssetFormModal">
+            <span class="wallet-action-glyph"><span class="action-icon" aria-hidden="true"></span></span>
             <span class="action-label">Send</span>
           </button>
-          <button class="wallet-action-button" id="openReceiveModal">
-            <span class="action-icon"></span>
+          <button type="button" class="wallet-action-button wallet-action-primary" id="openReceiveModal">
+            <span class="wallet-action-glyph"><span class="action-icon" aria-hidden="true"></span></span>
             <span class="action-label">Receive</span>
           </button>
-          <button class="wallet-action-button" id="openHistoryModal">
-            <span class="action-icon"></span>
+          <button type="button" class="wallet-action-button" id="openHistoryModal">
+            <span class="wallet-action-glyph"><span class="action-icon" aria-hidden="true"></span></span>
             <span class="action-label">History</span>
           </button>
-          <div class="wallet-actions-break"></div>
-          <button class="wallet-action-button" id="openBuyButton">
-            <span class="action-icon"></span>
-            <span class="action-label">Buy</span>
-          </button>
-          <button class="wallet-action-button" id="openSellButton">
-            <span class="action-icon"></span>
-            <span class="action-label">Sell</span>
-          </button>
-          <button class="wallet-action-button" id="openFaucetBridgeButton">
-            <span class="action-icon"></span>
+          <button type="button" class="wallet-action-button" id="openFaucetBridgeButton">
+            <span class="wallet-action-glyph"><span class="action-icon" aria-hidden="true"></span></span>
             <span class="action-label">Faucet</span>
           </button>
         </div>
+        <div class="wallet-text-actions" role="group" aria-label="Buy or sell Liberdus">
+          <button type="button" class="wallet-text-action" id="openBuyButton" aria-label="Buy LIB (opens in a new tab)">Buy LIB <span aria-hidden="true">↗</span></button>
+          <button type="button" class="wallet-text-action" id="openSellButton" aria-label="Sell LIB (opens in a new tab)">Sell LIB <span aria-hidden="true">↗</span></button>
+        </div>
         <div class="wallet-assets">
-          <div class="section-title">Other Assets</div>
-          <button type="button" class="wallet-asset-summary" id="multichainSummary">
-            <span class="wallet-asset-summary-label">Multichain</span>
-            <span class="wallet-asset-summary-value" id="multichainSummaryValue">$0.00</span>
-            <span class="wallet-asset-summary-chevron" aria-hidden="true"></span>
-          </button>
-          <button type="button" class="wallet-asset-summary" id="evmAssetsSummary">
-            <span class="wallet-asset-summary-label">EVM Assets</span>
-            <span class="wallet-asset-summary-value" id="evmAssetsSummaryValue">N/A</span>
-            <span class="wallet-asset-summary-chevron" aria-hidden="true"></span>
-          </button>
+          <h3 class="section-title">Other assets</h3>
+          <div class="wallet-asset-groups">
+            <button type="button" class="wallet-asset-summary" id="multichainSummary">
+              <span class="wallet-asset-group-icon" aria-hidden="true"></span>
+              <span class="wallet-asset-summary-label">Multichain</span>
+              <span class="wallet-asset-summary-value" id="multichainSummaryValue">$0.00</span>
+              <span class="wallet-asset-summary-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="wallet-asset-summary-divider" aria-hidden="true"></div>
+            <button type="button" class="wallet-asset-summary" id="evmAssetsSummary">
+              <span class="wallet-asset-group-icon" aria-hidden="true"></span>
+              <span class="wallet-asset-summary-label">EVM Assets</span>
+              <span class="wallet-asset-summary-value" id="evmAssetsSummaryValue">N/A</span>
+              <span class="wallet-asset-summary-chevron" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
       </div>
 
