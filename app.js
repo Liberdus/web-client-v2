@@ -508,7 +508,8 @@ function newDataRecord(myAccount) {
     wallet: {
       networth: 0.0,
       timestamp: 0, // balance refresh throttle
-      balanceUpdatedAt: 0, // last complete successful balance refresh
+      balanceUpdatedAt: 0, // last complete successful native balance refresh
+      overviewUpdatedAt: 0, // last successful refresh of all wallet balance groups
       priceTimestamp: 0, // last time when prices were updated
       assets: [
         {
@@ -2208,6 +2209,8 @@ class WalletScreen {
     this.isFaucetRequestInProgress = false;
     this.balanceUpdatedTimer = null;
     this.balanceRefreshId = 0;
+    this.walletViewRefreshId = 0;
+    this.isUpdating = false;
   }
 
   load() {
@@ -2315,6 +2318,8 @@ class WalletScreen {
   reset() {
     this.stopBalanceUpdatedTimer();
     this.balanceRefreshId++;
+    this.walletViewRefreshId++;
+    this.isUpdating = false;
     this.firstTimeLoad = true;
     this.updateBalanceUpdatedAt();
   }
@@ -2341,26 +2346,26 @@ class WalletScreen {
       return 'Not updated yet';
     }
     const minutes = Math.max(0, Math.floor((now - timestamp) / 60000));
-    if (minutes === 0) return 'LIB updated just now';
-    if (minutes < 60) return `LIB updated ${minutes}m ago`;
+    if (minutes === 0) return 'Updated just now';
+    if (minutes < 60) return `Updated ${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `LIB updated ${hours}h ago`;
-    return `LIB updated ${Math.floor(hours / 24)}d ago`;
+    if (hours < 24) return `Updated ${hours}h ago`;
+    return `Updated ${Math.floor(hours / 24)}d ago`;
   }
 
   updateBalanceUpdatedAt() {
     if (!this.balanceUpdatedLabel) return;
-    const timestamp = myData?.wallet?.balanceUpdatedAt;
-    const text = this.getBalanceUpdatedText(timestamp);
+    const timestamp = myData?.wallet?.overviewUpdatedAt;
+    const text = this.isUpdating ? 'Updating…' : this.getBalanceUpdatedText(timestamp);
     this.balanceUpdatedLabel.textContent = text;
-    if (text === 'Not updated yet') {
+    if (this.isUpdating || text === 'Not updated yet') {
       this.balanceUpdatedLabel.removeAttribute('datetime');
       this.balanceUpdatedLabel.removeAttribute('title');
       return;
     }
     const date = new Date(timestamp);
     this.balanceUpdatedLabel.setAttribute('datetime', date.toISOString());
-    this.balanceUpdatedLabel.title = `LIB balance updated ${date.toLocaleString()}`;
+    this.balanceUpdatedLabel.title = `Balances updated ${date.toLocaleString()}`;
   }
 
   startBalanceUpdatedTimer() {
@@ -2375,66 +2380,72 @@ class WalletScreen {
     this.balanceUpdatedTimer = null;
   }
 
-  // Update wallet view; refresh wallet
+  // Refresh all balance groups while keeping native rendering responsive.
   async updateWalletView() {
     const account = myAccount;
     const walletData = myData?.wallet;
     if (!this.isCurrentWallet(account, walletData)) return;
 
-    // Show loading toast if we're about to fetch fresh data
+    const refreshId = ++this.walletViewRefreshId;
+    this.isUpdating = true;
+    this.updateBalanceUpdatedAt();
     let loadingToastId = null;
-    // only show toast if myData.wallet.timestamp is not 0
     if (this.firstTimeLoad && isOnline) {
-      loadingToastId = showToast('Loading wallet balance...', 0, 'loading');
+      loadingToastId = showToast('Loading wallet balances...', 0, 'loading');
       this.firstTimeLoad = false;
     }
 
+    const externalRefreshes = Promise.allSettled([
+      multichain.updateSummary({ refresh: true }),
+      evmAssets.refresh().then(() => evmAssets.getStatus() === 'connected'),
+    ]);
+    let nativeUpdated = false;
     try {
-      await this.updateWalletBalances();
+      nativeUpdated = await this.updateWalletBalances();
+      if (!this.isCurrentWallet(account, walletData) || refreshId !== this.walletViewRefreshId) return;
+
+      const walletUsdValue = calculateWalletUsdValue(walletData.assets);
+      walletData.networth = walletUsdValue ?? 0.0;
+
+      if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
+        this.assetsList.innerHTML = '<div class="empty-state"><div></div><div>No Assets Yet</div><div>Your assets will appear here</div></div>';
+        return;
+      }
+
+      this.assetsList.innerHTML = walletData.assets
+        .map((asset) => {
+          const assetUsdPrice = getAssetUsdPrice(asset);
+          const assetNetworth = calculateAssetUsdValue(asset);
+          const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)}`;
+          const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          const [whole, fraction] = formatDisplayAmount(big2str(asset.balance, 18), 6).split('.');
+          const assetQuantityText = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '');
+          return `
+                <div class="asset-item">
+                    <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
+                    <div class="asset-info">
+                        <div class="asset-name">${escapeHtml(asset.name)}</div>
+                        <div class="asset-symbol">1 ${escapeHtml(asset.symbol)} = ${assetPriceText}</div>
+                    </div>
+                    <div class="asset-balance"><span class="wallet-native-quantity">${assetQuantityText} ${escapeHtml(asset.symbol)}</span><span class="wallet-native-usd">${assetNetworthText}</span></div>
+                </div>
+            `;
+        })
+        .join('');
     } catch (error) {
       console.error('Error updating wallet balances:', error);
     } finally {
-      // Always hide loading toast if it was shown, regardless of success or failure
-      if (loadingToastId) {
-        hideToast(loadingToastId);
+      const [multichainResult, evmResult] = await externalRefreshes;
+      if (loadingToastId) hideToast(loadingToastId);
+      if (this.isCurrentWallet(account, walletData) && refreshId === this.walletViewRefreshId) {
+        if (nativeUpdated === true && multichainResult.status === 'fulfilled' && multichainResult.value === true
+          && evmResult.status === 'fulfilled' && evmResult.value === true) {
+          walletData.overviewUpdatedAt = getCorrectedTimestamp();
+        }
+        this.isUpdating = false;
+        this.updateBalanceUpdatedAt();
       }
     }
-
-    if (!this.isCurrentWallet(account, walletData)) return;
-    this.updateBalanceUpdatedAt();
-
-    // Refresh external asset summaries without blocking the native balance.
-    multichain.updateSummary({ refresh: true }).catch(() => {});
-    evmAssets.refresh().catch(() => {});
-
-    const walletUsdValue = calculateWalletUsdValue(walletData.assets);
-    walletData.networth = walletUsdValue ?? 0.0;
-
-    if (!Array.isArray(walletData.assets) || walletData.assets.length === 0) {
-      this.assetsList.innerHTML = '<div class="empty-state"><div></div><div>No Assets Yet</div><div>Your assets will appear here</div></div>';
-      return;
-    }
-
-    this.assetsList.innerHTML = walletData.assets
-      .map((asset) => {
-        const assetUsdPrice = getAssetUsdPrice(asset);
-        const assetNetworth = calculateAssetUsdValue(asset);
-        const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)}`;
-        const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const [whole, fraction] = formatDisplayAmount(big2str(asset.balance, 18), 6).split('.');
-        const assetQuantityText = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '');
-        return `
-              <div class="asset-item">
-                  <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
-                  <div class="asset-info">
-                      <div class="asset-name">${escapeHtml(asset.name)}</div>
-                      <div class="asset-symbol">1 ${escapeHtml(asset.symbol)} = ${assetPriceText}</div>
-                  </div>
-                  <div class="asset-balance"><span class="wallet-native-quantity">${assetQuantityText} ${escapeHtml(asset.symbol)}</span><span class="wallet-native-usd">${assetNetworthText}</span></div>
-              </div>
-          `;
-      })
-      .join('');
   }
 
   // refresh wallet balance
@@ -2455,7 +2466,7 @@ class WalletScreen {
 
     const now = getCorrectedTimestamp();
     if (now - (wallet.timestamp || 0) < 5000) {
-      return;
+      return Number.isFinite(wallet.balanceUpdatedAt) && wallet.balanceUpdatedAt > 0 && now - wallet.balanceUpdatedAt < 5000;
     }
     const refreshId = ++this.balanceRefreshId;
     const assets = wallet.assets;
@@ -2494,6 +2505,7 @@ class WalletScreen {
     wallet.timestamp = getCorrectedTimestamp();
     wallet.balanceUpdatedAt = wallet.timestamp;
     this.updateBalanceUpdatedAt();
+    return true;
   }
 
   /**

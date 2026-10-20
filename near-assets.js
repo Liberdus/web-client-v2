@@ -5415,11 +5415,12 @@ class MultichainController {
    * The wallet summary is separate from the native Liberdus balance.
    */
   async updateSummary({ refresh = false } = {}) {
-    if (!this.summaryValue) return;
+    if (!this.summaryValue) return false;
     if (refresh) await intentsAssets.refresh();
     this.summaryValue.textContent = totalIsUnknown(intentsAssets.getStatus(), intentsAssets.getNetwork())
       ? '—'
       : formatUsd(intentsAssets.getTotalUsd());
+    return ['connected', 'unpriced'].includes(intentsAssets.getStatus());
   }
 }
 
