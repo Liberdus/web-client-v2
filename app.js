@@ -23692,6 +23692,18 @@ class ChatModal {
       </div>`;
   }
 
+  renderLibPaymentTransaction(transactionId) {
+    const code = `<code>${escapeHtml(transactionId)}</code>`;
+    const explorerUrl = normalizeHttpsUrl(network.explorerUrl);
+    if (!explorerUrl) return code;
+
+    const url = new URL(explorerUrl);
+    url.pathname = `${url.pathname.replace(/\/+$/, '')}/transaction/${transactionId}`;
+    url.search = '';
+    url.hash = '';
+    return `<a href="${escapeHtmlAttribute(url.href)}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttribute(transactionId)}" aria-label="View transaction ${escapeHtmlAttribute(transactionId)} in block explorer">${code} <span aria-hidden="true">↗</span></a>`;
+  }
+
   renderLibPaymentMessage(item, messageTimeHTML) {
     const amount = big2str(item.amount, 18);
     const exactAmount = `${formatDisplayAmount(amount, 18)} ${item.symbol || 'LIB'}`;
@@ -23716,7 +23728,7 @@ class ChatModal {
           <summary>Payment details</summary>
           <dl>
             <div><dt>Amount</dt><dd>${escapeHtml(exactAmount)}</dd></div>
-            <div><dt>Transaction</dt><dd><code>${escapeHtml(transactionId)}</code></dd></div>
+            <div><dt>Transaction</dt><dd>${this.renderLibPaymentTransaction(transactionId)}</dd></div>
           </dl>
         </details>` : ''}
       </div>`;

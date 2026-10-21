@@ -8834,9 +8834,11 @@ small {
 }
 .lib-payment-details dt { opacity: 0.75; }
 .lib-payment-details dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+.lib-payment-details a { color: var(--primary-color); text-decoration: underline; text-underline-offset: 3px; }
 .lib-payment-details code { font-family: var(--font-monospace); font-size: inherit; }
 @media (pointer: coarse) {
   .lib-payment-details summary { min-height: 44px; }
+  .lib-payment-details a { display: block; min-height: 44px; }
 }
 
 /* Styles for Payment Previews in Chat List */

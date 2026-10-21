@@ -34,6 +34,7 @@ const network = {
   ],
   "farmUrl": "https://liberdus.com/farm",
   "validatorUrl": "https://liberdus.com/validator",
+  "explorerUrl": "https://dev.liberdus.com:3035/",
   "attachmentServerUrl": "https://att.liberdus.com:2083",
   "bridgeUrl": "./bridge",
   // App version requirements for native apps (format: YYYY.MMDD.HHmm)
