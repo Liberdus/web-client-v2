@@ -8723,7 +8723,6 @@ small {
 /* Native LIB receipts use the same hierarchy as the other payment cards. */
 .message.payment-info {
   width: 316px;
-  max-width: 85%;
   min-width: 0;
   box-sizing: border-box;
   padding: 16px 18px 12px;
