@@ -23716,7 +23716,7 @@ class ChatModal {
         </div>
         <div class="payment-header">
           <span class="payment-direction">${item.my ? '-' : '+'}</span>
-          <span class="payment-amount" title="${escapeHtmlAttribute(exactAmount)}">${escapeHtml(formatDisplayAmount(amount, 6))} ${escapeHtml(item.symbol || 'LIB')}</span>
+          <span class="payment-amount" title="${escapeHtmlAttribute(exactAmount)}">${escapeHtml(formatDisplayAmount(amount, 6))} <span class="lib-payment-unit">${escapeHtml(item.symbol || 'LIB')}</span></span>
         </div>
         <div class="lib-payment-network">Liberdus</div>
         ${item.message ? `<section class="lib-payment-note" aria-label="Payment note"><div class="lib-payment-label">Note</div><div class="payment-memo">${linkifyUrls(item.message)}</div></section>` : ''}
