@@ -4111,7 +4111,7 @@ class MultichainReceiveModal {
         aria-label="Copy ${escapeHtml(label.toLowerCase())} ${escapeHtml(value)}">
         <span class="multichain-address-label">${escapeHtml(label)}</span>
         <span class="multichain-address-value">${escapeHtml(shown)}</span>
-        <span class="multichain-address-copy">Copy</span>
+        <span class="multichain-address-copy" aria-live="polite"></span>
       </button>`;
   }
 
@@ -4122,7 +4122,7 @@ class MultichainReceiveModal {
     try {
       await navigator.clipboard.writeText(button.dataset.copy);
       label.textContent = 'Copied';
-      setTimeout(() => { label.textContent = 'Copy'; }, 2000);
+      setTimeout(() => { label.textContent = ''; }, 2000);
     } catch (error) {
       console.warn('Could not copy:', error);
       label.textContent = 'Press and hold to copy';

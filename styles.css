@@ -6018,7 +6018,8 @@ input[type='file'].form-control {
 }
 
 .address-copy-button::before,
-#copySecretButton::before {
+#copySecretButton::before,
+.multichain-address-copy:empty::before {
   content: '';
   width: 20px;
   height: 20px;
@@ -6031,7 +6032,8 @@ input[type='file'].form-control {
 /* Shared copy icon styling - used by both context menu copy icon and copy address button */
 .context-menu-option[data-icon="copy"] .context-menu-icon,
 .address-copy-button::before,
-#copySecretButton::before {
+#copySecretButton::before,
+.multichain-address-copy:empty::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='13' height='13' rx='2' ry='2'%3E%3C/rect%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'%3E%3C/path%3E%3C/svg%3E");
 }
 
@@ -12136,6 +12138,7 @@ small {
 }
 
 .multichain-address-copy {
+  display: flex;
   flex: 0 0 auto;
   color: var(--primary-color);
   font-family: var(--font-primary);
