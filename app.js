@@ -23667,7 +23667,6 @@ class ChatModal {
     const networkName = walletNetwork?.id === payment.networkId && walletNetwork.chainId === payment.chainId
       ? walletNetwork.name : `EVM chain ${payment.chainId}`;
     const transactionHash = payment.transactionHash;
-    const shortHash = `${transactionHash.slice(0, 10)}…${transactionHash.slice(-8)}`;
     const transactionUrl = evmAssets.getPaymentExplorerUrl(payment);
     const tokenUrl = evmAssets.getPaymentTokenExplorerUrl(payment);
     return `
@@ -23679,9 +23678,6 @@ class ChatModal {
         <div class="evm-payment-meta">
           <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
           <div class="evm-payment-footer">
-            <div class="evm-payment-transaction">Tx ${transactionUrl
-              ? `<a href="${escapeHtmlAttribute(transactionUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttribute(transactionHash)}" aria-label="View transaction ${escapeHtmlAttribute(transactionHash)} in block explorer">${escapeHtml(shortHash)} <span aria-hidden="true">↗</span></a>`
-              : `<span title="${escapeHtmlAttribute(transactionHash)}">${escapeHtml(shortHash)}</span>`}</div>
             ${messageTimeHTML}
           </div>
         </div>
