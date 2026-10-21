@@ -23698,7 +23698,10 @@ class ChatModal {
     const transactionId = normalizeTransactionId(item.txid);
     return `
       <div class="lib-payment-message">
-        <div class="lib-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
+        <div class="lib-payment-heading">
+          <img class="lib-payment-logo" src="./media/liberdus_logo_50.png" alt="" width="20" height="20">
+          <div class="lib-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
+        </div>
         <div class="payment-header">
           <span class="payment-direction">${item.my ? '-' : '+'}</span>
           <span class="payment-amount" title="${escapeHtmlAttribute(exactAmount)}">${escapeHtml(formatDisplayAmount(amount, 6))} ${escapeHtml(item.symbol || 'LIB')}</span>
