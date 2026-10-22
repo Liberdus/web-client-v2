@@ -2542,6 +2542,10 @@ class WalletScreen {
     const toastId = showToast('Requesting from faucet...', 0, 'loading');
     try {
       this.isFaucetRequestInProgress = true;
+
+      if (!network.faucetUrl) {
+        throw new Error('Faucet URL is not configured for this network');
+      }
       
       const payload = {
         username: myAccount.username,
@@ -2550,9 +2554,7 @@ class WalletScreen {
       };
       await signObj(payload, myAccount.keys);
       
-      const faucetUrl = network.faucetUrl || 'https://dev.liberdus.com:3355/faucet';
-      
-      const response = await fetch(faucetUrl, {
+      const response = await fetch(network.faucetUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -20555,6 +20557,10 @@ class StakeValidatorModal {
   async requestFromFaucet() {
     const toastId = showToast('Requesting from faucet...', 0, 'loading');
     try {
+      if (!network.faucetUrl) {
+        throw new Error('Faucet URL is not configured for this network');
+      }
+
       const payload = {
         username: myAccount.username,
         userAddress: longAddress(myAccount.keys.address),
@@ -20563,9 +20569,7 @@ class StakeValidatorModal {
       };
       await signObj(payload, myAccount.keys);
       
-      const faucetUrl = network.faucetUrl || 'https://dev.liberdus.com:3355/faucet';
-      
-      const response = await fetch(faucetUrl, {
+      const response = await fetch(network.faucetUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

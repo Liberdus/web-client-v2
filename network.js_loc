@@ -27,6 +27,7 @@ const network = {
       "username": "bridgebsc",
     },
   ],
+  "faucetUrl": "https://fac-dev.liberdus.com/faucet",
   "farmUrl": "https://liberdus.com/farm",
   "validatorUrl": "https://liberdus.com/validator",
   "bridgeUrl": "./bridge",  

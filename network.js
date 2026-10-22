@@ -27,7 +27,7 @@ const network = {
       "username": "bridgebsc",
     },
   ],
-  "faucetUrl": "https://dev.liberdus.com:3355/faucet",
+  "faucetUrl": "https://fac-dev.liberdus.com/faucet",
   "faucetAddress": [
     "38dbd8eb569658b2a13cef9d159e54e302da8f17", // faucet for public accounts
     "7319d66f24a4ba1f323bd487cc22ae4b5c92b5ce", // faucet for private accounts
