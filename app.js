@@ -2542,10 +2542,6 @@ class WalletScreen {
     const toastId = showToast('Requesting from faucet...', 0, 'loading');
     try {
       this.isFaucetRequestInProgress = true;
-
-      if (!network.faucetUrl) {
-        throw new Error('Faucet URL is not configured for this network');
-      }
       
       const payload = {
         username: myAccount.username,
@@ -20557,10 +20553,6 @@ class StakeValidatorModal {
   async requestFromFaucet() {
     const toastId = showToast('Requesting from faucet...', 0, 'loading');
     try {
-      if (!network.faucetUrl) {
-        throw new Error('Faucet URL is not configured for this network');
-      }
-
       const payload = {
         username: myAccount.username,
         userAddress: longAddress(myAccount.keys.address),
