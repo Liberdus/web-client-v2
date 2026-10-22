@@ -23674,7 +23674,6 @@ class ChatModal {
       ? walletNetwork.name : `EVM chain ${payment.chainId}`;
     const transactionHash = payment.transactionHash;
     const transactionUrl = evmAssets.getPaymentExplorerUrl(payment);
-    const tokenUrl = evmAssets.getPaymentTokenExplorerUrl(payment);
     return `
       <div class="intents-payment-message evm-payment-message" data-verified="${escapeHtmlAttribute(verified)}" data-evm-payment="${escapeHtmlAttribute(evmPaymentId(payment))}">
         <div class="evm-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
@@ -23690,7 +23689,6 @@ class ChatModal {
         <details class="evm-payment-details">
           <summary>Payment details</summary>
           <dl>
-            ${payment.contractAddress ? `<div><dt>Token contract</dt><dd>${this.renderEvmPaymentDetailLink(payment.contractAddress, tokenUrl, 'token contract')}</dd></div>` : ''}
             <div><dt>Network</dt><dd>${escapeHtml(networkName)} · Chain ID ${payment.chainId}</dd></div>
             <div><dt>Transaction</dt><dd>${this.renderEvmPaymentDetailLink(transactionHash, transactionUrl, 'transaction')}</dd></div>
           </dl>

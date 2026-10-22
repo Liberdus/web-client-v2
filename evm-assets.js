@@ -2434,12 +2434,6 @@ class EvmAssetsController {
     if (!baseUrl) return null;
     return new URL(`tx/${transactionHash.toLowerCase()}`, baseUrl).toString();
   }
-  getPaymentTokenExplorerUrl({ chainId, contractAddress }) {
-    if (!Number.isSafeInteger(chainId) || chainId <= 0) return null;
-    return buildEvmTokenExplorerUrl(
-      { explorerUrl: this.discovery.getExplorerUrl(chainId) }, contractAddress,
-    );
-  }
   findAsset(networkId, assetKey) {
     return this.discovery.findAsset(networkId, assetKey);
   }
