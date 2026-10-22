@@ -2599,7 +2599,7 @@ class MenuModal {
     this.inviteButton = document.getElementById('openInvite');
     this.inviteButton.addEventListener('click', () => inviteModal.open());
     this.explorerButton = document.getElementById('openExplorer');
-    this.explorerButton.addEventListener('click', () => this.handleExternalClick('./explorer', 'explorer'));
+    this.explorerButton.addEventListener('click', () => this.handleExternalClick(normalizeHttpsUrl(network.explorerUrl) || './explorer', 'explorer'));
     this.networkButton = document.getElementById('openMonitor');
     this.networkButton.addEventListener('click', () => this.handleExternalClick('./network', 'network'));
     this.helpButton = document.getElementById('openHelp');
