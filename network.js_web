@@ -29,6 +29,6 @@ const network = {
   ],
   "farmUrl": "https://liberdus.com/farm",
   "validatorUrl": "https://liberdus.com/validator",
-  "explorerUrl": "https://dev.liberdus.com:3035/",
+  "explorerUrl": "https://exp-dev.liberdus.com/",
   "bridgeUrl": "./bridge",
 }
