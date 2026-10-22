@@ -2539,6 +2539,11 @@ class WalletScreen {
       }
     }
 
+    if (!network.faucetUrl) {
+      showToast('Faucet not available', 0, 'error');
+      return;
+    }
+
     const toastId = showToast('Requesting from faucet...', 0, 'loading');
     try {
       this.isFaucetRequestInProgress = true;
@@ -20551,6 +20556,11 @@ class StakeValidatorModal {
    * @returns {Promise<void>}
    */
   async requestFromFaucet() {
+    if (!network.faucetUrl) {
+      showToast('Faucet not available', 0, 'error');
+      return;
+    }
+
     const toastId = showToast('Requesting from faucet...', 0, 'loading');
     try {
       const payload = {
