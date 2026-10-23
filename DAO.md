@@ -48,6 +48,10 @@ This document describes the DAO / proposals feature as currently implemented in 
    A full 64-character address without the padding suffix is displayed intact.
    Committee address lists and inputs use the app's monospace font at a compact
    size so equal-length addresses align and wallet addresses fit on mobile.
+   Displayed address lists are centered; inputs stay left-aligned.
+   Pressing a displayed address in Current, confirmation,
+   or proposal details copies its visible text and shows the app's usual clipboard
+   toast; input fields stay editable.
    Trash buttons remove addresses, parameter changes, options, or project milestones;
    each button retains a descriptive accessible label and tooltip.
 

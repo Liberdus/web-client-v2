@@ -3664,6 +3664,22 @@ function formatDurationParts(milliseconds) {
 }
 
 class DaoCommitteeAddressView {
+  static load(container) {
+    container?.addEventListener('click', DaoCommitteeAddressView.handleClick);
+  }
+
+  static async handleClick(event) {
+    const button = event.target.closest('[data-dao-copy-address]');
+    if (!button) return;
+    try {
+      await navigator.clipboard.writeText(button.dataset.daoCopyAddress);
+      showToast('Address copied to clipboard', 2000, 'success');
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      showToast('Failed to copy address', 0, 'error');
+    }
+  }
+
   static render(value) {
     let addresses;
     try {
@@ -3673,15 +3689,18 @@ class DaoCommitteeAddressView {
     } catch {
       return escapeHtml(formatDaoDetailValue(value));
     }
-    return `<span class="dao-committee-address-list" role="list">${addresses.map((address) => (
-      `<span role="listitem">${escapeHtml(DaoCommitteeAddresses.toDisplayAddress(address))}</span>`
-    )).join('')}</span>`;
+    return `<span class="dao-committee-address-list" role="list">${addresses.map((address) => {
+      const displayAddress = DaoCommitteeAddresses.toDisplayAddress(address);
+      return `<span role="listitem"><button type="button" class="dao-committee-address"
+        data-dao-copy-address="${displayAddress}" title="Copy address" aria-label="Copy address ${displayAddress}">${displayAddress}</button></span>`;
+    }).join('')}</span>`;
   }
 }
 
 class AddProposalModal {
   load() {
     this.modal = document.getElementById('addProposalModal');
+    DaoCommitteeAddressView.load(this.modal);
     this.closeButton = document.getElementById('closeAddProposalModal');
     this.cancelButton = document.getElementById('cancelAddProposal');
     this.form = document.getElementById('addProposalForm');
@@ -5333,6 +5352,7 @@ function renderDaoProjectProposalInfo(
 class ConfirmProposalModal {
   load() {
     this.modal = document.getElementById('confirmProposalModal');
+    DaoCommitteeAddressView.load(this.modal);
     this.closeButton = document.getElementById('closeConfirmProposalModal');
     this.title = document.getElementById('confirmProposalModalTitle');
     this.backButton = document.getElementById('backConfirmProposal');
@@ -6443,6 +6463,7 @@ function floorDaoVoteWeightEstimate(value) {
 class ProposalInfoModal {
   load() {
     this.modal = document.getElementById('proposalInfoModal');
+    DaoCommitteeAddressView.load(this.modal);
     this.closeButton = document.getElementById('closeProposalInfoModal');
     this.title = document.getElementById('proposalInfoModalTitle');
     this.content = document.getElementById('proposalInfoContent');
