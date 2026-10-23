@@ -3802,9 +3802,14 @@ input[type='file'].form-control::file-selector-button {
   gap: 4px;
 }
 
-#confirmProposalModal .proposal-change-row--committee span,
-#proposalInfoModal .proposal-change-row--committee span {
+#confirmProposalModal .proposal-change-row--committee > span,
+#proposalInfoModal .proposal-change-row--committee > span {
   text-align: center;
+}
+
+#confirmProposalModal .proposal-change-row--committee small > span,
+#proposalInfoModal .proposal-change-row--committee small > span {
+  text-align: left;
 }
 
 #confirmProposalModal .proposal-change-values small,
