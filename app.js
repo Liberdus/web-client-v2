@@ -4152,12 +4152,7 @@ class AddProposalModal {
               </svg>
             </button>
             <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-milestone aria-label="Remove milestone ${milestoneNumber}" title="Remove milestone ${milestoneNumber}" ${removeDisabled}>
-              <svg class="dao-project-milestone-action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                <line x1="10" y1="11" x2="10" y2="17"></line>
-                <line x1="14" y1="11" x2="14" y2="17"></line>
-              </svg>
+              ${this.renderRemoveIcon()}
             </button>
           </div>
         </div>
@@ -4283,6 +4278,15 @@ class AddProposalModal {
     return { changes: [] };
   }
 
+  renderRemoveIcon() {
+    return `<svg class="dao-form-remove-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      <line x1="10" y1="11" x2="10" y2="17"></line>
+      <line x1="14" y1="11" x2="14" y2="17"></line>
+    </svg>`;
+  }
+
   createChange(key) {
     const option = this.getConfigOption(key);
     return {
@@ -4366,7 +4370,7 @@ class AddProposalModal {
       <section class="dao-form-option" data-dao-option="${optionIndex}">
         <div class="dao-form-row-title">
           <label>${label}</label>
-          <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-option="${optionIndex}" ${removeDisabled}>Remove option</button>
+          <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-option="${optionIndex}" aria-label="Remove option ${optionIndex + 1}" title="Remove option ${optionIndex + 1}" ${removeDisabled}>${this.renderRemoveIcon()}</button>
         </div>
         <div class="dao-form-section-header"><label>Parameter Changes</label></div>
         <div class="dao-form-list">${changesHtml}</div>
@@ -4411,7 +4415,7 @@ class AddProposalModal {
       <div class="dao-form-row dao-form-row--change" data-dao-change-row>
         <div class="dao-form-row-title">
           <label>Parameter change ${changeNumber}</label>
-          ${isTemplate ? `<button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-change="${optionIndex}:${changeIndex}" ${removeDisabled}>Remove</button>` : ''}
+          ${isTemplate ? `<button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-change="${optionIndex}:${changeIndex}" aria-label="Remove parameter change ${changeNumber} from Option ${optionNumber}" title="Remove parameter change ${changeNumber} from Option ${optionNumber}" ${removeDisabled}>${this.renderRemoveIcon()}</button>` : ''}
         </div>
         <div class="dao-form-change-box">
           <div class="dao-form-change-line">
@@ -4461,7 +4465,7 @@ class AddProposalModal {
         <input id="${id}Address${index}" class="form-control" type="text" value="${escapeDaoFormAttribute(address)}"
           ${dataAttributes} data-dao-committee-address-index="${index}" aria-label="Committee address ${index + 1}"
           aria-describedby="${id}Help ${id}Error" autocomplete="off" autocapitalize="none" spellcheck="false" required />
-        <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-committee-address="${index}" aria-label="Remove committee address ${index + 1}">Remove</button>
+        <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-committee-address="${index}" aria-label="Remove committee address ${index + 1}" title="Remove committee address ${index + 1}">${this.renderRemoveIcon()}</button>
       </div>
     `).join('');
     return `

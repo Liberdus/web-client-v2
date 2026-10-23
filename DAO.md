@@ -46,6 +46,9 @@ This document describes the DAO / proposals feature as currently implemented in 
    proposal details show the normalized addresses as a list without `0x` or the
    24-zero wallet-address padding. Prefilled inputs also omit that padding.
    A full 64-character address without the padding suffix is displayed intact.
+   Committee address text uses a compact size so wallet addresses fit on mobile.
+   Trash buttons remove addresses, parameter changes, options, or project milestones;
+   each button retains a descriptive accessible label and tooltip.
 
    The editor stores arrays of strings. For the `committeeAddresses` change,
    `current` and `value` are JSON array strings containing full 64-character network
