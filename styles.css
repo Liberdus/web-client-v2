@@ -2571,6 +2571,7 @@ input[type='file'].form-control::file-selector-button {
 
 .dao-committee-address-list {
   display: grid;
+  font-family: var(--font-monospace);
   gap: 6px;
   overflow-wrap: anywhere;
   text-align: left;
@@ -2606,6 +2607,7 @@ input[type='file'].form-control::file-selector-button {
 
 #addProposalModal .dao-committee-address-row input {
   flex: 1;
+  font-family: var(--font-monospace);
   font-size: clamp(8px, 2.5vw, 10px);
   min-width: 0;
   padding-inline: 6px;
