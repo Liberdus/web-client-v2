@@ -43,11 +43,13 @@ This document describes the DAO / proposals feature as currently implemented in 
    removes the prefix, lowercases the address, and pads a 40-character address
    with 24 zeros. Duplicate detection uses this normalized form. The form keeps
    the entered text when returning from review; confirmation and submitted
-   proposal details show the normalized addresses as a list without `0x`.
+   proposal details show the normalized addresses as a list without `0x` or the
+   24-zero wallet-address padding. Prefilled inputs also omit that padding.
+   A full 64-character address without the padding suffix is displayed intact.
 
    The editor stores arrays of strings. For the `committeeAddresses` change,
-   `current` and `value` are serialized as JSON array strings, preserving row
-   order. The original current list is independent of
+   `current` and `value` are JSON array strings containing full 64-character network
+   addresses, preserving row order. The original current list is independent of
    every editable option and remains unchanged by edits.
 
 3. **Proposal Info Modal**
@@ -95,20 +97,22 @@ Run `python3 -m http.server 8000` from the client checkout, open
 Use a funded Devnet account for an actual submission; opening review does not
 submit a transaction.
 
-- Compare the prefilled rows with the current committee list. Add and remove
-  rows, including deleting every row. With fewer than four, review must stay
+- Compare the prefilled rows with the current committee list; wallet addresses
+  must display as 40 characters, with the 24-zero network padding omitted. Add
+  and remove rows, including deleting every row. With fewer than four, review must stay
   blocked with a count error beside the list; adding rows allows recovery.
 - At ten rows, Add address is disabled. A blank, non-hex address, or duplicate
   (including a short address and its padded full-address equivalent) blocks
   review with an inline error. Correcting it clears the error.
 - Paste an uppercase address with `0x` and surrounding spaces. Review displays
-  its lowercase 64-character form without the prefix. Go Back: the entered text
-  and row order remain intact.
+  its lowercase form without the prefix or network padding. Go Back: the entered
+  text and row order remain intact.
 - Add another proposal option. Its initial committee is the current network
   list; editing either option does not change the other. Include a numeric
   parameter too and confirm its existing validation and review still work.
 - Submit only on the intended test network. Verify both change fields are JSON
-  strings containing arrays, then reopen the confirmed proposal to check the
+  strings containing full 64-character addresses, including the 24-zero padding
+  for 40-character wallet inputs, then reopen the confirmed proposal to check the
   readable current/new lists. A rejected submission must leave the draft
   available for retry or editing.
 

@@ -3674,7 +3674,7 @@ class DaoCommitteeAddressView {
       return escapeHtml(formatDaoDetailValue(value));
     }
     return `<span class="dao-committee-address-list" role="list">${addresses.map((address) => (
-      `<span role="listitem">${escapeHtml(address)}</span>`
+      `<span role="listitem">${escapeHtml(DaoCommitteeAddresses.toDisplayAddress(address))}</span>`
     )).join('')}</span>`;
   }
 }
@@ -4287,7 +4287,9 @@ class AddProposalModal {
     const option = this.getConfigOption(key);
     return {
       key,
-      value: option.validation === 'committeeAddresses' ? [...option.current] : '',
+      value: option.validation === 'committeeAddresses'
+        ? option.current.map(DaoCommitteeAddresses.toDisplayAddress)
+        : '',
     };
   }
 

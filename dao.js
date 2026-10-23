@@ -34,6 +34,13 @@ export class DaoCommitteeAddresses {
   static MIN_MEMBERS = 4;
   static MAX_MEMBERS = 10;
 
+  /** Hide only the network padding of a canonical wallet-derived address. */
+  static toDisplayAddress(address) {
+    return address.length === 64 && address.endsWith('0'.repeat(24))
+      ? address.slice(0, 40)
+      : address;
+  }
+
   /** Return a new list in network format, preserving the entered order. */
   static normalize(addresses) {
     if (!Array.isArray(addresses)) throw new Error('Committee addresses must be a list');
