@@ -2527,16 +2527,18 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #addProposalModal .dao-form-remove-button {
+  align-items: center;
   background: #f6dddd;
   border: 1px solid #e8bbbb;
   border-radius: 8px;
   color: #8f3d3d;
+  display: inline-flex;
   flex: 0 0 auto;
-  font-size: 12px;
   height: 38px;
   min-height: 38px;
-  padding: 8px 10px;
-  width: auto;
+  justify-content: center;
+  padding: 0;
+  width: 32px;
 }
 
 #addProposalModal .dao-form-remove-button:not(:disabled):hover {
@@ -2565,6 +2567,75 @@ input[type='file'].form-control::file-selector-button {
   display: grid;
   gap: 8px;
   grid-template-columns: 82px minmax(0, 1fr);
+}
+
+.dao-committee-address-list {
+  display: grid;
+  font-family: var(--font-monospace);
+  gap: 6px;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.dao-committee-address {
+  background: none;
+  color: inherit;
+  font: inherit;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 0;
+}
+
+.dao-committee-address:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+#addProposalModal .dao-form-change-line--committee {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#addProposalModal .dao-proposal-form:has(.dao-committee-address-editor) {
+  padding-inline: 0;
+}
+
+#addProposalModal .dao-form-change-box:has(.dao-committee-address-editor) {
+  padding-inline: 0;
+}
+
+#addProposalModal .dao-committee-address-list {
+  font-size: clamp(9px, 2.8vw, 11px);
+}
+
+#addProposalModal .dao-committee-address-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+#addProposalModal .dao-committee-address-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#addProposalModal .dao-committee-address-row input {
+  flex: 1;
+  font-family: var(--font-monospace);
+  font-size: clamp(8px, 2.5vw, 10px);
+  min-width: 0;
+  padding-inline: 6px;
+}
+
+#addProposalModal .dao-committee-address-error {
+  color: var(--danger-color);
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+#addProposalModal .dao-committee-address-editor .dao-form-help {
+  margin: 0;
 }
 
 #addProposalModal .dao-form-meta,
@@ -2711,7 +2782,8 @@ input[type='file'].form-control::file-selector-button {
   width: 32px;
 }
 
-#addProposalModal .dao-project-milestone-action-icon {
+#addProposalModal .dao-project-milestone-action-icon,
+#addProposalModal .dao-form-remove-icon {
   fill: none;
   height: 17px;
   pointer-events: none;
@@ -3702,6 +3774,42 @@ input[type='file'].form-control::file-selector-button {
   font-size: 12px;
   line-height: 1.2;
   transform: translateY(-9px);
+}
+
+#confirmProposalModal .proposal-option-cards:has(.dao-committee-address-list),
+#proposalInfoModal .proposal-option-cards:has(.dao-committee-address-list) {
+  grid-auto-rows: auto;
+}
+
+#confirmProposalModal .proposal-change-row--committee,
+#proposalInfoModal .proposal-change-row--committee,
+#confirmProposalModal .proposal-change-row--committee .proposal-change-values,
+#proposalInfoModal .proposal-change-row--committee .proposal-change-values {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+#confirmProposalModal .proposal-change-row--committee .proposal-change-arrow,
+#proposalInfoModal .proposal-change-row--committee .proposal-change-arrow {
+  display: none;
+}
+
+#confirmProposalModal .proposal-change-row--committee small,
+#confirmProposalModal .proposal-change-row--committee strong,
+#proposalInfoModal .proposal-change-row--committee small,
+#proposalInfoModal .proposal-change-row--committee strong {
+  justify-items: stretch;
+  gap: 4px;
+}
+
+#confirmProposalModal .proposal-change-row--committee > span,
+#proposalInfoModal .proposal-change-row--committee > span {
+  text-align: center;
+}
+
+#confirmProposalModal .proposal-change-row--committee small > span,
+#proposalInfoModal .proposal-change-row--committee small > span {
+  text-align: left;
 }
 
 #confirmProposalModal .proposal-change-values small,

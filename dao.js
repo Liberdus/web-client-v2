@@ -30,6 +30,56 @@ export const DAO_TYPE_OPTIONS = [
 
 export const DAO_PARAMETER_MAX_WHOLE_DIGITS = 15;
 
+export class DaoCommitteeAddresses {
+  static MIN_MEMBERS = 4;
+  static MAX_MEMBERS = 10;
+
+  /** Hide only the network padding of a canonical wallet-derived address. */
+  static toDisplayAddress(address) {
+    return address.length === 64 && address.endsWith('0'.repeat(24))
+      ? address.slice(0, 40)
+      : address;
+  }
+
+  /** Return a new list in network format, preserving the entered order. */
+  static normalize(addresses) {
+    if (!Array.isArray(addresses)) throw new Error('Committee addresses must be a list');
+    if (addresses.length < this.MIN_MEMBERS || addresses.length > this.MAX_MEMBERS) {
+      throw new Error(`Enter ${this.MIN_MEMBERS}–${this.MAX_MEMBERS} committee addresses (currently ${addresses.length})`);
+    }
+
+    const seen = new Set();
+    return addresses.map((value, addressIndex) => {
+      const address = typeof value === 'string' ? value.trim().replace(/^0x/i, '').toLowerCase() : '';
+      let message = '';
+      if (!address) message = `Enter committee address ${addressIndex + 1}`;
+      else if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(address)) {
+        message = `Committee address ${addressIndex + 1} must contain 40 or 64 hexadecimal characters, with an optional 0x prefix`;
+      }
+      const normalized = address.padEnd(64, '0');
+      if (!message && seen.has(normalized)) message = `Committee address ${addressIndex + 1} is a duplicate`;
+      if (message) {
+        const error = new Error(message);
+        error.addressIndex = addressIndex;
+        throw error;
+      }
+      seen.add(normalized);
+      return normalized;
+    });
+  }
+
+  static parse(value) {
+    if (typeof value !== 'string') throw new Error('Committee addresses must be a JSON array string');
+    let addresses;
+    try {
+      addresses = JSON.parse(value);
+    } catch {
+      throw new Error('Committee addresses must be a JSON array string');
+    }
+    return this.normalize(addresses);
+  }
+}
+
 const DAO_DECIMAL_STRING_PATTERN = /^(?:0|[1-9]\d{0,14})(?:\.\d{1,18})?$/;
 
 export function normalizeDaoParameterInput(value) {
@@ -48,6 +98,7 @@ export function isValidDaoDecimalString(value) {
 export const DAO_CONFIG_CHANGE_OPTIONS = {
   governance: [
     { key: 'claimDuration', path: 'current.dao.claimDuration', label: 'Claim Duration', valueType: 'number', validation: 'integer' },
+    { key: 'committeeAddresses', path: 'current.dao.committeeAddresses', label: 'Committee Addresses', valueType: 'array', validation: 'committeeAddresses' },
     { key: 'graceDuration', path: 'current.dao.graceDuration', label: 'Grace Duration', valueType: 'number', validation: 'integer' },
     { key: 'minimumSpendUsdStr', path: 'current.dao.minimumSpendUsdStr', label: 'Minimum Vote Spend', valueType: 'string', validation: 'decimalString' },
     { key: 'pctBurned', path: 'current.dao.pctBurned', label: 'Percent Burned', valueType: 'number', validation: 'integer' },
@@ -447,6 +498,13 @@ function normalizeDaoDraftChanges(changes, actionOptionCount) {
       const key = requireDaoDraftString(change?.key, 'DAO parameter key');
       if (seenKeys.has(key)) throw new Error(`DAO proposal option ${optionIndex + 1} has duplicate ${key} changes`);
       seenKeys.add(key);
+      if (key === 'committeeAddresses') {
+        return {
+          key,
+          value: JSON.stringify(DaoCommitteeAddresses.parse(change.value)),
+          current: JSON.stringify(DaoCommitteeAddresses.parse(change.current)),
+        };
+      }
       return {
         key,
         value: requireDaoDraftString(change?.value, 'DAO parameter value'),

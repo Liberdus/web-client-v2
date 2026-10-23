@@ -32,6 +32,34 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Project proposals: a contractor address and up to 20 milestones with duration, cost, late penalty, and early bonus terms
    - The UI validates and renders the nested proposal shape in the review modal, then signs and submits the proposal transaction.
 
+   Governance proposals include **Committee Addresses**. Selecting it prefills an
+   editable row for each address in `current.dao.committeeAddresses`. Each action
+   option starts with its own copy of that list. **Add address** appends a blank
+   row and is disabled at ten rows; **Remove** remains available even below four.
+   Inline validation requires 4–10 valid, unique addresses before review.
+
+   Inputs accept 40-character wallet addresses or full 64-character network
+   addresses, with or without `0x`. Validation trims surrounding whitespace,
+   removes the prefix, lowercases the address, and pads a 40-character address
+   with 24 zeros. Duplicate detection uses this normalized form. The form keeps
+   the entered text when returning from review; confirmation and submitted
+   proposal details show the normalized addresses as a list without `0x` or the
+   24-zero wallet-address padding. Prefilled inputs also omit that padding.
+   A full 64-character address without the padding suffix is displayed intact.
+   Committee address lists and inputs use the app's monospace font at a compact
+   size so equal-length addresses align and wallet addresses fit on mobile.
+   Displayed address lists are centered; inputs stay left-aligned.
+   Pressing a displayed address in Current, confirmation,
+   or proposal details copies its visible text and shows the app's usual clipboard
+   toast; input fields stay editable.
+   Trash buttons remove addresses, parameter changes, options, or project milestones;
+   each button retains a descriptive accessible label and tooltip.
+
+   The editor stores arrays of strings. For the `committeeAddresses` change,
+   `current` and `value` are JSON array strings containing full 64-character network
+   addresses, preserving row order. The original current list is independent of
+   every editable option and remains unchanged by edits.
+
 3. **Proposal Info Modal**
    - Displays proposal:
      - Number (e.g. `Proposal #12`)
@@ -68,6 +96,38 @@ The current contractor can claim each completed, unpaid milestone while the proj
 While a project is executing, or after it ends with funds still in escrow, committee members can propose a replacement contractor address and endorse the pending address. A new proposal resets the address endorsements, matching the server transaction contract.
 
 Once every milestone is completed or terminated, a committee member can end the project. The project retains only funds owed to completed, unpaid milestones so the contractor can still claim them. If funds remain 90 days after the project ends, a committee member can reclaim the balance and remove it from circulation.
+
+## Check committee proposals locally
+
+Run `python3 -m http.server 8000` from the client checkout, open
+`http://localhost:8000`, and sign into the configured Devnet. Open
+**Menu → DAO → + → Governance → Committee Addresses**. No feature flag is needed.
+Use a funded Devnet account for an actual submission; opening review does not
+submit a transaction.
+
+- Compare the prefilled rows with the current committee list; wallet addresses
+  must display as 40 characters, with the 24-zero network padding omitted. Add
+  and remove rows, including deleting every row. With fewer than four, review must stay
+  blocked with a count error beside the list; adding rows allows recovery.
+- At ten rows, Add address is disabled. A blank, non-hex address, or duplicate
+  (including a short address and its padded full-address equivalent) blocks
+  review with an inline error. Correcting it clears the error.
+- Paste an uppercase address with `0x` and surrounding spaces. Review displays
+  its lowercase form without the prefix or network padding. Go Back: the entered
+  text and row order remain intact.
+- Add another proposal option. Its initial committee is the current network
+  list; editing either option does not change the other. Include a numeric
+  parameter too and confirm its existing validation and review still work.
+- Submit only on the intended test network. Verify both change fields are JSON
+  strings containing full 64-character addresses, including the 24-zero padding
+  for 40-character wallet inputs, then reopen the confirmed proposal to check the
+  readable current/new lists. A rejected submission must leave the draft
+  available for retry or editing.
+
+Repeat the editor and review checks at a narrow/mobile viewport, including
+keyboard focus after adding or removing rows. If configuration cannot load,
+the existing unavailable state must prevent review instead of supplying an
+empty committee as a default.
 
 ## Data model used by the UI
 
