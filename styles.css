@@ -2567,6 +2567,45 @@ input[type='file'].form-control::file-selector-button {
   grid-template-columns: 82px minmax(0, 1fr);
 }
 
+.dao-committee-address-list {
+  display: grid;
+  gap: 6px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+#addProposalModal .dao-form-change-line--committee {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#addProposalModal .dao-committee-address-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+#addProposalModal .dao-committee-address-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#addProposalModal .dao-committee-address-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+#addProposalModal .dao-committee-address-error {
+  color: var(--danger-color);
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+#addProposalModal .dao-committee-address-editor .dao-form-help {
+  margin: 0;
+}
+
 #addProposalModal .dao-form-meta,
 #addProposalModal .dao-form-help {
   color: var(--secondary-text-color);
@@ -3702,6 +3741,37 @@ input[type='file'].form-control::file-selector-button {
   font-size: 12px;
   line-height: 1.2;
   transform: translateY(-9px);
+}
+
+#confirmProposalModal .proposal-option-cards:has(.dao-committee-address-list),
+#proposalInfoModal .proposal-option-cards:has(.dao-committee-address-list) {
+  grid-auto-rows: auto;
+}
+
+#confirmProposalModal .proposal-change-row--committee,
+#proposalInfoModal .proposal-change-row--committee,
+#confirmProposalModal .proposal-change-row--committee .proposal-change-values,
+#proposalInfoModal .proposal-change-row--committee .proposal-change-values {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+#confirmProposalModal .proposal-change-row--committee .proposal-change-arrow,
+#proposalInfoModal .proposal-change-row--committee .proposal-change-arrow {
+  display: none;
+}
+
+#confirmProposalModal .proposal-change-row--committee small,
+#confirmProposalModal .proposal-change-row--committee strong,
+#proposalInfoModal .proposal-change-row--committee small,
+#proposalInfoModal .proposal-change-row--committee strong {
+  justify-items: stretch;
+  gap: 4px;
+}
+
+#confirmProposalModal .proposal-change-row--committee span,
+#proposalInfoModal .proposal-change-row--committee span {
+  text-align: left;
 }
 
 #confirmProposalModal .proposal-change-values small,

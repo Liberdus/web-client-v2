@@ -99,6 +99,7 @@ import {
   createDaoProposalVoteTracker,
   DAO_ACTION_TYPES,
   DAO_CONFIG_CHANGE_OPTIONS,
+  DaoCommitteeAddresses,
   DAO_PROPOSAL_CREATE_TYPE,
   DAO_PROPOSAL_DAY_MS,
   DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
@@ -3662,6 +3663,22 @@ function formatDurationParts(milliseconds) {
     .join(' ');
 }
 
+class DaoCommitteeAddressView {
+  static render(value) {
+    let addresses;
+    try {
+      addresses = Array.isArray(value)
+        ? DaoCommitteeAddresses.normalize(value)
+        : DaoCommitteeAddresses.parse(value);
+    } catch {
+      return escapeHtml(formatDaoDetailValue(value));
+    }
+    return `<span class="dao-committee-address-list" role="list">${addresses.map((address) => (
+      `<span role="listitem">${escapeHtml(address)}</span>`
+    )).join('')}</span>`;
+  }
+}
+
 class AddProposalModal {
   load() {
     this.modal = document.getElementById('addProposalModal');
@@ -3938,6 +3955,7 @@ class AddProposalModal {
   }
 
   clearValidationError(target) {
+    if (target?.closest?.('[data-dao-committee-addresses]')) return;
     const control = PopupSelect.getVisibleControl(target);
     const highlight = this.getValidationHighlight(control);
     highlight?.classList.remove('dao-form-error');
@@ -4016,7 +4034,10 @@ class AddProposalModal {
 
     const options = catalog
       .map((option) => {
-        const current = getPathValue(source, option.path);
+        let current = getPathValue(source, option.path);
+        if (current !== undefined && option.validation === 'committeeAddresses') {
+          current = DaoCommitteeAddresses.normalize(current);
+        }
         return current === undefined ? null : { ...option, current };
       })
       .filter(Boolean);
@@ -4262,6 +4283,14 @@ class AddProposalModal {
     return { changes: [] };
   }
 
+  createChange(key) {
+    const option = this.getConfigOption(key);
+    return {
+      key,
+      value: option.validation === 'committeeAddresses' ? [...option.current] : '',
+    };
+  }
+
   getOptionLabel(optionIndex) {
     return `Option ${optionIndex + 1}`;
   }
@@ -4272,7 +4301,7 @@ class AddProposalModal {
 
     const validKeys = new Set(configOptions.map((option) => option.key));
     const templateChanges = this.options[0].changes.filter((change) => validKeys.has(change.key));
-    const changes = templateChanges.length ? templateChanges : [{ key: configOptions[0].key, value: '' }];
+    const changes = templateChanges.length ? templateChanges : [this.createChange(configOptions[0].key)];
 
     this.options = this.options.map((proposalOption, optionIndex) => {
       if (optionIndex === 0) return { ...proposalOption, changes };
@@ -4280,7 +4309,9 @@ class AddProposalModal {
       const valuesByKey = new Map(proposalOption.changes.map((change) => [change.key, change.value]));
       return {
         ...proposalOption,
-        changes: changes.map((change) => ({ key: change.key, value: valuesByKey.get(change.key) ?? '' })),
+        changes: changes.map((change) => valuesByKey.has(change.key)
+          ? { key: change.key, value: valuesByKey.get(change.key) }
+          : this.createChange(change.key)),
       };
     });
   }
@@ -4311,6 +4342,9 @@ class AddProposalModal {
     ].join('');
 
     PopupSelect.enhanceAll(this.optionsList);
+    this.optionsList.querySelectorAll('[data-dao-committee-addresses]').forEach((group) => {
+      this.validateCommitteeAddressGroup(group);
+    });
 
     if (this.addOptionButton) {
       this.addOptionButton.disabled = configOptions.length === 0 || isEmergency || this.options.length >= 9;
@@ -4366,6 +4400,10 @@ class AddProposalModal {
     const parameterControl = isTemplate
       ? `<select id="${configId}" class="form-control" aria-label="Select parameter for Option ${optionNumber}, change ${changeNumber}" data-dao-change-key data-dao-option-index="${optionIndex}" data-dao-change-index="${changeIndex}" required>${selectOptions}</select>`
       : `<input id="${configId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.label)}" readonly />`;
+    const currentControl = option.validation === 'committeeAddresses'
+      ? `<div id="${currentId}" class="form-control dao-form-current-value" role="group" aria-label="Current committee addresses">${DaoCommitteeAddressView.render(option.current)}</div>`
+      : `<input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.current)}" readonly />`;
+    const valueLineClass = option.validation === 'committeeAddresses' ? ' dao-form-change-line--committee' : '';
 
     return `
       <div class="dao-form-row dao-form-row--change" data-dao-change-row>
@@ -4378,11 +4416,11 @@ class AddProposalModal {
             <label for="${configId}">${isTemplate ? 'Select' : 'Parameter'}${isTemplate ? ' <span class="dao-form-required" aria-hidden="true">*</span>' : ''}</label>
             ${parameterControl}
           </div>
-          <div class="dao-form-change-line">
+          <div class="dao-form-change-line${valueLineClass}">
             <label for="${currentId}">Current</label>
-            <input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.current)}" readonly />
+            ${currentControl}
           </div>
-          <div class="dao-form-change-line">
+          <div class="dao-form-change-line${valueLineClass}">
             <label for="${proposedId}">Enter <span class="dao-form-required" aria-hidden="true">*</span></label>
             ${this.renderProposedValueControl(option, change.value, proposedId, dataAttributes)}
           </div>
@@ -4394,6 +4432,8 @@ class AddProposalModal {
 
   renderProposedValueControl(option, value, id, dataAttributes) {
     switch (`${option.valueType}:${option.validation}`) {
+      case 'array:committeeAddresses':
+        return this.renderCommitteeAddressEditor(value, id, dataAttributes);
       case 'boolean:boolean':
         return `
           <select id="${id}" class="form-control" ${dataAttributes} required>
@@ -4411,6 +4451,75 @@ class AddProposalModal {
       default:
         throw new Error(`Unsupported DAO parameter validation: ${option.valueType}:${option.validation}`);
     }
+  }
+
+  renderCommitteeAddressEditor(addresses, id, dataAttributes) {
+    const rows = addresses.map((address, index) => `
+      <div class="dao-committee-address-row">
+        <input id="${id}Address${index}" class="form-control" type="text" value="${escapeDaoFormAttribute(address)}"
+          ${dataAttributes} data-dao-committee-address-index="${index}" aria-label="Committee address ${index + 1}"
+          aria-describedby="${id}Help ${id}Error" autocomplete="off" autocapitalize="none" spellcheck="false" required />
+        <button type="button" class="btn btn--secondary dao-form-remove-button" data-dao-remove-committee-address="${index}" aria-label="Remove committee address ${index + 1}">Remove</button>
+      </div>
+    `).join('');
+    return `
+      <div id="${id}" class="dao-committee-address-editor" data-dao-committee-addresses ${dataAttributes}
+        role="group" aria-label="Proposed committee addresses" aria-describedby="${id}Help ${id}Error" tabindex="-1">
+        ${rows}
+        <button type="button" class="btn btn--secondary dao-form-add-button" data-dao-add-committee-address ${addresses.length >= DaoCommitteeAddresses.MAX_MEMBERS ? 'disabled' : ''}>
+          <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
+          <span>Add address</span>
+        </button>
+        <p id="${id}Help" class="dao-form-help">${DaoCommitteeAddresses.MIN_MEMBERS}–${DaoCommitteeAddresses.MAX_MEMBERS} unique addresses. The 0x prefix is optional.</p>
+        <p id="${id}Error" class="dao-committee-address-error hidden" data-dao-committee-error aria-live="polite"></p>
+      </div>
+    `;
+  }
+
+  showCommitteeAddressError(group, error) {
+    const message = group.querySelector('[data-dao-committee-error]');
+    message.textContent = error?.message || '';
+    message.classList.toggle('hidden', !error);
+    group.setAttribute('aria-invalid', String(Boolean(error)));
+    this.getValidationHighlight(group)?.classList.toggle('dao-form-error', Boolean(error));
+    group.querySelectorAll('[data-dao-committee-address-index]').forEach((input) => {
+      input.setAttribute('aria-invalid', String(Number(input.dataset.daoCommitteeAddressIndex) === error?.addressIndex));
+    });
+  }
+
+  validateCommitteeAddressGroup(group) {
+    const change = this.options[Number(group.dataset.daoOptionIndex)].changes[Number(group.dataset.daoChangeIndex)];
+    try {
+      const addresses = DaoCommitteeAddresses.normalize(change.value);
+      this.showCommitteeAddressError(group, null);
+      return { addresses, error: null };
+    } catch (error) {
+      this.showCommitteeAddressError(group, error);
+      error.validationTarget = group.querySelector(`[data-dao-committee-address-index="${error.addressIndex}"]`)
+        || group.querySelector('[data-dao-add-committee-address]');
+      return { addresses: null, error };
+    }
+  }
+
+  handleCommitteeAddressAction(button) {
+    const group = button.closest('[data-dao-committee-addresses]');
+    const change = this.options[Number(group.dataset.daoOptionIndex)].changes[Number(group.dataset.daoChangeIndex)];
+    let focusIndex;
+    if (button.matches('[data-dao-add-committee-address]')) {
+      if (change.value.length >= DaoCommitteeAddresses.MAX_MEMBERS) return;
+      focusIndex = change.value.length;
+      change.value.push('');
+    } else {
+      const index = Number(button.dataset.daoRemoveCommitteeAddress);
+      change.value.splice(index, 1);
+      focusIndex = Math.min(index, change.value.length - 1);
+    }
+    const groupId = group.id;
+    this.renderOptions();
+    const updatedGroup = document.getElementById(groupId);
+    const focusTarget = updatedGroup.querySelector(`[data-dao-committee-address-index="${focusIndex}"]`)
+      || updatedGroup.querySelector('[data-dao-add-committee-address]');
+    focusTarget.focus();
   }
 
   addOption() {
@@ -4448,7 +4557,7 @@ class AddProposalModal {
       return;
     }
 
-    template.changes.push({ key: nextOption.key, value: '' });
+    template.changes.push(this.createChange(nextOption.key));
     this.synchronizeOptions();
     this.renderOptions();
     const parameterSelect = this.optionsList?.querySelector(
@@ -4458,6 +4567,11 @@ class AddProposalModal {
   }
 
   handleOptionsClick(event) {
+    const committeeButton = event.target.closest('[data-dao-add-committee-address], [data-dao-remove-committee-address]');
+    if (committeeButton) {
+      this.handleCommitteeAddressAction(committeeButton);
+      return;
+    }
     const addChangeButton = event.target.closest('[data-dao-add-parameter-change]');
     if (addChangeButton) {
       this.addParameterChange(Number(addChangeButton.dataset.daoAddParameterChange));
@@ -4493,6 +4607,11 @@ class AddProposalModal {
       const change = proposalOption.changes[Number(event.target.dataset.daoChangeIndex)];
       if (!change) return;
 
+      if (event.target.matches('[data-dao-committee-address-index]')) {
+        change.value[Number(event.target.dataset.daoCommitteeAddressIndex)] = event.target.value;
+        this.validateCommitteeAddressGroup(event.target.closest('[data-dao-committee-addresses]'));
+        return;
+      }
       const value = normalizeDaoParameterInput(event.target.value);
       event.target.value = value;
       change.value = value;
@@ -4509,8 +4628,7 @@ class AddProposalModal {
     const proposalOption = this.options[optionIndex];
     const change = proposalOption?.changes[changeIndex];
     if (!change) return;
-    change.key = event.target.value;
-    change.value = '';
+    proposalOption.changes[changeIndex] = this.createChange(event.target.value);
     this.synchronizeOptions();
     this.renderOptions();
     PopupSelect.focus(this.optionsList?.querySelector(
@@ -4667,6 +4785,17 @@ class AddProposalModal {
           throw this.createValidationError(`Remove the duplicate ${option.label} change`, keyInput);
         }
         seenKeys.add(option.key);
+
+        if (option.validation === 'committeeAddresses') {
+          const group = optionEl.querySelector(`[data-dao-committee-addresses][data-dao-change-index="${changeIndex}"]`);
+          const { addresses, error } = this.validateCommitteeAddressGroup(group);
+          if (error) throw error;
+          return {
+            key: option.key,
+            value: JSON.stringify(addresses),
+            current: JSON.stringify(option.current),
+          };
+        }
 
         const value = String(change.value || '').trim();
         const parameterType = `${option.valueType}:${option.validation}`;
@@ -4947,15 +5076,20 @@ function renderDaoProposalChangeRows(changes) {
   return changes
     .map((change) => {
       const key = change?.key || 'Unknown key';
-      const current = formatDaoDetailValue(change?.current);
-      const next = formatDaoDetailValue(change?.value);
+      const current = key === 'committeeAddresses'
+        ? DaoCommitteeAddressView.render(change.current)
+        : escapeHtml(formatDaoDetailValue(change?.current));
+      const next = key === 'committeeAddresses'
+        ? DaoCommitteeAddressView.render(change.value)
+        : escapeHtml(formatDaoDetailValue(change?.value));
+      const rowClass = key === 'committeeAddresses' ? ' proposal-change-row--committee' : '';
       return `
-        <div class="proposal-change-row">
+        <div class="proposal-change-row${rowClass}">
           <span>${escapeHtml(key)}</span>
           <div class="proposal-change-values">
-            <small><span>Current:</span><strong>${escapeHtml(current)}</strong></small>
+            <small><span>Current:</span><strong>${current}</strong></small>
             <span class="proposal-change-arrow" aria-hidden="true">&rarr;</span>
-            <small><span>New:</span><strong>${escapeHtml(next)}</strong></small>
+            <small><span>New:</span><strong>${next}</strong></small>
           </div>
         </div>
       `;
