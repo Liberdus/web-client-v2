@@ -58,6 +58,7 @@ export const DAO_CONFIG_CHANGE_OPTIONS = {
     { key: 'votingDuration', path: 'current.dao.votingDuration', label: 'Voting Duration', valueType: 'number', validation: 'integer' },
   ],
   economic: [
+    { key: 'transactionFeeUsdStr', path: 'current.transactionFeeUsdStr', label: 'Transaction Fee', valueType: 'string', validation: 'decimalString' },
     { key: 'certCycleDuration', path: 'current.certCycleDuration', label: 'Certificate Cycle Duration', valueType: 'number', validation: 'integer' },
     { key: 'enableNodeSlashing', path: 'current.enableNodeSlashing', label: 'Enable Node Slashing', valueType: 'boolean', validation: 'boolean' },
     { key: 'maintenanceInterval', path: 'current.maintenanceInterval', label: 'Maintenance Interval', valueType: 'number', validation: 'integer' },
