@@ -4932,6 +4932,9 @@ class AddProposalModal {
             valueInput,
           );
         }
+        if (option.key === 'stabilityFactorStr' && !/[1-9]/.test(value)) {
+          throw this.createValidationError(`${option.label} must be greater than zero`, valueInput);
+        }
 
         return {
           key: option.key,
