@@ -99,7 +99,6 @@ import {
   createDaoProposalVoteTracker,
   DAO_ACTION_TYPES,
   DAO_CONFIG_CHANGE_OPTIONS,
-  DaoCommitteeAddresses,
   DAO_PROPOSAL_CREATE_TYPE,
   DAO_PROPOSAL_DAY_MS,
   DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
@@ -3684,13 +3683,13 @@ class DaoCommitteeAddressView {
     let addresses;
     try {
       addresses = Array.isArray(value)
-        ? DaoCommitteeAddresses.normalize(value)
-        : DaoCommitteeAddresses.parse(value);
+        ? daoRepo.normalizeCommitteeAddresses(value)
+        : daoRepo.parseCommitteeAddresses(value);
     } catch {
       return escapeHtml(formatDaoDetailValue(value));
     }
     return `<span class="dao-committee-address-list" role="list">${addresses.map((address) => {
-      const displayAddress = DaoCommitteeAddresses.toDisplayAddress(address);
+      const displayAddress = daoRepo.toCommitteeDisplayAddress(address);
       return `<span role="listitem"><button type="button" class="dao-committee-address"
         data-dao-copy-address="${displayAddress}" title="Copy address" aria-label="Copy address ${displayAddress}">${displayAddress}</button></span>`;
     }).join('')}</span>`;
@@ -4055,7 +4054,7 @@ class AddProposalModal {
       .map((option) => {
         let current = getPathValue(source, option.path);
         if (current !== undefined && option.validation === 'committeeAddresses') {
-          current = DaoCommitteeAddresses.normalize(current);
+          current = daoRepo.normalizeCommitteeAddresses(current);
         }
         return current === undefined ? null : { ...option, current };
       })
@@ -4311,7 +4310,7 @@ class AddProposalModal {
     return {
       key,
       value: option.validation === 'committeeAddresses'
-        ? option.current.map(DaoCommitteeAddresses.toDisplayAddress)
+        ? option.current.map(daoRepo.toCommitteeDisplayAddress)
         : '',
     };
   }
@@ -4491,11 +4490,11 @@ class AddProposalModal {
       <div id="${id}" class="dao-committee-address-editor" data-dao-committee-addresses ${dataAttributes}
         role="group" aria-label="Proposed committee addresses" aria-describedby="${id}Help ${id}Error" tabindex="-1">
         ${rows}
-        <button type="button" class="btn btn--secondary dao-form-add-button" data-dao-add-committee-address ${addresses.length >= DaoCommitteeAddresses.MAX_MEMBERS ? 'disabled' : ''}>
+        <button type="button" class="btn btn--secondary dao-form-add-button" data-dao-add-committee-address ${addresses.length >= daoRepo.maxCommitteeMembers ? 'disabled' : ''}>
           <span class="dao-form-add-icon" aria-hidden="true"><span class="plus-glyph">+</span></span>
           <span>Add address</span>
         </button>
-        <p id="${id}Help" class="dao-form-help">${DaoCommitteeAddresses.MIN_MEMBERS}–${DaoCommitteeAddresses.MAX_MEMBERS} unique addresses. The 0x prefix is optional.</p>
+        <p id="${id}Help" class="dao-form-help">${daoRepo.minCommitteeMembers}–${daoRepo.maxCommitteeMembers} unique addresses. The 0x prefix is optional.</p>
         <p id="${id}Error" class="dao-committee-address-error hidden" data-dao-committee-error aria-live="polite"></p>
       </div>
     `;
@@ -4515,7 +4514,7 @@ class AddProposalModal {
   validateCommitteeAddressGroup(group) {
     const change = this.options[Number(group.dataset.daoOptionIndex)].changes[Number(group.dataset.daoChangeIndex)];
     try {
-      const addresses = DaoCommitteeAddresses.normalize(change.value);
+      const addresses = daoRepo.normalizeCommitteeAddresses(change.value);
       this.showCommitteeAddressError(group, null);
       return { addresses, error: null };
     } catch (error) {
@@ -4531,7 +4530,7 @@ class AddProposalModal {
     const change = this.options[Number(group.dataset.daoOptionIndex)].changes[Number(group.dataset.daoChangeIndex)];
     let focusIndex;
     if (button.matches('[data-dao-add-committee-address]')) {
-      if (change.value.length >= DaoCommitteeAddresses.MAX_MEMBERS) return;
+      if (change.value.length >= daoRepo.maxCommitteeMembers) return;
       focusIndex = change.value.length;
       change.value.push('');
     } else {
