@@ -4273,6 +4273,9 @@ class AddProposalModal {
 
   createChange(key) {
     const option = this.getConfigOption(key);
+    if (option.validation === 'archiverVersions') {
+      return { key, value: { ...option.current } };
+    }
     return {
       key,
       value: option.validation === 'committeeAddresses'
@@ -4390,9 +4393,14 @@ class AddProposalModal {
     const parameterControl = isTemplate
       ? `<select id="${configId}" class="form-control" aria-label="Select parameter for Option ${optionNumber}, change ${changeNumber}" data-dao-change-key data-dao-option-index="${optionIndex}" data-dao-change-index="${changeIndex}" required>${selectOptions}</select>`
       : `<input id="${configId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.label)}" readonly />`;
-    const currentControl = option.validation === 'committeeAddresses'
-      ? `<div id="${currentId}" class="form-control dao-form-current-value" role="group" aria-label="Current committee addresses">${this.renderCommitteeAddresses(option.current)}</div>`
-      : `<input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.current)}" readonly />`;
+    let currentControl;
+    if (option.validation === 'committeeAddresses') {
+      currentControl = `<div id="${currentId}" class="form-control dao-form-current-value" role="group" aria-label="Current committee addresses">${this.renderCommitteeAddresses(option.current)}</div>`;
+    } else if (option.validation === 'archiverVersions') {
+      currentControl = this.renderArchiverVersionEditor(option.current, currentId, '', true);
+    } else {
+      currentControl = `<input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.current)}" readonly />`;
+    }
     const valueLineClass = option.validation === 'committeeAddresses' ? ' dao-form-change-line--committee' : '';
 
     return `
@@ -4424,6 +4432,8 @@ class AddProposalModal {
     switch (`${option.valueType}:${option.validation}`) {
       case 'array:committeeAddresses':
         return this.renderCommitteeAddressEditor(value, id, dataAttributes);
+      case 'object:archiverVersions':
+        return this.renderArchiverVersionEditor(value, id, dataAttributes, false);
       case 'boolean:boolean':
         return `
           <select id="${id}" class="form-control" ${dataAttributes} required>
@@ -4434,6 +4444,14 @@ class AddProposalModal {
         `;
       case 'string:decimalString':
         return `<input id="${id}" class="form-control" ${dataAttributes} type="text" inputmode="decimal" maxlength="34" value="${escapeDaoFormAttribute(value)}" required />`;
+      case 'string:text':
+        return option.key === 'description'
+          ? `<textarea id="${id}" class="form-control" ${dataAttributes} rows="2" required>${escapeHtml(value)}</textarea>`
+          : `<input id="${id}" class="form-control" ${dataAttributes} type="text" value="${escapeDaoFormAttribute(value)}" required />`;
+      case 'string:url':
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="url" value="${escapeDaoFormAttribute(value)}" required />`;
+      case 'bigint:integer':
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="text" inputmode="numeric" pattern="[0-9]+" value="${escapeDaoFormAttribute(value)}" required />`;
       case 'number:integer':
         return `<input id="${id}" class="form-control" ${dataAttributes} type="number" step="1" inputmode="numeric" min="0" value="${escapeDaoFormAttribute(value)}" required />`;
       case 'number:decimal':
@@ -4441,6 +4459,38 @@ class AddProposalModal {
       default:
         throw new Error(`Unsupported DAO parameter validation: ${option.valueType}:${option.validation}`);
     }
+  }
+
+  renderArchiverVersionEditor(value, id, dataAttributes, readOnly) {
+    const fields = [
+      ['minVersion', 'Minimum version'],
+      ['activeVersion', 'Active version'],
+      ['latestVersion', 'Latest version'],
+    ];
+    return `<div id="${id}" class="dao-form-list" role="group" aria-label="Archiver versions" data-dao-archiver-versions>${fields.map(([key, label]) => `
+      <div class="form-group">
+        <label for="${id}-${key}">${label}</label>
+        ${readOnly
+          ? `<input id="${id}-${key}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(value[key])}" data-dao-archiver-field="${key}" readonly />`
+          : this.renderProposedValueControl({ key, valueType: 'string', validation: 'text' }, value[key], `${id}-${key}`, `${dataAttributes} data-dao-archiver-field="${key}"`)}
+      </div>
+    `).join('')}</div>`;
+  }
+
+  validateArchiverVersions(value, valueInput) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw this.createValidationError('Enter all three archiver versions', valueInput);
+    }
+    const versions = {};
+    for (const key of ['minVersion', 'activeVersion', 'latestVersion']) {
+      if (typeof value[key] !== 'string' || !value[key].trim()) {
+        const input = valueInput?.closest('[data-dao-archiver-versions]')
+          ?.querySelector(`[data-dao-archiver-field="${key}"]`);
+        throw this.createValidationError('Enter all three archiver versions', input || valueInput);
+      }
+      versions[key] = value[key].trim();
+    }
+    return versions;
   }
 
   renderCommitteeAddresses(value) {
@@ -4634,7 +4684,13 @@ class AddProposalModal {
         this.validateCommitteeAddressGroup(event.target.closest('[data-dao-committee-addresses]'));
         return;
       }
-      const value = normalizeDaoParameterInput(event.target.value);
+      if (event.target.matches('[data-dao-archiver-field]')) {
+        change.value[event.target.dataset.daoArchiverField] = event.target.value;
+        return;
+      }
+      const option = this.getConfigOption(change.key);
+      const isDecimalInput = option.valueType === 'number' || option.validation === 'decimalString';
+      const value = isDecimalInput ? normalizeDaoParameterInput(event.target.value) : event.target.value;
       event.target.value = value;
       change.value = value;
     }
@@ -4819,10 +4875,32 @@ class AddProposalModal {
           };
         }
 
+        if (option.validation === 'archiverVersions') {
+          return {
+            key: option.key,
+            value: JSON.stringify(this.validateArchiverVersions(change.value, valueInput)),
+            current: JSON.stringify(option.current),
+          };
+        }
+
         const value = String(change.value || '').trim();
         const parameterType = `${option.valueType}:${option.validation}`;
-        const numericValue = Number(value);
+        const numericValue = option.valueType === 'number' ? Number(value) : null;
         if (!value) throw this.createValidationError(`Enter a proposed value for ${option.label}`, valueInput);
+        if (parameterType === 'bigint:integer' && !/^\d+$/.test(value)) {
+          throw this.createValidationError(`${option.label} must be a non-negative whole number`, valueInput);
+        }
+        if (parameterType === 'string:url') {
+          let url;
+          try {
+            url = new URL(value);
+          } catch {
+            throw this.createValidationError(`${option.label} must be an HTTP or HTTPS URL`, valueInput);
+          }
+          if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+            throw this.createValidationError(`${option.label} must be an HTTP or HTTPS URL`, valueInput);
+          }
+        }
         if (parameterType === 'boolean:boolean' && value !== 'true' && value !== 'false') {
           throw this.createValidationError(`${option.label} must be true or false`, valueInput);
         }
