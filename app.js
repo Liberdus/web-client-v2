@@ -3662,12 +3662,12 @@ function formatDurationParts(milliseconds) {
     .join(' ');
 }
 
-class DaoCommitteeAddressView {
-  static load(container) {
-    container?.addEventListener('click', DaoCommitteeAddressView.handleClick);
+class AddProposalModal {
+  static bindCommitteeAddressCopy(container) {
+    container?.addEventListener('click', AddProposalModal.handleCommitteeAddressCopy);
   }
 
-  static async handleClick(event) {
+  static async handleCommitteeAddressCopy(event) {
     const button = event.target.closest('[data-dao-copy-address]');
     if (!button) return;
     try {
@@ -3679,7 +3679,7 @@ class DaoCommitteeAddressView {
     }
   }
 
-  static render(value) {
+  static renderCommitteeAddresses(value) {
     let addresses;
     try {
       addresses = Array.isArray(value)
@@ -3694,12 +3694,10 @@ class DaoCommitteeAddressView {
         data-dao-copy-address="${displayAddress}" title="Copy address" aria-label="Copy address ${displayAddress}">${displayAddress}</button></span>`;
     }).join('')}</span>`;
   }
-}
 
-class AddProposalModal {
   load() {
     this.modal = document.getElementById('addProposalModal');
-    DaoCommitteeAddressView.load(this.modal);
+    AddProposalModal.bindCommitteeAddressCopy(this.modal);
     this.closeButton = document.getElementById('closeAddProposalModal');
     this.cancelButton = document.getElementById('cancelAddProposal');
     this.form = document.getElementById('addProposalForm');
@@ -4425,7 +4423,7 @@ class AddProposalModal {
       ? `<select id="${configId}" class="form-control" aria-label="Select parameter for Option ${optionNumber}, change ${changeNumber}" data-dao-change-key data-dao-option-index="${optionIndex}" data-dao-change-index="${changeIndex}" required>${selectOptions}</select>`
       : `<input id="${configId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.label)}" readonly />`;
     const currentControl = option.validation === 'committeeAddresses'
-      ? `<div id="${currentId}" class="form-control dao-form-current-value" role="group" aria-label="Current committee addresses">${DaoCommitteeAddressView.render(option.current)}</div>`
+      ? `<div id="${currentId}" class="form-control dao-form-current-value" role="group" aria-label="Current committee addresses">${AddProposalModal.renderCommitteeAddresses(option.current)}</div>`
       : `<input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.current)}" readonly />`;
     const valueLineClass = option.validation === 'committeeAddresses' ? ' dao-form-change-line--committee' : '';
 
@@ -5101,10 +5099,10 @@ function renderDaoProposalChangeRows(changes) {
     .map((change) => {
       const key = change?.key || 'Unknown key';
       const current = key === 'committeeAddresses'
-        ? DaoCommitteeAddressView.render(change.current)
+        ? AddProposalModal.renderCommitteeAddresses(change.current)
         : escapeHtml(formatDaoDetailValue(change?.current));
       const next = key === 'committeeAddresses'
-        ? DaoCommitteeAddressView.render(change.value)
+        ? AddProposalModal.renderCommitteeAddresses(change.value)
         : escapeHtml(formatDaoDetailValue(change?.value));
       const rowClass = key === 'committeeAddresses' ? ' proposal-change-row--committee' : '';
       return `
@@ -5351,7 +5349,7 @@ function renderDaoProjectProposalInfo(
 class ConfirmProposalModal {
   load() {
     this.modal = document.getElementById('confirmProposalModal');
-    DaoCommitteeAddressView.load(this.modal);
+    AddProposalModal.bindCommitteeAddressCopy(this.modal);
     this.closeButton = document.getElementById('closeConfirmProposalModal');
     this.title = document.getElementById('confirmProposalModalTitle');
     this.backButton = document.getElementById('backConfirmProposal');
@@ -6462,7 +6460,7 @@ function floorDaoVoteWeightEstimate(value) {
 class ProposalInfoModal {
   load() {
     this.modal = document.getElementById('proposalInfoModal');
-    DaoCommitteeAddressView.load(this.modal);
+    AddProposalModal.bindCommitteeAddressCopy(this.modal);
     this.closeButton = document.getElementById('closeProposalInfoModal');
     this.title = document.getElementById('proposalInfoModalTitle');
     this.content = document.getElementById('proposalInfoContent');
