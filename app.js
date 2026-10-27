@@ -4445,9 +4445,7 @@ class AddProposalModal {
       case 'string:decimalString':
         return `<input id="${id}" class="form-control" ${dataAttributes} type="text" inputmode="decimal" maxlength="34" value="${escapeDaoFormAttribute(value)}" required />`;
       case 'string:text':
-        return option.key === 'description'
-          ? `<textarea id="${id}" class="form-control" ${dataAttributes} rows="2" required>${escapeHtml(value)}</textarea>`
-          : `<input id="${id}" class="form-control" ${dataAttributes} type="text" value="${escapeDaoFormAttribute(value)}" required />`;
+        return `<input id="${id}" class="form-control" ${dataAttributes} type="text" value="${escapeDaoFormAttribute(value)}" required />`;
       case 'string:url':
         return `<input id="${id}" class="form-control" ${dataAttributes} type="url" value="${escapeDaoFormAttribute(value)}" required />`;
       case 'bigint:integer':
