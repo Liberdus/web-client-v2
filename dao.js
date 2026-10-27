@@ -66,7 +66,7 @@ export const DAO_CONFIG_CHANGE_OPTIONS = {
     { key: 'enableNodeSlashing', path: 'current.enableNodeSlashing', label: 'Enable Node Slashing', valueType: 'boolean', validation: 'boolean' },
     { key: 'goldenTicketServerUrl', path: 'current.goldenTicketServerUrl', label: 'Golden Ticket Server URL', valueType: 'string', validation: 'url' },
     { key: 'latestVersion', path: 'current.latestVersion', label: 'Latest Validator Version', valueType: 'string', validation: 'text' },
-    { key: 'maintenanceFee', path: 'current.maintenanceFee', label: 'Maintenance Fee (base units)', valueType: 'bigint', validation: 'integer', unit: 'LIB base units' },
+    { key: 'maintenanceFee', path: 'current.maintenanceFee', label: 'Maintenance Fee (base units)', valueType: 'bigint', validation: 'integer' },
     { key: 'maintenanceInterval', path: 'current.maintenanceInterval', label: 'Maintenance Interval', valueType: 'number', validation: 'integer', unit: 'milliseconds' },
     { key: 'messageMaxLength', path: 'current.messageMaxLength', label: 'Message Max Length', valueType: 'number', validation: 'integer', unit: 'messages' },
     { key: 'messageRetentionDays', path: 'current.messageRetentionDays', label: 'Message Retention Days', valueType: 'number', validation: 'integer', unit: 'days' },
