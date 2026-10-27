@@ -4402,6 +4402,9 @@ class AddProposalModal {
       currentControl = `<input id="${currentId}" class="form-control dao-form-current-value" type="text" value="${escapeDaoFormAttribute(option.current)}" readonly />`;
     }
     const valueLineClass = option.validation === 'committeeAddresses' ? ' dao-form-change-line--committee' : '';
+    const valueTypeLabel = option.unit
+      ? `${option.valueType} in ${option.unit}${option.unitHint ? ` (${option.unitHint})` : ''}`
+      : option.valueType;
 
     return `
       <div class="dao-form-row dao-form-row--change" data-dao-change-row>
@@ -4422,7 +4425,7 @@ class AddProposalModal {
             <label for="${proposedId}">Enter <span class="dao-form-required" aria-hidden="true">*</span></label>
             ${this.renderProposedValueControl(option, change.value, proposedId, dataAttributes)}
           </div>
-          <div class="dao-form-meta">${escapeHtml(option.path)} · ${escapeHtml(option.valueType)}</div>
+          <div class="dao-form-meta">${escapeHtml(option.path)} · ${escapeHtml(valueTypeLabel)}</div>
         </div>
       </div>
     `;
