@@ -23936,6 +23936,36 @@ class ChatModal {
       </div>`;
   }
 
+  renderIntentsPaymentMessage(item, messageTimeHTML) {
+    const payment = item.payment;
+    if (!payment) return '';
+    const verified = item.paymentVerified || 'unchecked';
+    const exactAmount = `${payment.amount} ${payment.symbol}`;
+    return `
+      <div class="intents-payment-message intents-payment-receipt" data-verified="${escapeHtmlAttribute(verified)}" data-intent-hash="${escapeHtmlAttribute(payment.intentHash)}">
+        <div class="intents-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
+        <div class="intents-payment-amount" title="${escapeHtmlAttribute(exactAmount)}">${item.my ? '−' : '+'}${escapeHtml(formatDisplayAmount(payment.amount))} <span class="intents-payment-unit">${escapeHtml(payment.symbol)}</span></div>
+        ${payment.chainName ? `<div class="intents-payment-chain">${escapeHtml(payment.chainName)}</div>` : ''}
+        ${payment.note ? `<section class="intents-payment-note-section" aria-label="Payment note"><div class="intents-payment-label">Note</div><div class="intents-payment-note">${escapeHtml(payment.note)}</div></section>` : ''}
+        <div class="intents-payment-meta">
+          <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
+          <div class="intents-payment-footer">
+            ${messageTimeHTML}
+          </div>
+        </div>
+        <details class="intents-payment-details">
+          <summary>Payment details</summary>
+          <dl>
+            <div><dt>Amount</dt><dd>${escapeHtml(exactAmount)}</dd></div>
+            ${payment.chainName ? `<div><dt>Network</dt><dd>${escapeHtml(payment.chainName)}</dd></div>` : ''}
+            ${payment.assetId ? `<div><dt>Asset</dt><dd><code>${escapeHtml(payment.assetId)}</code></dd></div>` : ''}
+            ${payment.intentHash ? `<div><dt>Intent</dt><dd><code>${escapeHtml(payment.intentHash)}</code></dd></div>` : ''}
+            ${payment.transactionHash ? `<div><dt>Transaction</dt><dd><code>${escapeHtml(payment.transactionHash)}</code></dd></div>` : ''}
+          </dl>
+        </details>
+      </div>`;
+  }
+
   renderLibPaymentTransaction(transactionId) {
     const code = `<code>${escapeHtml(transactionId)}</code>`;
     const explorerUrl = normalizeHttpsUrl(network.explorerUrl);
@@ -24158,28 +24188,9 @@ class ChatModal {
       case EVM_CHAT_MESSAGE_TYPE:
         messageTextHTML = this.renderEvmPaymentMessage(item, messageTimeHTML);
         break;
-      case INTENTS_CHAT_MESSAGE_TYPE: {
-        const payment = item.payment;
-        if (payment) {
-          // A received payment is a claim until the intent behind it is
-          // checked, so the bubble says what was claimed and carries its
-          // verification state rather than asserting money arrived.
-          const verified = item.paymentVerified || 'unchecked';
-          // Signed like a LIB payment, so a run of payments reads as money in
-          // and money out without checking which side each bubble sits on.
-          const direction = item.my ? '−' : '+';
-          messageTextHTML = `
-              <div class="intents-payment-message" data-verified="${escapeHtml(verified)}" data-intent-hash="${escapeHtml(payment.intentHash)}">
-                <div class="intents-payment-amount" title="${escapeHtml(payment.amount)} ${escapeHtml(payment.symbol)}">
-                  ${direction}${escapeHtml(formatDisplayAmount(payment.amount))} ${escapeHtml(payment.symbol)}
-                </div>
-                ${payment.chainName ? `<div class="intents-payment-chain">${escapeHtml(payment.chainName)}</div>` : ''}
-                ${payment.note ? `<div class="intents-payment-note">${escapeHtml(payment.note)}</div>` : ''}
-                <div class="intents-payment-verified">${escapeHtml(paymentStatusLabel(verified))}</div>
-              </div>`;
-        }
+      case INTENTS_CHAT_MESSAGE_TYPE:
+        messageTextHTML = this.renderIntentsPaymentMessage(item, messageTimeHTML);
         break;
-      }
       case 'location': {
         const latitude = Number(item.latitude);
         const longitude = Number(item.longitude);
@@ -24211,12 +24222,13 @@ class ChatModal {
 
     const callTimeAttribute = messageType === 'call' && item.callTime ? `data-call-time="${escapeHtmlAttribute(item.callTime)}"` : '';
     const evmPayment = messageType === EVM_CHAT_MESSAGE_TYPE && messageTextHTML !== '';
+    const intentsPayment = messageType === INTENTS_CHAT_MESSAGE_TYPE && messageTextHTML !== '';
     return `
-            <div class="message ${messageClass}${hasMediaAttachment ? ' has-media-attachment' : ''}${evmPayment ? ' evm-payment-bubble' : ''}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
+            <div class="message ${messageClass}${hasMediaAttachment ? ' has-media-attachment' : ''}${evmPayment ? ' evm-payment-bubble' : ''}${intentsPayment ? ' intents-payment-bubble' : ''}" ${timestampAttribute} ${txidAttribute} ${statusAttribute} ${callTimeAttribute}>
               ${replyHTML}
               ${attachmentsHTML}
               ${messageTextHTML}
-              ${evmPayment ? '' : messageTimeHTML}
+              ${evmPayment || intentsPayment ? '' : messageTimeHTML}
             </div>
           `;
   }
@@ -24311,6 +24323,10 @@ class ChatModal {
       this.messagesList.querySelectorAll('.lib-payment-details[open]'),
       (details) => details.closest('.message').dataset.txid
     ));
+    const expandedIntentsPayments = new Set(Array.from(
+      this.messagesList.querySelectorAll('.intents-payment-details[open]'),
+      (details) => details.parentElement.dataset.intentHash
+    ));
     // Replace the list once to avoid one DOM mutation per message.
     this.messagesList.innerHTML = range.html;
     for (const details of this.messagesList.querySelectorAll('.evm-payment-details')) {
@@ -24318,6 +24334,9 @@ class ChatModal {
     }
     for (const details of this.messagesList.querySelectorAll('.lib-payment-details')) {
       if (expandedLibPayments.has(details.closest('.message').dataset.txid)) details.open = true;
+    }
+    for (const details of this.messagesList.querySelectorAll('.intents-payment-details')) {
+      if (expandedIntentsPayments.has(details.parentElement.dataset.intentHash)) details.open = true;
     }
     this.syncAllRenderedReactionChips();
     // Straight after rendering, ahead of the early returns below: it used to
@@ -25601,7 +25620,7 @@ class ChatModal {
     if (e.target.closest('.voice-message-speed-button')) return;
     if (e.target.closest('.voice-message-seek')) return;
     if (e.target.closest('.reply-quote')) return;
-    if (e.target.closest('.evm-payment-details, .lib-payment-details')) return;
+    if (e.target.closest('.evm-payment-details, .lib-payment-details, .intents-payment-details')) return;
 
     // Check if keyboard is open - if so, don't show context menu
     if (this.isKeyboardOpen()) {
@@ -27561,6 +27580,14 @@ class ChatModal {
    */
   getMessageTextForReply(messageEl) {
     if (!messageEl) return '';
+    const intentsPayment = messageEl.querySelector('.intents-payment-receipt');
+    if (intentsPayment) {
+      const amount = intentsPayment.querySelector('.intents-payment-amount').textContent.trim();
+      const chain = intentsPayment.querySelector('.intents-payment-chain')?.textContent;
+      const note = intentsPayment.querySelector('.intents-payment-note')?.textContent;
+      const time = intentsPayment.querySelector('.message-time').textContent.trim();
+      return [amount, chain, note, time].filter(Boolean).join(' · ');
+    }
     const voice = messageEl.querySelector('.voice-message');
     if (voice) {
       const ts = parseInt(messageEl.dataset.messageTimestamp || '', 10);
