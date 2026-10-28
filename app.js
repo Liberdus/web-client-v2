@@ -21616,7 +21616,7 @@ class ChatModal {
       const messageText = e.target.value;
       this.revalidateSendButtonState();
 
-      // Save draft (text length limited by maxlength attribute of textarea)
+      // Save draft
       this.debouncedSaveDraft(messageText);
     });
 
