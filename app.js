@@ -35990,6 +35990,25 @@ class LockModal {
     this.mode = 'set'; // set, change, or remove
   }
 
+  static async createLock(password) {
+    if (!password) return null;
+
+    const salt = bin2hex(generateRandomBytes(16));
+    const verifier = await passwordToKey(password, salt);
+    return salt + verifier;
+  }
+
+  static async verifyPassword(password, storedLock) {
+    if (!password || typeof storedLock !== 'string') return false;
+    if (storedLock.length !== 64 && storedLock.length !== 96) return false;
+    if (!/^[0-9a-f]+$/.test(storedLock)) return false;
+
+    // Salted locks prepend a 32-character salt to the 64-character verifier.
+    const salt = storedLock.length === 96 ? storedLock.slice(0, 32) : '';
+    const verifier = await passwordToKey(password, salt);
+    return salt + verifier === storedLock;
+  }
+
   load() {
     this.modal = document.getElementById('lockModal');
     this.openButton = document.getElementById('openLockModal');
@@ -36121,15 +36140,7 @@ class LockModal {
         return;
       }
 
-      // decrypt the old password
-      const key = await passwordToKey(oldPassword);
-      if (!key) {
-        // remove the loading toast
-        if (waitingToastId) hideToast(waitingToastId);
-        showToast('Invalid password. Please try again.', 0, 'error');
-        return;
-      }
-      if (key !== localStorage.lock) {
+      if (!await LockModal.verifyPassword(oldPassword, localStorage.lock)) {
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
         // clear the old password input
@@ -36159,19 +36170,16 @@ class LockModal {
     }
     
     try {
-      // encryptData will handle the password hashing internally
-      const key = await passwordToKey(newPassword);
-      if (!key) {
+      const storedLock = await LockModal.createLock(newPassword);
+      if (!storedLock) {
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
         showToast('Invalid password. Please try again.', 0, 'error');
         return;
       }
 
-
-      
-      // Save the key in localStorage with a key of "lock"
-      localStorage.lock = key;
+      // Persist the password verifier separately from the account-encryption key.
+      localStorage.lock = storedLock;
       this.encKey = await passwordToKey(newPassword+"liberdusData")
       await encryptAllAccounts(oldPassword, newPassword)
 
@@ -36292,14 +36300,7 @@ class UnlockModal {
     // loading toast
     let waitingToastId = showToast('Checking password...', 0, 'loading');
     const password = this.passwordInput.value;
-    const key = await passwordToKey(password);
-    if (!key) {
-      // remove the loading toast
-      if (waitingToastId) hideToast(waitingToastId);
-      showToast('Invalid password. Please try again.', 0, 'error');
-      return;
-    }
-    if (key === localStorage.lock) {
+    if (await LockModal.verifyPassword(password, localStorage.lock)) {
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
 //      showToast('Unlock successful', 2000, 'success');
