@@ -22168,6 +22168,8 @@ class ChatModal {
     // Show modal
     openModal(this.modal);
 
+    this.revalidateSendButtonState();
+
     // Clear unread count
     const totalUnread = contact.unread;
     if (totalUnread > 0) {
