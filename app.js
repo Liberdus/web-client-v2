@@ -23916,7 +23916,10 @@ class ChatModal {
     const transactionUrl = evmAssets.getPaymentExplorerUrl(payment);
     return `
       <div class="intents-payment-message evm-payment-message" data-verified="${escapeHtmlAttribute(verified)}" data-evm-payment="${escapeHtmlAttribute(evmPaymentId(payment))}">
-        <div class="evm-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
+        <div class="payment-receipt-heading">
+          ${payment.assetKind === 'native' && payment.symbol === 'ETH' ? '<img class="payment-receipt-logo" src="./media/ethereum_logo.png" alt="" width="20" height="20">' : ''}
+          <div class="evm-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
+        </div>
         <div class="intents-payment-amount">${item.my ? '−' : '+'}${escapeHtml(evmPaymentAmount(payment))} <span class="evm-payment-unit">${escapeHtml(payment.symbol)}</span></div>
         <div class="intents-payment-chain">${escapeHtml(networkName)}</div>
         ${payment.note ? `<section class="evm-payment-note" aria-label="Payment note"><div class="evm-payment-label">Note</div><div class="intents-payment-note">${escapeHtml(payment.note)}</div></section>` : ''}
@@ -23943,7 +23946,10 @@ class ChatModal {
     const exactAmount = `${payment.amount} ${payment.symbol}`;
     return `
       <div class="intents-payment-message intents-payment-receipt" data-verified="${escapeHtmlAttribute(verified)}" data-intent-hash="${escapeHtmlAttribute(payment.intentHash)}">
-        <div class="intents-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
+        <div class="payment-receipt-heading">
+          <img class="payment-receipt-logo" src="./media/near_logo.png" alt="" width="20" height="20">
+          <div class="intents-payment-label">Payment ${item.my ? 'sent' : 'received'}</div>
+        </div>
         <div class="intents-payment-amount" title="${escapeHtmlAttribute(exactAmount)}">${item.my ? '−' : '+'}${escapeHtml(formatDisplayAmount(payment.amount))} <span class="intents-payment-unit">${escapeHtml(payment.symbol)}</span></div>
         ${payment.chainName ? `<div class="intents-payment-chain">${escapeHtml(payment.chainName)}</div>` : ''}
         ${payment.note ? `<section class="intents-payment-note-section" aria-label="Payment note"><div class="intents-payment-label">Note</div><div class="intents-payment-note">${escapeHtml(payment.note)}</div></section>` : ''}

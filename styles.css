@@ -8849,12 +8849,14 @@ small {
   --lib-payment-secondary: rgba(255, 255, 255, 0.8);
   --lib-payment-note-background: rgba(255, 255, 255, 0.1);
 }
-.lib-payment-heading {
+.lib-payment-heading,
+.payment-receipt-heading {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.lib-payment-logo { width: 20px; height: 20px; flex-shrink: 0; }
+.lib-payment-logo,
+.payment-receipt-logo { width: 20px; height: 20px; flex-shrink: 0; }
 .lib-payment-label {
   color: var(--lib-payment-secondary);
   font-size: var(--chat-message-meta-font-size, var(--font-size-xs));
