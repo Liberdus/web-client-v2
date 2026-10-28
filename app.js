@@ -245,7 +245,7 @@ const wei = 10n ** BigInt(weiDigits);
 //network.explorer.url = "http://test.liberdus.com:6001"   // URL of the chain explorer
 const MAX_MEMO_BYTES = 1000; // 1000 bytes for memos
 const MENU_NAVIGATION_LOCK_MS = 400;
-const MAX_CHAT_MESSAGE_BYTES = 1000; // 1000 bytes for chat messages
+const MAX_CHAT_MESSAGE_BYTES = 10000; // UTF-8 bytes for chat messages
 const BRIDGE_USERNAME = 'liberdusbridge';
 const TRANSACTION_TIMESTAMP_OFFSET_MS = 500; // Transaction offset to allow for slow connections
 const IS_DEV_NETWORK = network?.name === 'Devnet';
@@ -21616,7 +21616,7 @@ class ChatModal {
       const messageText = e.target.value;
       this.revalidateSendButtonState();
 
-      // Save draft (text is already limited to 2000 chars by maxlength attribute)
+      // Save draft
       this.debouncedSaveDraft(messageText);
     });
 
