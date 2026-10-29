@@ -1756,6 +1756,81 @@ function normalizeDaoUserVoteCasts(value) {
   return casts;
 }
 
+export const DAO_USER_VOTE_SUMMARY_KINDS = Object.freeze({
+  NONE: 'none',
+  VOTED: 'voted',
+  DETAIL: 'detail',
+});
+
+function findDaoVoterEntry(proposal, normalizedAddress) {
+  if (!normalizedAddress || !Array.isArray(proposal?.voterList)) return null;
+  for (const entry of proposal.voterList) {
+    if (normalizeDaoAddress(entry?.address) !== normalizedAddress) continue;
+    const timestamp = normalizeDaoTimestamp(entry?.timestamp);
+    return { address: normalizedAddress, timestamp };
+  }
+  return null;
+}
+
+function toDaoShare(part, total) {
+  if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return 0;
+  return Number((part * 10_000n + total / 2n) / total) / 10_000;
+}
+
+// Summarizes the signed-in account's own vote on a proposal from its locally saved
+// casts and the proposal's voterList. Never inspects other voters.
+//   none   - nothing shows the account voted
+//   voted  - voterList proves participation but no local cast details exist
+//   detail - local casts exist; rows carry each option's allocated LIB, its share of
+//            the total spend, and the applied power when every cast reports one
+export function getDaoUserVoteSummary({ proposal, address, casts } = {}) {
+  const normalizedAddress = normalizeDaoAddress(address);
+  const voterEntry = findDaoVoterEntry(proposal, normalizedAddress);
+  const labels = getDaoProposalOptionLabels(proposal);
+  const savedCasts = normalizeDaoUserVoteCasts(casts);
+  const optionCount = labels.length || savedCasts.reduce((max, cast) => Math.max(max, cast.weights.length), 0);
+  const validCasts = savedCasts.filter((cast) => cast.weights.length === optionCount);
+
+  if (!normalizedAddress || validCasts.length === 0) {
+    if (voterEntry) {
+      return { kind: DAO_USER_VOTE_SUMMARY_KINDS.VOTED, confirmed: true, timestamp: voterEntry.timestamp };
+    }
+    return { kind: DAO_USER_VOTE_SUMMARY_KINDS.NONE };
+  }
+
+  const allocations = Array.from({ length: optionCount }, () => 0n);
+  const powers = Array.from({ length: optionCount }, () => 0n);
+  let spend = 0n;
+  let hasPower = true;
+  let timestamp = 0;
+  for (const cast of validCasts) {
+    const totalWeight = cast.weights.reduce((sum, weight) => sum + BigInt(weight), 0n);
+    for (let index = 0; index < optionCount; index += 1) {
+      allocations[index] += (cast.spend * BigInt(cast.weights[index])) / totalWeight;
+      if (hasPower && cast.optionWeights) powers[index] += cast.optionWeights[index];
+    }
+    if (!cast.optionWeights) hasPower = false;
+    spend += cast.spend;
+    timestamp = Math.max(timestamp, cast.timestamp);
+  }
+  const totalPower = hasPower ? powers.reduce((sum, power) => sum + power, 0n) : null;
+
+  return {
+    kind: DAO_USER_VOTE_SUMMARY_KINDS.DETAIL,
+    confirmed: Boolean(voterEntry),
+    castCount: validCasts.length,
+    timestamp,
+    spend,
+    totalPower,
+    rows: Array.from({ length: optionCount }, (_, index) => ({
+      option: labels[index] || `Option ${index + 1}`,
+      allocation: allocations[index],
+      share: toDaoShare(allocations[index], spend),
+      power: hasPower ? powers[index] : null,
+    })),
+  };
+}
+
 function normalizeDaoUserVotes(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 
@@ -1927,7 +2002,14 @@ export function createDaoProposalVoteTracker({
     return true;
   }
 
+  function getCasts(proposalNumber) {
+    const number = normalizeDaoPositiveInteger(proposalNumber);
+    if (!number) return [];
+    return normalizeDaoUserVoteCasts(readVotes()[number]?.casts);
+  }
+
   return Object.freeze({
+    getCasts,
     getPendingClaimProposalNumbers,
     getOpenClaimProposalNumbers,
     handleSettlement,
