@@ -21005,6 +21005,7 @@ class ChatModal {
    * @returns {void}
    */
   cancelAllOperations() {
+    fullImageModal.close();
     this.abortController.abort();
     this.abortController = new AbortController();
   }
@@ -25322,9 +25323,10 @@ class ChatModal {
    * @param {Object} item - message object from myData.contacts[address].messages[idx]
    * @param {HTMLElement} linkEl - element with data-* fields (attachment row or voice message element)
    * @param {string} [urlOverride] - optional URL to fetch instead of linkEl.dataset.url (used for pUrl thumbnails)
+   * @param {AbortSignal} [signal] - allows the media viewer to cancel its own download
    * @returns {Promise<Blob>}
    */
-  async decryptAttachmentToBlob(item, linkEl, urlOverride = null) {
+  async decryptAttachmentToBlob(item, linkEl, urlOverride = null, signal = this.abortController.signal) {
     if (!item || !linkEl) throw new Error('Missing item or attachment element');
 
     // Use urlOverride if provided, otherwise use the main attachment URL
@@ -25391,7 +25393,7 @@ class ChatModal {
     }
 
     // 2) Download encrypted bytes (use fetchUrl which may be pUrl or main url)
-    const res = await fetch(fetchUrl, { signal: this.abortController.signal });
+    const res = await fetch(fetchUrl, { signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const cipherBin = new Uint8Array(await res.arrayBuffer());
 
@@ -25457,17 +25459,13 @@ class ChatModal {
    * Gets the decrypted full image from IndexedDB, downloading it on a cache miss.
    * @param {Object} item - message containing the attachment metadata and keys
    * @param {HTMLElement} linkEl - rendered attachment row
-   * @param {() => void} [onDownloadStart] - called before downloading and decrypting
    * @returns {Promise<Blob>}
    */
-  async getFullImageBlob(item, linkEl, onDownloadStart) {
+  async getFullImageBlob(item, linkEl) {
     const attachment = this.getFullImageAttachment(item, linkEl);
     return fullImageCache.getOrCache({
       attachment,
-      downloadAndDecrypt: () => {
-        onDownloadStart?.();
-        return this.decryptAttachmentToBlob(item, linkEl);
-      },
+      downloadAndDecrypt: () => this.decryptAttachmentToBlob(item, linkEl),
       shouldCache: () => Array.isArray(item?.xattach)
         && item.xattach.some(candidate => candidate?.url === attachment.url),
     });
@@ -26919,7 +26917,7 @@ class ChatModal {
 
   /**
    * Shows context menu for an attachment row.
-   * Images include an Open action; all attachment types include Save.
+   * Images and eligible videos include Open; all attachment types include Save.
    * @param {Event} e
    * @param {HTMLElement} attachmentRow
    */
@@ -26949,9 +26947,8 @@ class ChatModal {
       deleteForAllOption.style.display = canDeleteForAll ? 'flex' : 'none';
     }
 
-    const isImageAttachment = attachmentRow.dataset.imageAttachment === 'true';
     const openOption = this.imageAttachmentContextMenu.querySelector('[data-action="open"]');
-    if (openOption) openOption.style.display = isImageAttachment ? 'flex' : 'none';
+    if (openOption) openOption.style.display = this.getAttachmentPreviewKind(attachmentRow) ? 'flex' : 'none';
 
     // Show Import Contacts option for VCF files
     const importContactsOpt = this.imageAttachmentContextMenu.querySelector('[data-action="import-contacts"]');
@@ -26984,7 +26981,7 @@ class ChatModal {
         void this.openImportContactsModal(row);
         break;
       case 'open':
-        void this.openImageAttachment(row);
+        void this.openMediaAttachment(row);
         break;
       case 'save':
         void this.saveImageAttachment(row);
@@ -27046,36 +27043,57 @@ class ChatModal {
   }
 
   /**
-   * Opens an image attachment using the cache-first full-image flow.
+   * Classifies menu eligibility only; decrypted bytes are verified before display.
+   * @param {HTMLElement} attachmentRow
+   * @returns {'image' | 'video' | null}
+   */
+  getAttachmentPreviewKind(attachmentRow) {
+    if (attachmentRow.dataset.imageAttachment === 'true') return 'image';
+    const type = normalizeMimeType(attachmentRow.dataset.type);
+    return ['video/mp4', 'video/webm', 'video/ogg'].includes(type) ? 'video' : null;
+  }
+
+  /**
+   * Opens media promptly, preserving the full-image cache and downloading videos anew.
    * @param {HTMLElement} attachmentRow
    */
-  async openImageAttachment(attachmentRow) {
-    if (this.attachmentDownloadInProgress) return;
-    this.attachmentDownloadInProgress = true;
+  async openMediaAttachment(attachmentRow) {
+    const kind = this.getAttachmentPreviewKind(attachmentRow);
+    if (!kind) return;
 
-    let loadingToastId;
+    let requestId;
     try {
       const { item, url } = this.getAttachmentContextFromRow(attachmentRow);
       if (url === '#') return;
 
-      const filename = decodeURIComponent(attachmentRow.dataset.name || 'Image');
+      const filename = decodeURIComponent(attachmentRow.dataset.name || 'Attachment');
+      requestId = fullImageModal.openLoading(filename, kind, attachmentRow.dataset.thumbnailUrl || '');
+      if (requestId === null) return;
 
-      const blob = await this.getFullImageBlob(item, attachmentRow, () => {
-        loadingToastId = showToast('Opening image...', 0, 'loading');
-      });
-      if (loadingToastId) hideToast(loadingToastId);
-      loadingToastId = null;
+      const blob = kind === 'image'
+        ? await this.getFullImageBlob(item, attachmentRow)
+        : await this.decryptAttachmentToBlob(item, attachmentRow, null, fullImageModal.abortController.signal);
+      if (!fullImageModal.isCurrentRequest(requestId)) return;
       const safePreviewMime = await getSafeAttachmentPreviewMime(blob);
-      if (!safePreviewMime.startsWith('image/')) {
-        throw new Error('Attachment is not a verified previewable image');
+      if (!fullImageModal.isCurrentRequest(requestId)) return;
+      const isVerified = kind === 'image'
+        ? safePreviewMime.startsWith('image/')
+        : ['video/mp4', 'video/webm', 'video/ogg'].includes(safePreviewMime);
+      if (!isVerified) {
+        fullImageModal.showError('This attachment cannot be previewed safely.', requestId);
+        return;
       }
-      fullImageModal.open(new Blob([blob], { type: safePreviewMime }), filename);
+      const previewBlob = new Blob([blob], { type: safePreviewMime });
+      if (kind === 'video') {
+        fullImageModal.showVideo(previewBlob, requestId);
+      } else {
+        fullImageModal.showImage(previewBlob, requestId);
+      }
     } catch (err) {
-      console.error('Image open failed:', err);
-      this.handleAttachmentError(err, 'Failed to open image.');
-    } finally {
-      if (loadingToastId) hideToast(loadingToastId);
-      this.attachmentDownloadInProgress = false;
+      if (requestId !== undefined && !fullImageModal.isCurrentRequest(requestId)) return;
+      console.error('Media open failed:', err);
+      if (requestId !== undefined) fullImageModal.showError('Unable to load this attachment.', requestId);
+      this.handleAttachmentError(err, 'Failed to open attachment.');
     }
   }
 
@@ -29019,6 +29037,8 @@ const chatModal = new ChatModal();
 class FullImageModal {
   constructor() {
     this.objectUrl = null;
+    this.requestId = 0;
+    this.abortController = null;
     this.scale = 1;
     this.translateX = 0;
     this.translateY = 0;
@@ -29032,14 +29052,18 @@ class FullImageModal {
     this.title = document.getElementById('fullImageModalTitle');
     this.viewer = document.getElementById('fullImageViewer');
     this.loading = document.getElementById('fullImageLoading');
+    this.loadingText = document.getElementById('fullImageLoadingText');
+    this.error = document.getElementById('fullImageError');
     this.image = document.getElementById('fullImageViewerImage');
+    this.video = document.getElementById('fullImageViewerVideo');
     this.zoomControls = document.getElementById('fullImageZoomControls');
     this.zoomInButton = document.getElementById('fullImageZoomIn');
     this.zoomOutButton = document.getElementById('fullImageZoomOut');
 
-    assert(this.modal && this.closeButton && this.title && this.viewer && this.loading && this.image
+    assert(this.modal && this.closeButton && this.title && this.viewer && this.loading && this.loadingText
+      && this.error && this.image && this.video
       && this.zoomControls && this.zoomInButton && this.zoomOutButton,
-      'Full image modal elements are required');
+      'Media modal elements are required');
 
     this.closeButton.addEventListener('click', () => this.close());
     this.zoomInButton.addEventListener('click', () => this.zoomBy(0.5));
@@ -29060,35 +29084,75 @@ class FullImageModal {
     this.updateZoomControls();
   }
 
-  open(blob, filename = 'Image') {
-    assert(blob instanceof Blob, 'Full image modal requires a Blob');
-
+  /** @returns {number | null} Identifies this open until close or replacement. */
+  openLoading(filename, kind = 'image', poster = '') {
     const isAlreadyOpen = this.modal.classList.contains('active');
-    if (!isAlreadyOpen && !openModal(this.modal)) return false;
+    if (!isAlreadyOpen && !openModal(this.modal)) return null;
 
-    this.clearImage();
-
+    this.clearMedia();
+    const requestId = ++this.requestId;
+    this.abortController = new AbortController();
     this.title.textContent = filename;
     this.image.alt = filename;
+    this.modal.classList.toggle('is-video', kind === 'video');
+    this.loadingText.textContent = kind === 'video' ? 'Loading video...' : 'Loading image...';
     this.loading.hidden = false;
     this.viewer.setAttribute('aria-busy', 'true');
+    if (kind === 'video' && poster) {
+      this.video.poster = poster;
+      this.video.hidden = false;
+    }
+    return requestId;
+  }
 
+  isCurrentRequest(requestId) {
+    return this.requestId === requestId && this.modal.classList.contains('active');
+  }
+
+  showImage(blob, requestId) {
+    if (!this.isCurrentRequest(requestId)) return;
     const objectUrl = URL.createObjectURL(blob);
     this.objectUrl = objectUrl;
     this.image.onload = () => {
-      if (this.objectUrl !== objectUrl) return;
+      if (!this.isCurrentRequest(requestId) || this.objectUrl !== objectUrl) return;
       this.loading.hidden = true;
       this.image.hidden = false;
       this.viewer.setAttribute('aria-busy', 'false');
       this.updateZoomControls();
     };
     this.image.onerror = () => {
-      if (this.objectUrl !== objectUrl) return;
-      this.close();
-      showToast('Unable to display image.', 0, 'error');
+      this.showError('Unable to display image.', requestId);
     };
     this.image.src = objectUrl;
-    return true;
+  }
+
+  showVideo(blob, requestId) {
+    if (!this.isCurrentRequest(requestId)) return;
+    if (!this.video.canPlayType(blob.type)) {
+      this.showError('This video format is not supported on this device.', requestId);
+      return;
+    }
+
+    this.video.onloadedmetadata = () => {
+      if (!this.isCurrentRequest(requestId)) return;
+      this.loading.hidden = true;
+      this.viewer.setAttribute('aria-busy', 'false');
+    };
+    this.video.onerror = () => {
+      this.showError('Unable to play this video on this device.', requestId);
+    };
+    this.objectUrl = URL.createObjectURL(blob);
+    this.video.hidden = false;
+    this.video.src = this.objectUrl;
+    this.video.load();
+  }
+
+  showError(message, requestId) {
+    if (!this.isCurrentRequest(requestId)) return;
+    ++this.requestId;
+    this.clearMedia();
+    this.error.textContent = `${message} Close this viewer and choose Save from the attachment options.`;
+    this.error.hidden = false;
   }
 
   getTouchMidpoint(touches) {
@@ -29142,6 +29206,7 @@ class FullImageModal {
   }
 
   handleTouchMove(event) {
+    if (this.image.hidden) return;
     if (event.touches.length === 2) {
       event.preventDefault();
       if (this.touchGesture?.type !== 'pinch') this.startPinch(event.touches);
@@ -29163,6 +29228,7 @@ class FullImageModal {
   }
 
   handleTouchEnd(event) {
+    if (this.image.hidden) return;
     if (event.touches.length === 1 && this.scale > 1) {
       this.startPan(event.touches[0]);
     } else if (event.touches.length === 0) {
@@ -29251,18 +29317,27 @@ class FullImageModal {
     this.viewer?.classList.remove('is-zoomed', 'is-dragging');
   }
 
-  clearImage() {
+  clearMedia() {
+    this.abortController?.abort();
+    this.abortController = null;
     if (!this.image) return;
 
+    this.video.onloadedmetadata = null;
+    this.video.onerror = null;
+    this.video.pause();
+    this.video.removeAttribute('src');
+    this.video.removeAttribute('poster');
+    this.video.load();
+    this.video.hidden = true;
     this.resetTransform();
     this.image.onload = null;
     this.image.onerror = null;
     this.image.removeAttribute('src');
     this.image.hidden = true;
     this.loading.hidden = true;
+    this.error.hidden = true;
     this.viewer.setAttribute('aria-busy', 'false');
     this.image.alt = '';
-    this.title.textContent = 'Image';
     this.updateZoomControls();
 
     if (this.objectUrl) {
@@ -29272,8 +29347,10 @@ class FullImageModal {
   }
 
   close() {
+    ++this.requestId;
     this.modal?.classList.remove('active');
-    this.clearImage();
+    this.clearMedia();
+    if (this.title) this.title.textContent = 'Media';
   }
 }
 
