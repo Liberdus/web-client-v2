@@ -9425,9 +9425,9 @@ class SignInModal {
    * @param {string} avatarId Saved account avatar id.
    * @returns {Promise<void>}
    */
-  async loadUploadedSignInAvatar(item, avatarId, netid) {
+  async loadUploadedSignInAvatar(item, avatarId) {
     try {
-      const owner = contactAvatarCache.captureOwner({ username: item.dataset.username, netid });
+      const owner = contactAvatarCache.captureOwner({ username: item.dataset.username, netid: network.netid });
       const blobUrl = await contactAvatarCache.getBlobUrl(avatarId, owner);
       if (!blobUrl || !item.isConnected) return;
 
@@ -9522,7 +9522,7 @@ class SignInModal {
     this.accountList.querySelectorAll('.sign-in-account-item').forEach((item) => {
       const avatarId = avatarIdMap[item.dataset.username];
       const hasFallbackAvatar = item.querySelector('.sign-in-account-avatar:not(:empty)');
-      if (avatarId && hasFallbackAvatar) void this.loadUploadedSignInAvatar(item, avatarId, netid);
+      if (avatarId && hasFallbackAvatar) void this.loadUploadedSignInAvatar(item, avatarId);
     });
     this.updateRecentSignInResetButtonVisibility();
 
