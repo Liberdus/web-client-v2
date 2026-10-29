@@ -4384,6 +4384,98 @@ input[type='file'].form-control::file-selector-button {
   visibility: hidden;
 }
 
+#proposalInfoModal .proposal-user-vote-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+#proposalInfoModal .proposal-user-vote-status {
+  color: var(--secondary-text-color);
+  flex: 0 1 auto;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-user-vote-status--confirmed {
+  color: #0f5f27;
+}
+
+#proposalInfoModal .proposal-user-vote-card {
+  background: var(--input-background);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+#proposalInfoModal .proposal-user-vote-row,
+#proposalInfoModal .proposal-user-vote-total {
+  align-items: start;
+  display: grid;
+  gap: 8px;
+}
+
+#proposalInfoModal .proposal-user-vote-row {
+  grid-template-columns: 52px minmax(0, 1fr) minmax(96px, auto);
+}
+
+#proposalInfoModal .proposal-user-vote-total {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+#proposalInfoModal .proposal-user-vote-row > span,
+#proposalInfoModal .proposal-user-vote-total > span {
+  color: var(--secondary-text-color);
+  font-size: 13px;
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-user-vote-row > span:nth-child(2) {
+  color: var(--text-color);
+}
+
+#proposalInfoModal .proposal-user-vote-row > strong,
+#proposalInfoModal .proposal-user-vote-total > strong {
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  justify-self: end;
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+#proposalInfoModal .proposal-user-vote-totals {
+  border-top: 1px solid var(--border-color);
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+}
+
+#proposalInfoModal .proposal-user-vote-note {
+  color: var(--secondary-text-color);
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+#proposalInfoModal .proposal-user-vote-message {
+  background: var(--input-background);
+  border-radius: 8px;
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  padding: 8px 10px;
+}
+
 #proposalInfoModal .proposal-vote-preview-message--warning {
   background: rgba(196, 45, 45, 0.12);
   color: #8f1d16;

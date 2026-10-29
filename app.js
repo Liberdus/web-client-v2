@@ -103,6 +103,7 @@ import {
   DAO_PROPOSAL_DAY_MS,
   DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
+  DAO_USER_VOTE_SUMMARY_KINDS,
   DAO_PROJECT_DURATION_MAX_DAYS,
   DAO_PROJECT_MAX_MILESTONES,
   DAO_PROJECT_MILESTONE_TEXT_MAX_LENGTH,
@@ -127,6 +128,7 @@ import {
   getDaoTrackedProposalMetadataEntries,
   getDaoProposalClaimWindow,
   getDaoProposalOptionLabels,
+  getDaoUserVoteSummary,
   getDaoPendingFinalizationOutcome,
   getDaoProposalTimeline,
   getDaoVoteReminderSchedule,
@@ -6713,6 +6715,7 @@ class ProposalInfoModal {
         isProjectProposal ? '' : proposalOptionsSection,
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         isProjectProposal ? '' : proposalResultsSection,
+        this.renderUserVote(proposal, currentAddress),
         state === 'review'
           ? this.renderCommitteeReviewStatus(committeeReview, reviewWindow, currentAddress)
           : '',
@@ -6778,6 +6781,68 @@ class ProposalInfoModal {
           ${deadlineText ? `<span class="proposal-vote-current-deadline${deadlineClass}" title="${escapeDaoFormAttribute(`${deadlinePrefix}: ${formatDaoTimestamp(votingWindow.end)}`)}">${escapeHtml(`${deadlinePrefix}: ${deadlineText}`)}</span>` : ''}
         </div>
         ${meter}
+      </section>
+    `;
+  }
+
+  // Shows only the signed-in account's own vote: locally saved casts when present,
+  // otherwise a neutral "Vote recorded" when the proposal's voterList proves it voted.
+  renderUserVote(proposal, currentAddress) {
+    const summary = getDaoUserVoteSummary({
+      proposal,
+      address: currentAddress,
+      casts: daoProposalVoteTracker.getCasts(proposal?.number),
+    });
+    if (summary.kind === DAO_USER_VOTE_SUMMARY_KINDS.NONE) return '';
+
+    if (summary.kind === DAO_USER_VOTE_SUMMARY_KINDS.VOTED) {
+      const votedAt = formatDaoCompactTimestamp(summary.timestamp);
+      return `
+        <section class="proposal-info-section proposal-user-vote-section">
+          <div class="proposal-user-vote-heading">
+            <h3>Your vote</h3>
+            ${votedAt ? `<span class="proposal-user-vote-status proposal-user-vote-status--confirmed">${escapeHtml(`Voted: ${votedAt}`)}</span>` : ''}
+          </div>
+          <div class="proposal-user-vote-message">Vote recorded</div>
+          <p class="proposal-user-vote-note">The network confirms this account voted. The option allocation and spend were not saved on this device.</p>
+        </section>
+      `;
+    }
+
+    const statusLabel = summary.confirmed ? 'Confirmed' : 'Awaiting confirmation';
+    const rows = summary.rows.map((row) => {
+      const percent = formatDaoPercent(row.share);
+      const amount = row.power === null ? formatDaoLibWei(row.allocation) : formatDaoVotingPower(row.power);
+      const label = `${row.option}: ${percent}, ${amount}`;
+      return `
+        <div class="proposal-user-vote-row" title="${escapeDaoFormAttribute(label)}" aria-label="${escapeDaoFormAttribute(label)}">
+          <span>${escapeHtml(percent)}</span>
+          <span>${escapeHtml(row.option)}</span>
+          <strong>${escapeHtml(amount)}</strong>
+        </div>
+      `;
+    }).join('');
+    const powerRow = summary.totalPower === null
+      ? ''
+      : `<div class="proposal-user-vote-total"><span>Voting power</span><strong>${escapeHtml(formatDaoVotingPower(summary.totalPower))}</strong></div>`;
+    const castNote = summary.castCount > 1
+      ? `<p class="proposal-user-vote-note">${escapeHtml(`Combined from ${summary.castCount} votes.`)}</p>`
+      : '';
+
+    return `
+      <section class="proposal-info-section proposal-user-vote-section">
+        <div class="proposal-user-vote-heading">
+          <h3>Your vote</h3>
+          <span class="proposal-user-vote-status${summary.confirmed ? ' proposal-user-vote-status--confirmed' : ''}">${escapeHtml(statusLabel)}</span>
+        </div>
+        <div class="proposal-user-vote-card" role="group" aria-label="Your vote breakdown">
+          ${rows}
+          <div class="proposal-user-vote-totals">
+            <div class="proposal-user-vote-total"><span>Spend</span><strong>${escapeHtml(formatDaoLibWei(summary.spend))}</strong></div>
+            ${powerRow}
+          </div>
+        </div>
+        ${castNote}
       </section>
     `;
   }
