@@ -35990,7 +35990,7 @@ class LockModal {
     this.mode = 'set'; // set, change, or remove
   }
 
-  static async createLock(password) {
+  async createLock(password) {
     if (!password) return null;
 
     const salt = bin2hex(generateRandomBytes(16));
@@ -35998,7 +35998,7 @@ class LockModal {
     return salt + verifier;
   }
 
-  static async verifyPassword(password, storedLock) {
+  async verifyPassword(password, storedLock) {
     if (!password || typeof storedLock !== 'string') return false;
     if (storedLock.length !== 64 && storedLock.length !== 96) return false;
     if (!/^[0-9a-f]+$/.test(storedLock)) return false;
@@ -36140,7 +36140,7 @@ class LockModal {
         return;
       }
 
-      if (!await LockModal.verifyPassword(oldPassword, localStorage.lock)) {
+      if (!await this.verifyPassword(oldPassword, localStorage.lock)) {
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
         // clear the old password input
@@ -36170,7 +36170,7 @@ class LockModal {
     }
     
     try {
-      const storedLock = await LockModal.createLock(newPassword);
+      const storedLock = await this.createLock(newPassword);
       if (!storedLock) {
         // remove the loading toast
         if (waitingToastId) hideToast(waitingToastId);
@@ -36300,7 +36300,7 @@ class UnlockModal {
     // loading toast
     let waitingToastId = showToast('Checking password...', 0, 'loading');
     const password = this.passwordInput.value;
-    if (await LockModal.verifyPassword(password, localStorage.lock)) {
+    if (await lockModal.verifyPassword(password, localStorage.lock)) {
       // remove the loading toast
       if (waitingToastId) hideToast(waitingToastId);
 //      showToast('Unlock successful', 2000, 'success');
