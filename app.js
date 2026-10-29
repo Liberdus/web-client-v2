@@ -30414,16 +30414,15 @@ class ShareContactsModal {
     const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
 
     try {
-      const cacheOwner = await (owner === undefined ? contactAvatarCache.captureOwner() : owner);
       // Priority 1: Contact's provided avatar
       if (contact?.avatarId) {
-        const url = await contactAvatarCache.getBlobUrl(contact.avatarId, cacheOwner);
+        const url = await contactAvatarCache.getBlobUrl(contact.avatarId, owner);
         if (url) return makeImg(url);
       }
 
       // Priority 2: User-selected avatar for this contact
       if (contact?.mineAvatarId) {
-        const url = await contactAvatarCache.getBlobUrl(contact.mineAvatarId, cacheOwner);
+        const url = await contactAvatarCache.getBlobUrl(contact.mineAvatarId, owner);
         if (url) return makeImg(url);
       }
     } catch (err) {
@@ -30572,16 +30571,15 @@ class ShareContactsModal {
    */
   async getContactAvatarBlobForShare(contact, owner) {
     try {
-      const cacheOwner = await (owner === undefined ? contactAvatarCache.captureOwner() : owner);
       // Priority 1: Contact's provided avatar
       if (contact?.avatarId) {
-        const blob = await contactAvatarCache.get(contact.avatarId, cacheOwner);
+        const blob = await contactAvatarCache.get(contact.avatarId, owner);
         if (blob) return blob;
       }
 
       // Priority 2: User-selected avatar for this contact
       if (contact?.mineAvatarId) {
-        const blob = await contactAvatarCache.get(contact.mineAvatarId, cacheOwner);
+        const blob = await contactAvatarCache.get(contact.mineAvatarId, owner);
         if (blob) return blob;
       }
     } catch (err) {
@@ -38691,7 +38689,6 @@ class ContactAvatarCache {
    */
   async getBlobUrl(id, owner) {
     if (!id) return null;
-    if (owner === undefined) owner = this.captureOwner();
     const blob = await this.get(id, owner);
     if (!blob) {
       if (this.blobUrlCache.has(id)) URL.revokeObjectURL(this.blobUrlCache.get(id));
@@ -40194,14 +40191,6 @@ class FullImageCache {
     return this.database.captureOwner(account);
   }
 
-  activateOwners(accountKeys) {
-    return this.database.activateOwners(accountKeys);
-  }
-
-  removeOwners(accountKeys) {
-    return this.database.removeOwners(accountKeys);
-  }
-
   async get(attachmentUrl, owner) {
     const record = await this.getRecord(attachmentUrl, owner);
     return record?.blob || null;
@@ -40233,34 +40222,31 @@ class FullImageCache {
     return this.database.ownership.run([this.database.fullImageStoreName], owner, ({ transaction, owners, setResult }) => {
       const store = transaction.objectStore(this.database.fullImageStoreName);
       const existingRequest = store.get(id);
-      existingRequest.onsuccess = () => {
-        const record = MediaCacheOwnership.mergeRecord(existingRequest.result, {
+      const evictionCandidates = [];
+      let currentSize = 0;
+      let existingSize = 0;
+      const request = store.index('cachedAt').openCursor(null, 'next');
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (cursor) {
+          const recordSize = Number(cursor.value?.size || 0);
+          currentSize += recordSize;
+          if (cursor.primaryKey === id) existingSize = recordSize;
+          else evictionCandidates.push({ id: cursor.primaryKey, size: recordSize });
+          cursor.continue();
+          return;
+        }
+        if (shouldCache && !shouldCache()) return;
+        let bytesToFree = Math.max(0, currentSize - existingSize + blob.size - this.maxCacheSize);
+        for (const candidate of evictionCandidates) {
+          if (bytesToFree <= 0) break;
+          store.delete(candidate.id);
+          bytesToFree -= candidate.size;
+        }
+        store.put(MediaCacheOwnership.mergeRecord(existingRequest.result, {
           id, mimeType, size: blob.size, blob, cachedAt: Date.now(),
-        }, owners);
-        const evictionCandidates = [];
-        let currentSize = 0;
-        let existingSize = 0;
-        const request = store.index('cachedAt').openCursor(null, 'next');
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (cursor) {
-            const recordSize = Number(cursor.value?.size || 0);
-            currentSize += recordSize;
-            if (cursor.primaryKey === id) existingSize = recordSize;
-            else evictionCandidates.push({ id: cursor.primaryKey, size: recordSize });
-            cursor.continue();
-            return;
-          }
-          if (shouldCache && !shouldCache()) return;
-          let bytesToFree = Math.max(0, currentSize - existingSize + blob.size - this.maxCacheSize);
-          for (const candidate of evictionCandidates) {
-            if (bytesToFree <= 0) break;
-            store.delete(candidate.id);
-            bytesToFree -= candidate.size;
-          }
-          store.put(record);
-          setResult(true);
-        };
+        }, owners));
+        setResult(true);
       };
     });
   }
