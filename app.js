@@ -13248,9 +13248,7 @@ function syncChatTabNotificationBubble() {
 
 // Actually payments also appear in the chats, so we can add these to
 async function processChats(chats, keys) {
-  const avatarOwner = contactAvatarCache.captureOwner().catch(error => {
-    console.warn('Failed to capture avatar cache owner:', error);
-  });
+  const avatarOwner = contactAvatarCache.captureOwner();
   let newTimestamp = 0;
   const timestamp = myAccount.chatTimestamp || 0;
   const messageQueryTimestamp = Math.max(0, timestamp+1);
@@ -13791,7 +13789,7 @@ async function processChats(chats, keys) {
               const avatarUrl = `${network.attachmentServerUrl}/get/${avatarId}`;
               avatarOwner
                 .then(async owner => {
-                  if (owner === undefined) return;
+                  if (owner === MediaCacheOwnership.unavailableOwner) return;
                   const blob = await downloadAndDecryptAvatar(avatarUrl, avatarKey);
                   try {
                     // Save blob under the server-provided avatar id
@@ -13975,7 +13973,7 @@ async function processChats(chats, keys) {
               const avatarUrl = `${network.attachmentServerUrl}/get/${avatarId}`;
               avatarOwner
                 .then(async owner => {
-                  if (owner === undefined) return;
+                  if (owner === MediaCacheOwnership.unavailableOwner) return;
                   const blob = await downloadAndDecryptAvatar(avatarUrl, avatarKey);
                   try {
                     await contactAvatarCache.save(avatarId, blob, owner);
@@ -15373,19 +15371,21 @@ class AvatarEditModal {
     window.addEventListener('touchend', endDrag);
   }
 
+  captureContext() {
+    const data = myData;
+    return { data, owner: contactAvatarCache.captureOwner(data?.account) };
+  }
+
   async open(address, isOwnAvatar = false) {
-    const accountData = myData;
-    const owner = contactAvatarCache.captureOwner().catch(error => {
-      console.warn('Failed to capture avatar preview cache owner:', error);
-    });
+    const context = this.captureContext();
     this.currentAddress = normalizeAddress(address);
     this.isOwnAvatar = isOwnAvatar; // Track if editing own avatar vs contact avatar
     this.pendingBlob = null;
     this.activeImageBlob = null;
     this.enableTransform = false;
-    await this.refreshPreview(owner, accountData);
+    await this.refreshPreview(context);
     // populate three-option avatar selector (contact, mine, identicon)
-    try { await this.populateOptions(owner, accountData); } catch (e) { console.warn('populateOptions failed', e); }
+    try { await this.populateOptions(context); } catch (e) { console.warn('populateOptions failed', e); }
     openModal(this.modal);
     enterFullscreen();
   }
@@ -15433,7 +15433,8 @@ class AvatarEditModal {
    * Populate the avatar selection options (contact, mine, identicon)
    * and wire handlers to persist `useAvatar` for the contact.
    */
-  async populateOptions(owner, accountData = myData) {
+  async populateOptions(context = this.captureContext()) {
+    const { data, owner } = context;
     const address = this.currentAddress;
     const contactThumb = this.avatarThumbContact;
     const uploadedThumb = this.avatarThumbUploaded;
@@ -15472,20 +15473,13 @@ class AvatarEditModal {
       // Clear any stale option handlers and disable use button since options are hidden.
       try { useBtn.onclick = null; } catch (e) {}
       useBtn.disabled = true;
-      this.deleteButton.style.display = accountData?.account?.hasAvatar ? 'inline-flex' : 'none';
+      this.deleteButton.style.display = data?.account?.hasAvatar ? 'inline-flex' : 'none';
       // Early return: remaining option population is contact-specific and not needed for own avatar.
       return;
     } else {
-      const contactObj = accountData?.contacts?.[address] || null;
-      try {
-        const cacheOwner = await (owner === undefined ? contactAvatarCache.captureOwner() : owner);
-        if (cacheOwner !== undefined) {
-          try { contactBlob = contactObj?.avatarId ? await contactAvatarCache.get(contactObj.avatarId, cacheOwner) : null; } catch (e) { contactBlob = null; }
-          try { userBlob = contactObj?.mineAvatarId ? await contactAvatarCache.get(contactObj.mineAvatarId, cacheOwner) : null; } catch (e) { userBlob = null; }
-        }
-      } catch (error) {
-        console.warn('Failed to capture avatar options cache owner:', error);
-      }
+      const contactObj = data?.contacts?.[address] || null;
+      try { contactBlob = contactObj?.avatarId ? await contactAvatarCache.get(contactObj.avatarId, owner) : null; } catch (e) { contactBlob = null; }
+      try { userBlob = contactObj?.mineAvatarId ? await contactAvatarCache.get(contactObj.mineAvatarId, owner) : null; } catch (e) { userBlob = null; }
     }
 
     const contactUrl = contactBlob ? URL.createObjectURL(contactBlob) : null;
@@ -15664,27 +15658,21 @@ class AvatarEditModal {
   /**
    * Refresh the preview based on pending state, cached avatar, or identicon fallback.
    */
-  async refreshPreview(owner, accountData = myData) {
+  async refreshPreview(context = this.captureContext()) {
+    const { data, owner } = context;
     this.clearPreviewUrl();
     if (this.pendingBlob) {
       await this.setImageFromBlob(this.pendingBlob, true);
       return;
     }
 
-    if (owner === undefined) {
-      owner = contactAvatarCache.captureOwner().catch(error => {
-        console.warn('Failed to capture avatar preview cache owner:', error);
-      });
-    }
-
     // For contact avatar editing: show only the user's uploaded avatar ('mine') if present,
     // otherwise fall back to identicon. We intentionally ignore the contact-sent avatar here.
     if (!this.isOwnAvatar) {
       try {
-        const contactObj = accountData?.contacts?.[this.currentAddress] || null;
+        const contactObj = data?.contacts?.[this.currentAddress] || null;
         const avatarId = contactObj?.mineAvatarId;
-        const cacheOwner = await owner;
-        const mineBlob = avatarId && cacheOwner !== undefined ? await contactAvatarCache.get(avatarId, cacheOwner) : null;
+        const mineBlob = avatarId ? await contactAvatarCache.get(avatarId, owner) : null;
         if (mineBlob) {
           await this.setImageFromBlob(mineBlob, false);
           return;
@@ -15707,9 +15695,7 @@ class AvatarEditModal {
     // For own avatar, keep existing behavior (account-based)
     let avatarBlob = null;
     try {
-      const avatarId = accountData?.account?.avatarId;
-      const cacheOwner = await owner;
-      if (cacheOwner !== undefined) avatarBlob = await contactAvatarCache.get(avatarId, cacheOwner);
+      avatarBlob = await contactAvatarCache.get(data?.account?.avatarId, owner);
     } catch (e) {
       avatarBlob = null;
     }
@@ -15843,10 +15829,8 @@ class AvatarEditModal {
       return;
     }
 
-    const accountData = myData;
-    const owner = contactAvatarCache.captureOwner().catch(error => {
-      console.warn('Failed to capture deleted avatar cache owner:', error);
-    });
+    const context = this.captureContext();
+    const { data, owner } = context;
     try {
       if (this.isOwnAvatar) {
         // Update own avatar state
@@ -15879,7 +15863,7 @@ class AvatarEditModal {
         // Update header avatar
         header.updateAvatar();
       } else {
-        const contact = accountData?.contacts?.[this.currentAddress];
+        const contact = data?.contacts?.[this.currentAddress];
         if (!contact) {
           this.close();
           return;
@@ -15894,10 +15878,7 @@ class AvatarEditModal {
         // Check whether a contact-sent avatar still exists
         let contactExists = false;
         try {
-          const cacheOwner = await owner;
-          const contactBlob = contact.avatarId && cacheOwner !== undefined
-            ? await contactAvatarCache.get(contact.avatarId, cacheOwner)
-            : null;
+          const contactBlob = contact.avatarId ? await contactAvatarCache.get(contact.avatarId, owner) : null;
           contactExists = !!contactBlob;
         } catch (e) {
           contactExists = false;
@@ -15934,13 +15915,13 @@ class AvatarEditModal {
 
       // Refresh the option list once so the modal immediately reflects the deletion
       try {
-        await this.populateOptions(owner, accountData);
+        await this.populateOptions(context);
       } catch (e) {
         console.warn('Failed to repopulate avatar options after delete:', e);
       }
 
       // Update preview in the modal to show identicon
-      await this.refreshPreview(owner, accountData);
+      await this.refreshPreview(context);
     } catch (err) {
       console.warn('Failed to delete avatar:', err);
       showToast('Failed to delete avatar', 2000, 'error');
@@ -16143,7 +16124,8 @@ class AvatarEditModal {
     try {
       // Need an image source to save
       if (this.pendingBlob || this.activeImageBlob) {
-        const owner = await contactAvatarCache.captureOwner();
+        const owner = await this.captureContext().owner;
+        if (owner === MediaCacheOwnership.unavailableOwner) throw new Error('Avatar cache is unavailable');
         const sourceBlob = this.pendingBlob || this.activeImageBlob;
         const thumbnail = await this.exportCroppedThumbnail(sourceBlob);
 
@@ -16217,7 +16199,7 @@ class AvatarEditModal {
           await contactInfoModal.updateContactInfo(createDisplayInfo(contact));
           contactInfoModal.needsContactListUpdate = true;
           if (chatModal.isActive() && chatModal.address === this.currentAddress) {
-            chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+            chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40, owner);
           }
           // Update EditContactModal avatar if it's active and showing this contact
           if (editContactModal.isActive() && editContactModal.currentContactAddress === this.currentAddress ) {
@@ -24758,9 +24740,7 @@ class ChatModal {
 
     let loadingToastId;
     let thumbnailBlob = null;
-    const owner = await thumbnailCache.captureOwner().catch(error => {
-      console.warn('Failed to capture attachment cache owner:', error);
-    });
+    const owner = await thumbnailCache.captureOwner();
     
     // Normalize file type (fallback to extension detection for missing MIME types)
     const normalizedType = this.getMimeTypeFromFilename(file.name, file.type);
@@ -24885,7 +24865,7 @@ class ChatModal {
             }
             
             // Cache thumbnail if we generated one - use captured variable
-            if (owner !== undefined && capturedThumbnailBlob && (isImage || isVideo)) {
+            if (capturedThumbnailBlob && (isImage || isVideo)) {
               thumbnailCache.save(attachmentUrl, capturedThumbnailBlob, file.type, owner).catch(err => {
                 console.warn('Failed to cache thumbnail for attached file:', err);
               });
@@ -25520,12 +25500,10 @@ class ChatModal {
   async handleAttachmentDownload(item, linkEl) {
     let loadingToastId;
     try {
-      const owner = await thumbnailCache.captureOwner().catch(error => {
-        console.warn('Failed to capture attachment cache owner:', error);
-      });
+      const owner = await thumbnailCache.captureOwner();
       const isImage = item.type !== 'vm' && (linkEl.dataset.type || '').startsWith('image/');
       loadingToastId = showToast(isImage ? 'Preparing image...' : 'Decrypting attachment...', 0, 'loading');
-      const blob = isImage && owner !== undefined
+      const blob = isImage
         ? await this.getFullImageBlob(item, linkEl, undefined, owner)
         : await this.decryptAttachmentToBlob(item, linkEl);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
@@ -25535,7 +25513,7 @@ class ChatModal {
         : null;
 
       // Generate and cache thumbnail for images and videos, then update in place
-      if (owner !== undefined && (safePreviewMime.startsWith('image/') || safePreviewMime.startsWith('video/'))) {
+      if (owner !== MediaCacheOwnership.unavailableOwner && (safePreviewMime.startsWith('image/') || safePreviewMime.startsWith('video/'))) {
         const attachmentUrl = linkEl.dataset.url;
         const attachmentRow = linkEl.closest('.attachment-row') || linkEl.closest(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR);
         
@@ -30394,9 +30372,7 @@ class ShareContactsModal {
     this.allNoneButton.disabled = !hasContacts;
 
     if (hasContacts) {
-      const owner = contactAvatarCache.captureOwner().catch(error => {
-        console.warn('Failed to capture shared contact avatar cache owner:', error);
-      });
+      const owner = contactAvatarCache.captureOwner();
       // Render Friends section
       if (friends.length > 0) {
         await this.renderSection('Friends', friends, owner);
@@ -30439,7 +30415,6 @@ class ShareContactsModal {
 
     try {
       const cacheOwner = await (owner === undefined ? contactAvatarCache.captureOwner() : owner);
-      if (cacheOwner === undefined) return generateIdenticon(address, size);
       // Priority 1: Contact's provided avatar
       if (contact?.avatarId) {
         const url = await contactAvatarCache.getBlobUrl(contact.avatarId, cacheOwner);
@@ -30598,7 +30573,6 @@ class ShareContactsModal {
   async getContactAvatarBlobForShare(contact, owner) {
     try {
       const cacheOwner = await (owner === undefined ? contactAvatarCache.captureOwner() : owner);
-      if (cacheOwner === undefined) return null;
       // Priority 1: Contact's provided avatar
       if (contact?.avatarId) {
         const blob = await contactAvatarCache.get(contact.avatarId, cacheOwner);
@@ -30625,9 +30599,7 @@ class ShareContactsModal {
   async generateVcfContent() {
     const vcards = [];
     const contacts = Array.from(this.selectedContacts, address => myData.contacts[address]).filter(Boolean);
-    const owner = contactAvatarCache.captureOwner().catch(error => {
-      console.warn('Failed to capture exported contact avatar cache owner:', error);
-    });
+    const owner = contactAvatarCache.captureOwner();
 
     // First card contains X-LIBERDUS-NETID
     vcards.push([
@@ -31325,9 +31297,7 @@ class ImportContactsModal {
 
     this.doneButton.classList.add('loading');
     try {
-      const owner = await contactAvatarCache.captureOwner().catch(error => {
-        console.warn('Failed to capture imported avatar cache owner:', error);
-      });
+      const owner = await contactAvatarCache.captureOwner();
       let importedCount = 0;
       let failedCount = 0;
       const failedContacts = [];
@@ -31392,7 +31362,7 @@ class ImportContactsModal {
             updated = true;
           }
 
-          if (owner !== undefined && updateEligibility.canUpdateAvatar) {
+          if (owner !== MediaCacheOwnership.unavailableOwner && updateEligibility.canUpdateAvatar) {
             try {
               const mimeType = parsedContact.photoType === 'png' ? 'image/png' : 'image/jpeg';
               const avatarBlob = contactAvatarCache.base64ToBlob(parsedContact.photoBase64, mimeType);
@@ -31441,7 +31411,7 @@ class ImportContactsModal {
         }
 
         // Save avatar as user-uploaded so it can be changed or deleted locally
-        if (owner !== undefined && parsedContact.photoBase64) {
+        if (owner !== MediaCacheOwnership.unavailableOwner && parsedContact.photoBase64) {
           try {
             const mimeType = parsedContact.photoType === 'png' ? 'image/png' : 'image/jpeg';
             const avatarBlob = contactAvatarCache.base64ToBlob(parsedContact.photoBase64, mimeType);
@@ -38345,12 +38315,14 @@ const CONTACT_AVATAR_JPEG_QUALITY = 0.85;
 
 /**
  * @typedef {Readonly<{key: string, generation: number}>} MediaCacheOwner
- * @typedef {MediaCacheOwner|MediaCacheOwner[]|null} MediaCacheOwners
+ * @typedef {MediaCacheOwner|MediaCacheOwner[]|symbol|null} MediaCacheOwners
  * @typedef {MediaCacheOwners|Promise<MediaCacheOwners>} MediaCacheOwnerContext
  */
 
 /** Tracks account ownership and serializes media writes with account removal. */
 class MediaCacheOwnership {
+  static unavailableOwner = Symbol('unavailable media owner');
+
   constructor(database, storeNames) {
     this.database = database;
     this.storeNames = storeNames;
@@ -38372,7 +38344,11 @@ class MediaCacheOwnership {
 
   captureOwner(account = myAccount) {
     const key = account?.username && account?.netid ? `${account.username}_${account.netid}` : null;
-    return key ? this.captureKey(key) : Promise.resolve(null);
+    if (!key) return Promise.resolve(null);
+    return this.captureKey(key).catch((error) => {
+      console.warn('Failed to capture media cache owner:', error);
+      return MediaCacheOwnership.unavailableOwner;
+    });
   }
 
   captureKey(key) {
@@ -38406,6 +38382,7 @@ class MediaCacheOwnership {
 
   async run(storeNames, owner, action) {
     const captured = await owner;
+    if (captured === MediaCacheOwnership.unavailableOwner) return false;
     const owners = (Array.isArray(captured) ? captured : [captured]).filter(Boolean);
     const db = await this.database.init();
     return new Promise((resolve, reject) => {
@@ -38441,17 +38418,13 @@ class MediaCacheOwnership {
     });
   }
 
-  /**
-   * importedOwnerKeys: undefined for normal writes, null for legacy imports,
-   * or accepted account keys for tracked imports.
-   */
-  static mergeRecord(existing, record, owners, importedOwnerKeys) {
+  static mergeRecord(existing, record, owners) {
     const next = { ...record };
     delete next.ownerKeys;
     // An old row may have consumers that were never attributed. Keep it exempt.
     const legacy = existing && !Array.isArray(existing.ownerKeys);
-    if (legacy || importedOwnerKeys === null) return next;
-    const ownerKeys = importedOwnerKeys === undefined ? owners.map(owner => owner.key) : importedOwnerKeys;
+    if (legacy) return next;
+    const ownerKeys = owners.map(owner => owner.key);
     if (Array.isArray(existing?.ownerKeys) || ownerKeys.length) {
       next.ownerKeys = [...new Set([...(existing?.ownerKeys || []), ...ownerKeys])];
     }
@@ -38475,14 +38448,26 @@ class MediaCacheOwnership {
     return result || null;
   }
 
-  async save(storeName, record, owner = null, importedOwnerKeys = undefined, overwrite = true) {
+  async save(storeName, record, owner = null) {
     return this.run([storeName], owner, ({ transaction, owners, setResult }) => {
+      const store = transaction.objectStore(storeName);
+      const request = store.get(record.id);
+      request.onsuccess = () => {
+        store.put(MediaCacheOwnership.mergeRecord(request.result, record, owners));
+        setResult(true);
+      };
+    });
+  }
+
+  async importRecord(storeName, record, { owners, overwrite, legacy }) {
+    return this.run([storeName], owners, ({ transaction, owners, setResult }) => {
       const store = transaction.objectStore(storeName);
       const request = store.get(record.id);
       request.onsuccess = () => {
         const existing = request.result;
         const replacement = existing && !overwrite ? existing : record;
-        const next = MediaCacheOwnership.mergeRecord(existing, replacement, owners, importedOwnerKeys);
+        const next = MediaCacheOwnership.mergeRecord(existing, replacement, owners);
+        if (legacy) delete next.ownerKeys;
         store.put(next);
         setResult(!existing || overwrite);
       };
@@ -38802,9 +38787,9 @@ class ContactAvatarCache {
         if (ownerKeys && !ownerKeys.length) continue;
         const owners = ownerKeys ? acceptedOwners.filter(owner => ownerKeys.includes(owner.key)) : acceptedOwners;
         const blob = this.base64ToBlob(avatarInfo.data, avatarInfo.type || 'image/jpeg');
-        const saved = await this.ownership.save(this.storeName, {
+        const saved = await this.ownership.importRecord(this.storeName, {
           id, blob, type: avatarInfo.type || 'image/jpeg', size: blob.size, savedAt: Date.now(),
-        }, owners, ownerKeys, overwrite);
+        }, { owners, overwrite, legacy: ownerKeys === null });
         if (saved) {
           if (this.blobUrlCache.has(id)) URL.revokeObjectURL(this.blobUrlCache.get(id));
           this.blobUrlCache.delete(id);
@@ -39305,6 +39290,7 @@ class ThumbnailCache {
     const id = ThumbnailCache.getAttachmentId(attachmentUrl);
     if (owner === undefined) owner = this.captureOwner();
     owner = await owner;
+    if (owner === MediaCacheOwnership.unavailableOwner) return false;
     const currentSize = await this.getCacheSize();
     if (currentSize + thumbnailBlob.size > this.maxCacheSize) await this.cleanupBySize(owner);
     return this.ownership.save(this.storeName, {
@@ -39422,10 +39408,10 @@ class ThumbnailCache {
           const currentSize = await this.getCacheSize();
           if (currentSize + thumbnail.size > this.maxCacheSize) await this.cleanupBySize(owners);
         }
-        const saved = await this.ownership.save(this.storeName, {
+        const saved = await this.ownership.importRecord(this.storeName, {
           id, thumbnail,
           originalType: thumbInfo.originalType || thumbInfo.type || 'image/jpeg', cachedAt: Date.now(),
-        }, owners, ownerKeys, overwrite);
+        }, { owners, overwrite, legacy: ownerKeys === null });
         if (saved) importedCount++;
       } catch (e) {
         console.warn(`Failed to import thumbnail for ${urlOrId}:`, e);
@@ -39480,16 +39466,10 @@ const thumbnailCache = new ThumbnailCache();
 async function getContactAvatarHtml(contactOrAddress, size = 50, owner = undefined) {
   const account = myAccount;
   const accountData = myData;
-  const capturedOwner = owner === undefined ? contactAvatarCache.captureOwner(account) : owner;
-  const avatarOwner = await Promise.resolve(capturedOwner).catch(error => {
-    console.warn('Failed to capture avatar cache owner:', error);
-    return undefined;
-  });
+  const avatarOwner = await (owner === undefined ? contactAvatarCache.captureOwner(account) : owner);
   const address = typeof contactOrAddress === 'string'
     ? normalizeAddress(contactOrAddress)
     : normalizeAddress(contactOrAddress?.address);
-
-  if (avatarOwner === undefined) return generateIdenticon(address || '', size);
 
   // Helper to return img HTML when blobUrl available
   const makeImg = (url) => `<img src="${url}" class="contact-avatar-img" width="${size}" height="${size}" alt="avatar">`;
