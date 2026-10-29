@@ -9427,7 +9427,8 @@ class SignInModal {
    */
   async loadUploadedSignInAvatar(item, avatarId) {
     try {
-      const blobUrl = await contactAvatarCache.getBlobUrl(avatarId);
+      const owner = contactAvatarCache.captureOwner({ username: item.dataset.username, netid: network.netid });
+      const blobUrl = await contactAvatarCache.getBlobUrl(avatarId, owner);
       if (!blobUrl || !item.isConnected) return;
 
       const image = document.createElement('img');
@@ -9608,6 +9609,10 @@ class SignInModal {
     myData = loadState(`${username}_${netid}`);
     assert(myData, `Account data missing for ${username}`);
     myAccount = myData.account;
+    await Promise.allSettled([
+      contactAvatarCache.captureOwner(myAccount),
+      thumbnailCache.captureOwner(myAccount),
+    ]);
     chatModal.resetPendingMessageConfirmations();
     logsModal.log(`SignIn as ${username}_${netid}`)
     this.recordRecentSignInUsername(username);
@@ -13243,6 +13248,7 @@ function syncChatTabNotificationBubble() {
 
 // Actually payments also appear in the chats, so we can add these to
 async function processChats(chats, keys) {
+  const avatarOwner = contactAvatarCache.captureOwner();
   let newTimestamp = 0;
   const timestamp = myAccount.chatTimestamp || 0;
   const messageQueryTimestamp = Math.max(0, timestamp+1);
@@ -13779,12 +13785,16 @@ async function processChats(chats, keys) {
             contact.senderInfo = cleanSenderInfo(payload.senderInfo)
             delete payload.senderInfo;
             if (contact.senderInfo.avatarId && contact.senderInfo.avatarKey && contact.avatarId !== contact.senderInfo.avatarId) {
-              downloadAndDecryptAvatar(`${network.attachmentServerUrl}/get/${contact.senderInfo.avatarId}`, contact.senderInfo.avatarKey)
-                .then(async (blob) => {
+              const { avatarId, avatarKey } = contact.senderInfo;
+              const avatarUrl = `${network.attachmentServerUrl}/get/${avatarId}`;
+              avatarOwner
+                .then(async owner => {
+                  if (owner === MediaCacheOwnership.unavailableOwner) return;
+                  const blob = await downloadAndDecryptAvatar(avatarUrl, avatarKey);
                   try {
                     // Save blob under the server-provided avatar id
-                    await contactAvatarCache.save(contact.senderInfo.avatarId, blob);
-                    contact.avatarId = contact.senderInfo.avatarId;
+                    await contactAvatarCache.save(avatarId, blob, owner);
+                    contact.avatarId = avatarId;
                     contact.hasAvatar = true;
                     // If contact provided a new avatar, prefer their sent avatar
                     myData.contacts ??= {};
@@ -13959,11 +13969,15 @@ async function processChats(chats, keys) {
             contact.senderInfo = cleanSenderInfo(payload.senderInfo);
             delete payload.senderInfo;
             if (contact.senderInfo.avatarId && contact.senderInfo.avatarKey && contact.avatarId !== contact.senderInfo.avatarId) {
-              downloadAndDecryptAvatar(`${network.attachmentServerUrl}/get/${contact.senderInfo.avatarId}`, contact.senderInfo.avatarKey)
-                .then(async (blob) => {
+              const { avatarId, avatarKey } = contact.senderInfo;
+              const avatarUrl = `${network.attachmentServerUrl}/get/${avatarId}`;
+              avatarOwner
+                .then(async owner => {
+                  if (owner === MediaCacheOwnership.unavailableOwner) return;
+                  const blob = await downloadAndDecryptAvatar(avatarUrl, avatarKey);
                   try {
-                    await contactAvatarCache.save(contact.senderInfo.avatarId, blob);
-                    contact.avatarId = contact.senderInfo.avatarId;
+                    await contactAvatarCache.save(avatarId, blob, owner);
+                    contact.avatarId = avatarId;
                     contact.hasAvatar = true;
                     // If contact provided a new avatar, prefer their sent avatar
                     myData.contacts ??= {};
@@ -15357,15 +15371,21 @@ class AvatarEditModal {
     window.addEventListener('touchend', endDrag);
   }
 
+  captureContext() {
+    const data = myData;
+    return { data, owner: contactAvatarCache.captureOwner(data?.account) };
+  }
+
   async open(address, isOwnAvatar = false) {
+    const context = this.captureContext();
     this.currentAddress = normalizeAddress(address);
     this.isOwnAvatar = isOwnAvatar; // Track if editing own avatar vs contact avatar
     this.pendingBlob = null;
     this.activeImageBlob = null;
     this.enableTransform = false;
-    await this.refreshPreview();
+    await this.refreshPreview(context);
     // populate three-option avatar selector (contact, mine, identicon)
-    try { await this.populateOptions(); } catch (e) { console.warn('populateOptions failed', e); }
+    try { await this.populateOptions(context); } catch (e) { console.warn('populateOptions failed', e); }
     openModal(this.modal);
     enterFullscreen();
   }
@@ -15413,7 +15433,8 @@ class AvatarEditModal {
    * Populate the avatar selection options (contact, mine, identicon)
    * and wire handlers to persist `useAvatar` for the contact.
    */
-  async populateOptions() {
+  async populateOptions(context = this.captureContext()) {
+    const { data, owner } = context;
     const address = this.currentAddress;
     const contactThumb = this.avatarThumbContact;
     const uploadedThumb = this.avatarThumbUploaded;
@@ -15452,13 +15473,13 @@ class AvatarEditModal {
       // Clear any stale option handlers and disable use button since options are hidden.
       try { useBtn.onclick = null; } catch (e) {}
       useBtn.disabled = true;
-      this.deleteButton.style.display = myData?.account?.hasAvatar ? 'inline-flex' : 'none';
+      this.deleteButton.style.display = data?.account?.hasAvatar ? 'inline-flex' : 'none';
       // Early return: remaining option population is contact-specific and not needed for own avatar.
       return;
     } else {
-      const contactObj = myData?.contacts?.[address] || null;
-      try { contactBlob = contactObj?.avatarId ? await contactAvatarCache.get(contactObj.avatarId) : null; } catch (e) { contactBlob = null; }
-      try { userBlob = contactObj?.mineAvatarId ? await contactAvatarCache.get(contactObj.mineAvatarId) : null; } catch (e) { userBlob = null; }
+      const contactObj = data?.contacts?.[address] || null;
+      try { contactBlob = contactObj?.avatarId ? await contactAvatarCache.get(contactObj.avatarId, owner) : null; } catch (e) { contactBlob = null; }
+      try { userBlob = contactObj?.mineAvatarId ? await contactAvatarCache.get(contactObj.mineAvatarId, owner) : null; } catch (e) { userBlob = null; }
     }
 
     const contactUrl = contactBlob ? URL.createObjectURL(contactBlob) : null;
@@ -15637,17 +15658,9 @@ class AvatarEditModal {
   /**
    * Refresh the preview based on pending state, cached avatar, or identicon fallback.
    */
-  async refreshPreview() {
+  async refreshPreview(context = this.captureContext()) {
+    const { data, owner } = context;
     this.clearPreviewUrl();
-    let displayInfo;
-    if (this.isOwnAvatar) {
-      // For own avatar, use account data
-      displayInfo = { address: this.currentAddress, hasAvatar: myData?.account?.hasAvatar || false };
-    } else {
-      const contact = myData?.contacts?.[this.currentAddress];
-      displayInfo = contact ? createDisplayInfo(contact) : { address: this.currentAddress, hasAvatar: false };
-    }
-
     if (this.pendingBlob) {
       await this.setImageFromBlob(this.pendingBlob, true);
       return;
@@ -15657,8 +15670,9 @@ class AvatarEditModal {
     // otherwise fall back to identicon. We intentionally ignore the contact-sent avatar here.
     if (!this.isOwnAvatar) {
       try {
-        const contactObj = myData?.contacts?.[this.currentAddress] || null;
-        const mineBlob = contactObj?.mineAvatarId ? await contactAvatarCache.get(contactObj.mineAvatarId) : null;
+        const contactObj = data?.contacts?.[this.currentAddress] || null;
+        const avatarId = contactObj?.mineAvatarId;
+        const mineBlob = avatarId ? await contactAvatarCache.get(avatarId, owner) : null;
         if (mineBlob) {
           await this.setImageFromBlob(mineBlob, false);
           return;
@@ -15681,7 +15695,7 @@ class AvatarEditModal {
     // For own avatar, keep existing behavior (account-based)
     let avatarBlob = null;
     try {
-      avatarBlob = await contactAvatarCache.get(myData?.account?.avatarId);
+      avatarBlob = await contactAvatarCache.get(data?.account?.avatarId, owner);
     } catch (e) {
       avatarBlob = null;
     }
@@ -15692,7 +15706,7 @@ class AvatarEditModal {
     }
 
     // Fallback to identicon if no avatar blob for own avatar
-    const avatarHtml = await getContactAvatarHtml(displayInfo, 218);
+    const avatarHtml = generateIdenticon(this.currentAddress, 218);
     this.previewContainer.innerHTML = avatarHtml;
     this.enableTransform = false;
     this.updateZoomUI();
@@ -15815,6 +15829,8 @@ class AvatarEditModal {
       return;
     }
 
+    const context = this.captureContext();
+    const { data, owner } = context;
     try {
       if (this.isOwnAvatar) {
         // Update own avatar state
@@ -15847,7 +15863,7 @@ class AvatarEditModal {
         // Update header avatar
         header.updateAvatar();
       } else {
-        const contact = myData?.contacts?.[this.currentAddress];
+        const contact = data?.contacts?.[this.currentAddress];
         if (!contact) {
           this.close();
           return;
@@ -15862,7 +15878,7 @@ class AvatarEditModal {
         // Check whether a contact-sent avatar still exists
         let contactExists = false;
         try {
-          const contactBlob = contact.avatarId ? await contactAvatarCache.get(contact.avatarId) : null;
+          const contactBlob = contact.avatarId ? await contactAvatarCache.get(contact.avatarId, owner) : null;
           contactExists = !!contactBlob;
         } catch (e) {
           contactExists = false;
@@ -15885,7 +15901,7 @@ class AvatarEditModal {
         contactInfoModal.updateContactInfo(createDisplayInfo(contact));
         contactInfoModal.needsContactListUpdate = true;
         if (chatModal.isActive() && chatModal.address === this.currentAddress) {
-          chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+          chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40, owner);
         }
       }
 
@@ -15899,13 +15915,13 @@ class AvatarEditModal {
 
       // Refresh the option list once so the modal immediately reflects the deletion
       try {
-        await this.populateOptions();
+        await this.populateOptions(context);
       } catch (e) {
         console.warn('Failed to repopulate avatar options after delete:', e);
       }
 
       // Update preview in the modal to show identicon
-      await this.refreshPreview();
+      await this.refreshPreview(context);
     } catch (err) {
       console.warn('Failed to delete avatar:', err);
       showToast('Failed to delete avatar', 2000, 'error');
@@ -16108,6 +16124,8 @@ class AvatarEditModal {
     try {
       // Need an image source to save
       if (this.pendingBlob || this.activeImageBlob) {
+        const owner = await this.captureContext().owner;
+        if (owner === MediaCacheOwnership.unavailableOwner) throw new Error('Avatar cache is unavailable');
         const sourceBlob = this.pendingBlob || this.activeImageBlob;
         const thumbnail = await this.exportCroppedThumbnail(sourceBlob);
 
@@ -16149,7 +16167,7 @@ class AvatarEditModal {
           const avatarId = result.id;
 
           // Save thumbnail to cache now that server operations succeeded (keyed by avatarId)
-          await contactAvatarCache.save(avatarId, thumbnail);
+          await contactAvatarCache.save(avatarId, thumbnail, owner);
 
           // Save id, key and secret in account
           myData.account.avatarId = avatarId;
@@ -16171,7 +16189,7 @@ class AvatarEditModal {
           contact.hasAvatar = true;
           // Save user's uploaded avatar under a generated id and reference it on the contact
           const mineId = bin2hex(generateRandomBytes(16));
-          await contactAvatarCache.save(mineId, thumbnail);
+          await contactAvatarCache.save(mineId, thumbnail, owner);
           contact.mineAvatarId = mineId;
           // Prefer the user's uploaded avatar for this contact
           myData.contacts ??= {};
@@ -16181,7 +16199,7 @@ class AvatarEditModal {
           await contactInfoModal.updateContactInfo(createDisplayInfo(contact));
           contactInfoModal.needsContactListUpdate = true;
           if (chatModal.isActive() && chatModal.address === this.currentAddress) {
-            chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
+            chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40, owner);
           }
           // Update EditContactModal avatar if it's active and showing this contact
           if (editContactModal.isActive() && editContactModal.currentContactAddress === this.currentAddress ) {
@@ -16886,7 +16904,9 @@ function getTransactionTimestamp() {
 // Validator Modals
 
 class RemoveAccountModal {
-  constructor() {}
+  constructor() {
+    this.isRemoving = false;
+  }
 
   load() {
     // called when the DOM is loaded; can setup event handlers here
@@ -16922,30 +16942,48 @@ class RemoveAccountModal {
     }
   }
 
-  submit(username = myAccount.username) {
-    // called when the form is submitted
-    // Get network ID from network.js
+  async submit(username = myAccount.username) {
     const { netid } = network;
+    if (!await this.removeAccounts([{ username, netid }])) return;
 
-    // Get existing accounts
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-
-    // Remove the account from the accounts object
-    const netidAccounts = existingAccounts.netids[netid];
-    if (netidAccounts && netidAccounts.usernames) {
-      delete netidAccounts.usernames[username];
-      this.removeSignInUsernameOrder(netidAccounts, username);
-      localStorage.setItem('accounts', stringify(existingAccounts));
-    }
-    // Remove the account data from localStorage
-    localStorage.removeItem(`${username}_${netid}`);
-
-    // Reload the page to redirect to welcome screen
-    clearMyData(); // need to delete this so that the reload does not save the data into localStore again
+    clearMyData(); // Prevent the reload from saving the removed account again.
     window.location.reload();
   }
 
-  removeAccount(username = null) {
+  async removeAccounts(accounts) {
+    if (this.isRemoving) return false;
+    this.isRemoving = true;
+    try {
+      const ownerKeys = accounts.map(({ username, netid }) => `${username}_${netid}`);
+      const results = await Promise.allSettled([
+        contactAvatarCache.removeOwners(ownerKeys),
+        thumbnailCache.removeOwners(ownerKeys),
+      ]);
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure) throw failure.reason;
+
+      // Read after cleanup so a concurrent account update is not overwritten.
+      const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
+      for (const { username, netid } of accounts) {
+        const netidAccounts = existingAccounts.netids[netid];
+        if (netidAccounts?.usernames) {
+          delete netidAccounts.usernames[username];
+          this.removeSignInUsernameOrder(netidAccounts, username);
+        }
+        localStorage.removeItem(`${username}_${netid}`);
+      }
+      localStorage.setItem('accounts', stringify(existingAccounts));
+      return true;
+    } catch (error) {
+      console.error('Failed to remove account media:', error);
+      showToast('Account removal failed. Please try again to finish removing cached media.', 0, 'error');
+      return false;
+    } finally {
+      this.isRemoving = false;
+    }
+  }
+
+  async removeAccount(username = null) {
     // Username must be provided explicitly - when called from sign-in modal, myAccount is not yet available
     if (!username) {
       // if myAccount is available and removeAccountModal is open, use myAccount.username
@@ -16958,25 +16996,7 @@ class RemoveAccountModal {
     }
     const confirmed = confirm(`Are you sure you want to remove the account "${username}" from this device?`);
     if (!confirmed) return;
-    
-    const { netid } = network;
-
-    // Get existing accounts
-    const existingAccounts = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-
-    // Remove the account from the accounts object
-    const netidAccounts = existingAccounts.netids[netid];
-    if (netidAccounts && netidAccounts.usernames) {
-      delete netidAccounts.usernames[username];
-      this.removeSignInUsernameOrder(netidAccounts, username);
-      localStorage.setItem('accounts', stringify(existingAccounts));
-    }
-    // Remove the account data from localStorage
-    localStorage.removeItem(`${username}_${netid}`);
-
-    // Reload the page to redirect to welcome screen
-    clearMyData(); // need to delete this so that the reload does not save the data into localStore again
-    window.location.reload();
+    await this.submit(username);
   }
 
   isActive() {
@@ -17195,24 +17215,16 @@ class RemoveAccountsModal {
     }, { once: true }); // attach once, inside we attach nested listeners via event bubbling
   }
 
-  handleSubmit() {
+  async handleSubmit() {
     const checked = this.listContainer.querySelectorAll('input[type="checkbox"]:checked');
     if (checked.length === 0) return;
     const confirmText = confirm(`Remove ${checked.length} selected account(s) from this device?`);
     if (!confirmText) return;
-    const accountsObj = parse(localStorage.getItem('accounts') || '{"netids":{}}');
-    checked.forEach(cb => {
-      const username = cb.dataset.username;
-      const netid = cb.dataset.netid;
-      // remove account data file
-      localStorage.removeItem(`${username}_${netid}`);
-      // remove from registry if present
-      if (accountsObj.netids[netid] && accountsObj.netids[netid].usernames && accountsObj.netids[netid].usernames[username]) {
-        delete accountsObj.netids[netid].usernames[username];
-        removeAccountModal.removeSignInUsernameOrder(accountsObj.netids[netid], username);
-      }
-    });
-    localStorage.setItem('accounts', stringify(accountsObj));
+    const accounts = Array.from(checked, (checkbox) => ({
+      username: checkbox.dataset.username,
+      netid: checkbox.dataset.netid,
+    }));
+    if (!await removeAccountModal.removeAccounts(accounts)) return;
     showToast('Selected accounts removed', 3000, 'success');
     this.close();
   }
@@ -18685,10 +18697,18 @@ class RestoreAccountModal {
       }
     }
 
+    const acceptedOwnerKeys = [...restoredAccountKeys];
+    if (acceptedOwnerKeys.length > 0) {
+      await Promise.all([
+        contactAvatarCache.activateOwners(acceptedOwnerKeys),
+        thumbnailCache.activateOwners(acceptedOwnerKeys),
+      ]).catch((error) => console.warn('Failed to initialize restored account media caches:', error));
+    }
+
     // Import contact avatars if present in backup
     if (backupData._avatars && typeof backupData._avatars === 'object') {
       try {
-        await contactAvatarCache.importAll(backupData._avatars, overwrite);
+        await contactAvatarCache.importAll(backupData._avatars, overwrite, acceptedOwnerKeys);
       } catch (e) {
         console.warn('Failed to import avatars from backup:', e);
       }
@@ -18697,7 +18717,7 @@ class RestoreAccountModal {
     // Import message thumbnails if present in backup
     if (backupData._thumbnails && typeof backupData._thumbnails === 'object') {
       try {
-        await thumbnailCache.importAll(backupData._thumbnails, overwrite);
+        await thumbnailCache.importAll(backupData._thumbnails, overwrite, acceptedOwnerKeys);
       } catch (e) {
         console.warn('Failed to import thumbnails from backup:', e);
       }
@@ -24720,6 +24740,7 @@ class ChatModal {
 
     let loadingToastId;
     let thumbnailBlob = null;
+    const owner = await thumbnailCache.captureOwner();
     
     // Normalize file type (fallback to extension detection for missing MIME types)
     const normalizedType = this.getMimeTypeFromFilename(file.name, file.type);
@@ -24845,7 +24866,7 @@ class ChatModal {
             
             // Cache thumbnail if we generated one - use captured variable
             if (capturedThumbnailBlob && (isImage || isVideo)) {
-              thumbnailCache.save(attachmentUrl, capturedThumbnailBlob, file.type).catch(err => {
+              thumbnailCache.save(attachmentUrl, capturedThumbnailBlob, file.type, owner).catch(err => {
                 console.warn('Failed to cache thumbnail for attached file:', err);
               });
             }
@@ -25246,11 +25267,12 @@ class ChatModal {
     if (!url || url === '#') return false;
 
     try {
-      let thumbnailBlob = await thumbnailCache.get(url);
+      const owner = await thumbnailCache.captureOwner();
+      let thumbnailBlob = await thumbnailCache.get(url, owner);
       if (!thumbnailBlob && attachmentRow.dataset.pUrl) {
         const item = this.getMessageRecordFromRenderedChild(attachmentRow);
         thumbnailBlob = await this.decryptAttachmentToBlob(item, attachmentRow, attachmentRow.dataset.pUrl);
-        await thumbnailCache.save(url, thumbnailBlob, 'image/jpeg');
+        await thumbnailCache.save(url, thumbnailBlob, 'image/jpeg', owner);
       }
       if (!thumbnailBlob || !attachmentRow.isConnected) return false;
       return this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
@@ -25458,12 +25480,14 @@ class ChatModal {
    * @param {Object} item - message containing the attachment metadata and keys
    * @param {HTMLElement} linkEl - rendered attachment row
    * @param {() => void} [onDownloadStart] - called before downloading and decrypting
+   * @param {Object|null} [owner] - account ownership captured before related asynchronous work
    * @returns {Promise<Blob>}
    */
-  async getFullImageBlob(item, linkEl, onDownloadStart) {
+  async getFullImageBlob(item, linkEl, onDownloadStart, owner) {
     const attachment = this.getFullImageAttachment(item, linkEl);
     return fullImageCache.getOrCache({
       attachment,
+      owner,
       downloadAndDecrypt: () => {
         onDownloadStart?.();
         return this.decryptAttachmentToBlob(item, linkEl);
@@ -25476,10 +25500,11 @@ class ChatModal {
   async handleAttachmentDownload(item, linkEl) {
     let loadingToastId;
     try {
+      const owner = await thumbnailCache.captureOwner();
       const isImage = item.type !== 'vm' && (linkEl.dataset.type || '').startsWith('image/');
       loadingToastId = showToast(isImage ? 'Preparing image...' : 'Decrypting attachment...', 0, 'loading');
       const blob = isImage
-        ? await this.getFullImageBlob(item, linkEl)
+        ? await this.getFullImageBlob(item, linkEl, undefined, owner)
         : await this.decryptAttachmentToBlob(item, linkEl);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
       const safePreviewMime = await getSafeAttachmentPreviewMime(blob);
@@ -25488,7 +25513,7 @@ class ChatModal {
         : null;
 
       // Generate and cache thumbnail for images and videos, then update in place
-      if (safePreviewMime.startsWith('image/') || safePreviewMime.startsWith('video/')) {
+      if (owner !== MediaCacheOwnership.unavailableOwner && (safePreviewMime.startsWith('image/') || safePreviewMime.startsWith('video/'))) {
         const attachmentUrl = linkEl.dataset.url;
         const attachmentRow = linkEl.closest('.attachment-row') || linkEl.closest(CHAT_THUMBNAIL_ATTACHMENT_SELECTOR);
         
@@ -25497,11 +25522,11 @@ class ChatModal {
           : thumbnailCache.extractVideoThumbnail(safePreviewBlob);
         
         thumbnailPromise
-          .then(thumbnail => thumbnailCache.save(attachmentUrl, thumbnail, safePreviewMime))
+          .then(thumbnail => thumbnailCache.save(attachmentUrl, thumbnail, safePreviewMime, owner))
           .then(async () => {
             // Update thumbnail in place
             if (attachmentRow) {
-              const thumbnailBlob = await thumbnailCache.get(attachmentUrl);
+              const thumbnailBlob = await thumbnailCache.get(attachmentUrl, owner);
               if (thumbnailBlob) {
                 await this.updateThumbnailInPlace(attachmentRow, thumbnailBlob);
               }
@@ -30347,17 +30372,18 @@ class ShareContactsModal {
     this.allNoneButton.disabled = !hasContacts;
 
     if (hasContacts) {
+      const owner = contactAvatarCache.captureOwner();
       // Render Friends section
       if (friends.length > 0) {
-        await this.renderSection('Friends', friends);
+        await this.renderSection('Friends', friends, owner);
       }
       // Render Connections section
       if (connections.length > 0) {
-        await this.renderSection('Connections', connections);
+        await this.renderSection('Connections', connections, owner);
       }
       // Render Tolled section
       if (tolled.length > 0) {
-        await this.renderSection('Tolled', tolled);
+        await this.renderSection('Tolled', tolled, owner);
       }
     }
   }
@@ -30381,7 +30407,7 @@ class ShareContactsModal {
    * @param {number} size - Avatar size in pixels
    * @returns {Promise<string>} Avatar HTML
    */
-  async getContactAvatarHtmlForShare(contact, size = 40) {
+  async getContactAvatarHtmlForShare(contact, size = 40, owner) {
     const address = contact?.address;
     if (!address) return generateIdenticon('', size);
 
@@ -30390,13 +30416,13 @@ class ShareContactsModal {
     try {
       // Priority 1: Contact's provided avatar
       if (contact?.avatarId) {
-        const url = await contactAvatarCache.getBlobUrl(contact.avatarId);
+        const url = await contactAvatarCache.getBlobUrl(contact.avatarId, owner);
         if (url) return makeImg(url);
       }
 
       // Priority 2: User-selected avatar for this contact
       if (contact?.mineAvatarId) {
-        const url = await contactAvatarCache.getBlobUrl(contact.mineAvatarId);
+        const url = await contactAvatarCache.getBlobUrl(contact.mineAvatarId, owner);
         if (url) return makeImg(url);
       }
     } catch (err) {
@@ -30412,7 +30438,7 @@ class ShareContactsModal {
    * @param {string} label - Section label
    * @param {Array} contacts - Array of contact objects
    */
-  async renderSection(label, contacts) {
+  async renderSection(label, contacts, owner) {
     // Add section header
     const header = document.createElement('div');
     header.className = 'share-contacts-section-header';
@@ -30421,7 +30447,7 @@ class ShareContactsModal {
 
     // Batch avatar generation for better performance
     // Use custom function that follows correct priority: contact avatar → user-selected → identicon
-    const avatarPromises = contacts.map(contact => this.getContactAvatarHtmlForShare(contact, 40));
+    const avatarPromises = contacts.map(contact => this.getContactAvatarHtmlForShare(contact, 40, owner));
     const avatarHtmlList = await Promise.all(avatarPromises);
 
     // Render each contact
@@ -30543,17 +30569,17 @@ class ShareContactsModal {
    * @param {Object} contact - Contact object
    * @returns {Promise<Blob|null>} Avatar blob or null if not available
    */
-  async getContactAvatarBlobForShare(contact) {
+  async getContactAvatarBlobForShare(contact, owner) {
     try {
       // Priority 1: Contact's provided avatar
       if (contact?.avatarId) {
-        const blob = await contactAvatarCache.get(contact.avatarId);
+        const blob = await contactAvatarCache.get(contact.avatarId, owner);
         if (blob) return blob;
       }
 
       // Priority 2: User-selected avatar for this contact
       if (contact?.mineAvatarId) {
-        const blob = await contactAvatarCache.get(contact.mineAvatarId);
+        const blob = await contactAvatarCache.get(contact.mineAvatarId, owner);
         if (blob) return blob;
       }
     } catch (err) {
@@ -30570,6 +30596,8 @@ class ShareContactsModal {
    */
   async generateVcfContent() {
     const vcards = [];
+    const contacts = Array.from(this.selectedContacts, address => myData.contacts[address]).filter(Boolean);
+    const owner = contactAvatarCache.captureOwner();
 
     // First card contains X-LIBERDUS-NETID
     vcards.push([
@@ -30580,10 +30608,7 @@ class ShareContactsModal {
     ].join('\r\n'));
 
     // Generate vCard for each selected contact
-    for (const address of this.selectedContacts) {
-      const contact = myData.contacts[address];
-      if (!contact) continue;
-
+    for (const contact of contacts) {
       const lines = [
         'BEGIN:VCARD',
         'VERSION:3.0',
@@ -30598,7 +30623,7 @@ class ShareContactsModal {
       }
 
       // PHOTO - base64 of avatar blob
-      const avatarBlob = await this.getContactAvatarBlobForShare(contact);
+      const avatarBlob = await this.getContactAvatarBlobForShare(contact, owner);
       if (avatarBlob) {
         const base64 = await contactAvatarCache.blobToBase64(avatarBlob);
         if (base64) {
@@ -31270,6 +31295,7 @@ class ImportContactsModal {
 
     this.doneButton.classList.add('loading');
     try {
+      const owner = await contactAvatarCache.captureOwner();
       let importedCount = 0;
       let failedCount = 0;
       const failedContacts = [];
@@ -31334,12 +31360,12 @@ class ImportContactsModal {
             updated = true;
           }
 
-          if (updateEligibility.canUpdateAvatar) {
+          if (owner !== MediaCacheOwnership.unavailableOwner && updateEligibility.canUpdateAvatar) {
             try {
               const mimeType = parsedContact.photoType === 'png' ? 'image/png' : 'image/jpeg';
               const avatarBlob = contactAvatarCache.base64ToBlob(parsedContact.photoBase64, mimeType);
               const mineId = bin2hex(generateRandomBytes(16));
-              await contactAvatarCache.save(mineId, avatarBlob);
+              await contactAvatarCache.save(mineId, avatarBlob, owner);
               existingContact.mineAvatarId = mineId;
               existingContact.hasAvatar = true;
               existingContact.useAvatar = 'mine';
@@ -31383,13 +31409,13 @@ class ImportContactsModal {
         }
 
         // Save avatar as user-uploaded so it can be changed or deleted locally
-        if (parsedContact.photoBase64) {
+        if (owner !== MediaCacheOwnership.unavailableOwner && parsedContact.photoBase64) {
           try {
             const mimeType = parsedContact.photoType === 'png' ? 'image/png' : 'image/jpeg';
             const avatarBlob = contactAvatarCache.base64ToBlob(parsedContact.photoBase64, mimeType);
             // Generate ID like user-uploaded avatars for consistency
             const mineId = bin2hex(generateRandomBytes(16));
-            await contactAvatarCache.save(mineId, avatarBlob);
+            await contactAvatarCache.save(mineId, avatarBlob, owner);
             contactRecord.mineAvatarId = mineId;
             contactRecord.hasAvatar = true;
             contactRecord.useAvatar = 'mine';
@@ -33546,6 +33572,10 @@ class CreateAccountModal {
         existingAccounts.netids[netid].usernames[username] = { address: myAccount.keys.address };
         localStorage.setItem('accounts', stringify(existingAccounts));
         saveState();
+        await Promise.all([
+          contactAvatarCache.activateOwners([`${username}_${netid}`]),
+          thumbnailCache.activateOwners([`${username}_${netid}`]),
+        ]).catch((error) => console.warn('Failed to initialize account media caches:', error));
         this.setAccountCreationInProgress(false);
         this.close();
         welcomeScreen.close();
@@ -38282,16 +38312,208 @@ const CONTACT_AVATAR_MAX_THUMB_SIZE = 128;
 const CONTACT_AVATAR_JPEG_QUALITY = 0.85;
 
 /**
- * ContactAvatarCache - Handles IndexedDB storage for contact avatar thumbnails
+ * @typedef {Readonly<{key: string, generation: number}>} MediaCacheOwner
+ * @typedef {MediaCacheOwner|MediaCacheOwner[]|symbol|null} MediaCacheOwners
+ * @typedef {MediaCacheOwners|Promise<MediaCacheOwners>} MediaCacheOwnerContext
  */
+
+/** Tracks account ownership and serializes media writes with account removal. */
+class MediaCacheOwnership {
+  static unavailableOwner = Symbol('unavailable media owner');
+
+  constructor(database, storeNames) {
+    this.database = database;
+    this.storeNames = storeNames;
+    this.stateStoreName = 'ownerStates';
+  }
+
+  static upgrade(transaction, storeNames) {
+    const db = transaction.db;
+    if (!db.objectStoreNames.contains('ownerStates')) {
+      db.createObjectStore('ownerStates', { keyPath: 'key' });
+    }
+    for (const name of storeNames) {
+      const store = transaction.objectStore(name);
+      if (!store.indexNames.contains('byOwner')) {
+        store.createIndex('byOwner', 'ownerKeys', { multiEntry: true, unique: false });
+      }
+    }
+  }
+
+  captureOwner(account = myAccount) {
+    const key = account?.username && account?.netid ? `${account.username}_${account.netid}` : null;
+    if (!key) return Promise.resolve(null);
+    return this.captureKey(key).catch((error) => {
+      console.warn('Failed to capture media cache owner:', error);
+      return MediaCacheOwnership.unavailableOwner;
+    });
+  }
+
+  captureKey(key) {
+    return this.run([], null, ({ transaction, setResult }) => {
+      const store = transaction.objectStore(this.stateStoreName);
+      const request = store.get(key);
+      request.onsuccess = () => {
+        const state = request.result || { key, generation: 0, active: true };
+        if (!request.result) store.put(state);
+        setResult(Object.freeze({ key, generation: state.generation }));
+      };
+    });
+  }
+
+  async activateOwners(accountKeys) {
+    const keys = [...new Set(accountKeys.filter(key => typeof key === 'string' && key))];
+    if (!keys.length) return;
+    await this.run([], null, ({ transaction }) => {
+      const store = transaction.objectStore(this.stateStoreName);
+      for (const key of keys) {
+        const request = store.get(key);
+        request.onsuccess = () => {
+          const previous = request.result;
+          if (!previous?.active) {
+            store.put({ key, generation: (previous?.generation || 0) + 1, active: true });
+          }
+        };
+      }
+    });
+  }
+
+  async run(storeNames, owner, action) {
+    const captured = await owner;
+    if (captured === MediaCacheOwnership.unavailableOwner) return false;
+    const owners = (Array.isArray(captured) ? captured : [captured]).filter(Boolean);
+    const db = await this.database.init();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([...new Set([this.stateStoreName, ...storeNames])], 'readwrite');
+      let result = false;
+      transaction.oncomplete = () => resolve(result);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error('Media cache transaction aborted'));
+      const context = { transaction, owners, setResult: value => { result = value; } };
+      const executeAction = () => {
+        try {
+          action(context);
+        } catch (error) {
+          reject(error);
+          transaction.abort();
+        }
+      };
+      if (!owners.length) {
+        executeAction();
+        return;
+      }
+      let remaining = owners.length;
+      let allowed = true;
+      const states = transaction.objectStore(this.stateStoreName);
+      for (const capturedOwner of owners) {
+        const request = states.get(capturedOwner.key);
+        request.onsuccess = () => {
+          const state = request.result;
+          allowed &&= Boolean(state?.active && state.generation === capturedOwner.generation);
+          if (--remaining === 0 && allowed) executeAction();
+        };
+      }
+    });
+  }
+
+  static mergeRecord(existing, record, owners) {
+    const next = { ...record };
+    delete next.ownerKeys;
+    // An old row may have consumers that were never attributed. Keep it exempt.
+    const legacy = existing && !Array.isArray(existing.ownerKeys);
+    if (legacy) return next;
+    const ownerKeys = owners.map(owner => owner.key);
+    if (Array.isArray(existing?.ownerKeys) || ownerKeys.length) {
+      next.ownerKeys = [...new Set([...(existing?.ownerKeys || []), ...ownerKeys])];
+    }
+    return next;
+  }
+
+  async read(storeName, id, owner = null) {
+    const result = await this.run([storeName], owner, ({ transaction, owners, setResult }) => {
+      const store = transaction.objectStore(storeName);
+      const request = store.get(id);
+      request.onsuccess = () => {
+        let record = request.result;
+        if (record && owners.length && Array.isArray(record.ownerKeys)) {
+          const previousOwnerCount = record.ownerKeys.length;
+          record = MediaCacheOwnership.mergeRecord(record, record, owners);
+          if (record.ownerKeys.length !== previousOwnerCount) store.put(record);
+        }
+        setResult(record || null);
+      };
+    });
+    return result || null;
+  }
+
+  async save(storeName, record, owner = null) {
+    return this.run([storeName], owner, ({ transaction, owners, setResult }) => {
+      const store = transaction.objectStore(storeName);
+      const request = store.get(record.id);
+      request.onsuccess = () => {
+        store.put(MediaCacheOwnership.mergeRecord(request.result, record, owners));
+        setResult(true);
+      };
+    });
+  }
+
+  async importRecord(storeName, record, { owners, overwrite, legacy }) {
+    return this.run([storeName], owners, ({ transaction, owners, setResult }) => {
+      const store = transaction.objectStore(storeName);
+      const request = store.get(record.id);
+      request.onsuccess = () => {
+        const existing = request.result;
+        const replacement = existing && !overwrite ? existing : record;
+        const next = MediaCacheOwnership.mergeRecord(existing, replacement, owners);
+        if (legacy) delete next.ownerKeys;
+        store.put(next);
+        setResult(!existing || overwrite);
+      };
+    });
+  }
+
+  captureOwners(accountKeys) {
+    return Promise.all([...new Set(accountKeys)].map(key => this.captureKey(key)));
+  }
+
+  async removeOwners(accountKeys) {
+    const keys = new Set(accountKeys);
+    if (!keys.size) return;
+    await this.run(this.storeNames, null, ({ transaction }) => {
+      const states = transaction.objectStore(this.stateStoreName);
+      for (const key of keys) {
+        const request = states.get(key);
+        request.onsuccess = () => {
+          const previous = request.result;
+          states.put({ key, generation: (previous?.generation || 0) + 1, active: false });
+        };
+        for (const name of this.storeNames) {
+          const request = transaction.objectStore(name).index('byOwner').openCursor(IDBKeyRange.only(key));
+          request.onsuccess = () => {
+            const cursor = request.result;
+            if (!cursor) return;
+            const ownerKeys = cursor.value.ownerKeys.filter(ownerKey => !keys.has(ownerKey));
+            if (ownerKeys.length) cursor.update({ ...cursor.value, ownerKeys });
+            else cursor.delete();
+            cursor.continue();
+          };
+        }
+      }
+    });
+  }
+}
+
+/** Handles IndexedDB storage for contact avatar thumbnails. */
 class ContactAvatarCache {
   constructor() {
     this.dbName = 'liberdus_contact_avatars';
     this.storeName = 'avatars';
     // Bump version to force onupgradeneeded for existing installations
-    this.dbVersion = 2;
+    this.dbVersion = 3;
     this.db = null;
+    this.openPromise = null;
     this.blobUrlCache = new Map();
+    this.ownership = new MediaCacheOwnership(this, [this.storeName]);
   }
 
   /**
@@ -38308,24 +38530,38 @@ class ContactAvatarCache {
 
   /**
    * Initialize IndexedDB database connection
-   * @returns {Promise<void>}
+   * @returns {Promise<IDBDatabase>}
    */
   async init() {
-    return new Promise((resolve, reject) => {
+    if (this.db) return this.db;
+    if (this.openPromise) return this.openPromise;
+    this.openPromise = new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.dbVersion);
 
       request.onerror = () => {
         console.error('Failed to open contact avatar database:', request.error);
+        this.openPromise = null;
         reject(request.error);
       };
 
       request.onsuccess = () => {
         this.db = request.result;
-        resolve();
+        this.db.onversionchange = () => {
+          this.db.close();
+          this.db = null;
+          this.openPromise = null;
+        };
+        resolve(this.db);
       };
+
+      request.onblocked = () => reject(new Error('Contact avatar database upgrade blocked'));
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
+        if (event.oldVersion >= 2) {
+          MediaCacheOwnership.upgrade(request.transaction, [this.storeName]);
+          return;
+        }
         // If an old store exists (keyPath=address) remove it and recreate under 'id'.
         if (db.objectStoreNames.contains(this.storeName)) {
           try {
@@ -38337,8 +38573,10 @@ class ContactAvatarCache {
         // Use avatar id as the primary key for one-image-per-id storage
         const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
         store.createIndex('savedAt', 'savedAt', { unique: false });
+        MediaCacheOwnership.upgrade(request.transaction, [this.storeName]);
       };
     });
+    return this.openPromise;
   }
 
   /**
@@ -38392,85 +38630,75 @@ class ContactAvatarCache {
     });
   }
 
+  captureOwner(account = myAccount) {
+    return this.ownership.captureOwner(account);
+  }
+
+  activateOwners(accountKeys) {
+    return this.ownership.activateOwners(accountKeys);
+  }
+
+  async removeOwners(accountKeys) {
+    await this.ownership.removeOwners(accountKeys);
+    for (const url of this.blobUrlCache.values()) URL.revokeObjectURL(url);
+    this.blobUrlCache.clear();
+  }
+
   /**
    * Save an avatar blob to the avatars store keyed by avatar id.
    * @param {string} id - Avatar id (server-provided or locally-generated)
    * @param {Blob} avatarBlob - The avatar image blob to store
-   * @returns {Promise<void>}
+   * @param {MediaCacheOwnerContext} owner - Captured before asynchronous media work
+   * @returns {Promise<boolean>} Whether the blob was saved
    */
-  async save(id, avatarBlob) {
+  async save(id, avatarBlob, owner) {
     if (!id) throw new Error('avatar id required');
-    if (!this.db) await this.init();
-
-    // Revoke any cached object URL for this id
-    if (this.blobUrlCache.has(id)) {
-      try { URL.revokeObjectURL(this.blobUrlCache.get(id)); } catch (e) {}
+    if (owner === undefined) owner = this.captureOwner();
+    const saved = await this.ownership.save(this.storeName, {
+      id,
+      blob: avatarBlob,
+      type: avatarBlob?.type || 'image/jpeg',
+      size: avatarBlob?.size || 0,
+      savedAt: Date.now(),
+    }, owner);
+    if (saved && this.blobUrlCache.has(id)) {
+      URL.revokeObjectURL(this.blobUrlCache.get(id));
       this.blobUrlCache.delete(id);
     }
-
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction([this.storeName], 'readwrite');
-      const store = tx.objectStore(this.storeName);
-
-      const record = {
-        id,
-        blob: avatarBlob,
-        type: avatarBlob?.type || 'image/jpeg',
-        size: avatarBlob?.size || 0,
-        savedAt: Date.now(),
-      };
-
-      const putReq = store.put(record);
-      putReq.onsuccess = () => resolve();
-      putReq.onerror = () => {
-        console.warn('Failed to save avatar blob:', putReq.error);
-        reject(putReq.error);
-      };
-    });
+    return saved;
   }
 
   /**
    * Get avatar blob by avatar id.
    * @param {string} id - Avatar id (server-provided or locally-generated)
+   * @param {MediaCacheOwnerContext} owner - Owner to retain on a cache hit
    * @returns {Promise<Blob|null>} The avatar blob or null if not found
    */
-  async get(id) {
+  async get(id, owner) {
     if (!id) return null;
-    if (!this.db) await this.init();
-
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction([this.storeName], 'readonly');
-      const store = tx.objectStore(this.storeName);
-      const request = store.get(id);
-
-      request.onsuccess = () => {
-        const result = request.result;
-        if (!result) return resolve(null);
-        return resolve(result.blob || null);
-      };
-
-      request.onerror = () => {
-        console.warn('Failed to get avatar blob:', request.error);
-        reject(request.error);
-      };
-    });
+    if (owner === undefined) owner = this.captureOwner();
+    const record = await this.ownership.read(this.storeName, id, owner);
+    return record?.blob || null;
   }
 
   /**
    * Get a blob URL for an avatar id (cached).
    * @param {string} id - Avatar id (server-provided or locally-generated)
+   * @param {MediaCacheOwnerContext} owner - Owner to retain on a cache hit
    * @returns {Promise<string|null>} Blob URL or null if not found
    */
-  async getBlobUrl(id) {
+  async getBlobUrl(id, owner) {
     if (!id) return null;
-    if (this.blobUrlCache.has(id)) return this.blobUrlCache.get(id);
-    const blob = await this.get(id);
-    if (blob) {
-      const blobUrl = URL.createObjectURL(blob);
-      this.blobUrlCache.set(id, blobUrl);
-      return blobUrl;
+    const blob = await this.get(id, owner);
+    if (!blob) {
+      if (this.blobUrlCache.has(id)) URL.revokeObjectURL(this.blobUrlCache.get(id));
+      this.blobUrlCache.delete(id);
+      return null;
     }
-    return null;
+    if (this.blobUrlCache.has(id)) return this.blobUrlCache.get(id);
+    const blobUrl = URL.createObjectURL(blob);
+    this.blobUrlCache.set(id, blobUrl);
+    return blobUrl;
   }
 
   /**
@@ -38519,6 +38747,7 @@ class ContactAvatarCache {
                 data: await this.blobToBase64(item.blob),
                 type: item.type || 'image/jpeg',
                 size: item.size || 0,
+                ...(Array.isArray(item.ownerKeys) ? { ownerKeys: [...item.ownerKeys] } : {}),
               };
             } catch (e) {
               console.warn(`Failed to export avatar id ${item.id}:`, e);
@@ -38539,30 +38768,34 @@ class ContactAvatarCache {
    * Import avatars from exported data
    * @param {Object} avatarsData - Object mapping avatar id to { data: base64, type: mimeType }
    * @param {boolean} overwrite - Whether to overwrite existing avatars
+   * @param {string[]} acceptedOwnerKeys - Successfully restored account keys
    * @returns {Promise<number>} Number of avatars imported
    */
-  async importAll(avatarsData, overwrite = false) {
-    if (!this.db) await this.init();
+  async importAll(avatarsData, overwrite = false, acceptedOwnerKeys = []) {
     if (!avatarsData || typeof avatarsData !== 'object') return 0;
-
+    const acceptedOwners = await this.ownership.captureOwners(acceptedOwnerKeys);
     let importedCount = 0;
     for (const [id, avatarInfo] of Object.entries(avatarsData)) {
-      if (!avatarInfo) continue;
+      if (!avatarInfo?.data) continue;
       try {
-        if (!overwrite) {
-          const existing = await this.get(id);
-          if (existing) continue;
-        }
-        if (avatarInfo.data) {
-          const blob = this.base64ToBlob(avatarInfo.data, avatarInfo.type || 'image/jpeg');
-          await this.save(id, blob);
+        const ownerKeys = Array.isArray(avatarInfo.ownerKeys)
+          ? avatarInfo.ownerKeys.filter(key => acceptedOwnerKeys.includes(key))
+          : null;
+        if (ownerKeys && !ownerKeys.length) continue;
+        const owners = ownerKeys ? acceptedOwners.filter(owner => ownerKeys.includes(owner.key)) : acceptedOwners;
+        const blob = this.base64ToBlob(avatarInfo.data, avatarInfo.type || 'image/jpeg');
+        const saved = await this.ownership.importRecord(this.storeName, {
+          id, blob, type: avatarInfo.type || 'image/jpeg', size: blob.size, savedAt: Date.now(),
+        }, { owners, overwrite, legacy: ownerKeys === null });
+        if (saved) {
+          if (this.blobUrlCache.has(id)) URL.revokeObjectURL(this.blobUrlCache.get(id));
+          this.blobUrlCache.delete(id);
           importedCount++;
         }
       } catch (e) {
         console.warn(`Failed to import avatar id ${id}:`, e);
       }
     }
-
     return importedCount;
   }
 
@@ -38611,9 +38844,10 @@ class ThumbnailCache {
     this.dbName = 'liberdus_thumbnails';
     this.storeName = 'thumbnails';
     this.fullImageStoreName = 'fullImages';
-    this.dbVersion = 3;
+    this.dbVersion = 4;
     this.db = null;
     this.openPromise = null;
+    this.ownership = new MediaCacheOwnership(this, [this.storeName, this.fullImageStoreName]);
     this.maxCacheSize = 50 * 1024 * 1024; // 50MB in bytes
   }
 
@@ -38696,7 +38930,7 @@ class ThumbnailCache {
    * @returns {Array<(transaction: IDBTransaction, done: () => void) => void>}
    */
   get migrations() {
-    return [this.migrateToVersion1, this.migrateToVersion2, this.migrateToVersion3];
+    return [this.migrateToVersion1, this.migrateToVersion2, this.migrateToVersion3, this.migrateToVersion4];
   }
 
   /**
@@ -38769,6 +39003,23 @@ class ThumbnailCache {
       store.createIndex('cachedAt', 'cachedAt', { unique: false });
       ThumbnailCache.migrateStore(source, store, storeFinished);
     }
+  }
+
+  migrateToVersion4(transaction, done) {
+    MediaCacheOwnership.upgrade(transaction, [this.storeName, this.fullImageStoreName]);
+    transaction.objectStore(this.ownership.stateStoreName).count().onsuccess = done;
+  }
+
+  captureOwner(account = myAccount) {
+    return this.ownership.captureOwner(account);
+  }
+
+  activateOwners(accountKeys) {
+    return this.ownership.activateOwners(accountKeys);
+  }
+
+  removeOwners(accountKeys) {
+    return this.ownership.removeOwners(accountKeys);
   }
 
   /**
@@ -38984,7 +39235,7 @@ class ThumbnailCache {
    * Remove oldest thumbnails until cache size is under limit
    * @returns {Promise<number>} Number of thumbnails removed
    */
-  async cleanupBySize() {
+  async cleanupBySize(owner = null) {
     if (!this.db) {
       await this.init();
     }
@@ -38999,9 +39250,8 @@ class ThumbnailCache {
 
     const sizeToRemove = currentSize - targetSize;
 
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction([this.storeName], 'readwrite');
-      const store = tx.objectStore(this.storeName);
+    return this.ownership.run([this.storeName], owner, ({ transaction, setResult }) => {
+      const store = transaction.objectStore(this.storeName);
       const index = store.index('cachedAt');
       const request = index.openCursor(null, 'next'); // Oldest first
 
@@ -39019,13 +39269,8 @@ class ThumbnailCache {
           removedSize += itemSize;
           cursor.continue();
         } else {
-          resolve(deletedCount);
+          setResult(deletedCount);
         }
-      };
-
-      request.onerror = () => {
-        console.warn('Failed to cleanup thumbnails by size:', request.error);
-        reject(request.error);
       };
     });
   }
@@ -39035,77 +39280,32 @@ class ThumbnailCache {
    * @param {string} attachmentUrl - The attachment URL or exported attachment ID
    * @param {Blob} thumbnailBlob - The thumbnail blob to store
    * @param {string} originalType - Original MIME type
-   * @returns {Promise<void>}
+   * @param {MediaCacheOwnerContext} owner - Captured before asynchronous media work
+   * @returns {Promise<boolean>} Whether the blob was saved
    */
-  async save(attachmentUrl, thumbnailBlob, originalType) {
+  async save(attachmentUrl, thumbnailBlob, originalType, owner) {
     const id = ThumbnailCache.getAttachmentId(attachmentUrl);
-    if (!this.db) {
-      await this.init();
-    }
-
-    // Check if adding this thumbnail would exceed size limit
+    if (owner === undefined) owner = this.captureOwner();
+    owner = await owner;
+    if (owner === MediaCacheOwnership.unavailableOwner) return false;
     const currentSize = await this.getCacheSize();
-    const newThumbnailSize = thumbnailBlob.size;
-    
-    // If adding this thumbnail would exceed limit, cleanup first
-    if (currentSize + newThumbnailSize > this.maxCacheSize) {
-      await this.cleanupBySize();
-    }
-
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction([this.storeName], 'readwrite');
-      const store = tx.objectStore(this.storeName);
-
-      const data = {
-        id,
-        thumbnail: thumbnailBlob,
-        originalType: originalType,
-        cachedAt: Date.now()
-      };
-
-      const request = store.put(data);
-
-      request.onsuccess = () => {
-        resolve();
-      };
-
-      request.onerror = () => {
-        console.warn('Failed to save thumbnail:', request.error);
-        reject(request.error);
-      };
-    });
+    if (currentSize + thumbnailBlob.size > this.maxCacheSize) await this.cleanupBySize(owner);
+    return this.ownership.save(this.storeName, {
+      id, thumbnail: thumbnailBlob, originalType, cachedAt: Date.now(),
+    }, owner);
   }
 
   /**
    * Retrieve a cached thumbnail from IndexedDB
    * @param {string} attachmentUrl - The attachment URL or exported attachment ID
+   * @param {MediaCacheOwnerContext} owner - Owner to retain on a cache hit
    * @returns {Promise<Blob|null>} The thumbnail blob or null if not found
    */
-  async get(attachmentUrl) {
+  async get(attachmentUrl, owner) {
     const id = ThumbnailCache.getAttachmentId(attachmentUrl);
-    if (!this.db) {
-      await this.init();
-    }
-
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction([this.storeName], 'readonly');
-      const store = tx.objectStore(this.storeName);
-      const request = store.get(id);
-
-      request.onsuccess = () => {
-        const result = request.result;
-        if (result && result.thumbnail) {
-          resolve(result.thumbnail);
-        } else {
-          resolve(null);
-        }
-      };
-
-      request.onerror = () => {
-        console.warn('Failed to get thumbnail:', request.error);
-        reject(request.error);
-      };
-    });
+    if (owner === undefined) owner = this.captureOwner();
+    const record = await this.ownership.read(this.storeName, id, owner);
+    return record?.thumbnail || null;
   }
 
   /**
@@ -39160,7 +39360,8 @@ class ThumbnailCache {
               thumbnails[item.id] = {
                 data: base64,
                 type: item.thumbnail.type || 'image/jpeg',
-                originalType: item.originalType || 'image/jpeg'
+                originalType: item.originalType || 'image/jpeg',
+                ...(Array.isArray(item.ownerKeys) ? { ownerKeys: [...item.ownerKeys] } : {}),
               };
             } catch (e) {
               console.warn(`Failed to export thumbnail for ${item.id}:`, e);
@@ -39182,38 +39383,37 @@ class ThumbnailCache {
    * Import thumbnails from exported data
    * @param {Object} thumbnailsData - Object mapping attachment IDs or legacy URLs to { data: base64, type: mimeType, originalType: string }
    * @param {boolean} overwrite - Whether to overwrite existing thumbnails
+   * @param {string[]} acceptedOwnerKeys - Successfully restored account keys
    * @returns {Promise<number>} Number of thumbnails imported
    */
-  async importAll(thumbnailsData, overwrite = false) {
-    if (!this.db) {
-      await this.init();
-    }
-
-    if (!thumbnailsData || typeof thumbnailsData !== 'object') {
-      return 0;
-    }
-
+  async importAll(thumbnailsData, overwrite = false, acceptedOwnerKeys = []) {
+    if (!thumbnailsData || typeof thumbnailsData !== 'object') return 0;
+    const acceptedOwners = await this.ownership.captureOwners(acceptedOwnerKeys);
     let importedCount = 0;
-
     for (const [urlOrId, thumbInfo] of Object.entries(thumbnailsData)) {
-      if (!thumbInfo || !thumbInfo.data) continue;
-
+      if (!thumbInfo?.data) continue;
       try {
-        // Check if thumbnail already exists
-        if (!overwrite) {
-          const existing = await this.get(urlOrId);
-          if (existing) continue;
+        const ownerKeys = Array.isArray(thumbInfo.ownerKeys)
+          ? thumbInfo.ownerKeys.filter(key => acceptedOwnerKeys.includes(key))
+          : null;
+        if (ownerKeys && !ownerKeys.length) continue;
+        const owners = ownerKeys ? acceptedOwners.filter(owner => ownerKeys.includes(owner.key)) : acceptedOwners;
+        const id = ThumbnailCache.getAttachmentId(urlOrId);
+        const thumbnail = this.base64ToBlob(thumbInfo.data, thumbInfo.type || 'image/jpeg');
+        const existing = !overwrite && await this.ownership.read(this.storeName, id, owners);
+        if (!existing) {
+          const currentSize = await this.getCacheSize();
+          if (currentSize + thumbnail.size > this.maxCacheSize) await this.cleanupBySize(owners);
         }
-
-        // Convert base64 back to blob
-        const blob = this.base64ToBlob(thumbInfo.data, thumbInfo.type || 'image/jpeg');
-        await this.save(urlOrId, blob, thumbInfo.originalType || thumbInfo.type || 'image/jpeg');
-        importedCount++;
+        const saved = await this.ownership.importRecord(this.storeName, {
+          id, thumbnail,
+          originalType: thumbInfo.originalType || thumbInfo.type || 'image/jpeg', cachedAt: Date.now(),
+        }, { owners, overwrite, legacy: ownerKeys === null });
+        if (saved) importedCount++;
       } catch (e) {
         console.warn(`Failed to import thumbnail for ${urlOrId}:`, e);
       }
     }
-
     return importedCount;
   }
 
@@ -39260,7 +39460,10 @@ const thumbnailCache = new ThumbnailCache();
  * @param {number} size - Desired avatar size
  * @returns {Promise<string>} HTML string for avatar image/svg
  */
-async function getContactAvatarHtml(contactOrAddress, size = 50) {
+async function getContactAvatarHtml(contactOrAddress, size = 50, owner = undefined) {
+  const account = myAccount;
+  const accountData = myData;
+  const avatarOwner = await (owner === undefined ? contactAvatarCache.captureOwner(account) : owner);
   const address = typeof contactOrAddress === 'string'
     ? normalizeAddress(contactOrAddress)
     : normalizeAddress(contactOrAddress?.address);
@@ -39270,16 +39473,16 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
   
   const contactObj = typeof contactOrAddress === 'object' && contactOrAddress !== null
     ? contactOrAddress
-    : myData?.contacts?.[address] || {};
+    : accountData?.contacts?.[address] || {};
 
   // If the requested avatar is for the current user, always return the
   // account avatar if present, otherwise identicon. We do not consult or
   // persist a `useAvatar` preference for the account anymore.
-  if (address && myAccount?.keys?.address && normalizeAddress(myAccount.keys.address) === address) {
+  if (address && account?.keys?.address && normalizeAddress(account.keys.address) === address) {
     try {
-      const aid = myData?.account?.avatarId;
+      const aid = accountData?.account?.avatarId;
       if (aid) {
-        const url = await contactAvatarCache.getBlobUrl(aid);
+        const url = await contactAvatarCache.getBlobUrl(aid, avatarOwner);
         if (url) return makeImg(url);
       }
     } catch (e) {
@@ -39289,7 +39492,7 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
   }
 
   // useAvatar preference: 'contact' | 'mine' | 'identicon'
-  const usePref = contactObj.useAvatar || myData?.contacts?.[address]?.useAvatar || null;
+  const usePref = contactObj.useAvatar || accountData?.contacts?.[address]?.useAvatar || null;
 
   if (address) {
     try {
@@ -39298,23 +39501,23 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
       // Determine available avatar ids from contact or account
       const contact = typeof contactOrAddress === 'object' && contactOrAddress !== null
         ? contactOrAddress
-        : myData?.contacts?.[address] || null;
+        : accountData?.contacts?.[address] || null;
 
       if (usePref === 'mine') {
         // Prefer the user's uploaded avatar for this contact; fall back to contact avatar.
         // Only use the account avatar when the contact is the current user.
         let id = contact?.mineAvatarId || contact?.avatarId;
-        if (!id && address && myData?.account?.address && normalizeAddress(myData.account.address) === address) {
-          id = myData?.account?.avatarId;
+        if (!id && address && accountData?.account?.address && normalizeAddress(accountData.account.address) === address) {
+          id = accountData?.account?.avatarId;
         }
         if (id) {
-          const url = await contactAvatarCache.getBlobUrl(id);
+          const url = await contactAvatarCache.getBlobUrl(id, avatarOwner);
           if (url) return makeImg(url);
         }
       } else if (usePref === 'contact') {
         const id = contact?.avatarId || null;
         if (id) {
-          const url = await contactAvatarCache.getBlobUrl(id);
+          const url = await contactAvatarCache.getBlobUrl(id, avatarOwner);
           if (url) return makeImg(url);
         }
       } else {
@@ -39323,12 +39526,12 @@ async function getContactAvatarHtml(contactOrAddress, size = 50) {
         // unrelated contacts with no images to show the user's own avatar.
         let id = contact?.avatarId;
         if (id) {
-          let url = await contactAvatarCache.getBlobUrl(id);
+          let url = await contactAvatarCache.getBlobUrl(id, avatarOwner);
           if (url) return makeImg(url);
         }
         id = contact?.mineAvatarId;
         if (id) {
-          let url = await contactAvatarCache.getBlobUrl(id);
+          let url = await contactAvatarCache.getBlobUrl(id, avatarOwner);
           if (url) return makeImg(url);
         }
       }
@@ -39984,17 +40187,19 @@ class FullImageCache {
     });
   }
 
-  async get(attachmentUrl) {
-    const record = await this.getRecord(attachmentUrl);
+  captureOwner(account = myAccount) {
+    return this.database.captureOwner(account);
+  }
+
+  async get(attachmentUrl, owner) {
+    const record = await this.getRecord(attachmentUrl, owner);
     return record?.blob || null;
   }
 
-  async getRecord(attachmentUrl) {
+  async getRecord(attachmentUrl, owner) {
     const id = ThumbnailCache.getAttachmentId(attachmentUrl);
-    const db = await this.database.init();
-    const transaction = db.transaction(this.database.fullImageStoreName, 'readonly');
-    const store = transaction.objectStore(this.database.fullImageStoreName);
-    return this.getRequestResult(store.get(id));
+    if (owner === undefined) owner = this.captureOwner();
+    return this.database.ownership.read(this.database.fullImageStoreName, id, owner);
   }
 
   async getCacheSize() {
@@ -40005,58 +40210,45 @@ class FullImageCache {
     return records.reduce((total, record) => total + Number(record.size || 0), 0);
   }
 
-  async put(attachment, blob, shouldCache) {
+  async put(attachment, blob, shouldCache, owner) {
     const attachmentUrl = attachment?.url;
     const mimeType = attachment?.type || blob?.type || '';
     if (!attachmentUrl) throw new Error('Cannot cache an image without an attachment URL');
     if (!mimeType.startsWith('image/')) throw new Error('Full-image cache accepts only image attachments');
     if (!(blob instanceof Blob)) throw new Error('Full-image cache requires a Blob');
-    if (blob.size > this.maxCacheSize) return false;
-
+    if (blob.size > this.maxCacheSize || (shouldCache && !shouldCache())) return false;
     const id = ThumbnailCache.getAttachmentId(attachmentUrl);
-    const db = await this.database.init();
-    if (shouldCache && !shouldCache()) return false;
-
-    const transaction = db.transaction(this.database.fullImageStoreName, 'readwrite');
-    const store = transaction.objectStore(this.database.fullImageStoreName);
-    const cachedAtIndex = store.index('cachedAt');
-    const evictionCandidates = [];
-    let currentSize = 0;
-    let existingSize = 0;
-
-    const cursorRequest = cachedAtIndex.openCursor(null, 'next');
-    cursorRequest.onsuccess = (event) => {
-      const cursor = event.target.result;
-      if (cursor) {
-        const recordSize = Number(cursor.value?.size || 0);
-        currentSize += recordSize;
-        if (cursor.primaryKey === id) {
-          existingSize = recordSize;
-        } else {
-          evictionCandidates.push({ id: cursor.primaryKey, size: recordSize });
+    if (owner === undefined) owner = this.captureOwner();
+    return this.database.ownership.run([this.database.fullImageStoreName], owner, ({ transaction, owners, setResult }) => {
+      const store = transaction.objectStore(this.database.fullImageStoreName);
+      const existingRequest = store.get(id);
+      const evictionCandidates = [];
+      let currentSize = 0;
+      let existingSize = 0;
+      const request = store.index('cachedAt').openCursor(null, 'next');
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (cursor) {
+          const recordSize = Number(cursor.value?.size || 0);
+          currentSize += recordSize;
+          if (cursor.primaryKey === id) existingSize = recordSize;
+          else evictionCandidates.push({ id: cursor.primaryKey, size: recordSize });
+          cursor.continue();
+          return;
         }
-        cursor.continue();
-        return;
-      }
-
-      let bytesToFree = Math.max(0, currentSize - existingSize + blob.size - this.maxCacheSize);
-      for (const record of evictionCandidates) {
-        if (bytesToFree <= 0) break;
-        store.delete(record.id);
-        bytesToFree -= record.size;
-      }
-
-      store.put({
-        id,
-        mimeType,
-        size: blob.size,
-        blob,
-        cachedAt: Date.now(),
-      });
-    };
-
-    await this.waitForTransaction(transaction);
-    return true;
+        if (shouldCache && !shouldCache()) return;
+        let bytesToFree = Math.max(0, currentSize - existingSize + blob.size - this.maxCacheSize);
+        for (const candidate of evictionCandidates) {
+          if (bytesToFree <= 0) break;
+          store.delete(candidate.id);
+          bytesToFree -= candidate.size;
+        }
+        store.put(MediaCacheOwnership.mergeRecord(existingRequest.result, {
+          id, mimeType, size: blob.size, blob, cachedAt: Date.now(),
+        }, owners));
+        setResult(true);
+      };
+    });
   }
 
   async delete(attachmentUrl) {
@@ -40067,9 +40259,9 @@ class FullImageCache {
     await this.waitForTransaction(transaction);
   }
 
-  async getOrCache({ attachment, downloadAndDecrypt, shouldCache }) {
+  async getOrCache({ attachment, downloadAndDecrypt, shouldCache, owner = this.captureOwner() }) {
     try {
-      const cachedBlob = await this.get(attachment.url);
+      const cachedBlob = await this.get(attachment.url, owner);
       if (cachedBlob) return cachedBlob;
     } catch (error) {
       console.warn('Failed to read full image from cache:', error);
@@ -40078,7 +40270,7 @@ class FullImageCache {
     const blob = await downloadAndDecrypt();
 
     try {
-      await this.put(attachment, blob, shouldCache);
+      await this.put(attachment, blob, shouldCache, owner);
     } catch (error) {
       console.warn('Failed to cache full image:', error);
     }
