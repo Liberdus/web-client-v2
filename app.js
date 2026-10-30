@@ -29044,10 +29044,12 @@ class FullImageModal {
     this.translateY = 0;
     this.touchGesture = null;
     this.dragPointerId = null;
+    this.chromeHideTimer = null;
   }
 
   load() {
     this.modal = document.getElementById('fullImageModal');
+    this.header = this.modal.querySelector('.modal-header');
     this.closeButton = document.getElementById('closeFullImageModal');
     this.title = document.getElementById('fullImageModalTitle');
     this.viewer = document.getElementById('fullImageViewer');
@@ -29060,7 +29062,7 @@ class FullImageModal {
     this.zoomInButton = document.getElementById('fullImageZoomIn');
     this.zoomOutButton = document.getElementById('fullImageZoomOut');
 
-    assert(this.modal && this.closeButton && this.title && this.viewer && this.loading && this.loadingText
+    assert(this.modal && this.header && this.closeButton && this.title && this.viewer && this.loading && this.loadingText
       && this.error && this.image && this.video
       && this.zoomControls && this.zoomInButton && this.zoomOutButton,
       'Media modal elements are required');
@@ -29076,12 +29078,52 @@ class FullImageModal {
     this.viewer.addEventListener('pointermove', (event) => this.handlePointerMove(event));
     this.viewer.addEventListener('pointerup', (event) => this.handlePointerEnd(event));
     this.viewer.addEventListener('pointercancel', (event) => this.handlePointerEnd(event));
+    for (const type of ['pointermove', 'pointerdown', 'pointerup', 'pointercancel', 'touchstart', 'touchend', 'touchcancel']) {
+      this.modal.addEventListener(type, () => this.revealChrome(), { passive: true });
+    }
+    for (const controls of [this.header, this.zoomControls]) {
+      controls.addEventListener('pointerenter', () => this.revealChrome());
+      controls.addEventListener('pointerleave', () => this.revealChrome());
+    }
+    this.modal.addEventListener('focusin', () => {
+      if (this.modal.querySelector(':focus-visible')) this.revealChrome();
+    });
+    // Native video controls can blur themselves when they auto-hide.
+    this.modal.addEventListener('focusout', () => queueMicrotask(() => this.scheduleChromeHide()));
     document.addEventListener('keydown', (event) => {
-      if (event.key !== 'Escape' || !this.modal.classList.contains('active')) return;
+      if (!this.modal.classList.contains('active')) return;
+      if (event.key !== 'Escape') {
+        this.revealChrome();
+        return;
+      }
       event.preventDefault();
       this.close();
     });
     this.updateZoomControls();
+  }
+
+  canHideChrome() {
+    const controlsHovered = window.matchMedia('(hover: hover)').matches
+      && (this.header.matches(':hover') || this.zoomControls.matches(':hover'));
+    return this.modal.classList.contains('active') && this.loading.hidden && this.error.hidden
+      && this.touchGesture === null && this.dragPointerId === null
+      && !controlsHovered && !this.modal.querySelector(':focus-visible');
+  }
+
+  revealChrome() {
+    this.modal.classList.remove('is-chrome-hidden');
+    this.scheduleChromeHide();
+  }
+
+  scheduleChromeHide() {
+    clearTimeout(this.chromeHideTimer);
+    this.chromeHideTimer = null;
+    if (this.modal.classList.contains('is-chrome-hidden') || !this.canHideChrome()) return;
+
+    this.chromeHideTimer = setTimeout(() => {
+      this.chromeHideTimer = null;
+      if (this.canHideChrome()) this.modal.classList.add('is-chrome-hidden');
+    }, 3000);
   }
 
   /** @returns {number | null} Identifies this open until close or replacement. */
@@ -29119,6 +29161,7 @@ class FullImageModal {
       this.image.hidden = false;
       this.viewer.setAttribute('aria-busy', 'false');
       this.updateZoomControls();
+      this.revealChrome();
     };
     this.image.onerror = () => {
       this.showError('Unable to display image.', requestId);
@@ -29133,6 +29176,7 @@ class FullImageModal {
       if (!this.isCurrentRequest(requestId)) return;
       this.loading.hidden = true;
       this.viewer.setAttribute('aria-busy', 'false');
+      this.revealChrome();
     };
     this.video.onerror = () => {
       this.showError('Unable to play this video on this device.', requestId);
@@ -29314,6 +29358,9 @@ class FullImageModal {
   }
 
   clearMedia() {
+    clearTimeout(this.chromeHideTimer);
+    this.chromeHideTimer = null;
+    this.modal?.classList.remove('is-chrome-hidden');
     this.abortController?.abort();
     this.abortController = null;
     if (!this.image) return;
