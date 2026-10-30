@@ -16506,8 +16506,8 @@ function markConnectivityDependentElements() {
     '#openCallScheduleDateBtn',
     '#confirmDateTimePicker',
 
-    // Message context menu (disable all except 'Delete for me' and 'Copy' and 'Join')
-    '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="copy"]):not([data-action="join"]):not([data-action="location"])',
+    // Delete for all stays clickable so its handler can explain offline requirements.
+    '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="delete-for-all"]):not([data-action="copy"]):not([data-action="join"]):not([data-action="location"])',
 
     // bridgeModal
     '#bridgeForm button[type="submit"]',
@@ -26338,20 +26338,56 @@ class ChatModal {
   }
 
   /**
-   * Returns whether "Delete for all" should be available for a given message element.
-   * Mirrors the gating used in the message context menu.
+   * Returns whether "Delete for all" applies to a message. Sending requirements
+   * are checked on tap so both context menus can explain why an action is blocked.
    * @param {HTMLElement} messageEl
    * @param {Object|null} messageRecord
    * @returns {boolean}
    */
   canDeleteMessageForAll(messageEl, messageRecord = null) {
     const isMine = !!messageEl?.classList?.contains('sent');
-    if (!isMine || !this.canSendWithZeroToll()) {
+    if (!isMine) return false;
+
+    const message = messageRecord || this.getMessageRecordFromElement(messageEl);
+    if (!message?.my || !message.txid || isDeletedForAll(message)) return false;
+
+    const status = message.status || messageEl.dataset.status;
+    return !status || status === 'sent';
+  }
+
+  /**
+   * Rechecks a delete request after asynchronous preparation, before it can send.
+   * @param {{account: Object, address: string, message: Object, txid: string}} request
+   * @returns {boolean}
+   */
+  checkDeleteForAllRequirements(request) {
+    const { account, address, message, txid } = request;
+    if (myAccount !== account || this.address !== address || message.txid !== txid) return false;
+
+    if (isDeletedForAll(message)) {
+      showToast('Message already deleted for everyone', 2000, 'info');
+      return false;
+    }
+    if (!message.my) {
+      showToast('You can only delete your own messages for all', 0, 'error');
+      return false;
+    }
+    if (message.status && message.status !== 'sent') {
+      showToast('Only sent messages can be deleted for everyone.', 0, 'error');
+      return false;
+    }
+    if (!isOnline) {
+      showToast('You’re offline. Reconnect to delete this message for everyone.', 0, 'error');
       return false;
     }
 
-    const message = messageRecord || this.getMessageRecordFromElement(messageEl);
-    if (message && isDeletedForAll(message)) {
+    const contact = myData.contacts[address];
+    if (!contact) return false;
+    if (!this.canSendWithZeroToll()) {
+      const reason = contact.tollRequiredToSend === 2
+        ? 'You are blocked by this user.'
+        : 'To delete for all, this person must add you as a connection or set their toll to zero.';
+      showToast(reason, 0, 'error');
       return false;
     }
 
@@ -26373,16 +26409,15 @@ class ChatModal {
     const existingGuard = this.recentDeleteForAllGuardsByTxid.get(targetTxid);
     clearTimeout(existingGuard?.timeoutId);
 
-    const guard = { targetTxid };
-    guard.timeoutId = setTimeout(() => {
-      if (this.recentDeleteForAllGuardsByTxid.get(targetTxid) !== guard) {
-        return;
-      }
-
-      this.recentDeleteForAllGuardsByTxid.delete(targetTxid);
-    }, DELETE_FOR_ALL_ACTION_GUARD_MS);
+    // Keep the reservation until preparation/submission finishes, even if slow.
+    const guard = { targetTxid, timeoutId: null };
     this.recentDeleteForAllGuardsByTxid.set(targetTxid, guard);
     return guard;
+  }
+
+  scheduleDeleteForAllGuardExpiry(guard) {
+    if (this.recentDeleteForAllGuardsByTxid.get(guard.targetTxid) !== guard) return;
+    guard.timeoutId = setTimeout(() => this.clearRecentDeleteForAllGuard(guard), DELETE_FOR_ALL_ACTION_GUARD_MS);
   }
 
   clearRecentDeleteForAllGuard(guard) {
@@ -27941,59 +27976,48 @@ class ChatModal {
     const { txid, messageTimestamp: timestamp } = messageEl.dataset;
     
     if (!timestamp && !txid) return;
-    
+
+    let deleteForAllGuard = null;
+    let submissionAttempted = false;
     try {
-      // Get the message object from contact.messages
-      const contact = myData.contacts[this.address];
+      const account = myAccount;
+      const address = this.address;
+      const contact = myData.contacts[address];
       if (!contact) return;
 
       const message = this.getMessageRecordFromElement(messageEl);
       if (!message) return;
 
-      const targetTxid = message.txid;
-      if (!targetTxid) {
+      const request = { account, address, message, txid: message.txid };
+      if (!request.txid) {
         return showToast('Cannot delete message: missing message id', 0, 'error');
       }
-      
-      if (isDeletedForAll(message)) {
-        return showToast('Message already deleted for everyone', 2000, 'info');
-      }
+      if (this.hasRecentDeleteForAllForTarget(request.txid)) return;
+      if (!this.checkDeleteForAllRequirements(request)) return;
 
-      // Check if the message was sent by the current user
-      if (!message.my) {
-        return showToast('You can only delete your own messages for all', 0, 'error');
-      }
-
-      if (this.hasRecentDeleteForAllForTarget(targetTxid)) return;
-
-      if (!confirm('Delete this message for all participants?')) return;
-      const deleteForAllGuard = this.markRecentDeleteForAllForTarget(targetTxid);
-
-      // Create and send a "delete" message
-      const keys = myAccount.keys;
+      const keys = account?.keys;
       if (!keys) {
-        this.clearRecentDeleteForAllGuard(deleteForAllGuard);
         showToast('Keys not found', 0, 'error');
         return;
       }
 
-      const tollInLib = contact.tollRequiredToSend == 0 ? 0n : getEffectiveTollLibWei(this.toll);
-
-      const sufficientBalance = await validateBalance(tollInLib);
-      if (!sufficientBalance) {
-        this.clearRecentDeleteForAllGuard(deleteForAllGuard);
-        const msg = `Insufficient balance for fee${tollInLib > 0n ? ' and toll' : ''}. Go to the wallet to add more LIB.`;
-        showToast(msg, 0, 'error');
+      deleteForAllGuard = this.markRecentDeleteForAllForTarget(request.txid);
+      const feeBalanceStatus = await getFeeBalanceStatus();
+      if (!this.checkDeleteForAllRequirements(request)) return;
+      if (!feeBalanceStatus.success) {
+        showFeeBalanceFailureToast(feeBalanceStatus.reason);
         return;
       }
 
+      if (!confirm('Delete this message for all participants?')) return;
+
       // Ensure recipient keys are available
-      const ok = await ensureContactKeys(this.address);
+      const ok = await ensureContactKeys(address);
+      if (!this.checkDeleteForAllRequirements(request)) return;
       const recipientPubKey = contact.public;
       const pqRecPubKey = contact.pqPublic;
       if (!ok || !recipientPubKey || !pqRecPubKey) {
-        this.clearRecentDeleteForAllGuard(deleteForAllGuard);
-        console.warn(`No public/PQ key found for recipient ${this.address}`);
+        console.warn(`No public/PQ key found for recipient ${address}`);
         showToast('Failed to get recipient key', 0, 'error');
         return;
       }
@@ -28004,7 +28028,7 @@ class ChatModal {
       // Create delete message payload
       const deleteObj = {
         type: 'delete',
-        txid: targetTxid  // ID of the message to delete
+        txid: request.txid  // ID of the message to delete
       };
 
       // Encrypt the message
@@ -28021,12 +28045,16 @@ class ChatModal {
       };
 
       // Prepare and send the delete message transaction
-      const deleteMessageObj = await this.createChatMessage(this.address, payload, tollInLib, keys);
+      const deleteMessageObj = await this.createChatMessage(address, payload, 0n, keys);
+      if (!this.checkDeleteForAllRequirements(request)) return;
       await signObj(deleteMessageObj, keys);
+      if (!this.checkDeleteForAllRequirements(request)) return;
       const deleteTxid = getTxid(deleteMessageObj);
 
       // Send the delete transaction
-      const response = await injectTx(deleteMessageObj, deleteTxid);
+      submissionAttempted = true;
+      const response = await injectTx(deleteMessageObj, deleteTxid, account);
+      if (myAccount !== account) return;
 
       if (!response || !response.result || !response.result.success) {
         console.error('Delete message failed to send', response);
@@ -28050,6 +28078,11 @@ class ChatModal {
     } catch (error) {
       console.error('Delete for all error:', error);
       showToast('Failed to delete message. Please try again.', 0, 'error');
+    } finally {
+      if (deleteForAllGuard) {
+        if (submissionAttempted) this.scheduleDeleteForAllGuardExpiry(deleteForAllGuard);
+        else this.clearRecentDeleteForAllGuard(deleteForAllGuard);
+      }
     }
   }
 
