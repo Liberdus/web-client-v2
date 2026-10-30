@@ -27050,7 +27050,7 @@ class ChatModal {
   getAttachmentPreviewKind(attachmentRow) {
     if (attachmentRow.dataset.imageAttachment === 'true') return 'image';
     const type = normalizeMimeType(attachmentRow.dataset.type);
-    return ['video/mp4', 'video/webm', 'video/ogg'].includes(type) ? 'video' : null;
+    return ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'].includes(type) ? 'video' : null;
   }
 
   /**
@@ -27078,7 +27078,7 @@ class ChatModal {
       if (!fullImageModal.isCurrentRequest(requestId)) return;
       const isVerified = kind === 'image'
         ? safePreviewMime.startsWith('image/')
-        : ['video/mp4', 'video/webm', 'video/ogg'].includes(safePreviewMime);
+        : ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'].includes(safePreviewMime);
       if (!isVerified) {
         fullImageModal.showError('This attachment cannot be previewed safely.', requestId);
         return;
@@ -29128,10 +29128,6 @@ class FullImageModal {
 
   showVideo(blob, requestId) {
     if (!this.isCurrentRequest(requestId)) return;
-    if (!this.video.canPlayType(blob.type)) {
-      this.showError('This video format is not supported on this device.', requestId);
-      return;
-    }
 
     this.video.onloadedmetadata = () => {
       if (!this.isCurrentRequest(requestId)) return;
