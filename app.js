@@ -26079,7 +26079,7 @@ class ChatModal {
     if (!this.canSendWithZeroToll()) {
       const reason = contact.tollRequiredToSend === 2
         ? 'You are blocked by this user.'
-        : 'Delete for all requires zero toll. This contact currently requires a toll.';
+        : 'To delete for all, this person must add you as a connection or set their toll to zero.';
       showToast(reason, 0, 'error');
       return false;
     }
