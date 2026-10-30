@@ -2003,19 +2003,21 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Full Image Modal -->
+      <!-- Image and Video Modal -->
       <div class="modal fixed-header full-image-modal" id="fullImageModal" role="dialog" aria-modal="true" aria-labelledby="fullImageModalTitle">
         <div class="modal-header">
-          <button class="back-button" id="closeFullImageModal" aria-label="Close image"></button>
-          <div class="modal-title" id="fullImageModalTitle">Image</div>
+          <button class="back-button" id="closeFullImageModal" aria-label="Close media"></button>
+          <div class="modal-title" id="fullImageModalTitle">Media</div>
         </div>
         <div class="modal-content full-image-modal-content">
           <div class="full-image-viewer" id="fullImageViewer" aria-busy="false">
             <div class="full-image-loading" id="fullImageLoading" role="status" hidden>
               <div class="spinner" aria-hidden="true"></div>
-              <span>Loading image...</span>
+              <span id="fullImageLoadingText">Loading image...</span>
             </div>
+            <div class="full-image-error" id="fullImageError" role="status" hidden></div>
             <img class="full-image-viewer-image" id="fullImageViewerImage" alt="" draggable="false" hidden>
+            <video class="full-image-viewer-video" id="fullImageViewerVideo" controls playsinline preload="auto" hidden></video>
             <div class="full-image-zoom-controls" id="fullImageZoomControls" role="group" aria-label="Image zoom controls" hidden>
               <button class="full-image-zoom-button" id="fullImageZoomOut" type="button" aria-label="Zoom out">−</button>
               <button class="full-image-zoom-button" id="fullImageZoomIn" type="button" aria-label="Zoom in">+</button>

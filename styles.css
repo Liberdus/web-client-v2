@@ -1815,6 +1815,33 @@ button:disabled {
   will-change: transform;
 }
 
+.full-image-modal.is-video,
+.full-image-modal.is-video .full-image-modal-content {
+  touch-action: auto;
+}
+
+.full-image-viewer-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.full-image-modal.is-video .full-image-loading {
+  position: absolute;
+  z-index: 1;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  pointer-events: none;
+}
+
+.full-image-error {
+  max-width: 32em;
+  padding: 16px;
+  text-align: center;
+}
+
 .full-image-viewer.is-zoomed .full-image-viewer-image {
   cursor: grab;
 }
@@ -1898,7 +1925,9 @@ button:disabled {
   cursor: default;
 }
 
-.full-image-viewer-image[hidden] {
+.full-image-viewer-image[hidden],
+.full-image-viewer-video[hidden],
+.full-image-error[hidden] {
   display: none;
 }
 
