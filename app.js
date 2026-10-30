@@ -29085,8 +29085,11 @@ class FullImageModal {
       controls.addEventListener('pointerenter', () => this.revealChrome());
       controls.addEventListener('pointerleave', () => this.revealChrome());
     }
-    this.modal.addEventListener('focusin', () => this.revealChrome());
-    this.modal.addEventListener('focusout', () => queueMicrotask(() => this.revealChrome()));
+    this.modal.addEventListener('focusin', () => {
+      if (this.modal.querySelector(':focus-visible')) this.revealChrome();
+    });
+    // Native video controls can blur themselves when they auto-hide.
+    this.modal.addEventListener('focusout', () => queueMicrotask(() => this.scheduleChromeHide()));
     document.addEventListener('keydown', (event) => {
       if (!this.modal.classList.contains('active')) return;
       if (event.key !== 'Escape') {
@@ -29115,7 +29118,7 @@ class FullImageModal {
   scheduleChromeHide() {
     clearTimeout(this.chromeHideTimer);
     this.chromeHideTimer = null;
-    if (!this.canHideChrome()) return;
+    if (this.modal.classList.contains('is-chrome-hidden') || !this.canHideChrome()) return;
 
     this.chromeHideTimer = setTimeout(() => {
       this.chromeHideTimer = null;
