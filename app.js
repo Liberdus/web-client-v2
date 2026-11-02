@@ -38925,11 +38925,9 @@ class ContactAvatarCache {
     for (const [id, avatarInfo] of Object.entries(avatarsData)) {
       if (!avatarInfo?.data) continue;
       try {
-        const ownerKeys = Array.isArray(avatarInfo.ownerKeys)
-          ? avatarInfo.ownerKeys.filter(key => acceptedOwnerKeys.includes(key))
-          : null;
-        if (ownerKeys && !ownerKeys.length) continue;
+        const ownerKeys = Array.isArray(avatarInfo.ownerKeys) ? avatarInfo.ownerKeys : null;
         const owners = ownerKeys ? acceptedOwners.filter(owner => ownerKeys.includes(owner.key)) : acceptedOwners;
+        if (ownerKeys && !owners.length) continue;
         const blob = this.base64ToBlob(avatarInfo.data, avatarInfo.type || 'image/jpeg');
         const saved = await this.ownership.writeRecord(this.storeName, {
           id, blob, type: avatarInfo.type || 'image/jpeg', size: blob.size, savedAt: Date.now(),
@@ -39540,11 +39538,9 @@ class ThumbnailCache {
     for (const [urlOrId, thumbInfo] of Object.entries(thumbnailsData)) {
       if (!thumbInfo?.data) continue;
       try {
-        const ownerKeys = Array.isArray(thumbInfo.ownerKeys)
-          ? thumbInfo.ownerKeys.filter(key => acceptedOwnerKeys.includes(key))
-          : null;
-        if (ownerKeys && !ownerKeys.length) continue;
+        const ownerKeys = Array.isArray(thumbInfo.ownerKeys) ? thumbInfo.ownerKeys : null;
         const owners = ownerKeys ? acceptedOwners.filter(owner => ownerKeys.includes(owner.key)) : acceptedOwners;
+        if (ownerKeys && !owners.length) continue;
         const id = ThumbnailCache.getAttachmentId(urlOrId);
         const thumbnail = this.base64ToBlob(thumbInfo.data, thumbInfo.type || 'image/jpeg');
         const existing = !overwrite && await this.ownership.read(this.storeName, id, owners);
