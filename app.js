@@ -9618,10 +9618,6 @@ class SignInModal {
     myData = loadState(`${username}_${netid}`);
     assert(myData, `Account data missing for ${username}`);
     myAccount = myData.account;
-    await Promise.allSettled([
-      contactAvatarCache.captureOwner(myAccount),
-      thumbnailCache.captureOwner(myAccount),
-    ]);
     chatModal.resetPendingMessageConfirmations();
     logsModal.log(`SignIn as ${username}_${netid}`)
     this.recordRecentSignInUsername(username);
