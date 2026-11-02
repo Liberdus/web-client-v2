@@ -14779,7 +14779,9 @@ class SearchMessagesModal {
     if (!searchText || !myData?.contacts) return [];
 
     const results = [];
-    const searchLower = searchText.toLowerCase();
+    // Case-insensitive literal matching; regex metacharacters in the query are escaped.
+    // The same pattern finds and highlights matches, so every result shows a highlight
+    const matchPattern = new RegExp(escapeRegExp(searchText), 'gi');
 
     // Search through all contacts and their messages
     Object.entries(myData.contacts).forEach(([address, contact]) => {
@@ -14790,20 +14792,8 @@ class SearchMessagesModal {
         // Skip deleted messages and call messages
         if (isDeleted(message)) return;
         if (message.type === 'call') return;
-        if (message.message.toLowerCase().includes(searchLower)) {
-          // Highlight matching text
-          const messageText = escapeHtml(message.message);
-          // Escape search text for safe regex usage
-          const escapedSearch = escapeRegExp(searchText);
-          const highlightedText = messageText.replace(new RegExp(escapedSearch, 'gi'), (match) => `<mark>${match}</mark>`);
-          
-          const maxDisplayLength = 100;
-          
-          // Adjust maxLength to account for <mark> tags (add 13 chars per highlight)
-          // This ensures truncateMessage gets enough characters to display ~100 chars of actual text
-          const highlightCount = (highlightedText.match(/<mark>/g) || []).length;
-          const adjustedMaxLength = maxDisplayLength + (highlightCount * 13); // <mark> + </mark> = 13 chars
-          
+        matchPattern.lastIndex = 0; // a global pattern resumes from its last match
+        if (matchPattern.test(message.message)) {
           const displayedName = getContactDisplayName(contact);
           results.push({
             contactAddress: address,
@@ -14811,7 +14801,8 @@ class SearchMessagesModal {
             messageId: message.txid,
             message: message, // Pass the entire message object
             timestamp: message.timestamp,
-            preview: truncateMessage(highlightedText, adjustedMaxLength),
+            // Excerpt and match positions on the raw text; rendered as nodes in displaySearchResults
+            preview: this.buildSearchPreview(message.message, matchPattern),
             my: message.my, // Include the my property
           });
         }
@@ -14819,6 +14810,80 @@ class SearchMessagesModal {
     });
 
     return results.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  /**
+   * Selects the excerpt shown for a search result and locates the matches inside it.
+   * Everything is computed on the raw message text and character positions, so encoding
+   * never changes what is matched. renderSearchPreview() turns the result into DOM nodes.
+   * @param {string} text raw message text
+   * @param {RegExp} matchPattern global, case-insensitive pattern built from the escaped query
+   * @param {number} maxLength approximate number of message characters to show
+   * @returns {{text: string, highlights: Array<{start: number, end: number}>, leadingEllipsis: boolean, trailingEllipsis: boolean}}
+   */
+  buildSearchPreview(text, matchPattern, maxLength = 100) {
+    const matches = [];
+    matchPattern.lastIndex = 0; // matchAll() starts from the pattern's current position
+    for (const match of text.matchAll(matchPattern)) {
+      if (!match[0]) break; // an empty pattern would never advance
+      matches.push({ start: match.index, end: match.index + match[0].length });
+    }
+
+    let start = 0;
+    let end = text.length;
+    if (text.length > maxLength) {
+      const first = matches[0];
+      if (first) {
+        // Show some context before the first match and fill the rest of the window after it
+        start = Math.max(0, first.start - Math.floor(maxLength * 0.3));
+        end = Math.min(text.length, start + maxLength);
+        // When the window reaches the end of the message, pull it back to show a full window
+        if (end === text.length) start = Math.max(0, text.length - maxLength);
+        // Never cut a match short at the end of the excerpt
+        const straddling = matches.find((m) => m.start < end && m.end > end);
+        if (straddling) end = straddling.end;
+      } else {
+        end = maxLength;
+      }
+      // Keep surrogate pairs (e.g. emoji) intact at the excerpt edges
+      const isLowSurrogate = (index) => (text.charCodeAt(index) & 0xfc00) === 0xdc00;
+      if (start > 0 && isLowSurrogate(start)) start -= 1;
+      if (end < text.length && isLowSurrogate(end)) end += 1;
+    }
+
+    return {
+      text: text.slice(start, end),
+      highlights: matches
+        .filter((m) => m.start >= start && m.start < end)
+        .map((m) => ({ start: m.start - start, end: Math.min(m.end, end) - start })),
+      leadingEllipsis: start > 0,
+      trailingEllipsis: end < text.length,
+    };
+  }
+
+  /**
+   * Renders a preview from buildSearchPreview() as text nodes and <mark> elements.
+   * Message and query text are assigned through textContent and never parsed as HTML.
+   * @param {ReturnType<SearchMessagesModal['buildSearchPreview']>} preview
+   * @param {boolean} my true for messages sent by the user ("<"), false for received (">")
+   * @returns {DocumentFragment}
+   */
+  renderSearchPreview(preview, my) {
+    const fragment = document.createDocumentFragment();
+    let pendingText = `${my ? '<' : '>'} ${preview.leadingEllipsis ? '...' : ''}`;
+    let cursor = 0;
+    preview.highlights.forEach(({ start, end }) => {
+      pendingText += preview.text.slice(cursor, start);
+      if (pendingText) fragment.appendChild(document.createTextNode(pendingText));
+      pendingText = '';
+      const mark = document.createElement('mark');
+      mark.textContent = preview.text.slice(start, end);
+      fragment.appendChild(mark);
+      cursor = end;
+    });
+    pendingText += preview.text.slice(cursor) + (preview.trailingEllipsis ? '...' : '');
+    if (pendingText) fragment.appendChild(document.createTextNode(pendingText));
+    return fragment;
   }
 
   // this is also used by contact search 
@@ -14868,10 +14933,6 @@ class SearchMessagesModal {
 
       const avatarHtml = await getContactAvatarHtml(result.contactAddress);
 
-      // Format message preview with "<" for user messages and ">" for contact messages
-      // make this textContent?
-      const messagePreview = result.my ? `< ${result.preview}` : `> ${result.preview}`;
-
       resultElement.innerHTML = `
               <div class="chat-avatar">
                   ${avatarHtml}
@@ -14881,11 +14942,13 @@ class SearchMessagesModal {
                       <div class="chat-name">${result.username}</div>
                       <div class="chat-time">${formatTime(result.timestamp)}</div>
                   </div>
-                  <div class="chat-message">
-                      ${messagePreview}
-                  </div>
+                  <div class="chat-message"></div>
               </div>
           `;
+
+      // Message preview: "<" for user messages, ">" for contact messages. Rendered as text
+      // nodes and <mark> elements so message and query text are never parsed as HTML
+      resultElement.querySelector('.chat-message').appendChild(this.renderSearchPreview(result.preview, result.my));
 
       resultElement.addEventListener('click', async (event) => {
         event.stopImmediatePropagation(); // Stop all other listeners and bubbling immediately
