@@ -15901,7 +15901,7 @@ class AvatarEditModal {
         contactInfoModal.updateContactInfo(createDisplayInfo(contact));
         contactInfoModal.needsContactListUpdate = true;
         if (chatModal.isActive() && chatModal.address === this.currentAddress) {
-          chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40, owner);
+          chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
         }
       }
 
@@ -16198,7 +16198,7 @@ class AvatarEditModal {
           await contactInfoModal.updateContactInfo(createDisplayInfo(contact));
           contactInfoModal.needsContactListUpdate = true;
           if (chatModal.isActive() && chatModal.address === this.currentAddress) {
-            chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40, owner);
+            chatModal.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
           }
           // Update EditContactModal avatar if it's active and showing this contact
           if (editContactModal.isActive() && editContactModal.currentContactAddress === this.currentAddress ) {
@@ -39489,7 +39489,8 @@ const thumbnailCache = new ThumbnailCache();
  * @param {number} size - Desired avatar size
  * @returns {Promise<string>} HTML string for avatar image/svg
  */
-async function getContactAvatarHtml(contactOrAddress, size = 50, owner = MediaCacheOwnership.getOwnerKey()) {
+async function getContactAvatarHtml(contactOrAddress, size = 50) {
+  const owner = MediaCacheOwnership.getOwnerKey();
   const address = typeof contactOrAddress === 'string'
     ? normalizeAddress(contactOrAddress)
     : normalizeAddress(contactOrAddress?.address);
