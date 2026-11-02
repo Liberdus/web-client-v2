@@ -9,8 +9,9 @@ const network = {
   ],
   "gateways": [
     {
-      "web": "https://dev.liberdus.com:3030",
-      "ws": "wss://dev.liberdus.com:3031"
+      "web": "https://gate-dev.liberdus.com",
+      // WebSocket gateway is not used by the app.
+      // "ws": "wss://dev.liberdus.com:3031"
     },
   ],
   "bridges": [
