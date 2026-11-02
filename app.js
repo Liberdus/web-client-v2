@@ -39490,8 +39490,6 @@ const thumbnailCache = new ThumbnailCache();
  * @returns {Promise<string>} HTML string for avatar image/svg
  */
 async function getContactAvatarHtml(contactOrAddress, size = 50, owner = MediaCacheOwnership.getOwnerKey()) {
-  const account = myAccount;
-  const accountData = myData;
   const address = typeof contactOrAddress === 'string'
     ? normalizeAddress(contactOrAddress)
     : normalizeAddress(contactOrAddress?.address);
@@ -39501,14 +39499,14 @@ async function getContactAvatarHtml(contactOrAddress, size = 50, owner = MediaCa
   
   const contactObj = typeof contactOrAddress === 'object' && contactOrAddress !== null
     ? contactOrAddress
-    : accountData?.contacts?.[address] || {};
+    : myData?.contacts?.[address] || {};
 
   // If the requested avatar is for the current user, always return the
   // account avatar if present, otherwise identicon. We do not consult or
   // persist a `useAvatar` preference for the account anymore.
-  if (address && account?.keys?.address && normalizeAddress(account.keys.address) === address) {
+  if (address && myAccount?.keys?.address && normalizeAddress(myAccount.keys.address) === address) {
     try {
-      const aid = accountData?.account?.avatarId;
+      const aid = myData?.account?.avatarId;
       if (aid) {
         const url = await contactAvatarCache.getBlobUrl(aid, owner);
         if (url) return makeImg(url);
@@ -39520,7 +39518,7 @@ async function getContactAvatarHtml(contactOrAddress, size = 50, owner = MediaCa
   }
 
   // useAvatar preference: 'contact' | 'mine' | 'identicon'
-  const usePref = contactObj.useAvatar || accountData?.contacts?.[address]?.useAvatar || null;
+  const usePref = contactObj.useAvatar || myData?.contacts?.[address]?.useAvatar || null;
 
   if (address) {
     try {
@@ -39529,14 +39527,14 @@ async function getContactAvatarHtml(contactOrAddress, size = 50, owner = MediaCa
       // Determine available avatar ids from contact or account
       const contact = typeof contactOrAddress === 'object' && contactOrAddress !== null
         ? contactOrAddress
-        : accountData?.contacts?.[address] || null;
+        : myData?.contacts?.[address] || null;
 
       if (usePref === 'mine') {
         // Prefer the user's uploaded avatar for this contact; fall back to contact avatar.
         // Only use the account avatar when the contact is the current user.
         let id = contact?.mineAvatarId || contact?.avatarId;
-        if (!id && address && accountData?.account?.address && normalizeAddress(accountData.account.address) === address) {
-          id = accountData?.account?.avatarId;
+        if (!id && address && myData?.account?.address && normalizeAddress(myData.account.address) === address) {
+          id = myData?.account?.avatarId;
         }
         if (id) {
           const url = await contactAvatarCache.getBlobUrl(id, owner);
