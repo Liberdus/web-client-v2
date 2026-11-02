@@ -103,6 +103,7 @@ import {
   DAO_PROPOSAL_DAY_MS,
   DAO_PROPOSAL_GRACE_PERIOD_MAX_MS,
   DAO_PROPOSAL_TITLE_MAX_LENGTH,
+  DAO_USER_VOTE_CAST_STATUSES,
   DAO_USER_VOTE_SUMMARY_KINDS,
   DAO_PROJECT_DURATION_MAX_DAYS,
   DAO_PROJECT_MAX_MILESTONES,
@@ -6804,56 +6805,72 @@ class ProposalInfoModal {
     });
     if (summary.kind === DAO_USER_VOTE_SUMMARY_KINDS.NONE) return '';
 
+    const votedAt = summary.timestamp ? formatDaoCompactTimestamp(summary.timestamp) : '';
+    const heading = `
+      <div class="proposal-user-vote-heading">
+        <h3>Your vote</h3>
+        ${votedAt ? `<span class="proposal-user-vote-status proposal-user-vote-status--confirmed">${escapeHtml(`Voted: ${votedAt}`)}</span>` : ''}
+      </div>
+    `;
+
     if (summary.kind === DAO_USER_VOTE_SUMMARY_KINDS.VOTED) {
-      const votedAt = formatDaoCompactTimestamp(summary.timestamp);
       return `
         <section class="proposal-info-section proposal-user-vote-section">
-          <div class="proposal-user-vote-heading">
-            <h3>Your vote</h3>
-            ${votedAt ? `<span class="proposal-user-vote-status proposal-user-vote-status--confirmed">${escapeHtml(`Voted: ${votedAt}`)}</span>` : ''}
-          </div>
+          ${heading}
           <div class="proposal-user-vote-message">Vote recorded</div>
           <p class="proposal-user-vote-note">The network confirms this account voted. The option allocation and spend were not saved on this device.</p>
         </section>
       `;
     }
 
-    const statusLabel = summary.confirmed ? 'Confirmed' : 'Awaiting confirmation';
-    const rows = summary.rows.map((row) => {
-      const percent = formatDaoPercent(row.share);
-      const amount = row.power === null ? formatDaoLibWei(row.allocation) : formatDaoVotingPower(row.power);
-      const label = `${row.option}: ${percent}, ${amount}`;
-      return `
-        <div class="proposal-user-vote-row" title="${escapeDaoFormAttribute(label)}" aria-label="${escapeDaoFormAttribute(label)}">
-          <span>${escapeHtml(percent)}</span>
-          <span>${escapeHtml(row.option)}</span>
-          <strong>${escapeHtml(amount)}</strong>
-        </div>
-      `;
-    }).join('');
-    const powerRow = summary.totalPower === null
-      ? ''
-      : `<div class="proposal-user-vote-total"><span>Voting power</span><strong>${escapeHtml(formatDaoVotingPower(summary.totalPower))}</strong></div>`;
-    const castNote = summary.castCount > 1
-      ? `<p class="proposal-user-vote-note">${escapeHtml(`Combined from ${summary.castCount} votes.`)}</p>`
-      : '';
+    // Each cast is shown on its own; casts are not combined.
+    const cards = summary.casts.map((cast, index) => {
+      const castLabel = summary.casts.length > 1 ? `Vote ${index + 1}` : 'Vote';
+      const castTime = formatDaoCompactTimestamp(cast.timestamp);
+      const statusLabel = this.formatUserVoteCastStatus(cast.status);
+      const rows = cast.rows.map((row) => {
+        const percent = formatDaoPercent(row.share);
+        const amount = row.power === null ? formatDaoLibWei(row.allocation) : formatDaoVotingPower(row.power);
+        const label = `${row.option}: ${percent}, ${amount}`;
+        return `
+          <div class="proposal-user-vote-row" title="${escapeDaoFormAttribute(label)}" aria-label="${escapeDaoFormAttribute(label)}">
+            <span>${escapeHtml(percent)}</span>
+            <span>${escapeHtml(row.option)}</span>
+            <strong>${escapeHtml(amount)}</strong>
+          </div>
+        `;
+      }).join('');
+      const powerRow = cast.totalPower === null
+        ? ''
+        : `<div class="proposal-user-vote-total"><span>Voting power</span><strong>${escapeHtml(formatDaoVotingPower(cast.totalPower))}</strong></div>`;
 
-    return `
-      <section class="proposal-info-section proposal-user-vote-section">
-        <div class="proposal-user-vote-heading">
-          <h3>Your vote</h3>
-          <span class="proposal-user-vote-status${summary.confirmed ? ' proposal-user-vote-status--confirmed' : ''}">${escapeHtml(statusLabel)}</span>
-        </div>
-        <div class="proposal-user-vote-card" role="group" aria-label="Your vote breakdown">
+      return `
+        <div class="proposal-user-vote-card" role="group" aria-label="${escapeDaoFormAttribute(`${castLabel}${castTime ? `, ${castTime}` : ''}, ${statusLabel}`)}">
+          <div class="proposal-user-vote-card-heading">
+            <span>${escapeHtml(castTime ? `${castLabel} · ${castTime}` : castLabel)}</span>
+            <span class="proposal-user-vote-status">${escapeHtml(statusLabel)}</span>
+          </div>
           ${rows}
           <div class="proposal-user-vote-totals">
-            <div class="proposal-user-vote-total"><span>Spend</span><strong>${escapeHtml(formatDaoLibWei(summary.spend))}</strong></div>
+            <div class="proposal-user-vote-total"><span>Spend</span><strong>${escapeHtml(formatDaoLibWei(cast.spend))}</strong></div>
             ${powerRow}
           </div>
         </div>
-        ${castNote}
+      `;
+    }).join('');
+
+    return `
+      <section class="proposal-info-section proposal-user-vote-section">
+        ${heading}
+        <div class="proposal-user-vote-cards">${cards}</div>
       </section>
     `;
+  }
+
+  formatUserVoteCastStatus(status) {
+    if (status === DAO_USER_VOTE_CAST_STATUSES.SUBMITTED) return 'Submitted';
+    const text = String(status || '');
+    return text ? `${text[0].toUpperCase()}${text.slice(1)}` : 'Unknown';
   }
 
   getCurrentVoteTotalRows(proposal) {

@@ -1781,15 +1781,18 @@ function toDaoShare(part, total) {
 // casts and the proposal's voterList. Never inspects other voters.
 //   none   - nothing shows the account voted
 //   voted  - voterList proves participation but no local cast details exist
-//   detail - local casts exist; rows carry each option's allocated LIB, its share of
-//            the total spend, and the applied power when every cast reports one
+//   detail - local casts exist, listed separately in time order; each carries its
+//            option rows (weight share and allocated LIB), spend, stored status,
+//            and the applied power when the cast reports receipt option weights
 export function getDaoUserVoteSummary({ proposal, address, casts } = {}) {
   const normalizedAddress = normalizeDaoAddress(address);
   const voterEntry = findDaoVoterEntry(proposal, normalizedAddress);
   const labels = getDaoProposalOptionLabels(proposal);
   const savedCasts = normalizeDaoUserVoteCasts(casts);
   const optionCount = labels.length || savedCasts.reduce((max, cast) => Math.max(max, cast.weights.length), 0);
-  const validCasts = savedCasts.filter((cast) => cast.weights.length === optionCount);
+  const validCasts = savedCasts
+    .filter((cast) => cast.weights.length === optionCount)
+    .sort((a, b) => a.timestamp - b.timestamp);
 
   if (!normalizedAddress || validCasts.length === 0) {
     if (voterEntry) {
@@ -1798,36 +1801,27 @@ export function getDaoUserVoteSummary({ proposal, address, casts } = {}) {
     return { kind: DAO_USER_VOTE_SUMMARY_KINDS.NONE };
   }
 
-  const allocations = Array.from({ length: optionCount }, () => 0n);
-  const powers = Array.from({ length: optionCount }, () => 0n);
-  let spend = 0n;
-  let hasPower = true;
-  let timestamp = 0;
-  for (const cast of validCasts) {
-    const totalWeight = cast.weights.reduce((sum, weight) => sum + BigInt(weight), 0n);
-    for (let index = 0; index < optionCount; index += 1) {
-      allocations[index] += (cast.spend * BigInt(cast.weights[index])) / totalWeight;
-      if (hasPower && cast.optionWeights) powers[index] += cast.optionWeights[index];
-    }
-    if (!cast.optionWeights) hasPower = false;
-    spend += cast.spend;
-    timestamp = Math.max(timestamp, cast.timestamp);
-  }
-  const totalPower = hasPower ? powers.reduce((sum, power) => sum + power, 0n) : null;
-
   return {
     kind: DAO_USER_VOTE_SUMMARY_KINDS.DETAIL,
     confirmed: Boolean(voterEntry),
-    castCount: validCasts.length,
-    timestamp,
-    spend,
-    totalPower,
-    rows: Array.from({ length: optionCount }, (_, index) => ({
-      option: labels[index] || `Option ${index + 1}`,
-      allocation: allocations[index],
-      share: toDaoShare(allocations[index], spend),
-      power: hasPower ? powers[index] : null,
-    })),
+    timestamp: voterEntry?.timestamp ?? 0,
+    casts: validCasts.map((cast) => {
+      const totalWeight = cast.weights.reduce((sum, weight) => sum + BigInt(weight), 0n);
+      return {
+        txid: cast.txid,
+        timestamp: cast.timestamp,
+        status: cast.status,
+        spend: cast.spend,
+        totalPower: cast.optionWeights ? cast.optionWeights.reduce((sum, power) => sum + power, 0n) : null,
+        rows: Array.from({ length: optionCount }, (_, index) => ({
+          option: labels[index] || `Option ${index + 1}`,
+          weight: cast.weights[index],
+          share: toDaoShare(BigInt(cast.weights[index]), totalWeight),
+          allocation: (cast.spend * BigInt(cast.weights[index])) / totalWeight,
+          power: cast.optionWeights ? cast.optionWeights[index] : null,
+        })),
+      };
+    }),
   };
 }
 

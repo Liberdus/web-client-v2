@@ -4500,12 +4500,33 @@ input[type='file'].form-control::file-selector-button {
   color: #0f5f27;
 }
 
+#proposalInfoModal .proposal-user-vote-cards {
+  display: grid;
+  gap: 8px;
+}
+
 #proposalInfoModal .proposal-user-vote-card {
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
   gap: 6px;
   padding: 8px 10px;
+}
+
+#proposalInfoModal .proposal-user-vote-card-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+#proposalInfoModal .proposal-user-vote-card-heading > span:first-child {
+  color: var(--text-color);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 #proposalInfoModal .proposal-user-vote-row,

@@ -69,6 +69,7 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Summary
      - A card for every option, with each action option displaying only its matching nested parameter change set and its current/proposed values
    - Shows voting controls only when the proposal is in **Voting** state.
+   - Shows a **Your vote** section under the results for the signed-in account only. Each cast saved in `daoUserVotes[number].casts` is listed separately in time order with its option shares, allocated LIB, spend, stored status (`Submitted` until a later change verifies the receipt), and applied voting power when that cast carries `optionWeights`. If no casts are saved but the proposal's `voterList` includes the account, it shows a neutral **Vote recorded** with the first-vote time instead. It is hidden when neither indicates a vote, and it never renders other voters.
    - Voting is **Yes/No**, tracked per “voter id” derived from the current account:
      - `myAccount.address` / `myData.account.address` → fallback to username → fallback to `anon`.
 
