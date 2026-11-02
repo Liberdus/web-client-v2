@@ -28053,8 +28053,7 @@ class ChatModal {
 
       // Send the delete transaction
       submissionAttempted = true;
-      const response = await injectTx(deleteMessageObj, deleteTxid, account);
-      if (myAccount !== account) return;
+      const response = await injectTx(deleteMessageObj, deleteTxid);
 
       if (!response || !response.result || !response.result.success) {
         console.error('Delete message failed to send', response);
