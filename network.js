@@ -9,7 +9,7 @@ const network = {
   ],
   "gateways": [
     {
-      "web": "https://dev.liberdus.com:3030",
+      "web": "https://gate-dev.liberdus.com",
       "ws": "wss://dev.liberdus.com:3031"
     },
   ],
