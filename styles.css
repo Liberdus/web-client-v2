@@ -5387,6 +5387,65 @@ input[type='file'].form-control::file-selector-button {
   letter-spacing: -0.5px;
 }
 
+.wallet-value-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+  text-align: right;
+}
+
+.wallet-price-status {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  line-height: 1.4;
+  color: var(--secondary-text-color);
+  white-space: normal;
+}
+
+.wallet-price-status:empty {
+  display: none;
+}
+
+.wallet-price-warning {
+  color: color-mix(in srgb, var(--warning-color) 65%, var(--text-color));
+}
+
+.wallet-price-unavailable,
+.multichain-row-usd.wallet-price-unavailable,
+.asset-symbol.wallet-price-unavailable {
+  color: var(--danger-color);
+}
+
+.multichain-row-values .wallet-price-status,
+.connected-asset-item .wallet-price-status {
+  max-width: 130px;
+}
+
+#walletScreen .wallet-asset-summary .wallet-value-stack {
+  flex-shrink: 0;
+  max-width: 130px;
+}
+
+#walletScreen .wallet-native-balance .wallet-price-status {
+  max-width: 150px;
+}
+
+#multichainPriceStatus {
+  margin-top: 6px;
+  text-align: center;
+}
+
+#assetsPriceStatus {
+  text-align: center;
+}
+
+#assetsModal .balance-amount::before {
+  content: none;
+}
+
 #walletScreen .wallet-assets {
   margin-top: 18px;
   padding: 0;
@@ -5414,6 +5473,10 @@ input[type='file'].form-control::file-selector-button {
 }
 
 @media (max-width: 360px) {
+  #walletScreen .wallet-asset-summary .wallet-value-stack {
+    max-width: 116px;
+  }
+
   #walletScreen .wallet-native-balance .asset-item {
     gap: 7px;
   }

@@ -222,14 +222,20 @@
             <button type="button" class="wallet-asset-summary" id="multichainSummary">
               <span class="wallet-asset-group-icon" aria-hidden="true"></span>
               <span class="wallet-asset-summary-label">Multichain</span>
-              <span class="wallet-asset-summary-value" id="multichainSummaryValue">$0.00</span>
+              <span class="wallet-value-stack">
+                <span class="wallet-asset-summary-value" id="multichainSummaryValue">$ -</span>
+                <span class="wallet-price-status wallet-price-warning" id="multichainSummaryStatus" role="status"></span>
+              </span>
               <span class="wallet-asset-summary-chevron" aria-hidden="true"></span>
             </button>
             <div class="wallet-asset-summary-divider" aria-hidden="true"></div>
             <button type="button" class="wallet-asset-summary" id="evmAssetsSummary">
               <span class="wallet-asset-group-icon" aria-hidden="true"></span>
               <span class="wallet-asset-summary-label">EVM Assets</span>
-              <span class="wallet-asset-summary-value" id="evmAssetsSummaryValue">N/A</span>
+              <span class="wallet-value-stack">
+                <span class="wallet-asset-summary-value" id="evmAssetsSummaryValue">$ -</span>
+                <span class="wallet-price-status wallet-price-warning" id="evmAssetsSummaryStatus" role="status"></span>
+              </span>
               <span class="wallet-asset-summary-chevron" aria-hidden="true"></span>
             </button>
           </div>
@@ -328,9 +334,10 @@
           <div class="wallet-balance">
             <div class="balance-label">Total Balance</div>
             <div class="balance-amount">
-              <span id="assetsTotalBalance">-.--</span>
+              <span id="assetsTotalBalance">$ -</span>
               <button class="refresh-button" id="refreshAssetsBalance">↻</button>
             </div>
+            <div class="wallet-price-status wallet-price-warning" id="assetsPriceStatus" role="status"></div>
           </div>
           <section id="evmPaymentRecovery" class="evm-payment-recovery" hidden>
             <h3>Transfers needing attention</h3>
@@ -1705,8 +1712,9 @@
         <div class="modal-content">
           <section class="multichain-hero">
             <div class="multichain-hero-label">Total balance</div>
-            <div class="multichain-hero-total" id="multichainTotalBalance">$0.00</div>
+            <div class="multichain-hero-total" id="multichainTotalBalance">$ -</div>
             <div class="multichain-hero-caption" id="multichainHeroCaption"></div>
+            <div class="wallet-price-status wallet-price-warning" id="multichainPriceStatus" role="status"></div>
             <!-- Only ever a problem: a healthy screen says nothing here. -->
             <div class="multichain-hero-warning" id="multichainStatus" role="status"></div>
           </section>

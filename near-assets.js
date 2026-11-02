@@ -11,6 +11,7 @@ import {
   hex2bin,
   utf82bin,
   BUTTON_COOLDOWN_MS,
+  WalletUsdValuation,
   escapeHtml,
   openModal,
   withButtonCooldown,
@@ -795,12 +796,8 @@ export function normalizeIntentsToken(token, rawBalance) {
   const rawAmount = toRawAmount(rawBalance);
   const tokenAmount = formatUnits(rawAmount, decimals);
 
-  // Number(null) is 0, so an absent price has to be rejected before coercion --
-  // otherwise an unpriced asset reads as "worth $0.00" rather than "unknown".
-  const rawPrice = token?.price;
-  const price = Number(rawPrice);
-  const hasPrice = rawPrice !== null && rawPrice !== undefined && rawPrice !== ''
-    && Number.isFinite(price) && price >= 0;
+  const price = WalletUsdValuation.fromValue(token?.price).total;
+  const hasPrice = price !== null;
   const tokenPriceUsd = hasPrice ? String(price) : null;
   const tokenValueUsd = hasPrice ? String(Number(tokenAmount) * price) : null;
 
@@ -995,10 +992,12 @@ export class IntentsDiscoveryService {
   }
 
   /** Valuation follows the retained holdings, independently of refresh status. */
-  totalIsUnknown() {
-    return (this.balances === null && this.status === 'unavailable')
-      || this.network.assets.some((asset) => asset.rawAmount !== '0'
-        && (asset.tokenValueUsd === null || !Number.isFinite(Number(asset.tokenValueUsd))));
+  getUsdValuation() {
+    if (this.balances === null) return WalletUsdValuation.fromValue(null);
+    return new WalletUsdValuation(this.network.assets.map((asset) => ({
+      held: asset.rawAmount !== '0',
+      usdValue: asset.tokenValueUsd,
+    })));
   }
 
   activateAccount(accountId) {
@@ -3354,10 +3353,6 @@ function receivingKey(assetKey) {
  *  else it is not already held. */
 const isSuperseded = (asset) => Boolean(DEPOSIT_CREDITS[asset.assetId]) && asset.rawAmount === '0';
 
-// The hero total: thousands separated, always two decimals. formatUsd has
-// neither separator nor grouping, and "$12345.67" is hard to read at 44px.
-const heroUsd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-
 // A skeleton row stands in for an asset while the first balances load. Three
 // is enough to read as "a list is coming" without promising how long it is.
 const SKELETON_ROW = `
@@ -3657,6 +3652,7 @@ class MultichainModal {
   load() {
     this.modal = document.getElementById('multichainModal');
     this.totalBalance = document.getElementById('multichainTotalBalance');
+    this.priceStatus = document.getElementById('multichainPriceStatus');
     this.caption = document.getElementById('multichainHeroCaption');
     this.refreshButton = document.getElementById('refreshMultichainBalance');
     this.assetsList = document.getElementById('multichainAssetsList');
@@ -3736,11 +3732,21 @@ class MultichainModal {
     this.refreshButton.setAttribute('aria-busy', String(on));
   }
 
+  reset() {
+    if (!this.totalBalance) return;
+    this.totalBalance.textContent = '$ -';
+    this.totalBalance.style.color = '';
+    this.totalBalance.removeAttribute('aria-label');
+    this.priceStatus.textContent = '';
+    this.statusLine.textContent = '';
+  }
+
   renderLoading() {
     this.totalBalance.style.color = '';
     this.totalBalance.innerHTML = '<span class="multichain-skeleton is-figure" aria-hidden="true"></span>';
     this.totalBalance.setAttribute('aria-label', 'Loading balance');
     this.caption.innerHTML = '<span class="multichain-skeleton is-caption" aria-hidden="true"></span>';
+    this.priceStatus.textContent = '';
     this.statusLine.textContent = '';
     this.listHead.hidden = true;
     this.empty.hidden = true;
@@ -3758,12 +3764,11 @@ class MultichainModal {
 
     this.totalBalance.removeAttribute('aria-label');
     this.assetsList.removeAttribute('aria-busy');
-    const totalUnknown = intentsAssets.totalIsUnknown();
-    const total = Number(network.totalValueUsd);
-    this.totalBalance.textContent = totalUnknown
-      ? '$0.00'
-      : heroUsd.format(Number.isFinite(total) ? total : 0);
-    this.totalBalance.style.color = totalUnknown ? 'var(--danger-color)' : '';
+    const valuation = intentsAssets.getUsdValuation();
+    this.totalBalance.textContent = valuation.valueText;
+    this.totalBalance.style.color = valuation.state === 'none' && !['idle', 'loading'].includes(status)
+      ? 'var(--danger-color)' : '';
+    this.priceStatus.textContent = intentsAssets.balances === null ? '' : valuation.caption;
     // Says where the money actually is, which a bare total does not. Silent
     // when nothing is held: the empty balance already says it.
     const chains = [...new Set(held.map((asset) => asset.chainName))];
@@ -3772,10 +3777,8 @@ class MultichainModal {
       : chains.length === 1 ? `On ${chains[0]}` : '';
     // Only a problem earns this line (DESIGN.md §1.2); custody is a standing
     // fact, and lives in the footnote under the list.
-    this.statusLine.textContent = {
-      unavailable: 'Balances are unavailable right now. Refresh to try again.',
-      unpriced: 'Prices are unavailable right now. Your balances are up to date.',
-    }[status] || '';
+    this.statusLine.textContent = status === 'unavailable'
+      ? 'Balances are unavailable right now. Refresh to try again.' : '';
     this.sendButton.disabled = held.length === 0;
 
     // The list is what you hold, plus what you held before and spent to zero.
@@ -3797,7 +3800,9 @@ class MultichainModal {
       return;
     }
 
-    this.assetsList.innerHTML = visible.map((asset) => `
+    this.assetsList.innerHTML = visible.map((asset) => {
+      const valuation = WalletUsdValuation.fromValue(asset.rawAmount === '0' ? 0 : asset.tokenValueUsd);
+      return `
       <button
         type="button"
         class="multichain-row multichain-asset-button${asset.rawAmount === '0' ? ' is-empty' : ''}"
@@ -3809,14 +3814,14 @@ class MultichainModal {
           <span class="multichain-row-name">${escapeHtml(asset.tokenSymbol)}</span>
           <span class="multichain-row-chain">${escapeHtml(asset.chainName)}</span>
         </span>
-        <span class="multichain-row-values">
+        <span class="multichain-row-values wallet-value-stack">
           <span class="multichain-row-amount">${escapeHtml(formatDisplayAmount(asset.tokenAmount))}</span>
-          <span class="multichain-row-usd">${escapeHtml(
-            asset.tokenValueUsd === null ? 'Unpriced' : formatUsd(asset.tokenValueUsd),
-          )}</span>
+          <span class="multichain-row-usd"${valuation.state === 'none' ? ' style="color: var(--danger-color)"' : ''}>${escapeHtml(valuation.valueText)}</span>
+          ${valuation.caption ? `<span class="wallet-price-status">${escapeHtml(valuation.caption)}</span>` : ''}
         </span>
       </button>
-    `).join('');
+    `;
+    }).join('');
   }
 
   /** The coins a new account is offered first, each one tap from its address. */
@@ -4920,6 +4925,7 @@ class MultichainTokenPicker {
    *  empty rather than repeating "0" down the list. */
   row(asset) {
     const held = asset.rawAmount !== '0';
+    const valuation = WalletUsdValuation.fromValue(held ? asset.tokenValueUsd : 0);
     return `
       <button type="button" class="multichain-row" data-asset-key="${escapeHtml(asset.key)}"
         aria-label="${escapeHtml(assetTitle(asset))}">
@@ -4928,11 +4934,10 @@ class MultichainTokenPicker {
           <span class="multichain-row-name">${escapeHtml(asset.tokenSymbol)}</span>
           <span class="multichain-row-chain">${escapeHtml(asset.chainName)}</span>
         </span>
-        ${held ? `<span class="multichain-row-values">
+        ${held ? `<span class="multichain-row-values wallet-value-stack">
           <span class="multichain-row-amount">${escapeHtml(formatDisplayAmount(asset.tokenAmount))}</span>
-          <span class="multichain-row-usd">${escapeHtml(
-            asset.tokenValueUsd === null ? 'Unpriced' : formatUsd(asset.tokenValueUsd),
-          )}</span>
+          <span class="multichain-row-usd"${valuation.state === 'none' ? ' style="color: var(--danger-color)"' : ''}>${escapeHtml(valuation.valueText)}</span>
+          ${valuation.caption ? `<span class="wallet-price-status">${escapeHtml(valuation.caption)}</span>` : ''}
         </span>` : ''}
       </button>`;
   }
@@ -5338,6 +5343,7 @@ class MultichainController {
 
     this.summaryButton = document.getElementById('multichainSummary');
     this.summaryValue = document.getElementById('multichainSummaryValue');
+    this.summaryStatus = document.getElementById('multichainSummaryStatus');
 
     document.getElementById('openMultichain')
       .addEventListener('click', () => this.assetsModal.open());
@@ -5349,9 +5355,13 @@ class MultichainController {
   reset() {
     intentsAssets.reset();
     intentsDeposits.reset();
+    this.assetsModal.reset();
     if (this.summaryValue) {
-      this.summaryValue.textContent = '$0.00';
+      this.summaryValue.textContent = '$ -';
       this.summaryValue.style.color = '';
+    }
+    if (this.summaryStatus) {
+      this.summaryStatus.textContent = '';
     }
   }
 
@@ -5423,12 +5433,14 @@ class MultichainController {
   async updateSummary({ refresh = false } = {}) {
     if (!this.summaryValue) return false;
     if (refresh) await intentsAssets.refresh();
-    const totalUnknown = intentsAssets.totalIsUnknown();
-    this.summaryValue.textContent = totalUnknown
-      ? '$0.00'
-      : formatUsd(intentsAssets.getTotalUsd());
-    this.summaryValue.style.color = totalUnknown ? 'var(--danger-color)' : '';
-    return ['connected', 'unpriced'].includes(intentsAssets.getStatus());
+    const valuation = intentsAssets.getUsdValuation();
+    const status = intentsAssets.getStatus();
+    this.summaryValue.textContent = valuation.valueText;
+    this.summaryValue.style.color = valuation.state === 'none' && !['idle', 'loading'].includes(status)
+      ? 'var(--danger-color)' : '';
+    this.summaryStatus.textContent = intentsAssets.balances !== null
+      ? valuation.caption : status === 'unavailable' ? 'balances unavailable' : '';
+    return ['connected', 'unpriced'].includes(status);
   }
 }
 

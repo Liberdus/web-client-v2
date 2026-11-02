@@ -966,6 +966,47 @@ function getColorFromHash(hash, index) {
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
+/** USD values are separate from token balances: missing prices never mean zero. */
+export class WalletUsdValuation {
+    /** @param {{held: boolean, usdValue: number|string|null|undefined}[]} holdings */
+    constructor(holdings) {
+        let total = 0;
+        let priced = 0;
+        let missing = 0;
+        for (const { held, usdValue } of holdings) {
+            if (!held) continue;
+            const value = typeof usdValue === 'number'
+                || (typeof usdValue === 'string' && usdValue.trim() !== '') ? Number(usdValue) : NaN;
+            if (Number.isFinite(value) && value >= 0) {
+                total += value;
+                priced++;
+            } else {
+                missing++;
+            }
+        }
+        this.state = !Number.isFinite(total) || (missing > 0 && priced === 0)
+            ? 'none' : missing > 0 ? 'partial' : 'complete';
+        this.total = this.state === 'none' ? null : total;
+        Object.freeze(this);
+    }
+
+    static fromValue(value) {
+        return new WalletUsdValuation([{ held: true, usdValue: value }]);
+    }
+
+    get valueText() {
+        return this.total === null ? '$ -' : this.total.toLocaleString('en-US', {
+            style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2,
+        });
+    }
+
+    get caption() {
+        if (this.state === 'none') return 'prices unavailable';
+        if (this.state === 'partial') return 'some prices unavailable';
+        return '';
+    }
+}
+
 export class EthNum {
   /**
    * Converts a base 10 string representation of an Ethereum-like number
