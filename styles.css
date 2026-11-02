@@ -5424,11 +5424,6 @@ input[type='file'].form-control::file-selector-button {
   max-width: 130px;
 }
 
-#walletScreen .wallet-asset-summary .wallet-value-stack {
-  flex-shrink: 0;
-  max-width: 130px;
-}
-
 #walletScreen .wallet-native-balance .wallet-price-status {
   max-width: 150px;
 }
@@ -5473,10 +5468,6 @@ input[type='file'].form-control::file-selector-button {
 }
 
 @media (max-width: 360px) {
-  #walletScreen .wallet-asset-summary .wallet-value-stack {
-    max-width: 116px;
-  }
-
   #walletScreen .wallet-native-balance .asset-item {
     gap: 7px;
   }
@@ -11613,7 +11604,7 @@ small {
 
 #walletScreen .wallet-asset-summary-label {
   min-width: 0;
-  flex: 1;
+  flex: 1 0 auto;
   font-size: 15px;
   font-weight: var(--font-weight-medium);
   color: var(--text-color);
