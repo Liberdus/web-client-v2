@@ -13,6 +13,7 @@ import {
   utf82bin,
   withButtonCooldown,
   QRImageDecoder,
+  WalletUsdValuation,
 } from './lib.js';
 import { getPublicKey, signMessage } from './crypto.js';
 import keccak256 from './external/keccak256.js';
@@ -376,6 +377,8 @@ function normalizeEvmToken(token, network) {
   const contractAddress = typeof token?.contractAddress === 'string'
     ? token.contractAddress
     : null;
+  const price = WalletUsdValuation.fromValue(token?.tokenPriceUsd).total;
+  const value = WalletUsdValuation.fromValue(token?.tokenValueUsd).total;
   return Object.freeze({
     key: `${network.id}:${contractAddress || 'native'}:${token?.tokenSymbol || network.nativeSymbol}`,
     networkId: network.id,
@@ -384,9 +387,9 @@ function normalizeEvmToken(token, network) {
     tokenType: token?.tokenType || (contractAddress ? 'erc20' : 'native'),
     tokenName: token?.tokenName || network.nativeSymbol,
     tokenSymbol: token?.tokenSymbol || network.nativeSymbol,
-    tokenPriceUsd: token?.tokenPriceUsd ?? null,
+    tokenPriceUsd: price === null ? null : String(price),
     tokenAmount: token?.tokenAmount ?? '0',
-    tokenValueUsd: token?.tokenValueUsd ?? null,
+    tokenValueUsd: value === null ? null : String(value),
     tokenDecimals: Number.isInteger(token?.tokenDecimals) ? token.tokenDecimals : 18,
     rawAmount: typeof token?.rawAmount === 'string' ? token.rawAmount : null,
     logoUrl: token?.logoUrl || (!contractAddress ? network.logoUrl : null),
@@ -645,6 +648,14 @@ class WalletDiscoveryService {
 
   getTotalUsd() {
     return calculateCatalogTotalUsd(this.getCatalog());
+  }
+
+  getUsdValuation() {
+    if (this.portfolio === null) return WalletUsdValuation.fromValue(null);
+    return new WalletUsdValuation(this.getCatalog().flatMap(network => network.assets.map(asset => ({
+      held: decimalIsPositive(asset.tokenAmount),
+      usdValue: asset.tokenValueUsd,
+    }))));
   }
 
   getStatus() {
@@ -1446,6 +1457,7 @@ class AssetsModal {
   load() {
     this.modal = document.getElementById('assetsModal');
     this.totalBalance = document.getElementById('assetsTotalBalance');
+    this.priceStatus = document.getElementById('assetsPriceStatus');
     this.refreshButton = document.getElementById('refreshAssetsBalance');
     this.networkSelect = document.getElementById('assetsNetwork');
     this.connectionSummary = document.getElementById('assetsConnectionSummary');
@@ -1518,8 +1530,7 @@ class AssetsModal {
   }
 
   renderBalances() {
-    const totalUsd = this.controller.getTotalUsd();
-    this.totalBalance.textContent = totalUsd === null ? 'N/A' : totalUsd.toFixed(2);
+    this.controller.renderValuation(this.totalBalance, this.priceStatus);
     this.controller.populateNetworkSelect(this.networkSelect, { includeAll: true });
     this.connectionSummary.textContent = this.controller.getConnectionText();
     this.connectionSummary.dataset.status = this.controller.getStatus();
@@ -1601,7 +1612,9 @@ class AssetsModal {
 
     this.assetsList.innerHTML = `
       <section class="wallet-network-assets">
-        ${visibleAssets.map(({ walletNetwork, asset }) => `
+        ${visibleAssets.map(({ walletNetwork, asset }) => {
+          const valuation = WalletUsdValuation.fromValue(decimalIsPositive(asset.tokenAmount) ? asset.tokenValueUsd : 0);
+          return `
           <button
             type="button"
             class="asset-item connected-asset-item connected-asset-button"
@@ -1616,16 +1629,17 @@ class AssetsModal {
               <div class="asset-name">${escapeHtml(asset.tokenName)}</div>
               <div class="wallet-network-chain">${escapeHtml(walletNetwork.name)}</div>
               <div class="asset-symbol">
-                ${asset.tokenPriceUsd === null ? '<span style="color: var(--danger-color)">$0</span>' : `${formatConnectedUsd(asset.tokenPriceUsd)} / ${escapeHtml(asset.tokenSymbol)}`}
+                ${asset.tokenPriceUsd === null ? '' : `${formatConnectedUsd(asset.tokenPriceUsd)} / ${escapeHtml(asset.tokenSymbol)}`}
               </div>
             </div>
-            <div class="asset-balance">
-              ${escapeHtml(formatConnectedTokenAmount(asset.tokenAmount))} ${escapeHtml(asset.tokenSymbol)}
-              <br>
-              <span class="asset-symbol">${escapeHtml(formatConnectedUsd(asset.tokenValueUsd))}</span>
+            <div class="asset-balance wallet-value-stack">
+              <span>${escapeHtml(formatConnectedTokenAmount(asset.tokenAmount))} ${escapeHtml(asset.tokenSymbol)}</span>
+              <span class="asset-symbol${valuation.state === 'none' ? ' wallet-price-unavailable' : ''}">${valuation.state === 'none' ? valuation.valueText : escapeHtml(formatConnectedUsd(valuation.total))}</span>
+              <span class="wallet-price-status">${valuation.caption}</span>
             </div>
           </button>
-        `).join('')}
+        `;
+        }).join('')}
       </section>
     `;
   }
@@ -2368,6 +2382,7 @@ class EvmAssetsController {
     this.sendModal.load();
     this.receiveModal.load();
     this.summaryValue = document.getElementById('evmAssetsSummaryValue');
+    this.summaryStatus = document.getElementById('evmAssetsSummaryStatus');
     document.getElementById('evmAssetsSummary').addEventListener('click', () => this.assetsModal.open());
     document.getElementById('openAssets').addEventListener('click', () => this.assetsModal.open());
     this.loaded = true;
@@ -2376,6 +2391,7 @@ class EvmAssetsController {
   reset() {
     this.discovery.reset();
     this.renderSummary();
+    if (this.assetsModal.totalBalance) this.renderValuation(this.assetsModal.totalBalance, this.assetsModal.priceStatus);
     this.transactions.paymentEvidence.clear();
     this.confirmationModal.reset();
     this.sendModal.close();
@@ -2417,13 +2433,22 @@ class EvmAssetsController {
 
   renderSummary() {
     if (!this.summaryValue) return;
-    const totalUsd = this.getTotalUsd();
-    this.summaryValue.textContent = totalUsd === null ? 'N/A' : `$${totalUsd.toFixed(2)}`;
+    this.renderValuation(this.summaryValue, this.summaryStatus);
+  }
+
+  renderValuation(valueElement, statusElement) {
+    const valuation = this.getUsdValuation();
+    const balancesKnown = this.discovery.portfolio !== null;
+    valueElement.textContent = valuation.valueText;
+    valueElement.style.color = valuation.state === 'none' && (balancesKnown || this.getStatus() === 'unavailable')
+      ? 'var(--danger-color)' : '';
+    statusElement.textContent = balancesKnown ? valuation.caption : this.getStatus() === 'unavailable' ? 'balances unavailable' : '';
   }
 
   rebuildCatalog() { return this.discovery.rebuildCatalog(); }
   getEvmCatalog() { return this.discovery.getCatalog(); }
   getTotalUsd() { return this.discovery.getTotalUsd(); }
+  getUsdValuation() { return this.discovery.getUsdValuation(); }
   getStatus() { return this.discovery.getStatus(); }
   getUpdatedAt() { return this.discovery.getUpdatedAt(); }
   getNetwork(networkId) { return this.discovery.getNetwork(networkId); }

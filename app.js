@@ -211,6 +211,7 @@ import {
   isPublicKeyForAddress,
   validateChatTransaction,
   QRImageDecoder,
+  WalletUsdValuation,
 } from './lib.js';
 
 import {
@@ -2415,9 +2416,10 @@ class WalletScreen {
       this.assetsList.innerHTML = walletData.assets
         .map((asset) => {
           const assetUsdPrice = getAssetUsdPrice(asset);
-          const assetNetworth = calculateAssetUsdValue(asset);
-          const assetPriceText = assetUsdPrice === null ? 'N/A' : `$${assetUsdPrice.toFixed(6)}`;
-          const assetNetworthText = assetNetworth === null ? 'N/A' : `$${assetNetworth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          const valuation = WalletUsdValuation.fromValue(asset.balance === 0n ? 0 : calculateAssetUsdValue(asset));
+          const assetRateText = assetUsdPrice === null
+            ? escapeHtml(asset.symbol)
+            : `1 ${escapeHtml(asset.symbol)} = $${assetUsdPrice.toFixed(6)}`;
           const [whole, fraction] = formatDisplayAmount(big2str(asset.balance, 18), 6).split('.');
           const assetQuantityText = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '');
           return `
@@ -2425,9 +2427,13 @@ class WalletScreen {
                     <img src="./media/liberdus_logo_50.png" class="asset-logo" alt="Liberdus">
                     <div class="asset-info">
                         <div class="asset-name">${escapeHtml(asset.name)}</div>
-                        <div class="asset-symbol">1 ${escapeHtml(asset.symbol)} = ${assetPriceText}</div>
+                        <div class="asset-symbol">${assetRateText}</div>
                     </div>
-                    <div class="asset-balance"><span class="wallet-native-quantity">${assetQuantityText} ${escapeHtml(asset.symbol)}</span><span class="wallet-native-usd">${assetNetworthText}</span></div>
+                    <div class="asset-balance">
+                        <span class="wallet-native-quantity">${assetQuantityText} ${escapeHtml(asset.symbol)}</span>
+                        <span class="wallet-native-usd${valuation.state === 'none' ? ' wallet-price-unavailable' : ''}">${valuation.valueText}</span>
+                        <span class="wallet-price-status">${valuation.caption}</span>
+                    </div>
                 </div>
             `;
         })
@@ -11699,8 +11705,7 @@ function getAssetUsdPrice(asset) {
     return getLibUsdPriceFromParameters();
   }
 
-  const price = Number(asset?.price);
-  return Number.isFinite(price) && price >= 0 ? price : null;
+  return WalletUsdValuation.fromValue(asset?.price).total;
 }
 
 function calculateAssetUsdValue(asset) {
