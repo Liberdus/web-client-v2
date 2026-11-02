@@ -38601,17 +38601,10 @@ class MediaCacheOwnership {
   }
 
   async save(storeName, record, owner = null) {
-    return this.run([storeName], owner, ({ transaction, owners, setResult }) => {
-      const store = transaction.objectStore(storeName);
-      const request = store.get(record.id);
-      request.onsuccess = () => {
-        store.put(MediaCacheOwnership.mergeRecord(request.result, record, owners));
-        setResult(true);
-      };
-    });
+    return this.writeRecord(storeName, record, { owners: owner, overwrite: true, legacy: false });
   }
 
-  async importRecord(storeName, record, { owners, overwrite, legacy }) {
+  async writeRecord(storeName, record, { owners, overwrite, legacy }) {
     return this.run([storeName], owners, ({ transaction, owners, setResult }) => {
       const store = transaction.objectStore(storeName);
       const request = store.get(record.id);
@@ -38938,7 +38931,7 @@ class ContactAvatarCache {
         if (ownerKeys && !ownerKeys.length) continue;
         const owners = ownerKeys ? acceptedOwners.filter(owner => ownerKeys.includes(owner.key)) : acceptedOwners;
         const blob = this.base64ToBlob(avatarInfo.data, avatarInfo.type || 'image/jpeg');
-        const saved = await this.ownership.importRecord(this.storeName, {
+        const saved = await this.ownership.writeRecord(this.storeName, {
           id, blob, type: avatarInfo.type || 'image/jpeg', size: blob.size, savedAt: Date.now(),
         }, { owners, overwrite, legacy: ownerKeys === null });
         if (saved) {
@@ -39559,7 +39552,7 @@ class ThumbnailCache {
           const currentSize = await this.getCacheSize();
           if (currentSize + thumbnail.size > this.maxCacheSize) await this.cleanupBySize(owners);
         }
-        const saved = await this.ownership.importRecord(this.storeName, {
+        const saved = await this.ownership.writeRecord(this.storeName, {
           id, thumbnail,
           originalType: thumbInfo.originalType || thumbInfo.type || 'image/jpeg', cachedAt: Date.now(),
         }, { owners, overwrite, legacy: ownerKeys === null });
