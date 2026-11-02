@@ -994,6 +994,13 @@ export class IntentsDiscoveryService {
     return Number.isFinite(total) ? total : 0;
   }
 
+  /** Valuation follows the retained holdings, independently of refresh status. */
+  totalIsUnknown() {
+    return (this.balances === null && this.status === 'unavailable')
+      || this.network.assets.some((asset) => asset.rawAmount !== '0'
+        && (asset.tokenValueUsd === null || !Number.isFinite(Number(asset.tokenValueUsd))));
+  }
+
   activateAccount(accountId) {
     if (this.accountId === accountId) return;
     this.balances = null;
@@ -3451,11 +3458,6 @@ export function checkAmount(asset, value) {
   return null;
 }
 
-/** No balances read, or balances with no prices: either way, no dollar total. */
-function totalIsUnknown(status, network) {
-  return status === 'unpriced' || (status === 'unavailable' && network.assets.length === 0);
-}
-
 export const priceOf = (asset) => {
   const price = Number(asset?.tokenPriceUsd);
   return price > 0 ? price : null;
@@ -3735,6 +3737,7 @@ class MultichainModal {
   }
 
   renderLoading() {
+    this.totalBalance.style.color = '';
     this.totalBalance.innerHTML = '<span class="multichain-skeleton is-figure" aria-hidden="true"></span>';
     this.totalBalance.setAttribute('aria-label', 'Loading balance');
     this.caption.innerHTML = '<span class="multichain-skeleton is-caption" aria-hidden="true"></span>';
@@ -3755,12 +3758,12 @@ class MultichainModal {
 
     this.totalBalance.removeAttribute('aria-label');
     this.assetsList.removeAttribute('aria-busy');
-    // Nothing read is not the same as nothing held: $0.00 would claim a
-    // balance. Nor is a balance with no prices worth $0.00.
+    const totalUnknown = intentsAssets.totalIsUnknown();
     const total = Number(network.totalValueUsd);
-    this.totalBalance.textContent = totalIsUnknown(status, network)
-      ? '—'
+    this.totalBalance.textContent = totalUnknown
+      ? '$0.00'
       : heroUsd.format(Number.isFinite(total) ? total : 0);
+    this.totalBalance.style.color = totalUnknown ? 'var(--danger-color)' : '';
     // Says where the money actually is, which a bare total does not. Silent
     // when nothing is held: the empty balance already says it.
     const chains = [...new Set(held.map((asset) => asset.chainName))];
@@ -5346,7 +5349,10 @@ class MultichainController {
   reset() {
     intentsAssets.reset();
     intentsDeposits.reset();
-    if (this.summaryValue) this.summaryValue.textContent = '$0.00';
+    if (this.summaryValue) {
+      this.summaryValue.textContent = '$0.00';
+      this.summaryValue.style.color = '';
+    }
   }
 
   close(modalId) {
@@ -5417,9 +5423,11 @@ class MultichainController {
   async updateSummary({ refresh = false } = {}) {
     if (!this.summaryValue) return false;
     if (refresh) await intentsAssets.refresh();
-    this.summaryValue.textContent = totalIsUnknown(intentsAssets.getStatus(), intentsAssets.getNetwork())
-      ? '—'
+    const totalUnknown = intentsAssets.totalIsUnknown();
+    this.summaryValue.textContent = totalUnknown
+      ? '$0.00'
       : formatUsd(intentsAssets.getTotalUsd());
+    this.summaryValue.style.color = totalUnknown ? 'var(--danger-color)' : '';
     return ['connected', 'unpriced'].includes(intentsAssets.getStatus());
   }
 }
