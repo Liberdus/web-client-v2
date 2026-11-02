@@ -38,6 +38,7 @@ const network = {
   "explorerUrl": "https://exp-dev.liberdus.com/",
   "attachmentServerUrl": "https://att.liberdus.com:2083",
   "bridgeUrl": "./bridge",
+  "meetUrl": "https://meet.liberdus.com",
   // App version requirements for native apps (format: YYYY.MMDD.HHmm)
   "app_version": {
     "ios": "2025.1211.1145",

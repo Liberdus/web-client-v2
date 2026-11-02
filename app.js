@@ -267,12 +267,15 @@ let initialViewportHeight = window.innerHeight;
 
 // parameters to add to the call URL when opening the page
 const callUrlParams = `#config.toolbarButtons=["camera","microphone","desktop","hangup"]&config.disableDeepLinking=true&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&startWithVideoMuted=false&userInfo.displayName=`
-const ALLOWED_CALL_ORIGINS = Object.freeze(['https://meet.liberdus.com']);
+// Keep existing default-host call links valid when the configured service changes.
+const ALLOWED_CALL_ORIGINS = Object.freeze(['https://meet.liberdus.com', new URL(network.meetUrl).origin]);
 
 function normalizeCallUrl(value) {
-  const normalized = normalizeHttpsUrl(value, ALLOWED_CALL_ORIGINS);
+  if (typeof value !== 'string' || !/^https?:\/\//i.test(value.trim())) return '';
+  const normalized = normalizeResourceUrl(value, network.meetUrl);
   if (!normalized) return '';
   const url = new URL(normalized);
+  if (!ALLOWED_CALL_ORIGINS.includes(url.origin)) return '';
   url.hash = '';
   return url.toString();
 }
@@ -28381,7 +28384,7 @@ class ChatModal {
       const randomHex = bin2hex(randomBytes).slice(0, 20);
 
       // Create the Meet URL
-      const callUrl = `https://meet.liberdus.com/${randomHex}`;
+      const callUrl = `${network.meetUrl.replace(/\/+$/, '')}/${randomHex}`;
       
       // Send a call message to the contact with callTime (0 or future timestamp)
       const success = await this.sendCallMessage(callUrl, chosenCallTime);
