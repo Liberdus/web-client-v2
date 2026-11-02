@@ -15371,21 +15371,15 @@ class AvatarEditModal {
     window.addEventListener('touchend', endDrag);
   }
 
-  captureContext() {
-    const data = myData;
-    return { data, owner: MediaCacheOwnership.getOwnerKey(data?.account) };
-  }
-
   async open(address, isOwnAvatar = false) {
-    const context = this.captureContext();
     this.currentAddress = normalizeAddress(address);
     this.isOwnAvatar = isOwnAvatar; // Track if editing own avatar vs contact avatar
     this.pendingBlob = null;
     this.activeImageBlob = null;
     this.enableTransform = false;
-    await this.refreshPreview(context);
+    await this.refreshPreview();
     // populate three-option avatar selector (contact, mine, identicon)
-    try { await this.populateOptions(context); } catch (e) { console.warn('populateOptions failed', e); }
+    try { await this.populateOptions(); } catch (e) { console.warn('populateOptions failed', e); }
     openModal(this.modal);
     enterFullscreen();
   }
@@ -15433,8 +15427,8 @@ class AvatarEditModal {
    * Populate the avatar selection options (contact, mine, identicon)
    * and wire handlers to persist `useAvatar` for the contact.
    */
-  async populateOptions(context = this.captureContext()) {
-    const { data, owner } = context;
+  async populateOptions() {
+    const owner = MediaCacheOwnership.getOwnerKey();
     const address = this.currentAddress;
     const contactThumb = this.avatarThumbContact;
     const uploadedThumb = this.avatarThumbUploaded;
@@ -15473,11 +15467,11 @@ class AvatarEditModal {
       // Clear any stale option handlers and disable use button since options are hidden.
       try { useBtn.onclick = null; } catch (e) {}
       useBtn.disabled = true;
-      this.deleteButton.style.display = data?.account?.hasAvatar ? 'inline-flex' : 'none';
+      this.deleteButton.style.display = myData?.account?.hasAvatar ? 'inline-flex' : 'none';
       // Early return: remaining option population is contact-specific and not needed for own avatar.
       return;
     } else {
-      const contactObj = data?.contacts?.[address] || null;
+      const contactObj = myData?.contacts?.[address] || null;
       try { contactBlob = contactObj?.avatarId ? await contactAvatarCache.get(contactObj.avatarId, owner) : null; } catch (e) { contactBlob = null; }
       try { userBlob = contactObj?.mineAvatarId ? await contactAvatarCache.get(contactObj.mineAvatarId, owner) : null; } catch (e) { userBlob = null; }
     }
@@ -15658,8 +15652,7 @@ class AvatarEditModal {
   /**
    * Refresh the preview based on pending state, cached avatar, or identicon fallback.
    */
-  async refreshPreview(context = this.captureContext()) {
-    const { data, owner } = context;
+  async refreshPreview() {
     this.clearPreviewUrl();
     if (this.pendingBlob) {
       await this.setImageFromBlob(this.pendingBlob, true);
@@ -15670,9 +15663,9 @@ class AvatarEditModal {
     // otherwise fall back to identicon. We intentionally ignore the contact-sent avatar here.
     if (!this.isOwnAvatar) {
       try {
-        const contactObj = data?.contacts?.[this.currentAddress] || null;
+        const contactObj = myData?.contacts?.[this.currentAddress] || null;
         const avatarId = contactObj?.mineAvatarId;
-        const mineBlob = avatarId ? await contactAvatarCache.get(avatarId, owner) : null;
+        const mineBlob = avatarId ? await contactAvatarCache.get(avatarId) : null;
         if (mineBlob) {
           await this.setImageFromBlob(mineBlob, false);
           return;
@@ -15695,7 +15688,7 @@ class AvatarEditModal {
     // For own avatar, keep existing behavior (account-based)
     let avatarBlob = null;
     try {
-      avatarBlob = await contactAvatarCache.get(data?.account?.avatarId, owner);
+      avatarBlob = await contactAvatarCache.get(myData?.account?.avatarId);
     } catch (e) {
       avatarBlob = null;
     }
@@ -15829,8 +15822,7 @@ class AvatarEditModal {
       return;
     }
 
-    const context = this.captureContext();
-    const { data, owner } = context;
+    const owner = MediaCacheOwnership.getOwnerKey();
     try {
       if (this.isOwnAvatar) {
         // Update own avatar state
@@ -15863,7 +15855,7 @@ class AvatarEditModal {
         // Update header avatar
         header.updateAvatar();
       } else {
-        const contact = data?.contacts?.[this.currentAddress];
+        const contact = myData?.contacts?.[this.currentAddress];
         if (!contact) {
           this.close();
           return;
@@ -15915,13 +15907,13 @@ class AvatarEditModal {
 
       // Refresh the option list once so the modal immediately reflects the deletion
       try {
-        await this.populateOptions(context);
+        await this.populateOptions();
       } catch (e) {
         console.warn('Failed to repopulate avatar options after delete:', e);
       }
 
       // Update preview in the modal to show identicon
-      await this.refreshPreview(context);
+      await this.refreshPreview();
     } catch (err) {
       console.warn('Failed to delete avatar:', err);
       showToast('Failed to delete avatar', 2000, 'error');
@@ -16124,7 +16116,7 @@ class AvatarEditModal {
     try {
       // Need an image source to save
       if (this.pendingBlob || this.activeImageBlob) {
-        const owner = this.captureContext().owner;
+        const owner = MediaCacheOwnership.getOwnerKey();
         const sourceBlob = this.pendingBlob || this.activeImageBlob;
         const thumbnail = await this.exportCroppedThumbnail(sourceBlob);
 
@@ -25474,14 +25466,12 @@ class ChatModal {
    * Gets the decrypted full image from IndexedDB, downloading it on a cache miss.
    * @param {Object} item - message containing the attachment metadata and keys
    * @param {HTMLElement} linkEl - rendered attachment row
-   * @param {string|null} [owner] - account ownership captured before related asynchronous work
    * @returns {Promise<Blob>}
    */
-  async getFullImageBlob(item, linkEl, owner) {
+  async getFullImageBlob(item, linkEl) {
     const attachment = this.getFullImageAttachment(item, linkEl);
     return fullImageCache.getOrCache({
       attachment,
-      owner,
       downloadAndDecrypt: () => this.decryptAttachmentToBlob(item, linkEl),
       shouldCache: () => Array.isArray(item?.xattach)
         && item.xattach.some(candidate => candidate?.url === attachment.url),
@@ -25495,7 +25485,7 @@ class ChatModal {
       const isImage = item.type !== 'vm' && (linkEl.dataset.type || '').startsWith('image/');
       loadingToastId = showToast(isImage ? 'Preparing image...' : 'Decrypting attachment...', 0, 'loading');
       const blob = isImage
-        ? await this.getFullImageBlob(item, linkEl, owner)
+        ? await this.getFullImageBlob(item, linkEl)
         : await this.decryptAttachmentToBlob(item, linkEl);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
       const safePreviewMime = await getSafeAttachmentPreviewMime(blob);
@@ -30517,18 +30507,17 @@ class ShareContactsModal {
     this.allNoneButton.disabled = !hasContacts;
 
     if (hasContacts) {
-      const owner = MediaCacheOwnership.getOwnerKey();
       // Render Friends section
       if (friends.length > 0) {
-        await this.renderSection('Friends', friends, owner);
+        await this.renderSection('Friends', friends);
       }
       // Render Connections section
       if (connections.length > 0) {
-        await this.renderSection('Connections', connections, owner);
+        await this.renderSection('Connections', connections);
       }
       // Render Tolled section
       if (tolled.length > 0) {
-        await this.renderSection('Tolled', tolled, owner);
+        await this.renderSection('Tolled', tolled);
       }
     }
   }
@@ -30552,7 +30541,8 @@ class ShareContactsModal {
    * @param {number} size - Avatar size in pixels
    * @returns {Promise<string>} Avatar HTML
    */
-  async getContactAvatarHtmlForShare(contact, size = 40, owner) {
+  async getContactAvatarHtmlForShare(contact, size = 40) {
+    const owner = MediaCacheOwnership.getOwnerKey();
     const address = contact?.address;
     if (!address) return generateIdenticon('', size);
 
@@ -30583,7 +30573,7 @@ class ShareContactsModal {
    * @param {string} label - Section label
    * @param {Array} contacts - Array of contact objects
    */
-  async renderSection(label, contacts, owner) {
+  async renderSection(label, contacts) {
     // Add section header
     const header = document.createElement('div');
     header.className = 'share-contacts-section-header';
@@ -30592,7 +30582,7 @@ class ShareContactsModal {
 
     // Batch avatar generation for better performance
     // Use custom function that follows correct priority: contact avatar → user-selected → identicon
-    const avatarPromises = contacts.map(contact => this.getContactAvatarHtmlForShare(contact, 40, owner));
+    const avatarPromises = contacts.map(contact => this.getContactAvatarHtmlForShare(contact, 40));
     const avatarHtmlList = await Promise.all(avatarPromises);
 
     // Render each contact
@@ -38504,7 +38494,7 @@ class MediaCacheOwnership {
   }
 
   async read(storeName, id, owner = null) {
-    const result = await this.run([storeName], owner, ({ transaction, owners, setResult }) => {
+    return this.run([storeName], owner, ({ transaction, owners, setResult }) => {
       const store = transaction.objectStore(storeName);
       const request = store.get(id);
       request.onsuccess = () => {
@@ -38517,7 +38507,6 @@ class MediaCacheOwnership {
         setResult(record || null);
       };
     });
-    return result || null;
   }
 
   async save(storeName, record, owner = null) {
@@ -38702,18 +38691,18 @@ class ContactAvatarCache {
    */
   async save(id, avatarBlob, owner = MediaCacheOwnership.getOwnerKey()) {
     if (!id) throw new Error('avatar id required');
-    const saved = await this.ownership.save(this.storeName, {
+    await this.ownership.save(this.storeName, {
       id,
       blob: avatarBlob,
       type: avatarBlob?.type || 'image/jpeg',
       size: avatarBlob?.size || 0,
       savedAt: Date.now(),
     }, owner);
-    if (saved && this.blobUrlCache.has(id)) {
+    if (this.blobUrlCache.has(id)) {
       URL.revokeObjectURL(this.blobUrlCache.get(id));
       this.blobUrlCache.delete(id);
     }
-    return saved;
+    return true;
   }
 
   /**
@@ -40280,7 +40269,8 @@ class FullImageCache {
     await this.waitForTransaction(transaction);
   }
 
-  async getOrCache({ attachment, downloadAndDecrypt, shouldCache, owner = MediaCacheOwnership.getOwnerKey() }) {
+  async getOrCache({ attachment, downloadAndDecrypt, shouldCache }) {
+    const owner = MediaCacheOwnership.getOwnerKey();
     try {
       const cachedBlob = await this.get(attachment.url, owner);
       if (cachedBlob) return cachedBlob;
