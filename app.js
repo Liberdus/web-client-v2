@@ -18702,12 +18702,10 @@ class RestoreAccountModal {
     }
 
     const acceptedOwnerKeys = [...restoredAccountKeys];
-    if (acceptedOwnerKeys.length > 0) {
-      await Promise.all([
-        contactAvatarCache.activateOwners(acceptedOwnerKeys),
-        thumbnailCache.activateOwners(acceptedOwnerKeys),
-      ]).catch((error) => console.warn('Failed to initialize restored account media caches:', error));
-    }
+    await Promise.all([
+      contactAvatarCache.activateOwners(acceptedOwnerKeys),
+      thumbnailCache.activateOwners(acceptedOwnerKeys),
+    ]).catch((error) => console.warn('Failed to initialize restored account media caches:', error));
 
     // Import contact avatars if present in backup
     if (backupData._avatars && typeof backupData._avatars === 'object') {
@@ -38518,8 +38516,8 @@ class MediaCacheOwnership {
   }
 
   async activateOwners(accountKeys) {
-    const keys = [...new Set(accountKeys.filter(key => typeof key === 'string' && key))];
-    if (!keys.length) return;
+    const keys = new Set(accountKeys);
+    if (!keys.size) return;
     await this.run([], null, ({ transaction }) => {
       const store = transaction.objectStore(this.stateStoreName);
       for (const key of keys) {
@@ -38540,7 +38538,7 @@ class MediaCacheOwnership {
     const owners = (Array.isArray(captured) ? captured : [captured]).filter(Boolean);
     const db = await this.database.init();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([...new Set([this.stateStoreName, ...storeNames])], 'readwrite');
+      const transaction = db.transaction([this.stateStoreName, ...storeNames], 'readwrite');
       let result = false;
       transaction.oncomplete = () => resolve(result);
       transaction.onerror = () => reject(transaction.error);
@@ -38579,7 +38577,7 @@ class MediaCacheOwnership {
     const legacy = existing && !Array.isArray(existing.ownerKeys);
     if (legacy) return next;
     const ownerKeys = owners.map(owner => owner.key);
-    if (Array.isArray(existing?.ownerKeys) || ownerKeys.length) {
+    if (existing || ownerKeys.length) {
       next.ownerKeys = [...new Set([...(existing?.ownerKeys || []), ...ownerKeys])];
     }
     return next;
