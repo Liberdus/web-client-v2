@@ -32,5 +32,6 @@ const network = {
   "validatorUrl": "https://liberdus.com/validator",
   "explorerUrl": "https://exp-dev.liberdus.com/",
   "bridgeUrl": "./bridge",  
+  "meetUrl": "https://meet.liberdus.com",
 }
 
