@@ -13641,8 +13641,8 @@ async function processChats(chats, keys) {
                   
                   if (!messageToDelete.my && originalSender === from) {
                     // This is a message received from sender, who is now deleting it - valid
-                    // Purge cached image data for attachments, if any
-                    chatModal.purgeImageCaches(messageToDelete.xattach);
+                    // Purge cached media for attachments, if any
+                    void chatModal.purgeAttachmentCaches(messageToDelete.xattach, messageToDelete, from);
 
                     // Mark the message as deleted
                     messageToDelete.deleted = MESSAGE_DELETED_STATE_ALL;
@@ -13667,8 +13667,8 @@ async function processChats(chats, keys) {
                     );
                   } else if (messageToDelete.my && normalizeAddress(keys.address) === normalizeAddress(tx.from)) {
                     // This is our own message, and we're deleting it - valid
-                    // Purge cached image data for attachments, if any
-                    chatModal.purgeImageCaches(messageToDelete.xattach);
+                    // Purge cached media for attachments, if any
+                    void chatModal.purgeAttachmentCaches(messageToDelete.xattach, messageToDelete, from);
 
                     // Mark the message as deleted
                     messageToDelete.deleted = MESSAGE_DELETED_STATE_ALL;
@@ -17133,7 +17133,9 @@ const removeAccountModal = new RemoveAccountModal();
 
 // Modal to remove multiple accounts at once from welcome screen
 class RemoveAccountsModal {
-  constructor() {}
+  constructor() {
+    this.isRemovingAll = false;
+  }
 
   load() {
     this.modal = document.getElementById('removeAccountsModal');
@@ -17351,21 +17353,30 @@ class RemoveAccountsModal {
     this.close();
   }
 
-  handleRemoveAllAccounts() {
+  async handleRemoveAllAccounts() {
+    if (this.isRemovingAll) return;
     const confirmText = prompt(`WARNING: All accounts and data will be permanently removed from this device.\n\nType "REMOVE ALL" to confirm:`);
     if (confirmText !== "REMOVE ALL") {
       showToast('Remove all cancelled', 2000, 'warning');
       return;
     }
-    
-    // Clear all localStorage data
+    this.isRemovingAll = true;
+    const results = await Promise.allSettled([
+      contactAvatarCache.deleteDatabase(),
+      thumbnailCache.deleteDatabase(),
+    ]);
+    const failures = results.filter(result => result.status === 'rejected');
+    for (const { reason } of failures) {
+      console.warn('Failed to delete a media cache database:', reason);
+    }
+
     localStorage.clear();
-    
-    // Show success message
-    showToast('All data has been removed from this device', 3000, 'success');
-    
-    // Reload the page to redirect to welcome screen
     clearMyData();
+    if (failures.length === 0) {
+      showToast('All data has been removed from this device', 3000, 'success');
+    } else {
+      alert('All accounts were removed, but some cached media could not be cleared.');
+    }
     window.location.reload();
   }
 }
@@ -22207,7 +22218,7 @@ class ChatModal {
     if (!Array.isArray(this.fileAttachments) || this.fileAttachments.length === 0) return;
 
     const removedAttachments = this.fileAttachments.splice(0, this.fileAttachments.length);
-    this.purgeImageCaches(removedAttachments);
+    void this.purgeAttachmentCaches(removedAttachments);
 
     if (deleteFromServer) {
       this.deleteAttachmentsFromServer(removedAttachments);
@@ -25214,7 +25225,7 @@ class ChatModal {
   removeAttachment(index) {
     if (this.fileAttachments && index >= 0 && index < this.fileAttachments.length) {
       const removedFile = this.fileAttachments.splice(index, 1)[0];
-      this.purgeImageCaches([removedFile]);
+      void this.purgeAttachmentCaches([removedFile]);
       this.showAttachmentPreview(); // Refresh the preview
       showToast(`"${removedFile.name}" removed`, 2000, 'info');
 
@@ -25472,78 +25483,43 @@ class ChatModal {
     const fetchUrl = urlOverride || mainUrl;
     if (!mainUrl || mainUrl === '#') throw new Error('Missing attachment url');
 
+    const attachment = Array.isArray(item.xattach) ? item.xattach.find(candidate => candidate?.url === mainUrl) : null;
+    const key = await this.getAttachmentDecryptionKey(item, attachment);
+    const blobType = urlOverride ? 'image/jpeg' : (linkEl.dataset.type || 'application/octet-stream');
+    return this.downloadAttachmentBlob(fetchUrl, key, blobType, signal);
+  }
+
+  async getAttachmentDecryptionKey(item, attachment, address = this.address) {
     const isVoice = item.type === 'vm';
-    let dhkey;
-    
-    // 1) Get encryption key
-    if (isVoice) {
-      // Voice message: use audio keys from the message item (no encKey for voice messages)
-      const selfKey = item.audioSelfKey || item.selfKey;
-      const pqEncSharedKey = item.audioPqEncSharedKey || item.pqEncSharedKey;
-      
-      if (item.my) {
-        if (!selfKey) throw new Error('Missing selfKey for decrypt');
-        const password = myAccount.keys.secret + myAccount.keys.pqSeed;
-        dhkey = hex2bin(decryptData(selfKey, password, true));
-      } else {
-        if (!pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
-        const ok = await ensureContactKeys(this.address);
-        const senderPublicKey = myData.contacts[this.address]?.public;
-        if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${this.address}`);
-        const pqCipher = (typeof pqEncSharedKey === 'string') ? base642bin(pqEncSharedKey) : pqEncSharedKey;
-        dhkey = dhkeyCombined(
-          myAccount.keys.secret,
-          senderPublicKey,
-          myAccount.keys.pqSeed,
-          pqCipher
-        ).dhkey;
-      }
-    } else {
-      // Attachment: look up attachment entry by main url
-      const att = Array.isArray(item.xattach) ? item.xattach.find((a) => a?.url === mainUrl) : null;
-      if (!att) throw new Error('Attachment entry not found');
-      
-      // Use encKey if available (new attachments), otherwise fall back to DH-derived keys (migrated/legacy)
-      if (att.encKey) {
-        dhkey = base642bin(att.encKey);
-      } else {
-        const selfKey = att.selfKey;
-        const pqEncSharedKey = att.pqEncSharedKey;
-        
-        if (item.my) {
-          if (!selfKey) throw new Error('Missing selfKey for decrypt');
-          const password = myAccount.keys.secret + myAccount.keys.pqSeed;
-          dhkey = hex2bin(decryptData(selfKey, password, true));
-        } else {
-          if (!pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
-          const ok = await ensureContactKeys(this.address);
-          const senderPublicKey = myData.contacts[this.address]?.public;
-          if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${this.address}`);
-          const pqCipher = (typeof pqEncSharedKey === 'string') ? base642bin(pqEncSharedKey) : pqEncSharedKey;
-          dhkey = dhkeyCombined(
-            myAccount.keys.secret,
-            senderPublicKey,
-            myAccount.keys.pqSeed,
-            pqCipher
-          ).dhkey;
-        }
-      }
+    if (!isVoice) {
+      if (!attachment) throw new Error('Attachment entry not found');
+      if (attachment.encKey) return base642bin(attachment.encKey);
     }
 
-    // 2) Download encrypted bytes (use fetchUrl which may be pUrl or main url)
-    const res = await fetch(fetchUrl, { signal });
+    const account = myAccount;
+    const { secret, pqSeed } = account.keys;
+    if (item.my) {
+      const selfKey = isVoice ? item.audioSelfKey || item.selfKey : attachment.selfKey;
+      if (!selfKey) throw new Error('Missing selfKey for decrypt');
+      return hex2bin(decryptData(selfKey, secret + pqSeed, true));
+    }
+
+    const pqEncSharedKey = isVoice ? item.audioPqEncSharedKey || item.pqEncSharedKey : attachment.pqEncSharedKey;
+    if (!pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
+    const ok = await ensureContactKeys(address);
+    const senderPublicKey = myAccount === account && myData?.contacts?.[address]?.public;
+    if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${address}`);
+    const pqCipher = typeof pqEncSharedKey === 'string' ? base642bin(pqEncSharedKey) : pqEncSharedKey;
+    return dhkeyCombined(secret, senderPublicKey, pqSeed, pqCipher).dhkey;
+  }
+
+  async downloadAttachmentBlob(url, key, type, signal = this.abortController.signal) {
+    const res = await fetch(url, { signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const cipherBin = new Uint8Array(await res.arrayBuffer());
-
-    // 3) Decrypt
-    const cipherB64 = bin2base64(cipherBin);
-    const plainB64 = decryptChacha(dhkey, cipherB64);
+    const plainB64 = decryptChacha(key, bin2base64(cipherBin));
     if (!plainB64) throw new Error('decryptChacha returned null');
-    const clearBin = base642bin(plainB64);
-
-    // 4) Blob - use image/jpeg for thumbnails (urlOverride), otherwise use original type
-    const blobType = urlOverride ? 'image/jpeg' : (linkEl.dataset.type || 'application/octet-stream');
-    return new Blob([clearBin], { type: blobType });
+    return new Blob([base642bin(plainB64)], { type });
   }
 
   /**
@@ -25572,40 +25548,37 @@ class ChatModal {
   }
 
   /**
-   * Resolves image metadata from the backing message record.
-   * The URL is used for fetching; caches derive a hostname-independent attachment ID.
+   * Uses the full-media cache for regular chat images and videos.
    * @param {Object} item - message containing the attachment metadata
    * @param {HTMLElement} linkEl - rendered attachment row
-   * @returns {{url: string, type: string}}
-   */
-  getFullImageAttachment(item, linkEl) {
-    const attachmentUrl = linkEl?.dataset?.url;
-    const attachment = Array.isArray(item?.xattach)
-      ? item.xattach.find(candidate => candidate?.url === attachmentUrl)
-      : null;
-
-    assert(attachment, 'Image attachment entry not found');
-    assert(attachment.type?.startsWith('image/'), 'Full-image cache accepts only image attachments');
-
-    return {
-      url: attachment.url,
-      type: attachment.type,
-    };
-  }
-
-  /**
-   * Gets the decrypted full image from IndexedDB, downloading it on a cache miss.
-   * @param {Object} item - message containing the attachment metadata and keys
-   * @param {HTMLElement} linkEl - rendered attachment row
+   * @param {AbortSignal} [signal] - the video viewer's current open request
    * @returns {Promise<Blob>}
    */
-  async getFullImageBlob(item, linkEl) {
-    const attachment = this.getFullImageAttachment(item, linkEl);
-    return fullImageCache.getOrCache({
+  async getAttachmentBlob(item, linkEl, signal = this.abortController.signal) {
+    const url = linkEl.dataset.url;
+    if (!url || url === '#') throw new Error('Missing attachment url');
+    const attachment = item.type !== 'vm' && Array.isArray(item.xattach)
+      ? item.xattach.find(candidate => candidate?.url === url)
+      : null;
+    let downloadAndDecrypt = () => this.decryptAttachmentToBlob(item, linkEl, null, signal);
+    if (!FullMediaCache.supportsMimeType(attachment?.type)) return downloadAndDecrypt();
+
+    const account = myAccount;
+    let keyFingerprint;
+    const mimeType = normalizeMimeType(attachment.type);
+    if (mimeType.startsWith('video/')) {
+      const key = await this.getAttachmentDecryptionKey(item, attachment);
+      if (key.length !== 32) throw new Error('Invalid video decryption key');
+      keyFingerprint = hashBytes(key);
+      downloadAndDecrypt = () => this.downloadAttachmentBlob(url, key, mimeType, signal);
+    }
+    return fullMediaCache.getOrCache({
       attachment,
-      downloadAndDecrypt: () => this.decryptAttachmentToBlob(item, linkEl),
-      shouldCache: () => Array.isArray(item?.xattach)
-        && item.xattach.some(candidate => candidate?.url === attachment.url),
+      keyFingerprint,
+      downloadAndDecrypt,
+      shouldCache: () => myAccount === account && !signal?.aborted && !isDeleted(item)
+        && !removeAccountModal.isRemoving && !removeAccountsModal.isRemovingAll
+        && Array.isArray(item.xattach) && item.xattach.includes(attachment),
     });
   }
 
@@ -25614,10 +25587,8 @@ class ChatModal {
     try {
       const owner = MediaCacheOwnership.getOwnerKey();
       const isImage = item.type !== 'vm' && (linkEl.dataset.type || '').startsWith('image/');
-      loadingToastId = showToast(isImage ? 'Preparing image...' : 'Decrypting attachment...', 0, 'loading');
-      const blob = isImage
-        ? await this.getFullImageBlob(item, linkEl)
-        : await this.decryptAttachmentToBlob(item, linkEl);
+      loadingToastId = showToast(isImage ? 'Preparing image...' : 'Preparing attachment...', 0, 'loading');
+      const blob = await this.getAttachmentBlob(item, linkEl);
       const filename = decodeURIComponent(linkEl.dataset.name || 'download');
       const safePreviewMime = await getSafeAttachmentPreviewMime(blob);
       const safePreviewBlob = safePreviewMime
@@ -26581,25 +26552,37 @@ class ChatModal {
   }
 
   /**
-   * Removes cached thumbnails and full images for image attachments.
+   * Removes cached thumbnails and full media for deleted attachments.
    * Safe to call even if cached records don't exist.
-   * @param {any} xattach
+   * @param {Array} xattach
+   * @param {Object} [item] - The message, or own attachment context for a draft
+   * @param {string} [address] - The contact whose keys decrypt an incoming attachment
    */
-  purgeImageCaches(xattach) {
+  async purgeAttachmentCaches(xattach, item = { my: true }, address = this.address) {
     if (!Array.isArray(xattach) || !xattach.length) return;
 
-    for (const attachment of xattach) {
+    await Promise.all(xattach.map(async attachment => {
       const url = attachment?.url;
-      const type = attachment?.type;
-      if (!url || url === '#' || typeof type !== 'string' || !type.startsWith('image/')) continue;
+      const mimeType = normalizeMimeType(attachment?.type);
+      if (!url || url === '#' || !FullMediaCache.supportsMimeType(mimeType)) return;
 
-      void thumbnailCache.delete(url).catch((error) => {
+      const thumbnailRemoval = thumbnailCache.delete(url).catch((error) => {
         console.warn('Failed to delete thumbnail:', error);
       });
-      void fullImageCache.delete(url).catch((error) => {
-        console.warn('Failed to delete full image:', error);
-      });
-    }
+
+      try {
+        let keyFingerprint;
+        if (mimeType.startsWith('video/')) {
+          const key = await this.getAttachmentDecryptionKey(item, attachment, address);
+          if (key.length !== 32) throw new Error('Invalid video decryption key');
+          keyFingerprint = hashBytes(key);
+        }
+        await fullMediaCache.delete(url, mimeType, keyFingerprint);
+      } catch (error) {
+        console.warn('Failed to delete cached attachment:', error);
+      }
+      await thumbnailRemoval;
+    }));
   }
 
   /**
@@ -27158,7 +27141,7 @@ class ChatModal {
         void this.openMediaAttachment(row);
         break;
       case 'save':
-        void this.saveImageAttachment(row);
+        void this.saveAttachment(row);
         break;
       case 'share':
         shareAttachmentModal.open(messageEl);
@@ -27228,7 +27211,7 @@ class ChatModal {
   }
 
   /**
-   * Opens media promptly, preserving the full-image cache and downloading videos anew.
+   * Opens media promptly, using a cached full-size Blob when available.
    * @param {HTMLElement} attachmentRow
    */
   async openMediaAttachment(attachmentRow) {
@@ -27244,9 +27227,8 @@ class ChatModal {
       requestId = fullImageModal.openLoading(filename, kind, attachmentRow.dataset.thumbnailUrl || '');
       if (requestId === null) return;
 
-      const blob = kind === 'image'
-        ? await this.getFullImageBlob(item, attachmentRow)
-        : await this.decryptAttachmentToBlob(item, attachmentRow, null, fullImageModal.abortController.signal);
+      const signal = kind === 'video' ? fullImageModal.abortController.signal : undefined;
+      const blob = await this.getAttachmentBlob(item, attachmentRow, signal);
       if (!fullImageModal.isCurrentRequest(requestId)) return;
       const safePreviewMime = await getSafeAttachmentPreviewMime(blob);
       if (!fullImageModal.isCurrentRequest(requestId)) return;
@@ -27272,14 +27254,12 @@ class ChatModal {
   }
 
   /**
-   * Save an image attachment using the cache-first download/decrypt flow.
+   * Save an attachment from the context menu.
    * @param {HTMLElement} attachmentRow
    */
-  async saveImageAttachment(attachmentRow) {
-    // Reuse normal attachment download flow (cache/decrypt + download)
+  async saveAttachment(attachmentRow) {
     const { item } = this.getAttachmentContextFromRow(attachmentRow);
 
-    // Concurent download prevention
     if (this.attachmentDownloadInProgress) return;
     this.attachmentDownloadInProgress = true;
     try {
@@ -28100,8 +28080,8 @@ class ChatModal {
           DELETED_MESSAGE_LOCAL_TEXT
         );
       }
-      // Remove cached image data for attachments, then remove attachments
-      this.purgeImageCaches(message.xattach);
+      // Remove cached media for attachments, then remove attachments
+      void this.purgeAttachmentCaches(message.xattach, message);
       delete message.xattach;
       purgeContactReactionsForTarget(contact, message.txid);
       purgePendingReactionsForTarget(this.address, message.txid);
@@ -38605,6 +38585,24 @@ class MediaCacheOwnership {
   constructor(database, storeNames) {
     this.database = database;
     this.storeNames = storeNames;
+    this.deleting = false;
+  }
+
+  async deleteDatabase() {
+    this.deleting = true;
+    const cache = this.database;
+    // Wait for any existing open to finish so we can close its connection.
+    await cache.openPromise?.catch(() => {});
+    cache.db?.close();
+    cache.db = null;
+    cache.openPromise = null;
+
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(cache.dbName);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => reject(new Error(`Deletion of ${cache.dbName} is blocked by another connection`));
+    });
   }
 
   static upgrade(transaction, storeNames) {
@@ -38628,7 +38626,7 @@ class MediaCacheOwnership {
       const transaction = db.transaction(storeNames, 'readwrite');
       let result = false;
       transaction.oncomplete = () => resolve(result);
-      transaction.onerror = () => reject(transaction.error);
+      transaction.onerror = event => reject(event.target.error || transaction.error);
       transaction.onabort = () => reject(transaction.error || new Error('Media cache transaction aborted'));
       try {
         action({ transaction, owners, setResult: value => { result = value; } });
@@ -38651,12 +38649,16 @@ class MediaCacheOwnership {
     return next;
   }
 
-  async read(storeName, id, owner = null) {
+  async read(storeName, id, owner = null, acceptsRecord) {
     return this.run([storeName], owner, ({ transaction, owners, setResult }) => {
       const store = transaction.objectStore(storeName);
       const request = store.get(id);
       request.onsuccess = () => {
         let record = request.result;
+        if (record && acceptsRecord && !acceptsRecord(record)) {
+          setResult(null);
+          return;
+        }
         if (record && owners.length && Array.isArray(record.ownerKeys)) {
           const previousOwnerCount = record.ownerKeys.length;
           record = MediaCacheOwnership.mergeRecord(record, record, owners);
@@ -38737,6 +38739,7 @@ class ContactAvatarCache {
    * @returns {Promise<IDBDatabase>}
    */
   async init() {
+    if (this.ownership.deleting) throw new Error('Contact avatar cache is being deleted');
     if (this.db) return this.db;
     if (this.openPromise) return this.openPromise;
     this.openPromise = new Promise((resolve, reject) => {
@@ -38750,8 +38753,12 @@ class ContactAvatarCache {
 
       request.onsuccess = () => {
         this.db = request.result;
-        this.db.onversionchange = () => {
-          this.db.close();
+        this.db.onversionchange = (event) => {
+          if (event.newVersion === null) {
+            this.ownership.deleting = true;
+            this.clearBlobUrls();
+          }
+          request.result.close();
           this.db = null;
           this.openPromise = null;
         };
@@ -38836,6 +38843,15 @@ class ContactAvatarCache {
 
   async removeOwners(accountKeys) {
     await this.ownership.removeOwners(accountKeys);
+    this.clearBlobUrls();
+  }
+
+  async deleteDatabase() {
+    await this.ownership.deleteDatabase();
+    this.clearBlobUrls();
+  }
+
+  clearBlobUrls() {
     for (const url of this.blobUrlCache.values()) URL.revokeObjectURL(url);
     this.blobUrlCache.clear();
   }
@@ -39034,11 +39050,12 @@ class ThumbnailCache {
   constructor() {
     this.dbName = 'liberdus_thumbnails';
     this.storeName = 'thumbnails';
-    this.fullImageStoreName = 'fullImages';
+    // Keep the existing store and its records when adding full videos.
+    this.fullMediaStoreName = 'fullImages';
     this.dbVersion = 4;
     this.db = null;
     this.openPromise = null;
-    this.ownership = new MediaCacheOwnership(this, [this.storeName, this.fullImageStoreName]);
+    this.ownership = new MediaCacheOwnership(this, [this.storeName, this.fullMediaStoreName]);
     this.maxCacheSize = 50 * 1024 * 1024; // 50MB in bytes
   }
 
@@ -39080,6 +39097,7 @@ class ThumbnailCache {
    * @returns {Promise<void>}
    */
   async init() {
+    if (this.ownership.deleting) throw new Error('Attachment cache is being deleted');
     if (this.db) return this.db;
     if (this.openPromise) return this.openPromise;
 
@@ -39099,8 +39117,9 @@ class ThumbnailCache {
 
       request.onsuccess = () => {
         this.db = request.result;
-        this.db.onversionchange = () => {
-          this.db.close();
+        this.db.onversionchange = (event) => {
+          if (event.newVersion === null) this.ownership.deleting = true;
+          request.result.close();
           this.db = null;
           this.openPromise = null;
         };
@@ -39165,7 +39184,7 @@ class ThumbnailCache {
    * @param {() => void} done
    */
   migrateToVersion2(transaction, done) {
-    const store = ThumbnailCache.ensureLegacyStore(transaction, this.fullImageStoreName);
+    const store = ThumbnailCache.ensureLegacyStore(transaction, this.fullMediaStoreName);
     store.count().onsuccess = done;
   }
 
@@ -39176,7 +39195,7 @@ class ThumbnailCache {
    */
   migrateToVersion3(transaction, done) {
     const db = transaction.db;
-    const storeNames = [this.storeName, this.fullImageStoreName];
+    const storeNames = [this.storeName, this.fullMediaStoreName];
     let remaining = storeNames.length;
     const storeFinished = () => {
       remaining--;
@@ -39197,12 +39216,16 @@ class ThumbnailCache {
   }
 
   migrateToVersion4(transaction, done) {
-    MediaCacheOwnership.upgrade(transaction, [this.storeName, this.fullImageStoreName]);
+    MediaCacheOwnership.upgrade(transaction, [this.storeName, this.fullMediaStoreName]);
     done();
   }
 
   removeOwners(accountKeys) {
     return this.ownership.removeOwners(accountKeys);
+  }
+
+  deleteDatabase() {
+    return this.ownership.deleteDatabase();
   }
 
   /**
@@ -40338,114 +40361,173 @@ class PopupSelect {
   }
 }
 
-const FULL_IMAGE_CACHE_MAX_SIZE = 250 * 1024 * 1024;
+const FULL_MEDIA_CACHE_MAX_SIZE = 1024 * 1024 * 1024;
 
-class FullImageCache {
-  constructor(database, maxCacheSize = FULL_IMAGE_CACHE_MAX_SIZE) {
+class FullMediaCache {
+  constructor(database, maxCacheSize = FULL_MEDIA_CACHE_MAX_SIZE) {
     this.database = database;
+    this.storeName = database.fullMediaStoreName;
     this.maxCacheSize = maxCacheSize;
   }
 
-  getRequestResult(request) {
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+  static supportsMimeType(value) {
+    const mimeType = normalizeMimeType(value);
+    return mimeType.startsWith('image/') || mimeType.startsWith('video/');
   }
 
-  waitForTransaction(transaction) {
-    return new Promise((resolve, reject) => {
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error);
-    });
+  static matchesRecord(record, mimeType, keyFingerprint) {
+    if (!(record?.blob instanceof Blob)) return false;
+    const storedType = normalizeMimeType(record.mimeType || record.blob.type);
+    if (mimeType.startsWith('video/')) {
+      return storedType.startsWith('video/') && !!keyFingerprint && record.keyFingerprint === keyFingerprint;
+    }
+    return mimeType.startsWith('image/') && storedType.startsWith('image/') && !record.keyFingerprint;
   }
 
-  async get(attachmentUrl, owner) {
-    const record = await this.getRecord(attachmentUrl, owner);
+  async get(attachmentUrl, owner, acceptsRecord) {
+    const record = await this.getRecord(attachmentUrl, owner, acceptsRecord);
     return record?.blob || null;
   }
 
-  async getRecord(attachmentUrl, owner = MediaCacheOwnership.getOwnerKey()) {
+  async getRecord(attachmentUrl, owner = MediaCacheOwnership.getOwnerKey(), acceptsRecord) {
     const id = ThumbnailCache.getAttachmentId(attachmentUrl);
-    return this.database.ownership.read(this.database.fullImageStoreName, id, owner);
+    return this.database.ownership.read(this.storeName, id, owner, acceptsRecord);
   }
 
-  async getCacheSize() {
-    const db = await this.database.init();
-    const transaction = db.transaction(this.database.fullImageStoreName, 'readonly');
-    const store = transaction.objectStore(this.database.fullImageStoreName);
-    const records = await this.getRequestResult(store.getAll());
-    return records.reduce((total, record) => total + Number(record.size || 0), 0);
+  async getAvailableStorage() {
+    try {
+      const estimate = await navigator.storage?.estimate?.();
+      if (Number.isFinite(estimate?.quota) && Number.isFinite(estimate?.usage)) {
+        return Math.max(0, estimate.quota - estimate.usage);
+      }
+    } catch {
+      // Storage estimates are optional. IndexedDB still enforces its quota.
+    }
+    return Infinity;
   }
 
-  async put(attachment, blob, shouldCache, owner = MediaCacheOwnership.getOwnerKey()) {
-    const attachmentUrl = attachment?.url;
-    const mimeType = attachment?.type || blob?.type || '';
-    if (!attachmentUrl) throw new Error('Cannot cache an image without an attachment URL');
-    if (!mimeType.startsWith('image/')) throw new Error('Full-image cache accepts only image attachments');
-    if (!(blob instanceof Blob)) throw new Error('Full-image cache requires a Blob');
-    if (blob.size > this.maxCacheSize || (shouldCache && !shouldCache())) return false;
-    const id = ThumbnailCache.getAttachmentId(attachmentUrl);
-    return this.database.ownership.run([this.database.fullImageStoreName], owner, ({ transaction, owners, setResult }) => {
-      const store = transaction.objectStore(this.database.fullImageStoreName);
-      const existingRequest = store.get(id);
-      const evictionCandidates = [];
-      let currentSize = 0;
-      let existingSize = 0;
-      const request = store.index('cachedAt').openCursor(null, 'next');
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (cursor) {
-          const recordSize = Number(cursor.value?.size || 0);
-          currentSize += recordSize;
-          if (cursor.primaryKey === id) existingSize = recordSize;
-          else evictionCandidates.push({ id: cursor.primaryKey, size: recordSize });
-          cursor.continue();
+  async put({ attachment, blob, keyFingerprint, shouldCache, owner }) {
+    const id = ThumbnailCache.getAttachmentId(attachment?.url);
+    const mimeType = normalizeMimeType(attachment.type || blob?.type);
+    if (!FullMediaCache.supportsMimeType(mimeType)) throw new Error('Full-media cache accepts only images and videos');
+    if (!(blob instanceof Blob)) throw new Error('Full-media cache requires a Blob');
+    if (blob.size > this.maxCacheSize || !shouldCache()) return false;
+
+    const record = { id, mimeType, size: blob.size, blob, ...(keyFingerprint ? { keyFingerprint } : {}) };
+    const available = await this.getAvailableStorage();
+    try {
+      return await this.write(record, available, shouldCache, owner);
+    } catch (error) {
+      if (error?.name !== 'QuotaExceededError' || !shouldCache()) throw error;
+      // A failed write rolls back its evictions. Commit space reclamation before retrying.
+      await this.evictForQuota(id, blob.size, shouldCache);
+      return this.write(record, Infinity, shouldCache, owner);
+    }
+  }
+
+  write(record, available, shouldCache, owner) {
+    return this.database.ownership.run([this.storeName], owner, ({ transaction, owners, setResult }) => {
+      if (!shouldCache()) return;
+      const store = transaction.objectStore(this.storeName);
+      const lookup = store.get(record.id);
+      lookup.onsuccess = () => {
+        if (!shouldCache()) return;
+        const existing = lookup.result;
+        if (FullMediaCache.matchesRecord(existing, record.mimeType, record.keyFingerprint)) {
+          // Another request filled the cache while this one was downloading.
+          if (Array.isArray(existing.ownerKeys) && owners.some(key => !existing.ownerKeys.includes(key))) {
+            store.put(MediaCacheOwnership.mergeRecord(existing, existing, owners));
+          }
+          setResult(true);
           return;
         }
-        if (shouldCache && !shouldCache()) return;
-        let bytesToFree = Math.max(0, currentSize - existingSize + blob.size - this.maxCacheSize);
-        for (const candidate of evictionCandidates) {
-          if (bytesToFree <= 0) break;
-          store.delete(candidate.id);
-          bytesToFree -= candidate.size;
-        }
-        store.put(MediaCacheOwnership.mergeRecord(existingRequest.result, {
-          id, mimeType, size: blob.size, blob, cachedAt: Date.now(),
-        }, owners));
-        setResult(true);
+
+        // Preserve a usable image or authenticated video when another attachment reuses its ID.
+        if (FullMediaCache.matchesRecord(existing, 'image/')) return;
+        if (existing?.keyFingerprint && existing.blob instanceof Blob) return;
+
+        const evictionCandidates = [];
+        let evictableBytes = 0;
+        const request = store.index('cachedAt').openCursor();
+        request.onsuccess = () => {
+          if (!shouldCache()) return;
+          const cursor = request.result;
+          if (cursor) {
+            if (cursor.primaryKey !== record.id) {
+              const size = Number(cursor.value.size || 0);
+              evictableBytes += size;
+              evictionCandidates.push({ id: cursor.primaryKey, size });
+            }
+            cursor.continue();
+            return;
+          }
+
+          const extraBytes = record.size - Number(existing?.size || 0);
+          let bytesToFree = Math.max(0, evictableBytes + record.size - this.maxCacheSize, extraBytes - available);
+          if (bytesToFree > evictableBytes) return;
+          for (const candidate of evictionCandidates) {
+            if (bytesToFree <= 0) break;
+            store.delete(candidate.id);
+            bytesToFree -= candidate.size;
+          }
+          store.put(MediaCacheOwnership.mergeRecord(null, { ...record, cachedAt: Date.now() }, owners));
+          setResult(true);
+        };
       };
     });
   }
 
-  async delete(attachmentUrl) {
-    const id = ThumbnailCache.getAttachmentId(attachmentUrl);
-    const db = await this.database.init();
-    const transaction = db.transaction(this.database.fullImageStoreName, 'readwrite');
-    transaction.objectStore(this.database.fullImageStoreName).delete(id);
-    await this.waitForTransaction(transaction);
+  evictForQuota(incomingId, bytesToFree, shouldCache) {
+    return this.database.ownership.run([this.storeName], null, ({ transaction }) => {
+      if (!shouldCache()) return;
+      const request = transaction.objectStore(this.storeName).index('cachedAt').openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor || bytesToFree <= 0 || !shouldCache()) return;
+        if (cursor.primaryKey !== incomingId) {
+          bytesToFree -= Number(cursor.value?.size || 0);
+          cursor.delete();
+        }
+        cursor.continue();
+      };
+    });
   }
 
-  async getOrCache({ attachment, downloadAndDecrypt, shouldCache }) {
+  async delete(attachmentUrl, mimeType, keyFingerprint) {
+    const id = ThumbnailCache.getAttachmentId(attachmentUrl);
+    const type = normalizeMimeType(mimeType);
+    return this.database.ownership.run([this.storeName], null, ({ transaction }) => {
+      const store = transaction.objectStore(this.storeName);
+      const lookup = store.get(id);
+      lookup.onsuccess = () => {
+        if (FullMediaCache.matchesRecord(lookup.result, type, keyFingerprint)) store.delete(id);
+      };
+    });
+  }
+
+  async getOrCache({ attachment, keyFingerprint, downloadAndDecrypt, shouldCache }) {
     const owner = MediaCacheOwnership.getOwnerKey();
+    const canCache = () => !this.database.ownership.deleting && (!shouldCache || shouldCache());
+    const mimeType = normalizeMimeType(attachment.type);
+    if (!canCache() || (mimeType.startsWith('video/') && !keyFingerprint)) return downloadAndDecrypt();
     try {
-      const cachedBlob = await this.get(attachment.url, owner);
-      if (cachedBlob) return cachedBlob;
+      const cachedBlob = await this.get(attachment.url, owner, record =>
+        canCache() && FullMediaCache.matchesRecord(record, mimeType, keyFingerprint));
+      if (cachedBlob && canCache()) return cachedBlob;
     } catch (error) {
-      console.warn('Failed to read full image from cache:', error);
+      console.warn('Failed to read full media from cache:', error);
     }
 
     const blob = await downloadAndDecrypt();
 
     try {
-      await this.put(attachment, blob, shouldCache, owner);
+      await this.put({ attachment, blob, keyFingerprint, shouldCache: canCache, owner });
     } catch (error) {
-      console.warn('Failed to cache full image:', error);
+      console.warn('Failed to cache full media:', error);
     }
 
     return blob;
   }
 }
 
-const fullImageCache = new FullImageCache(thumbnailCache);
+const fullMediaCache = new FullMediaCache(thumbnailCache);
