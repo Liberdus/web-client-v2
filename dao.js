@@ -1770,23 +1770,11 @@ export const DAO_USER_VOTE_SUMMARY_KINDS = Object.freeze({
   DETAIL: 'detail',
 });
 
-function findDaoVoterEntry(proposal, normalizedAddress) {
-  if (!normalizedAddress || !Array.isArray(proposal?.voterList)) return null;
-  for (const entry of proposal.voterList) {
-    if (normalizeDaoAddress(entry?.address) !== normalizedAddress) continue;
-    const timestamp = normalizeDaoTimestamp(entry?.timestamp);
-    return { address: normalizedAddress, timestamp };
-  }
-  return null;
-}
-
 function toDaoShare(part, total) {
-  if (typeof part !== 'bigint' || typeof total !== 'bigint' || total <= 0n) return 0;
   return Number((part * 10_000n + total / 2n) / total) / 10_000;
 }
 
-// Summarizes the signed-in account's own vote on a proposal from its locally saved
-// casts and the proposal's voterList. Never inspects other voters.
+// Summarizes the signed-in account's locally saved casts, with a voter-list fallback.
 //   none   - nothing shows the account voted
 //   voted  - voterList proves participation but no local cast details exist
 //   detail - local casts exist, listed separately in time order; each carries its
@@ -1794,7 +1782,8 @@ function toDaoShare(part, total) {
 //            and the applied power when the cast reports receipt option weights
 export function getDaoUserVoteSummary({ proposal, address, casts } = {}) {
   const normalizedAddress = normalizeDaoAddress(address);
-  const voterEntry = findDaoVoterEntry(proposal, normalizedAddress);
+  if (!normalizedAddress) return { kind: DAO_USER_VOTE_SUMMARY_KINDS.NONE };
+
   const labels = getDaoProposalOptionLabels(proposal);
   const savedCasts = normalizeDaoUserVoteCasts(casts);
   const optionCount = labels.length || savedCasts.reduce((max, cast) => Math.max(max, cast.weights.length), 0);
@@ -1802,17 +1791,14 @@ export function getDaoUserVoteSummary({ proposal, address, casts } = {}) {
     .filter((cast) => cast.weights.length === optionCount)
     .sort((a, b) => a.timestamp - b.timestamp);
 
-  if (!normalizedAddress || validCasts.length === 0) {
-    if (voterEntry) {
-      return { kind: DAO_USER_VOTE_SUMMARY_KINDS.VOTED, confirmed: true, timestamp: voterEntry.timestamp };
-    }
-    return { kind: DAO_USER_VOTE_SUMMARY_KINDS.NONE };
+  if (validCasts.length === 0) {
+    const voted = Array.isArray(proposal?.voterList)
+      && proposal.voterList.some((entry) => normalizeDaoAddress(entry?.address) === normalizedAddress);
+    return { kind: voted ? DAO_USER_VOTE_SUMMARY_KINDS.VOTED : DAO_USER_VOTE_SUMMARY_KINDS.NONE };
   }
 
   return {
     kind: DAO_USER_VOTE_SUMMARY_KINDS.DETAIL,
-    confirmed: Boolean(voterEntry),
-    timestamp: voterEntry?.timestamp ?? 0,
     casts: validCasts.map((cast) => {
       const totalWeight = cast.weights.reduce((sum, weight) => sum + BigInt(weight), 0n);
       return {
@@ -2029,7 +2015,7 @@ export function createDaoProposalVoteTracker({
   function getCasts(proposalNumber) {
     const number = normalizeDaoPositiveInteger(proposalNumber);
     if (!number) return [];
-    return normalizeDaoUserVoteCasts(readVotes()[number]?.casts);
+    return readVotes()[number]?.casts ?? [];
   }
 
   return Object.freeze({
