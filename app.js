@@ -15008,14 +15008,15 @@ class SearchMessagesModal {
 
   /**
    * Renders a preview from buildSearchPreview() as text nodes and <mark> elements.
-   * Message and query text are assigned through textContent and never parsed as HTML.
+   * Previewed and query text are assigned through textContent and never parsed as HTML.
+   * Also used by contact search for its "field: value" labels.
    * @param {ReturnType<SearchMessagesModal['buildSearchPreview']>} preview
-   * @param {boolean} my true for messages sent by the user ("<"), false for received (">")
+   * @param {string} prefix text placed before the preview, e.g. a direction marker or field label
    * @returns {DocumentFragment}
    */
-  renderSearchPreview(preview, my) {
+  renderSearchPreview(preview, prefix = '') {
     const fragment = document.createDocumentFragment();
-    let pendingText = `${my ? '<' : '>'} ${preview.leadingEllipsis ? '...' : ''}`;
+    let pendingText = `${prefix}${preview.leadingEllipsis ? '...' : ''}`;
     let cursor = 0;
     preview.highlights.forEach(({ start, end }) => {
       pendingText += preview.text.slice(cursor, start);
@@ -15084,16 +15085,18 @@ class SearchMessagesModal {
               </div>
               <div class="chat-content">
                   <div class="chat-header">
-                      <div class="chat-name">${result.username}</div>
+                      <div class="chat-name"></div>
                       <div class="chat-time">${formatTime(result.timestamp)}</div>
                   </div>
                   <div class="chat-message"></div>
               </div>
           `;
 
+      // Contact names are local or sender-supplied text, so they are never parsed as HTML
+      resultElement.querySelector('.chat-name').textContent = result.username;
       // Message preview: "<" for user messages, ">" for contact messages. Rendered as text
       // nodes and <mark> elements so message and query text are never parsed as HTML
-      resultElement.querySelector('.chat-message').appendChild(this.renderSearchPreview(result.preview, result.my));
+      resultElement.querySelector('.chat-message').appendChild(this.renderSearchPreview(result.preview, result.my ? '< ' : '> '));
 
       resultElement.addEventListener('click', async (event) => {
         event.stopImmediatePropagation(); // Stop all other listeners and bubbling immediately
@@ -15203,6 +15206,13 @@ class SearchContactsModal {
     return this.modal.classList.contains('active');
   }
 
+  /**
+   * Lists the profile fields a contact can be found by, each once per distinct value.
+   * Only these fields are searched: the rest of senderInfo (avatarId, avatarKey, timezone)
+   * holds identifiers and keys a user never searches for and should not see in a result label.
+   * @param {object} contact
+   * @returns {Array<{field: string, value: string}>} display label and raw value per field
+   */
   getSearchableFields(contact) {
     const fields = [];
     const seenValues = new Set();
@@ -15215,7 +15225,6 @@ class SearchContactsModal {
       { key: 'linkedin', label: 'linkedin' },
       { key: 'x', label: 'x' },
     ];
-    const knownSenderInfoKeys = new Set(fieldDefinitions.map(({ key }) => key));
     const senderInfo = contact.senderInfo || null;
 
     const normalize = (value) =>
@@ -15243,18 +15252,9 @@ class SearchContactsModal {
       addField(label, primaryValue);
 
       if (senderValue && senderValue !== primaryValue) {
-        addField(`${label}`, senderValue);
+        addField(label, senderValue);
       }
     });
-
-    if (senderInfo) {
-      Object.entries(senderInfo).forEach(([key, value]) => {
-        if (knownSenderInfoKeys.has(key)) {
-          return;
-        }
-        addField(`${key}`, value);
-      });
-    }
 
     return fields;
   }
@@ -15301,9 +15301,17 @@ class SearchContactsModal {
     });
   }
 
+  /**
+   * Picks the field shown under a contact result and locates the query inside its value.
+   * Exact matches win over prefix matches, which win over substring matches. Match
+   * positions are found on the raw value; displayContactResults() renders them as nodes.
+   * @param {object} contact
+   * @param {string} searchText
+   * @returns {{field: string, preview: ReturnType<SearchMessagesModal['buildSearchPreview']>} | null}
+   */
   createMatchPreview(contact, searchText) {
     if (!searchText) {
-      return '';
+      return null;
     }
 
     const searchLower = searchText.toLowerCase();
@@ -15330,16 +15338,16 @@ class SearchContactsModal {
       matchBuckets.exact[0] || matchBuckets.startsWith[0] || matchBuckets.includes[0];
 
     if (!prioritizedField) {
-      return '';
+      return null;
     }
 
-    const highlightRegex = new RegExp(escapeRegExp(searchText), 'gi');
-    const highlightedValue = prioritizedField.value.replace(
-      highlightRegex,
-      (match) => `<mark>${match}</mark>`
-    );
-
-    return `${prioritizedField.field}: ${highlightedValue}`;
+    // Case-insensitive literal matching; regex metacharacters in the query are escaped.
+    // Contact values are short, so the whole value is shown without an excerpt window
+    const matchPattern = new RegExp(escapeRegExp(searchText), 'gi');
+    return {
+      field: prioritizedField.field,
+      preview: messageSearchModal.buildSearchPreview(prioritizedField.value, matchPattern, Infinity),
+    };
   }
 
   displayContactResults(results, searchText) {
@@ -15353,9 +15361,8 @@ class SearchContactsModal {
 
       const avatarHtml = await getContactAvatarHtml(contact);
 
-      // Create match preview with label and highlighted matched value prioritizing exact and starts-with matches
+      // Match preview: "field: value" with the query highlighted, prioritizing exact and starts-with matches
       const matchPreview = this.createMatchPreview(contact, searchText);
-      const displayedName = getContactDisplayName(contact);
 
       contactElement.innerHTML = `
               <div class="chat-avatar">
@@ -15363,13 +15370,22 @@ class SearchContactsModal {
               </div>
               <div class="chat-content">
                   <div class="chat-header">
-                      <span class="chat-name">${displayedName}</span>
+                      <span class="chat-name"></span>
                   </div>
                   <div class="chat-message">
-                      <span class="match-label">${matchPreview}</span>
+                      <span class="match-label"></span>
                   </div>
               </div>
           `;
+
+      // Contact values are local or sender-supplied text. They are assigned as text nodes and
+      // <mark> elements so neither contact nor query text is ever parsed as HTML
+      contactElement.querySelector('.chat-name').textContent = getContactDisplayName(contact);
+      if (matchPreview) {
+        contactElement
+          .querySelector('.match-label')
+          .appendChild(messageSearchModal.renderSearchPreview(matchPreview.preview, `${matchPreview.field}: `));
+      }
 
       // Add click handler to show contact info
       contactElement.addEventListener('click', () => {
