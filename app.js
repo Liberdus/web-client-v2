@@ -6882,13 +6882,18 @@ class ProposalInfoModal {
   // Re-renders only the Your vote slot of the open modal, e.g. right after a
   // submitted cast is saved, without rebuilding the rest of the proposal view.
   refreshUserVote(proposal) {
-    const slot = this.content?.querySelector('.proposal-user-vote-slot');
-    if (!slot || !proposal) return;
-    const disclosure = slot.querySelector('.proposal-user-vote-section');
-    const summaryFocused = disclosure?.firstElementChild.matches(':focus');
-    slot.innerHTML = this.renderUserVote(proposal, getDaoCurrentAccountAddress(), disclosure?.open);
-    if (summaryFocused) {
-      slot.querySelector('.proposal-user-vote-heading')?.focus({ preventScroll: true });
+    try {
+      const slot = this.content?.querySelector('.proposal-user-vote-slot');
+      if (!slot || !proposal) return;
+      const disclosure = slot.querySelector('.proposal-user-vote-section');
+      const summaryFocused = disclosure?.firstElementChild?.matches(':focus');
+      slot.innerHTML = this.renderUserVote(proposal, getDaoCurrentAccountAddress(), disclosure?.open);
+      if (summaryFocused) {
+        slot.querySelector('.proposal-user-vote-heading')?.focus({ preventScroll: true });
+      }
+    } catch (error) {
+      // The vote is already submitted and saved; a display problem must not read as a failed vote.
+      console.warn('Failed to refresh the saved vote view:', error);
     }
   }
 
