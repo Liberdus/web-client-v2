@@ -17361,23 +17361,21 @@ class RemoveAccountsModal {
       return;
     }
     this.isRemovingAll = true;
+    let cacheCleared = true;
     try {
       await fullMediaCache.clear();
     } catch (error) {
-      this.isRemovingAll = false;
+      cacheCleared = false;
       console.warn('Failed to clear cached attachments:', error);
-      showToast('Unable to clear cached attachments. Please try again.', 4000, 'error');
-      return;
     }
 
-    // Clear all localStorage data
     localStorage.clear();
-    
-    // Show success message
-    showToast('All data has been removed from this device', 3000, 'success');
-    
-    // Reload the page to redirect to welcome screen
     clearMyData();
+    if (cacheCleared) {
+      showToast('All data has been removed from this device', 3000, 'success');
+    } else {
+      alert('All accounts were removed, but cached attachments could not be cleared.');
+    }
     window.location.reload();
   }
 }
