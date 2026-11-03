@@ -17361,20 +17361,21 @@ class RemoveAccountsModal {
       return;
     }
     this.isRemovingAll = true;
-    let cacheCleared = true;
-    try {
-      await fullMediaCache.clear();
-    } catch (error) {
-      cacheCleared = false;
-      console.warn('Failed to clear cached attachments:', error);
+    const results = await Promise.allSettled([
+      contactAvatarCache.deleteDatabase(),
+      thumbnailCache.deleteDatabase(),
+    ]);
+    const failures = results.filter(result => result.status === 'rejected');
+    for (const { reason } of failures) {
+      console.warn('Failed to delete a media cache database:', reason);
     }
 
     localStorage.clear();
     clearMyData();
-    if (cacheCleared) {
+    if (failures.length === 0) {
       showToast('All data has been removed from this device', 3000, 'success');
     } else {
-      alert('All accounts were removed, but cached attachments could not be cleared.');
+      alert('All accounts were removed, but some cached media could not be cleared.');
     }
     window.location.reload();
   }
@@ -38584,6 +38585,24 @@ class MediaCacheOwnership {
   constructor(database, storeNames) {
     this.database = database;
     this.storeNames = storeNames;
+    this.deleting = false;
+  }
+
+  async deleteDatabase() {
+    this.deleting = true;
+    const cache = this.database;
+    // Wait for any existing open to finish so we can close its connection.
+    await cache.openPromise?.catch(() => {});
+    cache.db?.close();
+    cache.db = null;
+    cache.openPromise = null;
+
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(cache.dbName);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => reject(new Error(`Deletion of ${cache.dbName} is blocked by another connection`));
+    });
   }
 
   static upgrade(transaction, storeNames) {
@@ -38720,6 +38739,7 @@ class ContactAvatarCache {
    * @returns {Promise<IDBDatabase>}
    */
   async init() {
+    if (this.ownership.deleting) throw new Error('Contact avatar cache is being deleted');
     if (this.db) return this.db;
     if (this.openPromise) return this.openPromise;
     this.openPromise = new Promise((resolve, reject) => {
@@ -38733,8 +38753,12 @@ class ContactAvatarCache {
 
       request.onsuccess = () => {
         this.db = request.result;
-        this.db.onversionchange = () => {
-          this.db.close();
+        this.db.onversionchange = (event) => {
+          if (event.newVersion === null) {
+            this.ownership.deleting = true;
+            this.clearBlobUrls();
+          }
+          request.result.close();
           this.db = null;
           this.openPromise = null;
         };
@@ -38819,6 +38843,15 @@ class ContactAvatarCache {
 
   async removeOwners(accountKeys) {
     await this.ownership.removeOwners(accountKeys);
+    this.clearBlobUrls();
+  }
+
+  async deleteDatabase() {
+    await this.ownership.deleteDatabase();
+    this.clearBlobUrls();
+  }
+
+  clearBlobUrls() {
     for (const url of this.blobUrlCache.values()) URL.revokeObjectURL(url);
     this.blobUrlCache.clear();
   }
@@ -39064,6 +39097,7 @@ class ThumbnailCache {
    * @returns {Promise<void>}
    */
   async init() {
+    if (this.ownership.deleting) throw new Error('Attachment cache is being deleted');
     if (this.db) return this.db;
     if (this.openPromise) return this.openPromise;
 
@@ -39083,8 +39117,9 @@ class ThumbnailCache {
 
       request.onsuccess = () => {
         this.db = request.result;
-        this.db.onversionchange = () => {
-          this.db.close();
+        this.db.onversionchange = (event) => {
+          if (event.newVersion === null) this.ownership.deleting = true;
+          request.result.close();
           this.db = null;
           this.openPromise = null;
         };
@@ -39187,6 +39222,10 @@ class ThumbnailCache {
 
   removeOwners(accountKeys) {
     return this.ownership.removeOwners(accountKeys);
+  }
+
+  deleteDatabase() {
+    return this.ownership.deleteDatabase();
   }
 
   /**
@@ -40329,7 +40368,6 @@ class FullMediaCache {
     this.database = database;
     this.storeName = database.fullMediaStoreName;
     this.maxCacheSize = maxCacheSize;
-    this.clearVersion = 0;
   }
 
   static supportsMimeType(value) {
@@ -40467,17 +40505,9 @@ class FullMediaCache {
     });
   }
 
-  clear() {
-    this.clearVersion++;
-    return this.database.ownership.run([this.storeName], null, ({ transaction }) => {
-      transaction.objectStore(this.storeName).clear();
-    });
-  }
-
   async getOrCache({ attachment, keyFingerprint, downloadAndDecrypt, shouldCache }) {
     const owner = MediaCacheOwnership.getOwnerKey();
-    const clearVersion = this.clearVersion;
-    const canCache = () => this.clearVersion === clearVersion && (!shouldCache || shouldCache());
+    const canCache = () => !this.database.ownership.deleting && (!shouldCache || shouldCache());
     const mimeType = normalizeMimeType(attachment.type);
     if (!canCache() || (mimeType.startsWith('video/') && !keyFingerprint)) return downloadAndDecrypt();
     try {
