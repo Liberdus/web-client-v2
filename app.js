@@ -6841,11 +6841,14 @@ class ProposalInfoModal {
     }
 
     const hasMultipleCasts = summary.casts.length > 1;
-    const totalSpend = summary.casts.reduce((total, cast) => total + cast.spend, 0n);
+    const totalSpend = summary.casts
+      .filter((cast) => cast.status !== DAO_USER_VOTE_CAST_STATUSES.FAILED)
+      .reduce((total, cast) => total + cast.spend, 0n);
     const cards = summary.casts.map((cast, index) => {
       const castLabel = hasMultipleCasts ? `Vote ${index + 1}` : 'Vote';
       const castTime = formatDaoCompactTimestamp(cast.timestamp);
       const statusLabel = this.formatUserVoteCastStatus(cast.status);
+      const isFailed = cast.status === DAO_USER_VOTE_CAST_STATUSES.FAILED;
       const hasPower = cast.totalPower !== null;
       const rows = cast.rows.map((row) => {
         const percent = hasPower ? formatDaoPercent(row.share) : '';
@@ -6862,8 +6865,8 @@ class ProposalInfoModal {
       const powerRow = hasPower
         ? `<div class="proposal-user-vote-total"><span>Voting power</span><strong>${escapeHtml(formatDaoVotingPower(cast.totalPower))}</strong></div>`
         : '';
-      const spendRow = hasMultipleCasts
-        ? `<div class="proposal-user-vote-total"><span>Spend</span><strong>${escapeHtml(formatDaoLibWei(cast.spend))}</strong></div>`
+      const spendRow = hasMultipleCasts || isFailed
+        ? `<div class="proposal-user-vote-total"><span>${isFailed ? 'Attempted' : 'Spend'}</span><strong>${escapeHtml(formatDaoLibWei(cast.spend))}</strong></div>`
         : '';
 
       return `

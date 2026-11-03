@@ -1696,6 +1696,7 @@ function normalizeDaoVoteReminderSchedule(value) {
 export const DAO_USER_VOTE_CAST_STATUSES = Object.freeze({
   SUBMITTED: 'submitted',
   CONFIRMED: 'confirmed',
+  FAILED: 'failed',
 });
 
 function normalizeDaoUserVoteCastTxid(value) {
@@ -1736,13 +1737,16 @@ function normalizeDaoUserVoteCast(value) {
   const timestamp = normalizeDaoTimestamp(value.timestamp);
   if (!txid || !weights || !spend || spend <= 0n || !timestamp) return null;
 
+  const status = normalizeDaoUserVoteCastStatus(value.status);
   return {
     txid,
     weights,
     spend,
-    optionWeights: normalizeDaoUserVoteCastOptionWeights(value.optionWeights, weights.length),
+    optionWeights: status === DAO_USER_VOTE_CAST_STATUSES.FAILED
+      ? null
+      : normalizeDaoUserVoteCastOptionWeights(value.optionWeights, weights.length),
     timestamp,
-    status: normalizeDaoUserVoteCastStatus(value.status),
+    status,
   };
 }
 
@@ -1885,6 +1889,10 @@ export function createDaoProposalVoteTracker({
   function getPendingClaimProposalNumbers() {
     return Object.entries(readVotes())
       .filter(([, entry]) => !hasDaoUserVoteClaimWindow(entry))
+      // Failed attempts alone do not qualify a proposal for claim tracking.
+      .filter(([, entry]) => entry.votingEndsAt
+        || !entry.casts
+        || entry.casts.some((cast) => cast.status !== DAO_USER_VOTE_CAST_STATUSES.FAILED))
       .map(([proposalNumber]) => Number(proposalNumber));
   }
 
@@ -1956,15 +1964,11 @@ export function createDaoProposalVoteTracker({
       const receiptTxid = normalizeDaoUserVoteCastTxid(txid);
       const cast = entry?.casts?.find((candidate) => candidate.txid === receiptTxid);
       if (outcome === 'failure') {
-        if (!cast || cast.status === DAO_USER_VOTE_CAST_STATUSES.CONFIRMED) return;
+        if (cast?.status !== DAO_USER_VOTE_CAST_STATUSES.SUBMITTED) return;
 
-        const { casts, ...metadata } = entry;
-        const remainingCasts = casts.filter((candidate) => candidate !== cast);
-        const next = { ...current };
-        if (remainingCasts.length) next[number] = { ...metadata, casts: remainingCasts };
-        else if (Object.keys(metadata).length) next[number] = metadata;
-        else delete next[number];
-        writeVotes(next);
+        const failedCast = { ...cast, status: DAO_USER_VOTE_CAST_STATUSES.FAILED, optionWeights: null };
+        const casts = entry.casts.map((candidate) => candidate === cast ? failedCast : candidate);
+        writeVotes({ ...current, [number]: { ...entry, casts } });
         return;
       }
 
