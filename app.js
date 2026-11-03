@@ -6725,7 +6725,7 @@ class ProposalInfoModal {
         isProjectProposal ? '' : proposalOptionsSection,
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         isProjectProposal ? '' : proposalResultsSection,
-        this.renderUserVote(proposal, currentAddress),
+        `<div class="proposal-user-vote-slot">${this.renderUserVote(proposal, currentAddress)}</div>`,
         state === 'review'
           ? this.renderCommitteeReviewStatus(committeeReview, reviewWindow, currentAddress)
           : '',
@@ -6865,6 +6865,14 @@ class ProposalInfoModal {
         <div class="proposal-user-vote-cards">${cards}</div>
       </section>
     `;
+  }
+
+  // Re-renders only the Your vote slot of the open modal, e.g. right after a
+  // submitted cast is saved, without rebuilding the rest of the proposal view.
+  refreshUserVote(proposal) {
+    const slot = this.content?.querySelector?.('.proposal-user-vote-slot');
+    if (!slot || !proposal) return;
+    slot.innerHTML = this.renderUserVote(proposal, getDaoCurrentAccountAddress());
   }
 
   formatUserVoteCastStatus(status) {
@@ -8364,6 +8372,7 @@ class ProposalInfoModal {
         timestamp: result.transaction.timestamp,
       });
       saveState();
+      this.refreshUserVote(proposal);
       showToast(getDaoTransactionMessage(DAO_ACTION_TYPES.VOTE, 'pending'), 4000, 'info');
       this.updateSubmitButtons();
     } catch (error) {

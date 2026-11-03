@@ -4480,6 +4480,10 @@ input[type='file'].form-control::file-selector-button {
   visibility: hidden;
 }
 
+#proposalInfoModal .proposal-user-vote-slot:empty {
+  display: none;
+}
+
 #proposalInfoModal .proposal-user-vote-heading {
   align-items: baseline;
   display: flex;
