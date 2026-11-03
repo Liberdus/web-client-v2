@@ -40404,7 +40404,8 @@ class FullMediaCache {
           return;
         }
 
-        // Keep an authenticated video if this ID belongs to a different attachment.
+        // Preserve a usable image or authenticated video when another attachment reuses its ID.
+        if (FullMediaCache.matchesRecord(existing, 'image/')) return;
         if (existing?.keyFingerprint && existing.blob instanceof Blob) return;
 
         const evictionCandidates = [];
