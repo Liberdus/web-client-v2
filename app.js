@@ -25482,78 +25482,44 @@ class ChatModal {
     const fetchUrl = urlOverride || mainUrl;
     if (!mainUrl || mainUrl === '#') throw new Error('Missing attachment url');
 
+    const attachment = Array.isArray(item.xattach) ? item.xattach.find(candidate => candidate?.url === mainUrl) : null;
+    const key = await this.getAttachmentDecryptionKey(item, attachment);
+    const blobType = urlOverride ? 'image/jpeg' : (linkEl.dataset.type || 'application/octet-stream');
+    return this.downloadAttachmentBlob(fetchUrl, key, blobType, signal);
+  }
+
+  async getAttachmentDecryptionKey(item, attachment) {
     const isVoice = item.type === 'vm';
-    let dhkey;
-    
-    // 1) Get encryption key
-    if (isVoice) {
-      // Voice message: use audio keys from the message item (no encKey for voice messages)
-      const selfKey = item.audioSelfKey || item.selfKey;
-      const pqEncSharedKey = item.audioPqEncSharedKey || item.pqEncSharedKey;
-      
-      if (item.my) {
-        if (!selfKey) throw new Error('Missing selfKey for decrypt');
-        const password = myAccount.keys.secret + myAccount.keys.pqSeed;
-        dhkey = hex2bin(decryptData(selfKey, password, true));
-      } else {
-        if (!pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
-        const ok = await ensureContactKeys(this.address);
-        const senderPublicKey = myData.contacts[this.address]?.public;
-        if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${this.address}`);
-        const pqCipher = (typeof pqEncSharedKey === 'string') ? base642bin(pqEncSharedKey) : pqEncSharedKey;
-        dhkey = dhkeyCombined(
-          myAccount.keys.secret,
-          senderPublicKey,
-          myAccount.keys.pqSeed,
-          pqCipher
-        ).dhkey;
-      }
-    } else {
-      // Attachment: look up attachment entry by main url
-      const att = Array.isArray(item.xattach) ? item.xattach.find((a) => a?.url === mainUrl) : null;
-      if (!att) throw new Error('Attachment entry not found');
-      
-      // Use encKey if available (new attachments), otherwise fall back to DH-derived keys (migrated/legacy)
-      if (att.encKey) {
-        dhkey = base642bin(att.encKey);
-      } else {
-        const selfKey = att.selfKey;
-        const pqEncSharedKey = att.pqEncSharedKey;
-        
-        if (item.my) {
-          if (!selfKey) throw new Error('Missing selfKey for decrypt');
-          const password = myAccount.keys.secret + myAccount.keys.pqSeed;
-          dhkey = hex2bin(decryptData(selfKey, password, true));
-        } else {
-          if (!pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
-          const ok = await ensureContactKeys(this.address);
-          const senderPublicKey = myData.contacts[this.address]?.public;
-          if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${this.address}`);
-          const pqCipher = (typeof pqEncSharedKey === 'string') ? base642bin(pqEncSharedKey) : pqEncSharedKey;
-          dhkey = dhkeyCombined(
-            myAccount.keys.secret,
-            senderPublicKey,
-            myAccount.keys.pqSeed,
-            pqCipher
-          ).dhkey;
-        }
-      }
+    if (!isVoice) {
+      if (!attachment) throw new Error('Attachment entry not found');
+      if (attachment.encKey) return base642bin(attachment.encKey);
     }
 
-    // 2) Download encrypted bytes (use fetchUrl which may be pUrl or main url)
-    const res = await fetch(fetchUrl, { signal });
+    const account = myAccount;
+    const { secret, pqSeed } = account.keys;
+    if (item.my) {
+      const selfKey = isVoice ? item.audioSelfKey || item.selfKey : attachment.selfKey;
+      if (!selfKey) throw new Error('Missing selfKey for decrypt');
+      return hex2bin(decryptData(selfKey, secret + pqSeed, true));
+    }
+
+    const pqEncSharedKey = isVoice ? item.audioPqEncSharedKey || item.pqEncSharedKey : attachment.pqEncSharedKey;
+    if (!pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
+    const address = this.address;
+    const ok = await ensureContactKeys(address);
+    const senderPublicKey = myAccount === account && myData?.contacts?.[address]?.public;
+    if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${address}`);
+    const pqCipher = typeof pqEncSharedKey === 'string' ? base642bin(pqEncSharedKey) : pqEncSharedKey;
+    return dhkeyCombined(secret, senderPublicKey, pqSeed, pqCipher).dhkey;
+  }
+
+  async downloadAttachmentBlob(url, key, type, signal = this.abortController.signal) {
+    const res = await fetch(url, { signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const cipherBin = new Uint8Array(await res.arrayBuffer());
-
-    // 3) Decrypt
-    const cipherB64 = bin2base64(cipherBin);
-    const plainB64 = decryptChacha(dhkey, cipherB64);
+    const plainB64 = decryptChacha(key, bin2base64(cipherBin));
     if (!plainB64) throw new Error('decryptChacha returned null');
-    const clearBin = base642bin(plainB64);
-
-    // 4) Blob - use image/jpeg for thumbnails (urlOverride), otherwise use original type
-    const blobType = urlOverride ? 'image/jpeg' : (linkEl.dataset.type || 'application/octet-stream');
-    return new Blob([clearBin], { type: blobType });
+    return new Blob([base642bin(plainB64)], { type });
   }
 
   /**
@@ -25588,17 +25554,27 @@ class ChatModal {
    * @param {AbortSignal} [signal] - the video viewer's current open request
    * @returns {Promise<Blob>}
    */
-  async getAttachmentBlob(item, linkEl, signal) {
+  async getAttachmentBlob(item, linkEl, signal = this.abortController.signal) {
     const url = linkEl.dataset.url;
+    if (!url || url === '#') throw new Error('Missing attachment url');
     const attachment = item.type !== 'vm' && Array.isArray(item.xattach)
       ? item.xattach.find(candidate => candidate?.url === url)
       : null;
-    const downloadAndDecrypt = () => this.decryptAttachmentToBlob(item, linkEl, null, signal);
+    let downloadAndDecrypt = () => this.decryptAttachmentToBlob(item, linkEl, null, signal);
     if (!FullMediaCache.supportsMimeType(attachment?.type)) return downloadAndDecrypt();
 
     const account = myAccount;
+    let keyFingerprint;
+    const mimeType = normalizeMimeType(attachment.type);
+    if (mimeType.startsWith('video/')) {
+      const key = await this.getAttachmentDecryptionKey(item, attachment);
+      if (key.length !== 32) throw new Error('Invalid video decryption key');
+      keyFingerprint = hashBytes(key);
+      downloadAndDecrypt = () => this.downloadAttachmentBlob(url, key, mimeType, signal);
+    }
     return fullMediaCache.getOrCache({
       attachment,
+      keyFingerprint,
       downloadAndDecrypt,
       shouldCache: () => myAccount === account && !signal?.aborted && !isDeleted(item)
         && !removeAccountModal.isRemoving && !removeAccountsModal.isRemovingAll
@@ -38643,12 +38619,16 @@ class MediaCacheOwnership {
     return next;
   }
 
-  async read(storeName, id, owner = null) {
+  async read(storeName, id, owner = null, acceptsRecord) {
     return this.run([storeName], owner, ({ transaction, owners, setResult }) => {
       const store = transaction.objectStore(storeName);
       const request = store.get(id);
       request.onsuccess = () => {
         let record = request.result;
+        if (record && acceptsRecord && !acceptsRecord(record)) {
+          setResult(null);
+          return;
+        }
         if (record && owners.length && Array.isArray(record.ownerKeys)) {
           const previousOwnerCount = record.ownerKeys.length;
           record = MediaCacheOwnership.mergeRecord(record, record, owners);
@@ -40346,14 +40326,23 @@ class FullMediaCache {
     return mimeType.startsWith('image/') || mimeType.startsWith('video/');
   }
 
-  async get(attachmentUrl, owner) {
-    const record = await this.getRecord(attachmentUrl, owner);
+  static matchesRecord(record, mimeType, keyFingerprint) {
+    if (!(record?.blob instanceof Blob)) return false;
+    const storedType = normalizeMimeType(record.mimeType || record.blob.type);
+    if (mimeType.startsWith('video/')) {
+      return storedType.startsWith('video/') && !!keyFingerprint && record.keyFingerprint === keyFingerprint;
+    }
+    return mimeType.startsWith('image/') && storedType.startsWith('image/') && !record.keyFingerprint;
+  }
+
+  async get(attachmentUrl, owner, acceptsRecord) {
+    const record = await this.getRecord(attachmentUrl, owner, acceptsRecord);
     return record?.blob || null;
   }
 
-  async getRecord(attachmentUrl, owner = MediaCacheOwnership.getOwnerKey()) {
+  async getRecord(attachmentUrl, owner = MediaCacheOwnership.getOwnerKey(), acceptsRecord) {
     const id = ThumbnailCache.getAttachmentId(attachmentUrl);
-    return this.database.ownership.read(this.storeName, id, owner);
+    return this.database.ownership.read(this.storeName, id, owner, acceptsRecord);
   }
 
   async getAvailableStorage() {
@@ -40368,14 +40357,14 @@ class FullMediaCache {
     return Infinity;
   }
 
-  async put(attachment, blob, shouldCache, owner) {
+  async put({ attachment, blob, keyFingerprint, shouldCache, owner }) {
     const id = ThumbnailCache.getAttachmentId(attachment?.url);
     const mimeType = normalizeMimeType(attachment.type || blob?.type);
     if (!FullMediaCache.supportsMimeType(mimeType)) throw new Error('Full-media cache accepts only images and videos');
     if (!(blob instanceof Blob)) throw new Error('Full-media cache requires a Blob');
     if (blob.size > this.maxCacheSize || !shouldCache()) return false;
 
-    const record = { id, mimeType, size: blob.size, blob };
+    const record = { id, mimeType, size: blob.size, blob, ...(keyFingerprint ? { keyFingerprint } : {}) };
     const available = await this.getAvailableStorage();
     try {
       return await this.write(record, available, shouldCache, owner);
@@ -40395,7 +40384,7 @@ class FullMediaCache {
       lookup.onsuccess = () => {
         if (!shouldCache()) return;
         const existing = lookup.result;
-        if (existing?.blob instanceof Blob) {
+        if (FullMediaCache.matchesRecord(existing, record.mimeType, record.keyFingerprint)) {
           // Another request filled the cache while this one was downloading.
           if (Array.isArray(existing.ownerKeys) && owners.some(key => !existing.ownerKeys.includes(key))) {
             store.put(MediaCacheOwnership.mergeRecord(existing, existing, owners));
@@ -40428,7 +40417,7 @@ class FullMediaCache {
             store.delete(candidate.id);
             bytesToFree -= candidate.size;
           }
-          store.put(MediaCacheOwnership.mergeRecord(existing, { ...record, cachedAt: Date.now() }, owners));
+          store.put(MediaCacheOwnership.mergeRecord(null, { ...record, cachedAt: Date.now() }, owners));
           setResult(true);
         };
       };
@@ -40465,14 +40454,16 @@ class FullMediaCache {
     });
   }
 
-  async getOrCache({ attachment, downloadAndDecrypt, shouldCache }) {
+  async getOrCache({ attachment, keyFingerprint, downloadAndDecrypt, shouldCache }) {
     const owner = MediaCacheOwnership.getOwnerKey();
     const clearVersion = this.clearVersion;
     const canCache = () => this.clearVersion === clearVersion && (!shouldCache || shouldCache());
-    if (!canCache()) return downloadAndDecrypt();
+    const mimeType = normalizeMimeType(attachment.type);
+    if (!canCache() || (mimeType.startsWith('video/') && !keyFingerprint)) return downloadAndDecrypt();
     try {
-      const cachedBlob = await this.get(attachment.url, owner);
-      if (cachedBlob) return cachedBlob;
+      const cachedBlob = await this.get(attachment.url, owner, record =>
+        canCache() && FullMediaCache.matchesRecord(record, mimeType, keyFingerprint));
+      if (cachedBlob && canCache()) return cachedBlob;
     } catch (error) {
       console.warn('Failed to read full media from cache:', error);
     }
@@ -40480,7 +40471,7 @@ class FullMediaCache {
     const blob = await downloadAndDecrypt();
 
     try {
-      await this.put(attachment, blob, canCache, owner);
+      await this.put({ attachment, blob, keyFingerprint, shouldCache: canCache, owner });
     } catch (error) {
       console.warn('Failed to cache full media:', error);
     }
