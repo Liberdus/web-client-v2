@@ -40404,6 +40404,9 @@ class FullMediaCache {
           return;
         }
 
+        // Keep an authenticated video if this ID belongs to a different attachment.
+        if (existing?.keyFingerprint && existing.blob instanceof Blob) return;
+
         const evictionCandidates = [];
         let evictableBytes = 0;
         const request = store.index('cachedAt').openCursor();
