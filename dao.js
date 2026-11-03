@@ -336,6 +336,7 @@ export function hasPendingDaoAction(pendingList, type, proposalStoreId, from) {
 
   return pendingList.some((entry) => {
     if (!entry || entry.type !== type) return false;
+    if (type === DAO_ACTION_TYPES.VOTE && entry.daoVoteReceiptRetryAt) return false;
     if (entry.proposalStoreId !== proposalStoreId) return false;
     return entry.from === from;
   });
@@ -1694,6 +1695,7 @@ function normalizeDaoVoteReminderSchedule(value) {
 
 export const DAO_USER_VOTE_CAST_STATUSES = Object.freeze({
   SUBMITTED: 'submitted',
+  CONFIRMED: 'confirmed',
 });
 
 function normalizeDaoUserVoteCastTxid(value) {
@@ -1710,7 +1712,9 @@ function normalizeDaoUserVoteCastWeights(value) {
 
 function normalizeDaoUserVoteCastOptionWeights(value, expectedLength) {
   if (!Array.isArray(value) || value.length !== expectedLength) return null;
-  const optionWeights = value.map((weight) => parseDaoUnsignedBigInt(weight));
+  const optionWeights = Array.from(value, (weight) => (
+    typeof weight === 'number' && !Number.isSafeInteger(weight) ? null : parseDaoUnsignedBigInt(weight)
+  ));
   return optionWeights.every((weight) => weight !== null) ? optionWeights : null;
 }
 
@@ -1933,37 +1937,59 @@ export function createDaoProposalVoteTracker({
     type,
     outcome,
     proposalNumber,
+    txid,
+    optionWeights,
     votingEndsAt,
     estimatedClaimEndsAt,
     reminderExpiresAt,
   }) {
-    if (outcome !== 'success') return;
     if (type !== DAO_ACTION_TYPES.VOTE && type !== DAO_ACTION_TYPES.CLAIM_REWARD) return;
+    if (outcome !== 'success' && (type !== DAO_ACTION_TYPES.VOTE || outcome !== 'failure')) return;
 
     const number = normalizeDaoPositiveInteger(proposalNumber);
     if (!number) return;
 
     const current = readVotes();
-    const isTracked = Object.prototype.hasOwnProperty.call(current, number);
+    const entry = current[number];
 
     if (type === DAO_ACTION_TYPES.VOTE) {
-      const reminderSchedule = normalizeDaoVoteReminderSchedule({
-        votingEndsAt,
-        estimatedClaimEndsAt,
-        reminderExpiresAt,
+      const receiptTxid = normalizeDaoUserVoteCastTxid(txid);
+      const cast = entry?.casts?.find((candidate) => candidate.txid === receiptTxid);
+      if (outcome === 'failure') {
+        if (!cast || cast.status === DAO_USER_VOTE_CAST_STATUSES.CONFIRMED) return;
+
+        const { casts, ...metadata } = entry;
+        const remainingCasts = casts.filter((candidate) => candidate !== cast);
+        const next = { ...current };
+        if (remainingCasts.length) next[number] = { ...metadata, casts: remainingCasts };
+        else if (Object.keys(metadata).length) next[number] = metadata;
+        else delete next[number];
+        writeVotes(next);
+        return;
+      }
+
+      const reminderSchedule = normalizeDaoVoteReminderSchedule(entry) ?? normalizeDaoVoteReminderSchedule({
+        votingEndsAt, estimatedClaimEndsAt, reminderExpiresAt,
       });
-      if (isTracked && normalizeDaoVoteReminderSchedule(current[number])) return;
-      writeVotes({
-        ...current,
-        [number]: {
-          ...current[number],
-          ...reminderSchedule,
-        },
-      });
+      const nextEntry = { ...entry, ...reminderSchedule };
+      if (cast) {
+        const appliedWeights = normalizeDaoUserVoteCastOptionWeights(optionWeights, cast.weights.length);
+        if (cast.status !== DAO_USER_VOTE_CAST_STATUSES.CONFIRMED || (appliedWeights && !cast.optionWeights)) {
+          const confirmedCast = {
+            ...cast,
+            status: DAO_USER_VOTE_CAST_STATUSES.CONFIRMED,
+            optionWeights: appliedWeights ?? cast.optionWeights,
+          };
+          nextEntry.casts = entry.casts.map((candidate) => candidate === cast ? confirmedCast : candidate);
+        }
+      }
+      if (!entry || nextEntry.casts !== entry.casts || nextEntry.votingEndsAt !== entry.votingEndsAt) {
+        writeVotes({ ...current, [number]: nextEntry });
+      }
       return;
     }
 
-    if (isTracked) {
+    if (entry) {
       const next = { ...current };
       delete next[number];
       writeVotes(next);

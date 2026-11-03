@@ -3218,20 +3218,32 @@ class DaoModal {
     return this.loadPageWithFeedback(false, 'Failed to load more proposals');
   }
 
-  async refreshAfterDaoSettlement(pendingTxInfo, outcome) {
+  async refreshAfterDaoSettlement(pendingTxInfo, outcome, receipt) {
+    const accountData = myData;
     const refreshId = ++this.refreshSequence;
     daoProposalVoteTracker.handleSettlement({
       type: pendingTxInfo?.type,
       outcome,
       proposalNumber: pendingTxInfo?.proposalNumber,
+      txid: pendingTxInfo?.txid,
+      optionWeights: receipt?.additionalInfo?.optionWeights,
       votingEndsAt: pendingTxInfo?.votingEndsAt,
       estimatedClaimEndsAt: pendingTxInfo?.estimatedClaimEndsAt,
       reminderExpiresAt: pendingTxInfo?.reminderExpiresAt,
     });
+    const isVote = pendingTxInfo?.type === DAO_ACTION_TYPES.VOTE;
+    if (isVote && outcome !== 'timeout') {
+      try {
+        saveState();
+      } catch (error) {
+        console.warn('Failed to save the vote receipt:', error);
+      }
+    }
 
     let didRefreshDaoData = false;
     try {
       await daoRepo.refresh({ force: true });
+      if (myData !== accountData) return false;
       await this.syncTrackedClaimWindows(null);
       if (this.isActive()) {
         await this.loadSelectedFilter({ reset: true });
@@ -3243,6 +3255,7 @@ class DaoModal {
     } catch (error) {
       console.warn('DAO settlement refresh failed:', error);
     }
+    if (myData !== accountData) return false;
 
     if (didRefreshDaoData) {
       this.lastSuccessfulRefreshId = Math.max(this.lastSuccessfulRefreshId, refreshId);
@@ -3254,8 +3267,11 @@ class DaoModal {
     if (didRefreshDaoData || outcome !== 'success') {
       if (this.isActive()) this.render();
       proposalInfoModal.refreshIfOpen(pendingTxInfo.proposalStoreId, {
-        resetVoteForm: outcome === 'success' && pendingTxInfo.type === DAO_ACTION_TYPES.VOTE,
+        resetVoteForm: outcome === 'success' && isVote
+          && !pendingTxInfo.daoVoteReceiptRetryAt,
       });
+    } else if (isVote) {
+      proposalInfoModal.refreshIfOpen(pendingTxInfo.proposalStoreId, { voteOnly: true });
     }
 
     if (outcome === 'success' && pendingTxInfo.type === DAO_ACTION_TYPES.APPLY_PARAMETERS) {
@@ -6810,16 +6826,12 @@ class ProposalInfoModal {
     });
     if (summary.kind === DAO_USER_VOTE_SUMMARY_KINDS.NONE) return '';
 
-    const votedAt = summary.timestamp ? formatDaoCompactTimestamp(summary.timestamp) : '';
-    const votedLabel = votedAt
-      ? `<span class="proposal-user-vote-voted-at">${escapeHtml(`Voted: ${votedAt}`)}</span>`
-      : '';
     const disclosure = `<details class="proposal-info-section proposal-user-vote-section"${expanded ? ' open' : ''}>`;
 
     if (summary.kind === DAO_USER_VOTE_SUMMARY_KINDS.VOTED) {
       return `
         ${disclosure}
-          <summary class="proposal-user-vote-heading"><span>Your vote</span>${votedLabel}</summary>
+          <summary class="proposal-user-vote-heading"><span>Your vote</span></summary>
           <div class="proposal-user-vote-body">
             <div class="proposal-user-vote-message">Vote recorded</div>
             <p class="proposal-user-vote-note">The network confirms this account voted. The option allocation and spend were not saved on this device.</p>
@@ -6834,33 +6846,38 @@ class ProposalInfoModal {
       const castLabel = hasMultipleCasts ? `Vote ${index + 1}` : 'Vote';
       const castTime = formatDaoCompactTimestamp(cast.timestamp);
       const statusLabel = this.formatUserVoteCastStatus(cast.status);
+      const hasPower = cast.totalPower !== null;
       const rows = cast.rows.map((row) => {
-        const percent = formatDaoPercent(row.share);
-        const amount = row.power === null ? formatDaoLibWei(row.allocation) : formatDaoVotingPower(row.power);
-        const label = `${row.option}: ${percent}, ${amount}`;
+        const percent = hasPower ? formatDaoPercent(row.share) : '';
+        const amount = hasPower ? formatDaoVotingPower(row.power) : formatDaoLibWei(row.allocation);
+        const label = `${row.option}: ${percent ? `${percent}, ` : ''}${amount}`;
         return `
           <div class="proposal-user-vote-row" title="${escapeDaoFormAttribute(label)}" aria-label="${escapeDaoFormAttribute(label)}">
             <span>${escapeHtml(row.option)}</span>
-            <span>${escapeHtml(percent)}</span>
+            ${hasPower ? `<span>${escapeHtml(percent)}</span>` : ''}
             <strong>${escapeHtml(amount)}</strong>
           </div>
         `;
       }).join('');
-      const powerRow = cast.totalPower === null
-        ? ''
-        : `<div class="proposal-user-vote-total"><span>Voting power</span><strong>${escapeHtml(formatDaoVotingPower(cast.totalPower))}</strong></div>`;
+      const powerRow = hasPower
+        ? `<div class="proposal-user-vote-total"><span>Voting power</span><strong>${escapeHtml(formatDaoVotingPower(cast.totalPower))}</strong></div>`
+        : '';
       const spendRow = hasMultipleCasts
         ? `<div class="proposal-user-vote-total"><span>Spend</span><strong>${escapeHtml(formatDaoLibWei(cast.spend))}</strong></div>`
         : '';
 
       return `
-        <div class="proposal-user-vote-card" role="group" aria-label="${escapeDaoFormAttribute(`${castLabel}${castTime ? `, ${castTime}` : ''}, ${statusLabel}`)}">
+        <div class="proposal-user-vote-card"${hasPower ? ' data-has-power' : ''} role="group" aria-label="${escapeDaoFormAttribute(`${castLabel}${castTime ? `, ${castTime}` : ''}, ${statusLabel}`)}">
           <div class="proposal-user-vote-card-heading">
             <div class="proposal-user-vote-card-meta">
               <span>${escapeHtml(castTime ? `${castLabel} · ${castTime}` : castLabel)}</span>
               <span class="proposal-user-vote-status">${escapeHtml(statusLabel)}</span>
             </div>
-            ${index === 0 ? votedLabel : ''}
+          </div>
+          <div class="proposal-user-vote-row proposal-user-vote-columns" aria-hidden="true">
+            <span>Option</span>
+            ${hasPower ? '<span>Share</span>' : ''}
+            <span>${hasPower ? 'Power' : 'LIB'}</span>
           </div>
           ${rows}
           ${spendRow || powerRow ? `<div class="proposal-user-vote-totals">${spendRow}${powerRow}</div>` : ''}
@@ -8413,11 +8430,13 @@ class ProposalInfoModal {
     daoModal.restoreListFocus();
   }
 
-  refreshIfOpen(proposalId, { resetVoteForm = false } = {}) {
+  refreshIfOpen(proposalId, { resetVoteForm = false, voteOnly = false } = {}) {
     if (!this.modal.classList.contains('active') || this._currentProposalId !== proposalId) return;
 
     const proposal = this.getCurrentProposal();
-    if (proposal) {
+    if (voteOnly) {
+      this.refreshUserVote(proposal);
+    } else if (proposal) {
       if (resetVoteForm) this.resetVoteState(proposal);
       this.renderProposal(proposal);
     } else {
@@ -37633,9 +37652,12 @@ async function checkPendingTransactionsOnce() {
   for (let i = myData.pending.length - 1; i >= 0; i--) {
     const pendingTxInfo = myData.pending[i];
     const { txid, type, submittedts } = pendingTxInfo;
+    const isPendingDaoTransaction = isDaoTransactionType(type);
+    const isPendingDaoVote = isPendingDaoTransaction && type === DAO_ACTION_TYPES.VOTE;
+    const voteReceiptRetryAt = pendingTxInfo.daoVoteReceiptRetryAt;
+    if (isPendingDaoVote && voteReceiptRetryAt > now) continue;
     const reactionPending = pendingTxInfo.reactionPending;
     const isPendingMessage = type === 'message' && !reactionPending && !pendingTxInfo.editPending;
-    const isPendingDaoTransaction = isDaoTransactionType(type);
     if (reactionPending && reactionPending.status !== 'pending') {
       continue;
     }
@@ -37659,14 +37681,31 @@ async function checkPendingTransactionsOnce() {
       } else {
         res = await queryNetwork(endpointPath);
         if (myAccount !== account) return;
+        if (isPendingDaoVote && submittedts < twentySecondsAgo
+          && typeof res?.transaction?.success !== 'boolean') {
+          res = await queryNetwork(`/transaction/${txid}`);
+          if (myAccount !== account) return;
+        }
       }
       //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
       const receipt = res?.transaction;
+      const hasReceiptOutcome = receipt?.success === true || receipt?.success === false;
+      const missingReceipt = isPendingDaoVote ? !hasReceiptOutcome : !receipt || Object.keys(receipt).length === 0;
       const confirmationTimedOut = isPendingMessage
-        ? receipt?.success !== true && receipt?.success !== false
-          && getCorrectedTimestamp() - pendingTxInfo.checkedts >= ChatModal.CONFIRMATION_WINDOW_MS
-        : submittedts < thirtySecondsAgo && (!receipt || Object.keys(receipt).length === 0);
+        ? !hasReceiptOutcome && getCorrectedTimestamp() - pendingTxInfo.checkedts >= ChatModal.CONFIRMATION_WINDOW_MS
+        : submittedts < thirtySecondsAgo && missingReceipt;
       if (confirmationTimedOut) {
+        // Continue checking an unresolved vote without keeping the vote form locked.
+        if (isPendingDaoVote && now < pendingTxInfo.reminderExpiresAt) {
+          pendingTxInfo.daoVoteReceiptRetryAt = now + 60_000;
+          if (!voteReceiptRetryAt) {
+            didMutatePendingState = true;
+            await daoModal.refreshAfterDaoSettlement(pendingTxInfo, 'timeout');
+            if (myAccount !== account) return;
+            showToast(getDaoTransactionMessage(type, 'timeout'), 0, 'warning');
+          }
+          continue;
+        }
         console.error(`DEBUG: txid ${txid} timed out, removing completely`);
         if (reactionPending) {
           const outcome = settleAndQueueReactionCleanup(pendingTxInfo, 'failure');
@@ -37704,7 +37743,7 @@ async function checkPendingTransactionsOnce() {
           chatModal.refreshCurrentView(txid);
           await chatsScreen.updateChatList();
         }
-        if (isPendingDaoTransaction) {
+        if (isPendingDaoTransaction && !voteReceiptRetryAt) {
           await daoModal.refreshAfterDaoSettlement(pendingTxInfo, 'timeout');
           showToast(getDaoTransactionMessage(type, 'timeout'), 0, 'warning');
         }
@@ -37771,7 +37810,8 @@ async function checkPendingTransactionsOnce() {
         }
 
         if (isPendingDaoTransaction) {
-          const didRefreshDaoData = await daoModal.refreshAfterDaoSettlement(pendingTxInfo, 'success');
+          const didRefreshDaoData = await daoModal.refreshAfterDaoSettlement(pendingTxInfo, 'success', receipt);
+          if (myAccount !== account) return;
           if (didRefreshDaoData) {
             showToast(getDaoTransactionMessage(type, 'success'), 3000, 'success');
           } else if (!myData.pending.some((pendingTx) => pendingTx.txid === txid)) {
@@ -37788,9 +37828,15 @@ async function checkPendingTransactionsOnce() {
 
         if (type === 'message') settleEvmPaymentMessage(txid, false);
 
+        if (isPendingDaoVote) {
+          await daoModal.refreshAfterDaoSettlement(pendingTxInfo, 'failure');
+          if (myAccount !== account) return;
+        }
+
         // Check for failure reason in the transaction receipt
         const failureReason = res?.transaction?.reason || 'Transaction failed';
         const feeMismatchStatus = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
+        if (isPendingDaoVote && myAccount !== account) return;
         const userFailureReason = getUserFacingTxFailureReason(failureReason, feeMismatchStatus);
         console.log(`DEBUG: failure reason: ${failureReason}`);
 
@@ -37865,7 +37911,7 @@ async function checkPendingTransactionsOnce() {
           }
         }
         if (!reactionPending && isPendingDaoTransaction) {
-          await daoModal.refreshAfterDaoSettlement(pendingTxInfo, 'failure');
+          if (!isPendingDaoVote) await daoModal.refreshAfterDaoSettlement(pendingTxInfo, 'failure');
           const failureMessage = getDaoTransactionMessage(type, 'failure');
           showToast(`${failureMessage}: ${userFailureReason}`, 0, 'error');
         }

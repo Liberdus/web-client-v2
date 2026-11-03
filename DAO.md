@@ -69,7 +69,7 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Summary
      - A card for every option, with each action option displaying only its matching nested parameter change set and its current/proposed values
    - Shows voting controls only when the proposal is in **Voting** state.
-   - Shows a collapsible **Your vote** section under the results for the signed-in account only. It opens expanded and keeps the total saved spend visible when collapsed. Each cast saved in `daoUserVotes[number].casts` is listed separately in time order with its option shares, allocated LIB, stored status, and applied voting power when that cast carries `optionWeights`. When there are multiple casts, each card also shows its own spend. If no casts are saved but the proposal's `voterList` includes the account, it shows a neutral **Vote recorded** with the first-vote time instead. It is hidden when neither indicates a vote, and it never renders other voters.
+   - Shows a collapsible **Your vote** section under the results for the signed-in account. It opens expanded and keeps total saved spend visible when collapsed. Each card shows its own locally saved timestamp and the LIB allocated to each option. When a successful receipt supplies voting power, the card shows each option's share and confirmed power, with total power below. If there are multiple casts, each card also shows its own spend. An explicit failure removes the matching cast. If the device has no saved casts and the proposal lists the account as a voter, the section shows **Vote recorded**.
    - Voting is **Yes/No**, tracked per “voter id” derived from the current account:
      - `myAccount.address` / `myData.account.address` → fallback to username → fallback to `anon`.
 

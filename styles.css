@@ -4532,24 +4532,16 @@ input[type='file'].form-control::file-selector-button {
   outline-offset: -2px;
 }
 
-#proposalInfoModal .proposal-user-vote-spend,
-#proposalInfoModal .proposal-user-vote-voted-at {
+#proposalInfoModal .proposal-user-vote-spend {
+  color: var(--secondary-text-color);
   font-size: 12px;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
-#proposalInfoModal .proposal-user-vote-spend {
-  color: var(--secondary-text-color);
-}
-
 #proposalInfoModal .proposal-user-vote-spend strong {
   color: var(--text-color);
   font-weight: var(--font-weight-medium);
-}
-
-#proposalInfoModal .proposal-user-vote-voted-at {
-  color: #0f5f27;
 }
 
 #proposalInfoModal .proposal-user-vote-body {
@@ -4601,6 +4593,10 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-user-vote-row {
+  grid-template-columns: minmax(0, 1fr) minmax(7ch, min(30%, 12ch));
+}
+
+#proposalInfoModal .proposal-user-vote-card[data-has-power] .proposal-user-vote-row {
   grid-template-columns: minmax(0, 1fr) max-content minmax(7ch, min(30%, 12ch));
 }
 
@@ -4619,6 +4615,15 @@ input[type='file'].form-control::file-selector-button {
 
 #proposalInfoModal .proposal-user-vote-row > span:first-child {
   color: var(--text-color);
+}
+
+#proposalInfoModal .proposal-user-vote-row.proposal-user-vote-columns > span {
+  color: var(--secondary-text-color);
+  font-size: 11px;
+}
+
+#proposalInfoModal .proposal-user-vote-columns > span:last-child {
+  text-align: right;
 }
 
 #proposalInfoModal .proposal-user-vote-row > span:nth-child(2),
