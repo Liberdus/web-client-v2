@@ -7892,7 +7892,7 @@ class ProposalInfoModal {
       if (this.isSubmitting && this.canSubmitVote) {
         this.voteSubmitButton.textContent = 'Submitting...';
       }
-      if (pendingVote) this.voteSubmitButton.textContent = pendingLabel;
+      if (pendingVote) this.voteSubmitButton.textContent = 'Submitted';
     }
     if (this.voteSpendMultipleInput) this.voteSpendMultipleInput.disabled = this.isSubmitting || pendingVote;
     if (this.voteOptions) {
