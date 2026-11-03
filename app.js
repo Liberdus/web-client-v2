@@ -6719,17 +6719,22 @@ class ProposalInfoModal {
       ])
       : '';
     if (this.content) {
+      const voteDisclosure = this.content.querySelector('.proposal-user-vote-section');
+      const voteSummaryFocused = voteDisclosure?.firstElementChild.matches(':focus');
       this.content.innerHTML = [
         renderDaoProposalHeading(proposal),
         projectProposalInfoSection,
         isProjectProposal ? '' : proposalOptionsSection,
         state === 'voting' ? this.renderCurrentVoteTotals(proposal) : '',
         isProjectProposal ? '' : proposalResultsSection,
-        `<div class="proposal-user-vote-slot">${this.renderUserVote(proposal, currentAddress)}</div>`,
+        `<div class="proposal-user-vote-slot">${this.renderUserVote(proposal, currentAddress, voteDisclosure?.open)}</div>`,
         state === 'review'
           ? this.renderCommitteeReviewStatus(committeeReview, reviewWindow, currentAddress)
           : '',
       ].filter(Boolean).join('');
+      if (voteSummaryFocused) {
+        this.content.querySelector('.proposal-user-vote-heading')?.focus({ preventScroll: true });
+      }
     }
     if (this.detailsContent) {
       this.detailsContent.innerHTML = this.renderProposalDetails({
@@ -6797,7 +6802,7 @@ class ProposalInfoModal {
 
   // Shows only the signed-in account's own vote: locally saved casts when present,
   // otherwise a neutral "Vote recorded" when the proposal's voterList proves it voted.
-  renderUserVote(proposal, currentAddress) {
+  renderUserVote(proposal, currentAddress, expanded = true) {
     const summary = getDaoUserVoteSummary({
       proposal,
       address: currentAddress,
@@ -6806,26 +6811,27 @@ class ProposalInfoModal {
     if (summary.kind === DAO_USER_VOTE_SUMMARY_KINDS.NONE) return '';
 
     const votedAt = summary.timestamp ? formatDaoCompactTimestamp(summary.timestamp) : '';
-    const heading = `
-      <div class="proposal-user-vote-heading">
-        <h3>Your vote</h3>
-        ${votedAt ? `<span class="proposal-user-vote-status proposal-user-vote-status--confirmed">${escapeHtml(`Voted: ${votedAt}`)}</span>` : ''}
-      </div>
-    `;
+    const votedLabel = votedAt
+      ? `<span class="proposal-user-vote-voted-at">${escapeHtml(`Voted: ${votedAt}`)}</span>`
+      : '';
+    const disclosure = `<details class="proposal-info-section proposal-user-vote-section"${expanded ? ' open' : ''}>`;
 
     if (summary.kind === DAO_USER_VOTE_SUMMARY_KINDS.VOTED) {
       return `
-        <section class="proposal-info-section proposal-user-vote-section">
-          ${heading}
-          <div class="proposal-user-vote-message">Vote recorded</div>
-          <p class="proposal-user-vote-note">The network confirms this account voted. The option allocation and spend were not saved on this device.</p>
-        </section>
+        ${disclosure}
+          <summary class="proposal-user-vote-heading"><span>Your vote</span>${votedLabel}</summary>
+          <div class="proposal-user-vote-body">
+            <div class="proposal-user-vote-message">Vote recorded</div>
+            <p class="proposal-user-vote-note">The network confirms this account voted. The option allocation and spend were not saved on this device.</p>
+          </div>
+        </details>
       `;
     }
 
-    // Each cast is shown on its own; casts are not combined.
+    const hasMultipleCasts = summary.casts.length > 1;
+    const totalSpend = summary.casts.reduce((total, cast) => total + cast.spend, 0n);
     const cards = summary.casts.map((cast, index) => {
-      const castLabel = summary.casts.length > 1 ? `Vote ${index + 1}` : 'Vote';
+      const castLabel = hasMultipleCasts ? `Vote ${index + 1}` : 'Vote';
       const castTime = formatDaoCompactTimestamp(cast.timestamp);
       const statusLabel = this.formatUserVoteCastStatus(cast.status);
       const rows = cast.rows.map((row) => {
@@ -6834,8 +6840,8 @@ class ProposalInfoModal {
         const label = `${row.option}: ${percent}, ${amount}`;
         return `
           <div class="proposal-user-vote-row" title="${escapeDaoFormAttribute(label)}" aria-label="${escapeDaoFormAttribute(label)}">
-            <span>${escapeHtml(percent)}</span>
             <span>${escapeHtml(row.option)}</span>
+            <span>${escapeHtml(percent)}</span>
             <strong>${escapeHtml(amount)}</strong>
           </div>
         `;
@@ -6843,36 +6849,47 @@ class ProposalInfoModal {
       const powerRow = cast.totalPower === null
         ? ''
         : `<div class="proposal-user-vote-total"><span>Voting power</span><strong>${escapeHtml(formatDaoVotingPower(cast.totalPower))}</strong></div>`;
+      const spendRow = hasMultipleCasts
+        ? `<div class="proposal-user-vote-total"><span>Spend</span><strong>${escapeHtml(formatDaoLibWei(cast.spend))}</strong></div>`
+        : '';
 
       return `
         <div class="proposal-user-vote-card" role="group" aria-label="${escapeDaoFormAttribute(`${castLabel}${castTime ? `, ${castTime}` : ''}, ${statusLabel}`)}">
           <div class="proposal-user-vote-card-heading">
-            <span>${escapeHtml(castTime ? `${castLabel} · ${castTime}` : castLabel)}</span>
-            <span class="proposal-user-vote-status">${escapeHtml(statusLabel)}</span>
+            <div class="proposal-user-vote-card-meta">
+              <span>${escapeHtml(castTime ? `${castLabel} · ${castTime}` : castLabel)}</span>
+              <span class="proposal-user-vote-status">${escapeHtml(statusLabel)}</span>
+            </div>
+            ${index === 0 ? votedLabel : ''}
           </div>
           ${rows}
-          <div class="proposal-user-vote-totals">
-            <div class="proposal-user-vote-total"><span>Spend</span><strong>${escapeHtml(formatDaoLibWei(cast.spend))}</strong></div>
-            ${powerRow}
-          </div>
+          ${spendRow || powerRow ? `<div class="proposal-user-vote-totals">${spendRow}${powerRow}</div>` : ''}
         </div>
       `;
     }).join('');
 
     return `
-      <section class="proposal-info-section proposal-user-vote-section">
-        ${heading}
-        <div class="proposal-user-vote-cards">${cards}</div>
-      </section>
+      ${disclosure}
+        <summary class="proposal-user-vote-heading">
+          <span>Your vote</span>
+          <span class="proposal-user-vote-spend">Spent <strong>${escapeHtml(formatDaoLibWei(totalSpend))}</strong></span>
+        </summary>
+        <div class="proposal-user-vote-body">${cards}</div>
+      </details>
     `;
   }
 
   // Re-renders only the Your vote slot of the open modal, e.g. right after a
   // submitted cast is saved, without rebuilding the rest of the proposal view.
   refreshUserVote(proposal) {
-    const slot = this.content?.querySelector?.('.proposal-user-vote-slot');
+    const slot = this.content?.querySelector('.proposal-user-vote-slot');
     if (!slot || !proposal) return;
-    slot.innerHTML = this.renderUserVote(proposal, getDaoCurrentAccountAddress());
+    const disclosure = slot.querySelector('.proposal-user-vote-section');
+    const summaryFocused = disclosure?.firstElementChild.matches(':focus');
+    slot.innerHTML = this.renderUserVote(proposal, getDaoCurrentAccountAddress(), disclosure?.open);
+    if (summaryFocused) {
+      slot.querySelector('.proposal-user-vote-heading')?.focus({ preventScroll: true });
+    }
   }
 
   formatUserVoteCastStatus(status) {

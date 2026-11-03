@@ -4484,53 +4484,113 @@ input[type='file'].form-control::file-selector-button {
   display: none;
 }
 
+#proposalInfoModal .proposal-user-vote-section {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: block;
+  text-align: left;
+}
+
 #proposalInfoModal .proposal-user-vote-heading {
-  align-items: baseline;
+  align-items: center;
+  cursor: pointer;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: space-between;
+  list-style: none;
+  min-height: 44px;
+  padding: 6px 10px;
 }
 
-#proposalInfoModal .proposal-user-vote-status {
-  color: var(--secondary-text-color);
-  flex: 0 1 auto;
+#proposalInfoModal .proposal-user-vote-heading::-webkit-details-marker {
+  display: none;
+}
+
+#proposalInfoModal .proposal-user-vote-heading > span:first-child {
+  align-items: center;
+  display: inline-flex;
+  font-weight: var(--font-weight-semibold);
+  gap: 8px;
+}
+
+#proposalInfoModal .proposal-user-vote-heading > span:first-child::before {
+  border-bottom: 1.5px solid var(--secondary-text-color);
+  border-right: 1.5px solid var(--secondary-text-color);
+  content: '';
+  height: 6px;
+  transform: rotate(-45deg);
+  width: 6px;
+}
+
+#proposalInfoModal .proposal-user-vote-section[open] > summary > span:first-child::before {
+  transform: translateY(-1px) rotate(45deg);
+}
+
+#proposalInfoModal .proposal-user-vote-heading:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+#proposalInfoModal .proposal-user-vote-spend,
+#proposalInfoModal .proposal-user-vote-voted-at {
   font-size: 12px;
-  font-weight: var(--font-weight-medium);
   line-height: 1.35;
-  text-align: right;
+  overflow-wrap: anywhere;
 }
 
-#proposalInfoModal .proposal-user-vote-status--confirmed {
+#proposalInfoModal .proposal-user-vote-spend {
+  color: var(--secondary-text-color);
+}
+
+#proposalInfoModal .proposal-user-vote-spend strong {
+  color: var(--text-color);
+  font-weight: var(--font-weight-medium);
+}
+
+#proposalInfoModal .proposal-user-vote-voted-at {
   color: #0f5f27;
 }
 
-#proposalInfoModal .proposal-user-vote-cards {
+#proposalInfoModal .proposal-user-vote-body {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  padding: 0 8px 8px;
 }
 
 #proposalInfoModal .proposal-user-vote-card {
   background: var(--input-background);
   border-radius: 8px;
   display: grid;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 4px;
+  padding: 7px 10px;
+}
+
+#proposalInfoModal .proposal-user-vote-card-heading,
+#proposalInfoModal .proposal-user-vote-card-meta {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 7px;
 }
 
 #proposalInfoModal .proposal-user-vote-card-heading {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
   justify-content: space-between;
 }
 
-#proposalInfoModal .proposal-user-vote-card-heading > span:first-child {
+#proposalInfoModal .proposal-user-vote-card-meta {
   color: var(--text-color);
   font-size: 12px;
   font-weight: var(--font-weight-medium);
   line-height: 1.35;
-  min-width: 0;
-  overflow-wrap: anywhere;
+}
+
+#proposalInfoModal .proposal-user-vote-status {
+  background: var(--background-color);
+  border-radius: 4px;
+  color: var(--secondary-text-color);
+  font-size: 11px;
+  padding: 1px 5px;
 }
 
 #proposalInfoModal .proposal-user-vote-row,
@@ -4541,7 +4601,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 #proposalInfoModal .proposal-user-vote-row {
-  grid-template-columns: 52px minmax(0, 1fr) minmax(96px, auto);
+  grid-template-columns: minmax(0, 1fr) max-content minmax(7ch, min(30%, 12ch));
 }
 
 #proposalInfoModal .proposal-user-vote-total {
@@ -4557,8 +4617,13 @@ input[type='file'].form-control::file-selector-button {
   overflow-wrap: anywhere;
 }
 
-#proposalInfoModal .proposal-user-vote-row > span:nth-child(2) {
+#proposalInfoModal .proposal-user-vote-row > span:first-child {
   color: var(--text-color);
+}
+
+#proposalInfoModal .proposal-user-vote-row > span:nth-child(2),
+#proposalInfoModal .proposal-user-vote-row > strong {
+  font-variant-numeric: tabular-nums;
 }
 
 #proposalInfoModal .proposal-user-vote-row > strong,
