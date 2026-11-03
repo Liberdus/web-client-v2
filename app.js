@@ -13642,7 +13642,7 @@ async function processChats(chats, keys) {
                   if (!messageToDelete.my && originalSender === from) {
                     // This is a message received from sender, who is now deleting it - valid
                     // Purge cached media for attachments, if any
-                    chatModal.purgeAttachmentCaches(messageToDelete.xattach);
+                    void chatModal.purgeAttachmentCaches(messageToDelete.xattach, messageToDelete, from);
 
                     // Mark the message as deleted
                     messageToDelete.deleted = MESSAGE_DELETED_STATE_ALL;
@@ -13668,7 +13668,7 @@ async function processChats(chats, keys) {
                   } else if (messageToDelete.my && normalizeAddress(keys.address) === normalizeAddress(tx.from)) {
                     // This is our own message, and we're deleting it - valid
                     // Purge cached media for attachments, if any
-                    chatModal.purgeAttachmentCaches(messageToDelete.xattach);
+                    void chatModal.purgeAttachmentCaches(messageToDelete.xattach, messageToDelete, from);
 
                     // Mark the message as deleted
                     messageToDelete.deleted = MESSAGE_DELETED_STATE_ALL;
@@ -22217,7 +22217,7 @@ class ChatModal {
     if (!Array.isArray(this.fileAttachments) || this.fileAttachments.length === 0) return;
 
     const removedAttachments = this.fileAttachments.splice(0, this.fileAttachments.length);
-    this.purgeAttachmentCaches(removedAttachments);
+    void this.purgeAttachmentCaches(removedAttachments);
 
     if (deleteFromServer) {
       this.deleteAttachmentsFromServer(removedAttachments);
@@ -25224,7 +25224,7 @@ class ChatModal {
   removeAttachment(index) {
     if (this.fileAttachments && index >= 0 && index < this.fileAttachments.length) {
       const removedFile = this.fileAttachments.splice(index, 1)[0];
-      this.purgeAttachmentCaches([removedFile]);
+      void this.purgeAttachmentCaches([removedFile]);
       this.showAttachmentPreview(); // Refresh the preview
       showToast(`"${removedFile.name}" removed`, 2000, 'info');
 
@@ -25488,7 +25488,7 @@ class ChatModal {
     return this.downloadAttachmentBlob(fetchUrl, key, blobType, signal);
   }
 
-  async getAttachmentDecryptionKey(item, attachment) {
+  async getAttachmentDecryptionKey(item, attachment, address = this.address) {
     const isVoice = item.type === 'vm';
     if (!isVoice) {
       if (!attachment) throw new Error('Attachment entry not found');
@@ -25505,7 +25505,6 @@ class ChatModal {
 
     const pqEncSharedKey = isVoice ? item.audioPqEncSharedKey || item.pqEncSharedKey : attachment.pqEncSharedKey;
     if (!pqEncSharedKey) throw new Error('Missing pqEncSharedKey for decrypt');
-    const address = this.address;
     const ok = await ensureContactKeys(address);
     const senderPublicKey = myAccount === account && myData?.contacts?.[address]?.public;
     if (!ok || !senderPublicKey) throw new Error(`No public key found for sender ${address}`);
@@ -26554,23 +26553,35 @@ class ChatModal {
   /**
    * Removes cached thumbnails and full media for deleted attachments.
    * Safe to call even if cached records don't exist.
-   * @param {any} xattach
+   * @param {Array} xattach
+   * @param {Object} [item] - The message, or own attachment context for a draft
+   * @param {string} [address] - The contact whose keys decrypt an incoming attachment
    */
-  purgeAttachmentCaches(xattach) {
+  async purgeAttachmentCaches(xattach, item = { my: true }, address = this.address) {
     if (!Array.isArray(xattach) || !xattach.length) return;
 
-    for (const attachment of xattach) {
+    await Promise.all(xattach.map(async attachment => {
       const url = attachment?.url;
-      const type = attachment?.type;
-      if (!url || url === '#' || !FullMediaCache.supportsMimeType(type)) continue;
+      const mimeType = normalizeMimeType(attachment?.type);
+      if (!url || url === '#' || !FullMediaCache.supportsMimeType(mimeType)) return;
 
-      void thumbnailCache.delete(url).catch((error) => {
+      const thumbnailRemoval = thumbnailCache.delete(url).catch((error) => {
         console.warn('Failed to delete thumbnail:', error);
       });
-      void fullMediaCache.delete(url).catch((error) => {
+
+      try {
+        let keyFingerprint;
+        if (mimeType.startsWith('video/')) {
+          const key = await this.getAttachmentDecryptionKey(item, attachment, address);
+          if (key.length !== 32) throw new Error('Invalid video decryption key');
+          keyFingerprint = hashBytes(key);
+        }
+        await fullMediaCache.delete(url, mimeType, keyFingerprint);
+      } catch (error) {
         console.warn('Failed to delete cached attachment:', error);
-      });
-    }
+      }
+      await thumbnailRemoval;
+    }));
   }
 
   /**
@@ -28069,7 +28080,7 @@ class ChatModal {
         );
       }
       // Remove cached media for attachments, then remove attachments
-      this.purgeAttachmentCaches(message.xattach);
+      void this.purgeAttachmentCaches(message.xattach, message);
       delete message.xattach;
       purgeContactReactionsForTarget(contact, message.txid);
       purgePendingReactionsForTarget(this.address, message.txid);
@@ -40440,10 +40451,15 @@ class FullMediaCache {
     });
   }
 
-  async delete(attachmentUrl) {
+  async delete(attachmentUrl, mimeType, keyFingerprint) {
     const id = ThumbnailCache.getAttachmentId(attachmentUrl);
+    const type = normalizeMimeType(mimeType);
     return this.database.ownership.run([this.storeName], null, ({ transaction }) => {
-      transaction.objectStore(this.storeName).delete(id);
+      const store = transaction.objectStore(this.storeName);
+      const lookup = store.get(id);
+      lookup.onsuccess = () => {
+        if (FullMediaCache.matchesRecord(lookup.result, type, keyFingerprint)) store.delete(id);
+      };
     });
   }
 
