@@ -242,7 +242,7 @@ const DAO_TRANSACTION_MESSAGES = Object.freeze({
     timeout: 'Review result confirmation is taking longer than expected',
   },
   [DAO_ACTION_TYPES.VOTE]: {
-    pending: 'Vote submitted—pending confirmation',
+    pending: 'Vote submitted',
     success: 'Vote confirmed',
     failure: 'Vote failed',
     timeout: 'Vote confirmation is taking longer than expected',
