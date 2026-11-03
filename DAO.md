@@ -69,6 +69,7 @@ This document describes the DAO / proposals feature as currently implemented in 
      - Summary
      - A card for every option, with each action option displaying only its matching nested parameter change set and its current/proposed values
    - Shows voting controls only when the proposal is in **Voting** state.
+   - Shows a collapsible **Your vote** section under the results for the signed-in account. It opens expanded and keeps the **Spent** total visible when collapsed. Each card shows its locally saved timestamp and LIB allocation. When a successful receipt supplies voting power, the card shows each option's share and confirmed power, with total power below. If there are multiple casts, each card also shows its own spend. A failed receipt marks the matching card **Failed**, labels its amount **Attempted**, and excludes it from **Spent**. If the device has no saved casts and the proposal lists the account as a voter, the section shows **Vote recorded**.
    - Voting is **Yes/No**, tracked per “voter id” derived from the current account:
      - `myAccount.address` / `myData.account.address` → fallback to username → fallback to `anon`.
 
@@ -177,8 +178,8 @@ Important implementation detail:
 
 - New accounts initialize an empty `daoUserVotes` map. For existing accounts without the map, the first accepted vote submission creates it with that proposal's cast; the proposal's local reminder schedule is added when the vote confirms.
 - The schedule is calculated from the proposal already loaded when the vote is submitted: `votingEndsAt` is the estimated voting end, `estimatedClaimEndsAt` is `votingEndsAt + claimDuration`, and `reminderExpiresAt` adds one more day.
-- The schedule is saved with the pending transaction so it survives a reload, then copied into `daoUserVotes` only after the vote confirms. Failed and timed-out votes are not tracked.
-- When the network accepts a vote submission, a cast `{ txid, weights, spend, optionWeights, timestamp, status }` is appended to the proposal's `casts` array immediately with `status` set to `submitted`. Whether the transaction was applied is not checked yet: `optionWeights` stays `null` and the status is not updated until a later change verifies the receipt by `txid`. Casts are deduplicated by `txid`, keeping the earlier cast. Entries that only hold a reminder schedule or claim window remain valid without `casts`.
+- The schedule is saved with the pending transaction so it survives a reload, then copied into `daoUserVotes` only after the vote confirms.
+- When the network accepts a vote submission, a cast `{ txid, weights, spend, optionWeights, timestamp, status }` is appended to the proposal's `casts` array with `status` set to `submitted` and `optionWeights` set to `null`. A receipt updates the matching cast by `txid` to `confirmed` or `failed`. A successful receipt can also supply `optionWeights`. An unresolved vote keeps its `submitted` status. Casts are deduplicated by `txid`, keeping the earlier cast. Entries that only hold a reminder schedule or claim window remain valid without `casts`.
 - `spend` and `optionWeights` are stored as bigints and survive the account save/restore round trip. Malformed casts are dropped when the account record is normalized; the rest of the proposal entry is kept.
 - Vote-history changes update `myData` in memory and otherwise rely on the normal account save lifecycle.
 - When the DAO modal refreshes metadata, tracked proposals that have entered a final state are refreshed once and updated with the authoritative claim window derived from `votingEndedAt`.

@@ -242,7 +242,7 @@ const DAO_TRANSACTION_MESSAGES = Object.freeze({
     timeout: 'Review result confirmation is taking longer than expected',
   },
   [DAO_ACTION_TYPES.VOTE]: {
-    pending: 'Vote submitted—pending confirmation',
+    pending: 'Vote submitted',
     success: 'Vote confirmed',
     failure: 'Vote failed',
     timeout: 'Vote confirmation is taking longer than expected',
@@ -336,6 +336,7 @@ export function hasPendingDaoAction(pendingList, type, proposalStoreId, from) {
 
   return pendingList.some((entry) => {
     if (!entry || entry.type !== type) return false;
+    if (type === DAO_ACTION_TYPES.VOTE && entry.daoVoteReceiptRetryAt) return false;
     if (entry.proposalStoreId !== proposalStoreId) return false;
     return entry.from === from;
   });
@@ -1694,6 +1695,8 @@ function normalizeDaoVoteReminderSchedule(value) {
 
 export const DAO_USER_VOTE_CAST_STATUSES = Object.freeze({
   SUBMITTED: 'submitted',
+  CONFIRMED: 'confirmed',
+  FAILED: 'failed',
 });
 
 function normalizeDaoUserVoteCastTxid(value) {
@@ -1710,7 +1713,9 @@ function normalizeDaoUserVoteCastWeights(value) {
 
 function normalizeDaoUserVoteCastOptionWeights(value, expectedLength) {
   if (!Array.isArray(value) || value.length !== expectedLength) return null;
-  const optionWeights = value.map((weight) => parseDaoUnsignedBigInt(weight));
+  const optionWeights = Array.from(value, (weight) => (
+    typeof weight === 'number' && !Number.isSafeInteger(weight) ? null : parseDaoUnsignedBigInt(weight)
+  ));
   return optionWeights.every((weight) => weight !== null) ? optionWeights : null;
 }
 
@@ -1732,13 +1737,16 @@ function normalizeDaoUserVoteCast(value) {
   const timestamp = normalizeDaoTimestamp(value.timestamp);
   if (!txid || !weights || !spend || spend <= 0n || !timestamp) return null;
 
+  const status = normalizeDaoUserVoteCastStatus(value.status);
   return {
     txid,
     weights,
     spend,
-    optionWeights: normalizeDaoUserVoteCastOptionWeights(value.optionWeights, weights.length),
+    optionWeights: status === DAO_USER_VOTE_CAST_STATUSES.FAILED
+      ? null
+      : normalizeDaoUserVoteCastOptionWeights(value.optionWeights, weights.length),
     timestamp,
-    status: normalizeDaoUserVoteCastStatus(value.status),
+    status,
   };
 }
 
@@ -1754,6 +1762,61 @@ function normalizeDaoUserVoteCasts(value) {
     casts.push(cast);
   }
   return casts;
+}
+
+export const DAO_USER_VOTE_SUMMARY_KINDS = Object.freeze({
+  NONE: 'none',
+  VOTED: 'voted',
+  DETAIL: 'detail',
+});
+
+function toDaoShare(part, total) {
+  return Number((part * 10_000n + total / 2n) / total) / 10_000;
+}
+
+// Summarizes the signed-in account's locally saved casts, with a voter-list fallback.
+//   none   - nothing shows the account voted
+//   voted  - voterList proves participation but no local cast details exist
+//   detail - local casts exist, listed separately in time order; each carries its
+//            option rows (weight share and allocated LIB), spend, stored status,
+//            and the applied power when the cast reports receipt option weights
+export function getDaoUserVoteSummary({ proposal, address, casts } = {}) {
+  const normalizedAddress = normalizeDaoAddress(address);
+  if (!normalizedAddress) return { kind: DAO_USER_VOTE_SUMMARY_KINDS.NONE };
+
+  const labels = getDaoProposalOptionLabels(proposal);
+  const savedCasts = normalizeDaoUserVoteCasts(casts);
+  const optionCount = labels.length || savedCasts.reduce((max, cast) => Math.max(max, cast.weights.length), 0);
+  const validCasts = savedCasts
+    .filter((cast) => cast.weights.length === optionCount)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  if (validCasts.length === 0) {
+    const voted = Array.isArray(proposal?.voterList)
+      && proposal.voterList.some((entry) => normalizeDaoAddress(entry?.address) === normalizedAddress);
+    return { kind: voted ? DAO_USER_VOTE_SUMMARY_KINDS.VOTED : DAO_USER_VOTE_SUMMARY_KINDS.NONE };
+  }
+
+  return {
+    kind: DAO_USER_VOTE_SUMMARY_KINDS.DETAIL,
+    casts: validCasts.map((cast) => {
+      const totalWeight = cast.weights.reduce((sum, weight) => sum + BigInt(weight), 0n);
+      return {
+        txid: cast.txid,
+        timestamp: cast.timestamp,
+        status: cast.status,
+        spend: cast.spend,
+        totalPower: cast.optionWeights ? cast.optionWeights.reduce((sum, power) => sum + power, 0n) : null,
+        rows: Array.from({ length: optionCount }, (_, index) => ({
+          option: labels[index] || `Option ${index + 1}`,
+          weight: cast.weights[index],
+          share: toDaoShare(BigInt(cast.weights[index]), totalWeight),
+          allocation: (cast.spend * BigInt(cast.weights[index])) / totalWeight,
+          power: cast.optionWeights ? cast.optionWeights[index] : null,
+        })),
+      };
+    }),
+  };
 }
 
 function normalizeDaoUserVotes(value) {
@@ -1812,6 +1875,10 @@ export function createDaoProposalVoteTracker({
   function getPendingClaimProposalNumbers() {
     return Object.entries(readVotes())
       .filter(([, entry]) => !hasDaoUserVoteClaimWindow(entry))
+      // Failed attempts alone do not qualify a proposal for claim tracking.
+      .filter(([, entry]) => entry.votingEndsAt
+        || !entry.casts
+        || entry.casts.some((cast) => cast.status !== DAO_USER_VOTE_CAST_STATUSES.FAILED))
       .map(([proposalNumber]) => Number(proposalNumber));
   }
 
@@ -1864,37 +1931,55 @@ export function createDaoProposalVoteTracker({
     type,
     outcome,
     proposalNumber,
+    txid,
+    optionWeights,
     votingEndsAt,
     estimatedClaimEndsAt,
     reminderExpiresAt,
   }) {
-    if (outcome !== 'success') return;
     if (type !== DAO_ACTION_TYPES.VOTE && type !== DAO_ACTION_TYPES.CLAIM_REWARD) return;
+    if (outcome !== 'success' && (type !== DAO_ACTION_TYPES.VOTE || outcome !== 'failure')) return;
 
     const number = normalizeDaoPositiveInteger(proposalNumber);
     if (!number) return;
 
     const current = readVotes();
-    const isTracked = Object.prototype.hasOwnProperty.call(current, number);
+    const entry = current[number];
 
     if (type === DAO_ACTION_TYPES.VOTE) {
-      const reminderSchedule = normalizeDaoVoteReminderSchedule({
-        votingEndsAt,
-        estimatedClaimEndsAt,
-        reminderExpiresAt,
+      const receiptTxid = normalizeDaoUserVoteCastTxid(txid);
+      const cast = entry?.casts?.find((candidate) => candidate.txid === receiptTxid);
+      if (outcome === 'failure') {
+        if (cast?.status !== DAO_USER_VOTE_CAST_STATUSES.SUBMITTED) return;
+
+        const failedCast = { ...cast, status: DAO_USER_VOTE_CAST_STATUSES.FAILED, optionWeights: null };
+        const casts = entry.casts.map((candidate) => candidate === cast ? failedCast : candidate);
+        writeVotes({ ...current, [number]: { ...entry, casts } });
+        return;
+      }
+
+      const reminderSchedule = normalizeDaoVoteReminderSchedule(entry) ?? normalizeDaoVoteReminderSchedule({
+        votingEndsAt, estimatedClaimEndsAt, reminderExpiresAt,
       });
-      if (isTracked && normalizeDaoVoteReminderSchedule(current[number])) return;
-      writeVotes({
-        ...current,
-        [number]: {
-          ...current[number],
-          ...reminderSchedule,
-        },
-      });
+      const nextEntry = { ...entry, ...reminderSchedule };
+      if (cast) {
+        const appliedWeights = normalizeDaoUserVoteCastOptionWeights(optionWeights, cast.weights.length);
+        if (cast.status !== DAO_USER_VOTE_CAST_STATUSES.CONFIRMED || (appliedWeights && !cast.optionWeights)) {
+          const confirmedCast = {
+            ...cast,
+            status: DAO_USER_VOTE_CAST_STATUSES.CONFIRMED,
+            optionWeights: appliedWeights ?? cast.optionWeights,
+          };
+          nextEntry.casts = entry.casts.map((candidate) => candidate === cast ? confirmedCast : candidate);
+        }
+      }
+      if (!entry || nextEntry.casts !== entry.casts || nextEntry.votingEndsAt !== entry.votingEndsAt) {
+        writeVotes({ ...current, [number]: nextEntry });
+      }
       return;
     }
 
-    if (isTracked) {
+    if (entry) {
       const next = { ...current };
       delete next[number];
       writeVotes(next);
@@ -1927,7 +2012,14 @@ export function createDaoProposalVoteTracker({
     return true;
   }
 
+  function getCasts(proposalNumber) {
+    const number = normalizeDaoPositiveInteger(proposalNumber);
+    if (!number) return [];
+    return readVotes()[number]?.casts ?? [];
+  }
+
   return Object.freeze({
+    getCasts,
     getPendingClaimProposalNumbers,
     getOpenClaimProposalNumbers,
     handleSettlement,
