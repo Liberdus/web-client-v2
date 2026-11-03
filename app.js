@@ -13183,7 +13183,6 @@ async function verifyPaymentBubbles() {
   for (const bubble of bubbles) {
     const intentHash = bubble.dataset.intentHash;
     if (!intentHash) continue;
-    const sentAt = Number(bubble.closest('[data-message-timestamp]')?.dataset.messageTimestamp) || null;
     // The whole claim, from the stored message: the check compares what was
     // claimed -- token, amount, the two sides -- with what the verifier logged.
     const found = findPaymentMessage(intentHash);
@@ -13196,7 +13195,6 @@ async function verifyPaymentBubbles() {
     let result = intentsPaymentVerifications.get(intentHash);
     if (!result || result.state === 'pending' || result.state === 'unverifiable') {
       result = await verifyTransferClaim(found.message.payment, {
-        sentAt,
         expectedFrom: found.message.my ? me : them,
         expectedTo: found.message.my ? them : me,
       });
@@ -13222,25 +13220,25 @@ function findPaymentMessage(intentHash) {
   return null;
 }
 
-// Answers that will not change. Anything else is asked again next time.
-const RESTING_PAYMENT_STATES = new Set(['settled', 'failed', 'expired']);
+// Keep these results when the bubble is rendered again, including an
+// inconclusive relay miss for receipts without a usable payment time.
+const RESTING_PAYMENT_STATES = new Set(['settled', 'failed', 'expired', 'unknown']);
 
 /**
  * Keep a payment's verdict on the stored message itself.
  *
  * The relay forgets intents within days, so a payment checked once must stay
  * checked: without this, a genuine payment verified today would come back
- * "not found" next week. The bubble renders from the stored field, and the
- * verifier only asks about bubbles still unchecked or pending.
+ * "not found" next week. The bubble renders from the stored field, and a
+ * newly checked copy of the same intent cannot replace a saved result.
  */
 function rememberPaymentVerdict(intentHash, state) {
   let changed = false;
   for (const contact of Object.values(myData?.contacts || {})) {
     for (const message of contact.messages || []) {
-      if (message.payment?.intentHash === intentHash && message.paymentVerified !== state) {
-        message.paymentVerified = state;
-        changed = true;
-      }
+      if (message.payment?.intentHash !== intentHash || RESTING_PAYMENT_STATES.has(message.paymentVerified)) continue;
+      message.paymentVerified = state;
+      changed = true;
     }
   }
   if (changed) saveState();

@@ -2681,7 +2681,7 @@ export class IntentsChatError extends Error {
  * recipient could derive for themselves is not worth trusting a peer for.
  */
 export function buildTransferMessage({
-  assetId, symbol, chainName, amount, decimals, intentHash, transactionHash = null, note = null,
+  assetId, symbol, chainName, amount, decimals, intentHash, transactionHash = null, note = null, initiatedAt = null,
 }) {
   const message = {
     type: INTENTS_CHAT_MESSAGE_TYPE,
@@ -2696,6 +2696,7 @@ export function buildTransferMessage({
   // long as the chat keeps the message. Absent when settlement was not seen.
   if (transactionHash) message.transactionHash = transactionHash;
   if (note) message.note = String(note).slice(0, 140);
+  if (initiatedAt !== null) message.initiatedAt = initiatedAt;
   return message;
 }
 
@@ -2734,6 +2735,7 @@ export function parseTransferMessage(raw) {
     && /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(raw.transactionHash.trim())
     ? raw.transactionHash.trim()
     : null;
+  const initiatedAt = Number.isSafeInteger(raw.initiatedAt) && raw.initiatedAt > 0 ? raw.initiatedAt : null;
 
   return Object.freeze({
     type: INTENTS_CHAT_MESSAGE_TYPE,
@@ -2744,6 +2746,7 @@ export function parseTransferMessage(raw) {
     decimals,
     intentHash,
     transactionHash,
+    initiatedAt,
     note: note || null,
   });
 }
@@ -2792,15 +2795,14 @@ export const RELAY_MEMORY_MS = 6 * 60 * 60 * 1000;
  *
  * `expectedFrom` / `expectedTo` are the intents accounts of the chat's two
  * sides. States: settled (checked and matching), failed (checked and not),
- * pending, expired (too old for the relay and never checked while it knew),
- * unverifiable (nothing could be asked -- not evidence either way).
+ * pending, expired (too old to check), unknown (relay miss without a usable
+ * payment time), unverifiable (the check could not be completed).
  */
 export async function verifyTransferClaim(claim, {
   getStatus = getIntentStatus,
   getTransfers = fetchIntentTransfers,
   expectedFrom = null,
   expectedTo = null,
-  sentAt = null,
   now = Date.now(),
 } = {}) {
   if (!claim?.intentHash) return { state: 'unverifiable', reason: 'No intent hash' };
@@ -2814,12 +2816,18 @@ export async function verifyTransferClaim(claim, {
       return { state: 'unverifiable', reason: error.message || String(error) };
     }
     if (INTENT_IN_FLIGHT.includes(status.status)) return { state: 'pending', transactionHash: null };
-    if (status.status !== 'SETTLED') {
-      // Unknown to the relay: damning for a fresh claim, which a genuine
-      // payment never is, but only forgetfulness for an old one.
-      if (status.status === 'NOT_FOUND_OR_NOT_VALID' && Number(sentAt) > 0 && now - Number(sentAt) > RELAY_MEMORY_MS) {
+    if (status.status === 'NOT_FOUND_OR_NOT_VALID') {
+      // The receipt can be retried, so only the original payment time can
+      // help interpret a relay miss. This time is supplied by the sender.
+      const { initiatedAt } = claim;
+      if (!Number.isSafeInteger(initiatedAt) || initiatedAt <= 0 || initiatedAt > now) {
+        return { state: 'unknown', reason: status.status };
+      }
+      if (now - initiatedAt > RELAY_MEMORY_MS) {
         return { state: 'expired', reason: status.status };
       }
+    }
+    if (status.status !== 'SETTLED') {
       return { state: 'failed', reason: status.status };
     }
     transactionHash = status.transactionHash;
@@ -2854,6 +2862,7 @@ export function paymentStatusLabel(state) {
     // Too old for the relay to remember, and never checked while it did.
     // Neither a verdict nor a problem to fix.
     expired: 'Too old to check',
+    unknown: 'Unable to confirm',
     unverifiable: 'Could not check yet',
     unchecked: 'Checking…',
   }[state] || 'Could not check yet';
@@ -2908,6 +2917,7 @@ export class IntentsChatPayments {
       );
     }
 
+    const initiatedAt = Date.now();
     const intentHash = await publishIntent(signed);
 
     // Wait for it to land before announcing it: the receipt then names the
@@ -2940,6 +2950,7 @@ export class IntentsChatPayments {
         decimals: asset?.tokenDecimals ?? null,
         intentHash,
         transactionHash,
+        initiatedAt,
         note,
       }),
     };
@@ -3046,6 +3057,13 @@ export function depositEntry(record, bridgeTokens = []) {
   };
 }
 
+const PAYMENT_ACTIVITY_STATUS = new Map([
+  ['settled', 'done'],
+  ['failed', 'unconfirmed'],
+  ['expired', 'expired'],
+  ['unknown', 'unknown'],
+]);
+
 /**
  * A chat payment, as a row. Our own sends are settled by definition -- we
  * published them. A received one is a claim until the intent is checked.
@@ -3061,14 +3079,13 @@ export function paymentEntry(payment) {
     amount: String(payment.amount),
     direction: mine ? -1 : 1,
     time: Number(payment.time) || 0,
-    status: mine || payment.verified === 'settled' ? 'done'
-      : payment.verified === 'failed' ? 'unconfirmed'
-        : payment.verified === 'expired' ? 'expired' : 'checking',
+    status: mine ? 'done' : PAYMENT_ACTIVITY_STATUS.get(payment.verified) ?? 'checking',
     intentHash: payment.intentHash,
     // What the check compares against the verifier's record of the transfer.
     claim: {
       intentHash: payment.intentHash,
       transactionHash: payment.transactionHash || null,
+      initiatedAt: payment.initiatedAt ?? null,
       assetId: payment.assetId,
       amount: String(payment.amount),
       decimals: payment.decimals ?? null,
@@ -3278,13 +3295,10 @@ export class IntentsActivity {
     if (known) return known;
     try {
       const result = await this.verifyClaim(entry.claim || { intentHash }, {
-        sentAt: entry.time,
         expectedFrom: entry.peerAccount,
         expectedTo: accountId,
       });
-      const status = result?.state === 'settled' ? 'done'
-        : result?.state === 'failed' ? 'unconfirmed'
-          : result?.state === 'expired' ? 'expired' : 'checking';
+      const status = PAYMENT_ACTIVITY_STATUS.get(result?.state) ?? 'checking';
       if (status !== 'checking') this.claims.set(intentHash, status);
       return status;
     } catch {
@@ -3851,6 +3865,7 @@ const ACTIVITY_STATUS = {
   refunded: 'Refunded',
   unconfirmed: 'Not confirmed',
   expired: 'Too old to check',
+  unknown: 'Unable to confirm',
 };
 
 const dayFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
