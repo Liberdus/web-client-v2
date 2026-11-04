@@ -2053,6 +2053,55 @@ button:disabled {
   box-shadow: var(--focus-ring-primary);
 }
 
+.contact-autocomplete-field {
+  position: relative;
+}
+
+.contact-autocomplete-list {
+  position: absolute;
+  top: 100%;
+  inset-inline: 0;
+  z-index: 1;
+  margin-top: 4px;
+  max-height: min(14rem, 40dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 4px;
+  background: var(--background-color);
+  box-shadow: var(--elev-2);
+  color: var(--text-color);
+  text-align: left;
+  touch-action: pan-y;
+}
+
+.contact-autocomplete-option {
+  display: grid;
+  align-content: center;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.contact-autocomplete-option:hover,
+.contact-autocomplete-option[aria-selected='true'] {
+  background: var(--hover-background-purple);
+}
+
+.contact-autocomplete-option[aria-selected='true'] {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+.contact-autocomplete-username {
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
+}
+
 select.form-control {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");

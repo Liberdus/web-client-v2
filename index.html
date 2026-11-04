@@ -2805,7 +2805,7 @@
         <div class="modal-content">
           <div class="form-container">
             <form id="sendForm" class="form--narrow">
-              <div class="form-group">
+              <div class="form-group contact-autocomplete-field">
                 <label for="sendToAddress"
                   >Recipient <span id="sendToAddressError" style="color: #dc3545; display: none"></span
                 ></label>
@@ -2814,11 +2814,13 @@
                     type="text"
                     id="sendToAddress"
                     class="form-control"
-                    placeholder="Enter username"
+                    placeholder="Search contacts or enter username"
                     required
-                    pattern="[a-zA-Z0-9]*"
                     inputmode="text"
-                    style="flex: 1"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    style="flex: 1; min-width: 0"
                   />
                   <button
                     type="button"
@@ -2849,6 +2851,7 @@
                     aria-hidden="true"
                   />
                 </div>
+                <div id="sendToAddressSuggestions" class="contact-autocomplete-list" aria-label="Saved contacts" hidden></div>
               </div>
               <div class="form-group">
                 <label for="sendAmount">
