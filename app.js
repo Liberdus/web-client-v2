@@ -34159,9 +34159,10 @@ class SendAssetFormModal {
 
   /**
    * Opens the send asset modal
-   * @returns {Promise<void>}
+   * @param {{input: string, expectedAddress?: string}} [recipientToRestore]
+   * @returns {Promise<boolean>}
    */
-  async open() {
+  async open(recipientToRestore) {
     if (this.isActive()) return false;
     this.reset();
     this.memoInput.setCustomValidity('');
@@ -34178,7 +34179,10 @@ class SendAssetFormModal {
 
     if (!openModal(this.modal)) return false;
     const session = this.session = { account: myAccount };
-    if (this.username) {
+    if (recipientToRestore) {
+      this.usernameInput.value = recipientToRestore.input;
+      this.handleSendToAddressInput(recipientToRestore.expectedAddress);
+    } else if (this.username) {
       this.usernameInput.value = this.username;
       this.usernameInput.dispatchEvent(new Event('input'));
       this.username = null;
@@ -34263,7 +34267,7 @@ class SendAssetFormModal {
     if (!this.isCurrentSession(session)) return;
     this.submitButton.disabled = true;
     const rawInput = this.usernameInput.value;
-    const unresolvedRecipient = this.foundAddressObject = { address: null };
+    const unresolvedRecipient = this.foundAddressObject = { address: null, input: rawInput, expectedAddress };
     this.tollInfo = {};
     this.needTollInfo = false;
     this.clearFormInfo();
@@ -34298,7 +34302,7 @@ class SendAssetFormModal {
 
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
       this.sendAssetFormModalCheckTimeout = null;
-      const found = { address: null, username, input: rawInput };
+      const found = { ...unresolvedRecipient, username };
       if (!this.isCurrentSession(session)) return;
       const taken = await checkUsernameAvailability(username, session.account.keys.address, found);
       if (!this.isCurrentSession(session) || this.foundAddressObject !== unresolvedRecipient
@@ -34828,13 +34832,14 @@ class SendAssetFormModal {
    * @returns {Promise<void>}
    */
   async reopen() {
-    const tempUsername = this.usernameInput?.value;
+    const input = this.usernameInput.value;
+    const recipient = this.foundAddressObject;
+    const expectedAddress = recipient.input === input ? recipient.address || recipient.expectedAddress : undefined;
     const tempAmount = this.amountInput?.value;
     const tempUnit = this.balanceSymbol.textContent;
     const tempMemo = this.memoInput?.value;
     await this.close();
-    this.username = tempUsername;
-    if (!await this.open()) return;
+    if (!await this.open({ input, expectedAddress })) return;
     this.amountInput.value = tempAmount;
     this.balanceSymbol.textContent = tempUnit;
     this.memoInput.value = tempMemo || '';
