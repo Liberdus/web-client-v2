@@ -15176,11 +15176,16 @@ class ContactSearch {
     return fields;
   }
 
-  static getMatchType(contact, searchLower) {
-    const fields = ContactSearch.getSearchableFields(contact).map(({ value }) => value.toLowerCase());
-    if (fields.includes(searchLower)) return 2;
-    if (fields.some((value) => value.startsWith(searchLower))) return 1;
-    return fields.some((value) => value.includes(searchLower)) ? 0 : -1;
+  static getMatchType(contact, query, usernameQuery = query) {
+    let rank = -1;
+    for (const { field, value } of ContactSearch.getSearchableFields(contact)) {
+      const search = field === 'username' ? usernameQuery : query;
+      const candidate = value.toLowerCase();
+      if (candidate === search) return 2;
+      if (candidate.startsWith(search)) rank = 1;
+      else if (rank < 0 && candidate.includes(search)) rank = 0;
+    }
+    return rank;
   }
 }
 
@@ -15235,8 +15240,9 @@ class ContactAutocomplete {
         || compareUsernames(a, b));
     }
 
+    const usernameQuery = query.length > 1 ? query.replace(/^@/, '') : query;
     return contacts
-      .map((contact) => ({ contact, rank: ContactSearch.getMatchType(contact, query) }))
+      .map((contact) => ({ contact, rank: ContactSearch.getMatchType(contact, query, usernameQuery) }))
       .filter(({ rank }) => rank >= 0)
       .sort((a, b) => b.rank - a.rank || compareUsernames(a.contact, b.contact))
       .map(({ contact }) => contact);
@@ -34473,13 +34479,14 @@ class SendAssetFormModal {
     const confirmButton = sendAssetConfirmModal.confirmSendButton;
     const cancelButton = sendAssetConfirmModal.cancelButton;
 
+    let recipientAddress;
     // Ensure recipient account type matches sender (public/private).
     try {
       if (!recipient.address || this.usernameInput.value !== recipient.input) {
         showToast('Recipient address not resolved; enter a valid username', 0, 'error');
         return;
       }
-      const recipientAddress = normalizeAddress(recipient.address);
+      recipientAddress = normalizeAddress(recipient.address);
 
       await getNetworkParams();
       const myIsPrivate = !!myData?.account?.private;
@@ -34526,7 +34533,7 @@ class SendAssetFormModal {
     this.balanceWarning.style.display = warning.style.display;
     if (!hasBalance || !this.validateToll(amountWei)) return;
 
-    const payment = { amountWei, username, memo, retryTxId: this.retryTxIdInput.value };
+    const payment = { amountWei, username, recipientAddress, memo, retryTxId: this.retryTxIdInput.value };
     if (!sendAssetConfirmModal.open(payment)) return;
     const libAmount = EthNum.toStr(amountWei);
     const usdAmount = amountUnit === 'USD' ? Number(amountText) : Number(libAmount) * getStabilityFactor();
@@ -35075,6 +35082,12 @@ class SendAssetConfirmModal {
     } catch (error) {
       console.error('Error looking up username:', error);
       showToast('Error looking up username', 0, 'error');
+      return;
+    }
+
+    if (toAddress !== payment.recipientAddress) {
+      this.close();
+      showToast('Recipient address changed. Check the recipient and enter the username again.', 0, 'error');
       return;
     }
 
