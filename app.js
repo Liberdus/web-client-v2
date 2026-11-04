@@ -2013,6 +2013,7 @@ class ChatsScreen {
       let displayPreview = previewHTML;
       const isOutgoingPreview = isShowingReactionPreview ? reactionPreview.my : latestActivity.my;
       let displayPrefix = isOutgoingPreview ? '< ' : '> ';
+      const draft = contact.draft;
       let hasDraftAttachment = false;
 
       // Check for draft attachments
@@ -2021,8 +2022,9 @@ class ChatsScreen {
       }
       
       // If there's draft text, show that (prioritize draft text over reply preview)
-      if (contact.draft && contact.draft.trim() !== '') {
-        displayPreview = truncateMessage(escapeHtml(contact.draft), 50);
+      if (draft && draft.trim() !== '') {
+        const draftPreview = draft.length > 50 ? draft.slice(0, 50) + '...' : draft;
+        displayPreview = escapeHtml(draftPreview);
         displayPrefix = '< ';
       } else if (contact.draftReplyTxid) {
         // If there's only reply content (no text), show "Replying to: [message]"
@@ -2035,7 +2037,7 @@ class ChatsScreen {
           displayPreview = '[message]';
         }
         displayPrefix = 'Replying to: ';
-      } else if (hasDraftAttachment && !contact.draft) {
+      } else if (hasDraftAttachment && !draft) {
         // If there's only attachment draft (no text, no reply), show attachment indicator
         const attachmentCount = contact.draftAttachments.length;
         displayPreview = attachmentCount === 1 
@@ -2058,7 +2060,7 @@ class ChatsScreen {
                   <div class="chat-time">${timeDisplay}</div>
               </div>
               <div class="chat-message">
-                ${failedIndicatorHTML}${unreadCount ? `<span class="chat-unread">${unreadCount}</span>` : ((contact.draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
+                ${failedIndicatorHTML}${unreadCount ? `<span class="chat-unread">${unreadCount}</span>` : ((draft || contact.draftReplyTxid || hasDraftAttachment) ? `<span class="chat-draft" title="Draft"></span>` : '')}
                 ${displayPrefix}${displayPreview}
               </div>
           </div>
@@ -24774,20 +24776,13 @@ class ChatModal {
    * @param {string} text - The draft message text to save
    */
   saveDraft(text) {
-    if (this.address && myData.contacts[this.address]) {
-      // Sanitize the text before saving
-      const sanitizedText = escapeHtml(text);
-      myData.contacts[this.address].draft = sanitizedText;
-      
-      // Save or clear reply state
-      this.saveReplyState(myData.contacts[this.address]);
-      
-      // Save or clear attachment state
-      this.saveAttachmentState(myData.contacts[this.address]);
+    const contact = this.address && myData.contacts[this.address];
+    if (!contact) return;
 
-      // Save or clear retry state
-      this.saveRetryState(myData.contacts[this.address]);
-    }
+    contact.draft = text;
+    this.saveReplyState(contact);
+    this.saveAttachmentState(contact);
+    this.saveRetryState(contact);
   }
 
   /**
