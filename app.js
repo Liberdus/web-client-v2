@@ -23839,10 +23839,10 @@ class ChatModal {
       throw new Error('Unblock this contact before sending an EVM payment message.');
     }
 
-    // Prepare the receipt with fresh keys before saving a first-time recipient as a Tolled contact.
+    // Prepare the receipt with fresh keys before saving a first-time recipient as a Connection.
     const { public: publicKey, pqPublic: pqPublicKey } = prepared.contactUpdates;
     const cryptoContext = {
-      contact: contact || { friend: 1 },
+      contact: contact || { friend: 2 },
       ...dhkeyCombined(account.keys.secret, publicKey, pqPublicKey),
     };
     const { payload, chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
@@ -23865,7 +23865,7 @@ class ChatModal {
     }
     if (!savedContact) {
       if (contact) throw new Error('The recipient was removed from Contacts. Review the payment again.');
-      createNewContact(prepared.address, prepared.username, 1);
+      createNewContact(prepared.address, prepared.username, 2);
     }
     const recipient = myData.contacts[prepared.address];
     if (!recipient.username && prepared.username) recipient.username = prepared.username;
