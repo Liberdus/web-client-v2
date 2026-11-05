@@ -35624,6 +35624,7 @@ class ReceiveModal {
 const receiveModal = new ReceiveModal();
 
 multichain.configure({
+  syncSelect: (select) => PopupSelect.sync(select),
   // Which assets this account has held, and whether empty ones are hidden,
   // travel with the account's saved state.
   getSettings: () => myData?.multichain,

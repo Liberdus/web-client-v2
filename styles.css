@@ -12263,76 +12263,24 @@ small {
   outline-offset: 2px;
 }
 
-/* Nothing held: where to start, rather than a list of zeros. */
+/* Match the EVM asset filter while retaining the multichain wallet spacing. */
+.multichain-network-panel {
+  margin: 24px 16px 0;
+}
+
+.multichain-network-panel ~ .multichain-assets {
+  margin-top: 16px;
+}
+
 .multichain-empty {
-  margin: 32px 16px 0;
+  margin: 24px 16px;
   text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
 }
 
 .multichain-empty[hidden] {
   display: none;
-}
-
-.multichain-empty-title {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.multichain-empty-text {
-  margin: 8px 0 16px;
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text-color);
-}
-
-/* Rows of three: more across leaves each chip too narrow to name its network,
-   and "BNB C…" is exactly the part that must not be cut. */
-.multichain-quick {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-.multichain-quick-chip {
-  flex: 0 0 calc((100% - 16px) / 3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  padding: 12px 4px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--background-color);
-  font-family: var(--font-primary);
-  cursor: pointer;
-}
-
-.multichain-quick-chip:hover {
-  border-color: var(--primary-color);
-  background: var(--hover-background-purple);
-}
-
-.multichain-quick-chip .asset-mark {
-  margin-bottom: 4px;
-}
-
-.multichain-quick-symbol {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-/* The network is part of the answer, not decoration: it says where the
-   address below the chip will accept this coin. */
-.multichain-quick-network {
-  max-width: 100%;
-  font-size: var(--font-size-xs);
-  color: var(--secondary-text-color);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Custody is a standing fact about every row above it, so it sits under the
@@ -12528,12 +12476,6 @@ small {
 
 .multichain-row:hover {
   background: var(--hover-background-purple);
-}
-
-/* An asset you hold nothing of is shown so the chain is findable before the
-   first deposit, but it should not compete with the ones that have money. */
-.multichain-row.is-empty {
-  opacity: 0.55;
 }
 
 .multichain-row-main {

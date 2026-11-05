@@ -1727,6 +1727,14 @@
               <span class="action-icon" aria-hidden="true"></span>Send
             </button>
           </div>
+          <div class="wallet-network-panel multichain-network-panel">
+            <div class="wallet-network-heading">
+              <label for="multichainNetwork">Chain</label>
+            </div>
+            <select id="multichainNetwork" class="form-control wallet-network-select">
+              <option value="all">All chains</option>
+            </select>
+          </div>
           <!-- Shown only when there is a zero row to hide. -->
           <div class="multichain-list-head" id="multichainListHead" hidden>
             <div class="multichain-section-title">Assets</div>
@@ -1736,12 +1744,7 @@
               <span class="multichain-switch-track" aria-hidden="true"></span>
             </label>
           </div>
-          <!-- Nothing held: the way to start, one tap from each coin's address. -->
-          <div class="multichain-empty" id="multichainEmpty" hidden>
-            <div class="multichain-empty-title">Nothing here yet</div>
-            <p class="multichain-empty-text">Most people start with one of these.</p>
-            <div class="multichain-quick" id="multichainQuick"></div>
-          </div>
+          <div class="multichain-empty" id="multichainEmpty" role="status" hidden></div>
           <div class="multichain-assets" id="multichainAssetsList"></div>
           <p class="multichain-footnote">Held for you, not on each asset’s own chain. Withdraw any time.</p>
         </div>
