@@ -23773,9 +23773,6 @@ class ChatModal {
   /** Check the actual recipient and live LIB funds before an external payment. */
   async prepareEvmPaymentRecipient(resolution, account) {
     const address = normalizeAddress(resolution.address);
-    if (!myData.contacts[address]) {
-      throw new Error('Add this username to Contacts before sending an EVM payment.');
-    }
     const sorted = [longAddress(account.keys.address), longAddress(address)].sort();
     const chatId = hashBytes(sorted.join(''));
     const [recipientInfo, tollInfo, balanceInfo, paramsOk] = await Promise.all([
@@ -23804,7 +23801,9 @@ class ChatModal {
     const totalRequired = fee + toll;
     const available = BigInt(balanceInfo.balance);
     if (available < totalRequired) {
-      throw new Error(`Not enough LIB for the chat message. Required: ${big2str(totalRequired, 18)} LIB; available: ${big2str(available, 18)} LIB; add ${big2str(totalRequired - available, 18)} LIB.`);
+      const error = new Error(`Not enough LIB for the chat message. Required: ${big2str(totalRequired, 18)} LIB; available: ${big2str(available, 18)} LIB; add ${big2str(totalRequired - available, 18)} LIB.`);
+      error.recipientToll = toll;
+      throw error;
     }
     // Validate current encryption keys without mutating the saved contact.
     const publicKey = recipient.publicKey;
@@ -23814,7 +23813,7 @@ class ChatModal {
     }
     dhkeyCombined(account.keys.secret, publicKey, pqPublicKey);
     return {
-      address, username: resolution.username, toll: toll.toString(), totalRequired: totalRequired.toString(),
+      address, username: resolution.username, fee: fee.toString(), toll: toll.toString(), totalRequired: totalRequired.toString(),
       contactUpdates: {
         public: publicKey, pqPublic: pqPublicKey, toll: recipient.data.toll,
         tollUnit: recipient.data.tollUnit || 'LIB', tollRequiredToSend: required,
@@ -23822,18 +23821,28 @@ class ChatModal {
     };
   }
 
-  async prepareEvmPaymentMessage(record, account) {
+  async prepareEvmPaymentMessage(record, account, isCurrent = () => true) {
+    if (myAccount !== account || !isCurrent()) return false;
     if (record.kind !== 'outgoing') throw new Error('Only outgoing payments can send a chat message.');
     const payment = parseEvmTransferMessage(record.payment);
     if (!payment || payment.from !== `0x${normalizeAddress(account.keys.address)}`) throw new Error('Invalid payment sender.');
     const prepared = await this.prepareEvmPaymentRecipient({ address: payment.to, username: record.username }, account);
+    if (myAccount !== account || !isCurrent()) return false;
     const contact = myData.contacts[prepared.address];
-    if (!contact) throw new Error('Add this username to Contacts before sending an EVM payment.');
-    if (!contact.username && prepared.username) contact.username = prepared.username;
-    Object.assign(contact, prepared.contactUpdates);
+    if (!contact && (record.broadcastState !== 'not_started' || !prepared.username)) {
+      throw new Error('Add this username to Contacts before sending an EVM payment message.');
+    }
+
+    // Prepare the receipt with fresh keys before saving a first-time recipient as a Connection.
+    const { public: publicKey, pqPublic: pqPublicKey } = prepared.contactUpdates;
+    const cryptoContext = {
+      contact: contact || { friend: 2 },
+      ...dhkeyCombined(account.keys.secret, publicKey, pqPublicKey),
+    };
     const { payload, chatMessageObj, txid } = await this.buildEncryptedStructuredChatTx(
-      prepared.address, payment, BigInt(prepared.toll), account.keys,
+      prepared.address, payment, BigInt(prepared.toll), account.keys, cryptoContext,
     );
+    if (myAccount !== account || !isCurrent()) return false;
     // The last lookup or message builder can see a newer fee/toll than confirmation.
     const messageCost = chatMessageObj.amount + chatMessageObj.fee;
     if (messageCost > BigInt(record.messageCostLimit)) {
@@ -23844,6 +23853,15 @@ class ChatModal {
       if (!approved) return false;
       record.messageCostLimit = messageCost.toString();
     }
+    const savedContact = myData.contacts[prepared.address];
+    if (!savedContact) {
+      if (contact) throw new Error('The recipient was removed from Contacts. Review the payment again.');
+      createNewContact(prepared.address, prepared.username, 2);
+    }
+    const recipient = myData.contacts[prepared.address];
+    if (!recipient.username && prepared.username) recipient.username = prepared.username;
+    Object.assign(recipient, prepared.contactUpdates);
+
     record.attempt = { tx: chatMessageObj, txid, timestamp: payload.sent_timestamp };
     record.messageState = 'ready';
     saveEvmPayment(record);
@@ -35762,10 +35780,21 @@ function removeEvmPayment(record) {
 
 evmAssets.configure({
   getAccount: () => myAccount,
-  findContact: (username) => getMessagePaymentContacts()
-    .find((contact) => normalizeUsername(contact.username || '') === username) || null,
+  lookupUsername: getUsernameAddress,
+  createContactAutocomplete: ({ input, list, onSelect }) => new ContactAutocomplete({
+    input,
+    list,
+    onSelect,
+    getContacts: () => {
+      if (!myAccount) return [];
+      const ownAddress = normalizeAddress(myAccount.keys.address);
+      return Object.values(myData?.contacts || {}).filter((contact) =>
+        contact.address && contact.public && !isFaucetAddress(contact.address)
+        && /^[a-z0-9]{3,15}$/i.test(contact.username || '') && normalizeAddress(contact.address) !== ownAddress);
+    },
+  }),
   prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
-  preparePaymentMessage: (record, account) => chatModal.prepareEvmPaymentMessage(record, account),
+  preparePaymentMessage: (record, account, isCurrent) => chatModal.prepareEvmPaymentMessage(record, account, isCurrent),
   sendChatPayment: (record, account) => chatModal.sendEvmPaymentMessage(record, account),
   getPayments: loadEvmPayments,
   savePayment: saveEvmPayment,
