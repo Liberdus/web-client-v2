@@ -12240,15 +12240,6 @@ small {
   outline-offset: 2px;
 }
 
-/* Match the EVM asset filter while retaining the multichain wallet spacing. */
-.multichain-network-panel {
-  margin: 24px 16px 0;
-}
-
-.multichain-network-panel ~ .multichain-assets {
-  margin-top: 16px;
-}
-
 .multichain-empty {
   margin: 24px 16px;
   text-align: center;
@@ -12278,15 +12269,6 @@ small {
   #multichainModal .multichain-hero {
     gap: 4px;
     padding-top: 8px;
-  }
-
-  #multichainModal .multichain-network-panel {
-    margin-top: 16px;
-    padding: 8px;
-  }
-
-  #multichainModal .wallet-network-heading {
-    margin-bottom: 8px;
   }
 
   #multichainModal .multichain-list-head {

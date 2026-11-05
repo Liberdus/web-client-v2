@@ -3677,8 +3677,6 @@ class MultichainModal {
       this.render();
     });
     this.empty = document.getElementById('multichainEmpty');
-    this.networkSelect = document.getElementById('multichainNetwork');
-    this.networkSelect.addEventListener('change', () => this.render());
     document.getElementById('multichainDepositAnother')
       .addEventListener('click', () => this.controller.startDeposit());
 
@@ -3786,12 +3784,9 @@ class MultichainModal {
       ? 'Balances are unavailable right now. Refresh to try again.' : '';
 
     const assets = this.listAssets();
-    this.populateNetworkSelect(assets);
-    const selectedChain = this.networkSelect.value;
-    const filtered = selectedChain === 'all' ? assets : assets.filter((asset) => asset.chainName === selectedChain);
     const { hideEmpty } = this.controller.settings();
-    const visible = hideEmpty ? filtered.filter((asset) => asset.rawAmount !== '0') : filtered;
-    this.listHead.hidden = !filtered.some((asset) => asset.rawAmount === '0');
+    const visible = hideEmpty ? assets.filter((asset) => asset.rawAmount !== '0') : assets;
+    this.listHead.hidden = !assets.some((asset) => asset.rawAmount === '0');
     this.hideEmpty.checked = hideEmpty;
     this.empty.hidden = visible.length !== 0;
     this.empty.textContent = hideEmpty ? 'No assets to show. Turn off Hide empty to see all assets.' : 'No assets to show.';
@@ -3837,15 +3832,6 @@ class MultichainModal {
       if (STARTER_ASSETS.includes(asset.assetId) && !assets.has(asset.key)) assets.set(asset.key, asset);
     }
     return [...assets.values()];
-  }
-
-  populateNetworkSelect(assets) {
-    const selected = this.networkSelect.value;
-    const chains = [...new Set(assets.map((asset) => asset.chainName))].sort();
-    this.networkSelect.innerHTML = '<option value="all">All chains</option>' + chains.map((chain) =>
-      `<option value="${escapeHtml(chain)}">${escapeHtml(chain)}</option>`).join('');
-    this.networkSelect.value = chains.includes(selected) ? selected : 'all';
-    this.controller.syncSelect(this.networkSelect);
   }
 }
 
@@ -5291,7 +5277,6 @@ class MultichainController {
     this.getAccount = () => null;
     // The chat payment panel registers its send action when configured.
     this.onSend = () => {};
-    this.syncSelect = () => {};
     this.assetsModal = new MultichainModal(this);
     this.assetModal = new MultichainAssetModal(this);
     this.receiveModal = new MultichainReceiveModal(this);
@@ -5327,9 +5312,8 @@ class MultichainController {
     return this.getAccount()?.keys?.secret || null;
   }
 
-  configure({ getAccount, onSend, getSettings, saveSettings, syncSelect } = {}) {
+  configure({ getAccount, onSend, getSettings, saveSettings } = {}) {
     if (typeof onSend === 'function') this.onSend = onSend;
-    if (typeof syncSelect === 'function') this.syncSelect = syncSelect;
     if (typeof getSettings === 'function') this.getSettings = getSettings;
     if (typeof saveSettings === 'function') {
       this.saveSettings = saveSettings;
