@@ -15225,7 +15225,7 @@ class ContactAutocomplete {
     });
   }
 
-  static getDisplayName(contact) {
+  getDisplayName(contact) {
     return contact.displayName || contact.name || contact.username;
   }
 
@@ -15236,7 +15236,7 @@ class ContactAutocomplete {
 
     if (!query) {
       return [...contacts].sort((a, b) =>
-        ContactAutocomplete.getDisplayName(a).localeCompare(ContactAutocomplete.getDisplayName(b))
+        this.getDisplayName(a).localeCompare(this.getDisplayName(b))
         || compareUsernames(a, b));
     }
 
@@ -15273,7 +15273,7 @@ class ContactAutocomplete {
     avatar.setAttribute('aria-hidden', 'true');
     const text = document.createElement('span');
     text.className = 'contact-autocomplete-text';
-    const name = ContactAutocomplete.getDisplayName(contact);
+    const name = this.getDisplayName(contact);
     const label = document.createElement('span');
     label.textContent = name;
     text.append(label);
