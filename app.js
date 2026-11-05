@@ -14689,8 +14689,7 @@ async function refreshNetworkParamsOnTxFeeMismatch(reason) {
  * @param {string} txid - The transaction ID
  * @returns {Promise<Object>} The response from the injectTx call
  */
-async function injectTx(tx, txid, expectedAccount = null) {
-  if (expectedAccount && myAccount !== expectedAccount) throw new Error('Account changed before submission.');
+async function injectTx(tx, txid) {
   if (!isOnline) {
     return null;
   }
@@ -14758,8 +14757,6 @@ async function injectTx(tx, txid, expectedAccount = null) {
     if (!data.result.reason && normalizedReason) {
       data.result.reason = normalizedReason;
     }
-
-    if (expectedAccount && myAccount !== expectedAccount) return data;
 
     if (normalizedSuccess === true) {
       const pendingTxData = {
@@ -23896,7 +23893,7 @@ class ChatModal {
     record.nextCheckAt = 0;
     this.upsertEvmPaymentCard(record);
     saveEvmPayment(record);
-    const response = await injectTx(tx, txid, account);
+    const response = await injectTx(tx, txid);
     const current = loadEvmPayments().find((item) => evmPaymentRecordId(item) === evmPaymentRecordId(record));
     record.messageState = current?.messageState === 'delivered' ? 'delivered'
       : response?.result?.success === true ? 'submitted'
