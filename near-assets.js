@@ -3670,11 +3670,6 @@ class MultichainModal {
     this.refreshButton = document.getElementById('refreshMultichainBalance');
     this.assetsList = document.getElementById('multichainAssetsList');
     this.statusLine = document.getElementById('multichainStatus');
-    this.receiveButton = document.getElementById('multichainReceiveAny');
-    this.receiveButton.addEventListener('click', () => this.controller.startDeposit());
-    this.sendButton = document.getElementById('multichainSendAny');
-    // No asset chosen: the send screen starts on the largest holding.
-    this.sendButton.addEventListener('click', () => this.controller.onSend(null));
     this.listHead = document.getElementById('multichainListHead');
     this.hideEmpty = document.getElementById('multichainHideEmpty');
     this.hideEmpty.addEventListener('change', () => {
@@ -3763,8 +3758,6 @@ class MultichainModal {
     this.assetsList.hidden = false;
     this.assetsList.setAttribute('aria-busy', 'true');
     this.assetsList.innerHTML = SKELETON_ROW.repeat(3);
-    // Nothing is known to be held yet.
-    this.sendButton.disabled = true;
   }
 
   render() {
@@ -3789,7 +3782,6 @@ class MultichainModal {
     // fact, and lives in the footnote under the list.
     this.statusLine.textContent = status === 'unavailable'
       ? 'Balances are unavailable right now. Refresh to try again.' : '';
-    this.sendButton.disabled = held.length === 0;
 
     const assets = this.listAssets();
     this.populateNetworkSelect(assets);
@@ -4023,7 +4015,7 @@ class MultichainAssetModal {
 }
 
 /**
- * Receive: the deposit address is the whole screen.
+ * Deposit: the deposit address is the whole screen.
  *
  * Watches the balance while it is open, because a deposit lands a minute or
  * two after it is sent and a screen that never updates reads as broken.
@@ -4055,7 +4047,7 @@ class MultichainReceiveModal {
     if (!asset || !accountId) return;
 
     this.assetKey = assetKey;
-    this.title.textContent = `Receive ${assetTitle(asset)}`;
+    this.title.textContent = `Deposit ${assetTitle(asset)}`;
     this.body.innerHTML = '<div class="multichain-quote-working">Getting your deposit address…</div>';
     this.stopWatching();
     openModal(this.modal);
@@ -5403,26 +5395,22 @@ class MultichainController {
   }
 
   /**
-   * Receive anything the bridge carries, including assets outside the
+   * Deposit anything the bridge carries, including assets outside the
    * holdings and starter rows shown on the asset screen.
    *
    * The picker's rows are asset-on-chain, so one tap answers both "which
    * token" and "which network" -- no separate network question.
    */
   async startDeposit() {
-    const button = this.assetsModal.receiveButton;
-    button.disabled = true;
     try {
       await intentsDeposits.loadBridgeTokens();
     } catch (error) {
       console.warn('Deposit options unavailable:', error);
       this.assetsModal.statusLine.textContent = 'Could not load what you can receive. Try again in a moment.';
       return;
-    } finally {
-      button.disabled = false;
     }
     this.tokenPicker.open({
-      title: 'Receive',
+      title: 'Deposit',
       // Not an asset deposits never land on, whatever the bridge lists.
       accepts: (asset) => intentsDeposits.isDepositable(asset.assetId) && !DEPOSIT_CREDITS[asset.assetId],
       onPick: (key) => this.receiveModal.open(key),

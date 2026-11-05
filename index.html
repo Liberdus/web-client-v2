@@ -1718,15 +1718,6 @@
             <!-- Only ever a problem: a healthy screen says nothing here. -->
             <div class="multichain-hero-warning" id="multichainStatus" role="status"></div>
           </section>
-          <div class="multichain-hero-actions">
-            <!-- Any asset the bridge carries, not only the ones already listed. -->
-            <button type="button" class="multichain-hero-action" id="multichainReceiveAny">
-              <span class="action-icon" aria-hidden="true"></span>Receive
-            </button>
-            <button type="button" class="multichain-hero-action" id="multichainSendAny">
-              <span class="action-icon" aria-hidden="true"></span>Send
-            </button>
-          </div>
           <div class="wallet-network-panel multichain-network-panel">
             <div class="wallet-network-heading">
               <label for="multichainNetwork">Chain</label>
@@ -1767,7 +1758,7 @@
           <div class="wallet-actions asset-detail-actions">
             <button class="wallet-action-button" id="multichainAssetReceive">
               <span class="action-icon"></span>
-              <span class="action-label">Receive</span>
+              <span class="action-label">Deposit</span>
             </button>
             <button class="wallet-action-button" id="multichainAssetSend">
               <span class="action-icon"></span>
@@ -1792,11 +1783,11 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Receive: the address is the whole screen. -->
+      <!-- Deposit: the address is the whole screen. -->
       <div class="modal fixed-header" id="multichainReceiveModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainReceiveModal"></button>
-          <div class="modal-title" id="multichainReceiveTitle">Receive</div>
+          <div class="modal-title" id="multichainReceiveTitle">Deposit</div>
         </div>
         <div class="modal-content">
           <div class="multichain-screen" id="multichainReceiveBody"></div>
@@ -1971,8 +1962,8 @@
           <!-- Nothing to send: the way to fix that, in place. -->
           <div class="multichain-screen chat-send-empty" id="chatSendEmpty" hidden>
             <div class="multichain-deposit-minimum">Nothing to send yet</div>
-            <p class="chat-send-empty-text">Receive crypto into your multichain wallet, then send it from here.</p>
-            <button class="btn btn--primary btn--pill btn--full" id="chatSendReceive">Receive</button>
+            <p class="chat-send-empty-text">Deposit crypto into your multichain wallet, then send it from here.</p>
+            <button class="btn btn--primary btn--pill btn--full" id="chatSendReceive">Deposit</button>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
