@@ -4319,6 +4319,7 @@ class MultichainConfirmModal {
     try {
       await this.run(this);
     } catch (error) {
+      if (error?.name === 'AbortError') return;
       // A finished sheet has already said what happened; a failed balance
       // refresh afterwards must not replace that with an error and a retry.
       if (this.done) {
@@ -5747,10 +5748,14 @@ export class ChatPaymentPanel {
     return this.modal?.classList.contains('active') || false;
   }
 
-  primaryAction() {
-    if (this.done) return this.close();
-    if (this.pendingReceipt) return this.sendReceipt();
-    return this.review();
+  async primaryAction() {
+    try {
+      if (this.done) return this.close();
+      if (this.pendingReceipt) return await this.sendReceipt();
+      return await this.review();
+    } catch (error) {
+      if (error?.name !== 'AbortError') throw error;
+    }
   }
 
   /**
@@ -5889,8 +5894,9 @@ export class ChatPaymentPanel {
       this.showToast(`Sent ${receipt.amount} ${receipt.symbol}`, 3000, 'success');
       return true;
     } catch (error) {
-      console.error('Payment receipt failed to send:', error);
       this.sending = false;
+      if (error?.name === 'AbortError') throw error;
+      console.error('Payment receipt failed to send:', error);
       this.setStatus(`Your ${receipt.symbol} was sent, but the chat message did not go through.`, 'error');
       this.sendButton.textContent = 'Send the message again';
       this.sendButton.disabled = false;
