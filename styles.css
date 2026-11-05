@@ -12089,6 +12089,27 @@ small {
 
 /* --- list screen ---------------------------------------------------------- */
 
+/* Keep the overview controls visible; only its asset rows scroll. */
+#multichainModal .modal-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#multichainModal .modal-content > :not(.multichain-assets, .multichain-empty) {
+  flex-shrink: 0;
+}
+
+#multichainAssetsList,
+#multichainEmpty {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
 /* Mirrors the back button, which is positioned out of the flow. In the flow,
    this took 40px from the title's box and pulled "Multichain" 20px left of
    the balance centred beneath it. */
@@ -12250,6 +12271,36 @@ small {
   font-size: var(--font-size-xs);
   color: var(--muted-text-color);
   text-align: center;
+}
+
+/* Leave room for asset rows when the phone's available height is short. */
+@media (max-width: 768px) and (max-height: 700px) {
+  #multichainModal .multichain-hero {
+    gap: 4px;
+    padding-top: 8px;
+  }
+
+  #multichainModal .multichain-network-panel {
+    margin-top: 16px;
+    padding: 8px;
+  }
+
+  #multichainModal .wallet-network-heading {
+    margin-bottom: 8px;
+  }
+
+  #multichainModal .multichain-list-head {
+    margin-top: 16px;
+  }
+
+  #multichainModal .multichain-deposit-another {
+    margin-top: 8px;
+  }
+
+  #multichainModal .multichain-footnote {
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
 }
 
 /* --- activity ------------------------------------------------------------- */
