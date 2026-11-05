@@ -23773,9 +23773,6 @@ class ChatModal {
   /** Check the actual recipient and live LIB funds before an external payment. */
   async prepareEvmPaymentRecipient(resolution, account) {
     const address = normalizeAddress(resolution.address);
-    if (myData.contacts[address]?.friend === 0) {
-      throw new Error('Unblock this contact before sending an EVM payment message.');
-    }
     const sorted = [longAddress(account.keys.address), longAddress(address)].sort();
     const chatId = hashBytes(sorted.join(''));
     const [recipientInfo, tollInfo, balanceInfo, paramsOk] = await Promise.all([
@@ -23835,9 +23832,6 @@ class ChatModal {
     if (!contact && (record.broadcastState !== 'not_started' || !prepared.username)) {
       throw new Error('Add this username to Contacts before sending an EVM payment message.');
     }
-    if (contact?.friend === 0) {
-      throw new Error('Unblock this contact before sending an EVM payment message.');
-    }
 
     // Prepare the receipt with fresh keys before saving a first-time recipient as a Connection.
     const { public: publicKey, pqPublic: pqPublicKey } = prepared.contactUpdates;
@@ -23860,9 +23854,6 @@ class ChatModal {
       record.messageCostLimit = messageCost.toString();
     }
     const savedContact = myData.contacts[prepared.address];
-    if (savedContact?.friend === 0) {
-      throw new Error('Unblock this contact before sending an EVM payment message.');
-    }
     if (!savedContact) {
       if (contact) throw new Error('The recipient was removed from Contacts. Review the payment again.');
       createNewContact(prepared.address, prepared.username, 2);
@@ -35797,8 +35788,9 @@ evmAssets.configure({
     getContacts: () => {
       if (!myAccount) return [];
       const ownAddress = normalizeAddress(myAccount.keys.address);
-      return getMessagePaymentContacts().filter((contact) =>
-        /^[a-z0-9]{3,15}$/i.test(contact.username || '') && normalizeAddress(contact.address) !== ownAddress);
+      return Object.values(myData?.contacts || {}).filter((contact) =>
+        contact.address && contact.public && !isFaucetAddress(contact.address)
+        && /^[a-z0-9]{3,15}$/i.test(contact.username || '') && normalizeAddress(contact.address) !== ownAddress);
     },
   }),
   prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
