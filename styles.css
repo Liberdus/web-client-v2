@@ -2079,7 +2079,9 @@ button:disabled {
 
 .contact-autocomplete-option {
   display: grid;
-  align-content: center;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
   min-height: 44px;
   padding: 6px 10px;
   border-radius: 8px;
@@ -2095,6 +2097,19 @@ button:disabled {
 .contact-autocomplete-option[aria-selected='true'] {
   outline: 2px solid var(--primary-color);
   outline-offset: -2px;
+}
+
+.contact-autocomplete-avatar {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.contact-autocomplete-text {
+  display: grid;
+  min-width: 0;
 }
 
 .contact-autocomplete-username {

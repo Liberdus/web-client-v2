@@ -15268,18 +15268,30 @@ class ContactAutocomplete {
     option.dataset.index = index;
     option.setAttribute('role', 'option');
     option.setAttribute('aria-selected', 'false');
+    const avatar = document.createElement('span');
+    avatar.className = 'contact-autocomplete-avatar';
+    avatar.setAttribute('aria-hidden', 'true');
+    const text = document.createElement('span');
+    text.className = 'contact-autocomplete-text';
     const name = ContactAutocomplete.getDisplayName(contact);
     const label = document.createElement('span');
     label.textContent = name;
-    option.append(label);
+    text.append(label);
 
     if (contact.username && contact.username !== name) {
       const username = document.createElement('span');
       username.className = 'contact-autocomplete-username';
       username.textContent = `@${contact.username}`;
-      option.append(username);
+      text.append(username);
     }
+    option.append(avatar, text);
+    this.renderAvatar(avatar, contact);
     return option;
+  }
+
+  async renderAvatar(avatar, contact) {
+    const html = await getContactAvatarHtml(contact, 32);
+    if (avatar.isConnected) avatar.innerHTML = html;
   }
 
   handleKeyDown(event) {
