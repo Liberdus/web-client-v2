@@ -2103,7 +2103,7 @@ class EvmSendModal {
       this.setRecipientToll(chat?.toll);
       this.recipientResolution = resolution;
       this.memoGroup.hidden = !chat;
-      this.setRecipientStatus(chat ? 'Includes a Liberdus chat receipt' : 'Valid address — wallet transfer only', 'success');
+      this.setRecipientStatus(chat ? '' : 'Valid address — wallet transfer only', 'success');
     } catch (error) {
       if (!this.isCurrentRecipientLookup(lookup)) return;
       this.setRecipientToll(error?.recipientToll);
