@@ -3679,6 +3679,8 @@ class MultichainModal {
     this.empty = document.getElementById('multichainEmpty');
     this.networkSelect = document.getElementById('multichainNetwork');
     this.networkSelect.addEventListener('change', () => this.render());
+    document.getElementById('multichainDepositAnother')
+      .addEventListener('click', () => this.controller.startDeposit());
 
     document.getElementById('closeMultichainModal')
       .addEventListener('click', () => this.close());
@@ -3826,9 +3828,11 @@ class MultichainModal {
     }).join('');
   }
 
-  /** Held assets and starter rows, without adding zero balances to the portfolio. */
+  /** Nonzero balances and starter rows, without changing portfolio history. */
   listAssets() {
-    const assets = new Map(intentsAssets.getAssets().map((asset) => [asset.key, asset]));
+    const assets = new Map(intentsAssets.getAssets()
+      .filter((asset) => asset.rawAmount !== '0')
+      .map((asset) => [asset.key, asset]));
     for (const asset of intentsAssets.listCatalogAssets()) {
       if (STARTER_ASSETS.includes(asset.assetId) && !assets.has(asset.key)) assets.set(asset.key, asset);
     }

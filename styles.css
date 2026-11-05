@@ -12239,6 +12239,10 @@ small {
   display: none;
 }
 
+.multichain-deposit-another {
+  margin: 16px 16px 0;
+}
+
 /* Custody is a standing fact about every row above it, so it sits under the
    list as a footnote rather than in the hero on every visit. */
 .multichain-footnote {
