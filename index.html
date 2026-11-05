@@ -2924,7 +2924,7 @@
           <div class="form-container">
             <form id="evmSendForm" class="form--narrow">
               <p id="evmSendAssetLabel" class="wallet-network-hint"></p>
-              <div class="form-group">
+              <div class="form-group contact-autocomplete-field">
                 <label for="evmSendRecipient"
                   >Recipient <span id="evmSendRecipientStatus" style="color: #dc3545; display: none"></span
                 ></label>
@@ -2933,9 +2933,12 @@
                     type="text"
                     id="evmSendRecipient"
                     class="form-control"
-                    placeholder="Enter username or 0x wallet address"
+                    placeholder="Username or 0x address"
                     required
-                    style="flex: 1"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    style="flex: 1; min-width: 0"
                   />
                   <button
                     type="button"
@@ -2959,7 +2962,9 @@
                   </button>
                   <input type="file" id="evmSendQRFile" accept="image/*" style="display: none" />
                 </div>
+                <div id="evmSendRecipientSuggestions" class="contact-autocomplete-list" aria-label="Saved contacts" hidden></div>
               </div>
+              <p id="evmSendRecipientToll" class="wallet-network-hint" role="status" hidden></p>
               <div class="form-group">
                 <label for="evmSendAmount">
                   Amount <span id="evmSendWarning" class="balance-warning"></span>
