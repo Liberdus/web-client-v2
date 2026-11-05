@@ -29385,6 +29385,7 @@ class FullImageModal {
     this.objectUrl = null;
     this.requestId = 0;
     this.abortController = null;
+    this.rotationDegrees = 0;
     this.scale = 1;
     this.translateX = 0;
     this.translateY = 0;
@@ -29397,6 +29398,7 @@ class FullImageModal {
     this.modal = document.getElementById('fullImageModal');
     this.header = this.modal.querySelector('.modal-header');
     this.closeButton = document.getElementById('closeFullImageModal');
+    this.rotateButton = document.getElementById('fullImageRotate');
     this.title = document.getElementById('fullImageModalTitle');
     this.viewer = document.getElementById('fullImageViewer');
     this.loading = document.getElementById('fullImageLoading');
@@ -29408,12 +29410,13 @@ class FullImageModal {
     this.zoomInButton = document.getElementById('fullImageZoomIn');
     this.zoomOutButton = document.getElementById('fullImageZoomOut');
 
-    assert(this.modal && this.header && this.closeButton && this.title && this.viewer && this.loading && this.loadingText
-      && this.error && this.image && this.video
+    assert(this.modal && this.header && this.closeButton && this.rotateButton && this.title
+      && this.viewer && this.loading && this.loadingText && this.error && this.image && this.video
       && this.zoomControls && this.zoomInButton && this.zoomOutButton,
       'Media modal elements are required');
 
     this.closeButton.addEventListener('click', () => this.close());
+    this.rotateButton.addEventListener('click', () => this.rotateMedia());
     this.zoomInButton.addEventListener('click', () => this.zoomBy(0.5));
     this.zoomOutButton.addEventListener('click', () => this.zoomBy(-0.5));
     this.viewer.addEventListener('touchstart', (event) => this.handleTouchStart(event), { passive: false });
@@ -29505,6 +29508,7 @@ class FullImageModal {
       if (!this.isCurrentRequest(requestId) || this.objectUrl !== objectUrl) return;
       this.loading.hidden = true;
       this.image.hidden = false;
+      this.rotateButton.hidden = false;
       this.viewer.setAttribute('aria-busy', 'false');
       this.updateZoomControls();
       this.revealChrome();
@@ -29521,6 +29525,7 @@ class FullImageModal {
     this.video.onloadedmetadata = () => {
       if (!this.isCurrentRequest(requestId)) return;
       this.loading.hidden = true;
+      this.rotateButton.hidden = false;
       this.viewer.setAttribute('aria-busy', 'false');
       this.revealChrome();
     };
@@ -29658,17 +29663,20 @@ class FullImageModal {
   }
 
   constrainTranslation() {
-    const maxX = Math.max(0, (this.image.clientWidth * this.scale - this.viewer.clientWidth) / 2);
-    const maxY = Math.max(0, (this.image.clientHeight * this.scale - this.viewer.clientHeight) / 2);
+    const sideways = this.rotationDegrees % 180 !== 0;
+    const width = sideways ? this.image.clientHeight : this.image.clientWidth;
+    const height = sideways ? this.image.clientWidth : this.image.clientHeight;
+    const maxX = Math.max(0, (width * this.scale - this.viewer.clientWidth) / 2);
+    const maxY = Math.max(0, (height * this.scale - this.viewer.clientHeight) / 2);
     this.translateX = Math.min(maxX, Math.max(-maxX, this.translateX));
     this.translateY = Math.min(maxY, Math.max(-maxY, this.translateY));
   }
 
   applyTransform() {
-    this.image.style.transform = this.scale === 1
-      ? ''
-      : `translate3d(${this.translateX}px, ${this.translateY}px, 0) scale(${this.scale})`;
-    this.viewer.classList.toggle('is-zoomed', this.scale > 1);
+    const zoomed = this.scale > 1;
+    this.image.style.translate = zoomed ? `${this.translateX}px ${this.translateY}px` : '';
+    this.image.style.scale = zoomed ? this.scale : '';
+    this.viewer.classList.toggle('is-zoomed', zoomed);
     this.updateZoomControls();
   }
 
@@ -29693,14 +29701,28 @@ class FullImageModal {
     this.zoomOutButton.disabled = imageUnavailable || this.scale <= 1;
   }
 
-  resetTransform() {
+  rotateMedia() {
+    if (this.rotateButton.hidden) return;
+
+    this.setRotation((this.rotationDegrees + 90) % 360);
+    this.resetZoom();
+  }
+
+  setRotation(degrees) {
+    this.rotationDegrees = degrees;
+    this.viewer.style.setProperty('--media-rotation', `${degrees}deg`);
+    this.viewer.classList.toggle('is-rotated', degrees !== 0);
+    this.viewer.classList.toggle('is-sideways', degrees % 180 !== 0);
+  }
+
+  resetZoom() {
     this.scale = 1;
     this.translateX = 0;
     this.translateY = 0;
     this.touchGesture = null;
     this.dragPointerId = null;
-    if (this.image) this.image.style.transform = '';
-    this.viewer?.classList.remove('is-zoomed', 'is-dragging');
+    this.viewer.classList.remove('is-dragging');
+    this.applyTransform();
   }
 
   clearMedia() {
@@ -29718,7 +29740,6 @@ class FullImageModal {
     this.video.removeAttribute('poster');
     this.video.load();
     this.video.hidden = true;
-    this.resetTransform();
     this.image.onload = null;
     this.image.onerror = null;
     this.image.removeAttribute('src');
@@ -29727,7 +29748,9 @@ class FullImageModal {
     this.error.hidden = true;
     this.viewer.setAttribute('aria-busy', 'false');
     this.image.alt = '';
-    this.updateZoomControls();
+    this.rotateButton.hidden = true;
+    this.setRotation(0);
+    this.resetZoom();
 
     if (this.objectUrl) {
       URL.revokeObjectURL(this.objectUrl);
