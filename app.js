@@ -15151,6 +15151,196 @@ class SearchMessagesModal {
 
 const messageSearchModal = new SearchMessagesModal();
 
+class ContactSearch {
+  /**
+   * Lists the profile fields a contact can be found by, each once per distinct value.
+   * Only these fields are searched: the rest of senderInfo (avatarId, avatarKey, timezone)
+   * holds identifiers and keys a user never searches for and should not see in a result label.
+   * @param {object} contact
+   * @returns {Array<{field: string, value: string}>} display label and raw value per field
+   */
+  static getSearchableFields(contact) {
+    const fields = [];
+    const seenValues = new Set();
+
+    for (const field of ['username', 'name', 'email', 'phone', 'linkedin', 'x']) {
+      for (const rawValue of [contact[field], contact.senderInfo?.[field]]) {
+        const value = String(rawValue ?? '').trim();
+        const lowerValue = value.toLowerCase();
+        if (!value || seenValues.has(lowerValue)) continue;
+        seenValues.add(lowerValue);
+        fields.push({ field, value });
+      }
+    }
+
+    return fields;
+  }
+
+  static getMatchType(contact, query, usernameQuery = query) {
+    let rank = -1;
+    for (const { field, value } of ContactSearch.getSearchableFields(contact)) {
+      const search = field === 'username' ? usernameQuery : query;
+      const candidate = value.toLowerCase();
+      if (candidate === search) return 2;
+      if (candidate.startsWith(search)) rank = 1;
+      else if (rank < 0 && candidate.includes(search)) rank = 0;
+    }
+    return rank;
+  }
+}
+
+class ContactAutocomplete {
+  constructor({ input, list, getContacts, onSelect }) {
+    this.input = input;
+    this.list = list;
+    this.getContacts = getContacts;
+    this.onSelect = onSelect;
+    this.contacts = [];
+    this.activeIndex = -1;
+
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-controls', list.id);
+    list.setAttribute('role', 'listbox');
+    this.close();
+
+    input.addEventListener('focus', () => this.render());
+    input.addEventListener('click', () => {
+      if (list.hidden) this.render();
+    });
+    input.addEventListener('input', (event) => {
+      if (event.isTrusted && input === input.ownerDocument.activeElement) this.render();
+      else this.close();
+    });
+    input.addEventListener('blur', () => this.close());
+    input.addEventListener('keydown', (event) => this.handleKeyDown(event));
+
+    // Keep focus on the input during a pick. A touch scroll does not fire mousedown.
+    list.addEventListener('mousedown', (event) => {
+      if (event.target.closest('.contact-autocomplete-option')) event.preventDefault();
+    });
+    list.addEventListener('click', (event) => {
+      const option = event.target.closest('.contact-autocomplete-option');
+      if (option) this.select(Number(option.dataset.index));
+    });
+  }
+
+  getDisplayName(contact) {
+    return contact.displayName || contact.name || contact.username;
+  }
+
+  getMatches() {
+    const query = this.input.value.trim().toLowerCase();
+    const contacts = this.getContacts();
+    const compareUsernames = (a, b) => (a.username || '').localeCompare(b.username || '');
+
+    if (!query) {
+      return [...contacts].sort((a, b) =>
+        this.getDisplayName(a).localeCompare(this.getDisplayName(b))
+        || compareUsernames(a, b));
+    }
+
+    const usernameQuery = query.length > 1 ? query.replace(/^@/, '') : query;
+    return contacts
+      .map((contact) => ({ contact, rank: ContactSearch.getMatchType(contact, query, usernameQuery) }))
+      .filter(({ rank }) => rank >= 0)
+      .sort((a, b) => b.rank - a.rank || compareUsernames(a.contact, b.contact))
+      .map(({ contact }) => contact);
+  }
+
+  render() {
+    this.contacts = this.getMatches();
+    this.activeIndex = -1;
+    this.input.removeAttribute('aria-activedescendant');
+    const options = this.list.ownerDocument.createDocumentFragment();
+    this.contacts.forEach((contact, index) => options.append(this.createOption(contact, index)));
+    this.list.replaceChildren(options);
+    this.list.scrollTop = 0;
+    this.list.hidden = this.contacts.length === 0;
+    this.input.setAttribute('aria-expanded', String(!this.list.hidden));
+  }
+
+  createOption(contact, index) {
+    const document = this.list.ownerDocument;
+    const option = document.createElement('div');
+    option.id = `${this.list.id}-option-${index}`;
+    option.className = 'contact-autocomplete-option';
+    option.dataset.index = index;
+    option.setAttribute('role', 'option');
+    option.setAttribute('aria-selected', 'false');
+    const avatar = document.createElement('span');
+    avatar.className = 'contact-autocomplete-avatar';
+    avatar.setAttribute('aria-hidden', 'true');
+    const text = document.createElement('span');
+    text.className = 'contact-autocomplete-text';
+    const name = this.getDisplayName(contact);
+    const label = document.createElement('span');
+    label.textContent = name;
+    text.append(label);
+
+    if (contact.username && contact.username !== name) {
+      const username = document.createElement('span');
+      username.className = 'contact-autocomplete-username';
+      username.textContent = `@${contact.username}`;
+      text.append(username);
+    }
+    option.append(avatar, text);
+    this.renderAvatar(avatar, contact);
+    return option;
+  }
+
+  async renderAvatar(avatar, contact) {
+    const html = await getContactAvatarHtml(contact, 32);
+    if (avatar.isConnected) avatar.innerHTML = html;
+  }
+
+  handleKeyDown(event) {
+    if (event.isComposing) return;
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (this.list.hidden) this.render();
+      if (this.list.hidden) return;
+      event.preventDefault();
+      const lastIndex = this.contacts.length - 1;
+      const next = event.key === 'ArrowDown'
+        ? Math.min(this.activeIndex + 1, lastIndex)
+        : this.activeIndex < 0 ? lastIndex : Math.max(this.activeIndex - 1, 0);
+      this.setActiveOption(next);
+    } else if (!this.list.hidden && event.key === 'Enter' && this.activeIndex >= 0) {
+      event.preventDefault();
+      this.select(this.activeIndex);
+    } else if (!this.list.hidden && event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.close();
+    }
+  }
+
+  setActiveOption(index) {
+    this.list.children[this.activeIndex]?.setAttribute('aria-selected', 'false');
+    this.activeIndex = index;
+    const option = this.list.children[index];
+    option.setAttribute('aria-selected', 'true');
+    this.input.setAttribute('aria-activedescendant', option.id);
+    option.scrollIntoView({ block: 'nearest' });
+  }
+
+  select(index) {
+    const contact = this.contacts[index];
+    this.close();
+    if (contact) this.onSelect(contact);
+  }
+
+  close() {
+    this.list.hidden = true;
+    this.list.replaceChildren();
+    this.contacts = [];
+    this.activeIndex = -1;
+    this.input.setAttribute('aria-expanded', 'false');
+    this.input.removeAttribute('aria-activedescendant');
+  }
+}
+
 class SearchContactsModal {
   constructor() {}
 
@@ -15206,59 +15396,6 @@ class SearchContactsModal {
     return this.modal.classList.contains('active');
   }
 
-  /**
-   * Lists the profile fields a contact can be found by, each once per distinct value.
-   * Only these fields are searched: the rest of senderInfo (avatarId, avatarKey, timezone)
-   * holds identifiers and keys a user never searches for and should not see in a result label.
-   * @param {object} contact
-   * @returns {Array<{field: string, value: string}>} display label and raw value per field
-   */
-  getSearchableFields(contact) {
-    const fields = [];
-    const seenValues = new Set();
-
-    const fieldDefinitions = [
-      { key: 'username', label: 'username' },
-      { key: 'name', label: 'name' },
-      { key: 'email', label: 'email' },
-      { key: 'phone', label: 'phone' },
-      { key: 'linkedin', label: 'linkedin' },
-      { key: 'x', label: 'x' },
-    ];
-    const senderInfo = contact.senderInfo || null;
-
-    const normalize = (value) =>
-      value === undefined || value === null ? '' : String(value).trim();
-
-    const addField = (fieldLabel, value) => {
-      const stringValue = normalize(value);
-      if (!stringValue) {
-        return;
-      }
-
-      const lowerValue = stringValue.toLowerCase();
-      if (seenValues.has(lowerValue)) {
-        return;
-      }
-
-      seenValues.add(lowerValue);
-      fields.push({ field: fieldLabel, value: stringValue });
-    };
-
-    fieldDefinitions.forEach(({ key, label }) => {
-      const primaryValue = normalize(contact[key]);
-      const senderValue = senderInfo ? normalize(senderInfo[key]) : '';
-
-      addField(label, primaryValue);
-
-      if (senderValue && senderValue !== primaryValue) {
-        addField(label, senderValue);
-      }
-    });
-
-    return fields;
-  }
-
   searchContacts(searchText) {
     if (!searchText || !myData?.contacts) return [];
 
@@ -15271,24 +15408,10 @@ class SearchContactsModal {
       if (isFaucetAddress(address)) {
         return;
       }
-      
-      // Fields to search through
-      const searchableFields = this.getSearchableFields(contact);
-      const searchFields = searchableFields.map((f) => f.value);
 
-      // Check if any field matches
-      const matches = searchFields.some((field) => field.toLowerCase().includes(searchLower));
-
-      if (matches) {
-        // Determine match type for sorting
-        const exactMatch = searchFields.some((field) => field.toLowerCase() === searchLower);
-        const startsWithMatch = searchFields.some((field) => field.toLowerCase().startsWith(searchLower));
-
-        results.push({
-          ...contact,
-          address,
-          matchType: exactMatch ? 2 : startsWithMatch ? 1 : 0,
-        });
+      const matchType = ContactSearch.getMatchType(contact, searchLower);
+      if (matchType >= 0) {
+        results.push({ ...contact, address, matchType });
       }
     });
 
@@ -15315,7 +15438,7 @@ class SearchContactsModal {
     }
 
     const searchLower = searchText.toLowerCase();
-    const searchableFields = this.getSearchableFields(contact);
+    const searchableFields = ContactSearch.getSearchableFields(contact);
 
     const matchBuckets = {
       exact: [],
@@ -33953,6 +34076,8 @@ const createAccountModal = new CreateAccountModal();
  * @returns {void}
  */
 class SendAssetFormModal {
+  static USERNAME_PATTERN = /^[a-z0-9]{3,15}$/i;
+
   constructor() {
     this.session = null;
     this.username = null;
@@ -33997,9 +34122,21 @@ class SendAssetFormModal {
       () => this.refreshSendButtonDisabledState(),
       (e) => this.handleSendFormSubmit(e)
     ));
-    // TODO: need to add check that it's not a back/delete key
-    this.usernameInput.addEventListener('input', async (e) => {
-      this.handleSendToAddressInput(e);
+    this.usernameInput.addEventListener('input', (event) => {
+      const value = this.usernameInput.value;
+      if (!event.isTrusted && !isValidEthereumAddress(value.trim())) {
+        this.usernameInput.value = normalizeUsername(value);
+      }
+      this.handleSendToAddressInput();
+    });
+    this.contactAutocomplete = new ContactAutocomplete({
+      input: this.usernameInput,
+      list: document.getElementById('sendToAddressSuggestions'),
+      getContacts: () => this.getAutocompleteContacts(),
+      onSelect: (contact) => {
+        this.usernameInput.value = contact.username;
+        this.handleSendToAddressInput(contact.address);
+      },
     });
 
     this.availableBalance.addEventListener('click', this.fillAmount.bind(this));
@@ -34034,9 +34171,10 @@ class SendAssetFormModal {
 
   /**
    * Opens the send asset modal
-   * @returns {Promise<void>}
+   * @param {{input: string, expectedAddress?: string}} [recipientToRestore]
+   * @returns {Promise<boolean>}
    */
-  async open() {
+  async open(recipientToRestore) {
     if (this.isActive()) return false;
     this.reset();
     this.memoInput.setCustomValidity('');
@@ -34053,7 +34191,10 @@ class SendAssetFormModal {
 
     if (!openModal(this.modal)) return false;
     const session = this.session = { account: myAccount };
-    if (this.username) {
+    if (recipientToRestore) {
+      this.usernameInput.value = recipientToRestore.input;
+      this.handleSendToAddressInput(recipientToRestore.expectedAddress);
+    } else if (this.username) {
       this.usernameInput.value = this.username;
       this.usernameInput.dispatchEvent(new Event('input'));
       this.username = null;
@@ -34096,6 +34237,7 @@ class SendAssetFormModal {
 
   reset() {
     sendAssetConfirmModal.close();
+    this.contactAutocomplete?.close();
     this.session = null;
     clearTimeout(this.sendAssetFormModalCheckTimeout);
     this.sendAssetFormModalCheckTimeout = null;
@@ -34117,19 +34259,32 @@ class SendAssetFormModal {
     this.username = null;
   }
 
-  /**
-   * Invoked when the user types in the username input
-   * It will check if the username is too short, available, or not available
-   * @param {Event} e - The event object
-   * @returns {void}
-   */
-  async handleSendToAddressInput(e) {
-    this.submitButton.disabled = true;
+  getAutocompleteContacts() {
+    if (!this.session || !myAccount) return [];
+    const ownAddress = normalizeAddress(myAccount.keys.address);
+    return Object.entries(myData?.contacts || {})
+      .filter(([address, contact]) => /^[a-f0-9]{40}$/i.test(address)
+        && address.toLowerCase() !== ownAddress && !isFaucetAddress(address)
+        && typeof contact?.username === 'string' && SendAssetFormModal.USERNAME_PATTERN.test(contact.username))
+      .map(([address, contact]) => ({
+        ...contact,
+        address,
+        username: contact.username.toLowerCase(),
+        displayName: getContactDisplayName(contact),
+      }));
+  }
+
+  async handleSendToAddressInput(expectedAddress) {
     const session = this.session;
-    const rawInput = e.target.value.trim();
-    this.foundAddressObject = { address: null };
+    if (!this.isCurrentSession(session)) return;
+    this.submitButton.disabled = true;
+    const rawInput = this.usernameInput.value;
+    const unresolvedRecipient = this.foundAddressObject = { address: null, input: rawInput, expectedAddress };
     this.tollInfo = {};
     this.needTollInfo = false;
+    this.clearFormInfo();
+    const usernameAvailable = this.usernameAvailable;
+    usernameAvailable.style.display = 'none';
 
     // Cancel any queued lookup before handling a new recipient value.
     if (this.sendAssetFormModalCheckTimeout) {
@@ -34137,37 +34292,39 @@ class SendAssetFormModal {
       this.sendAssetFormModalCheckTimeout = null;
     }
 
-    if (isValidEthereumAddress(rawInput)) {
-      this.clearFormInfo();
-      this.usernameAvailable.textContent = 'address not supported';
-      this.usernameAvailable.style.color = '#dc3545';
-      this.usernameAvailable.style.display = 'inline';
-      await this.refreshSendButtonDisabledState();
-      return;
-    }
-
-    // Check availability on input changes
-    const username = normalizeUsername(e.target.value);
-    e.target.value = username;
-    const usernameAvailable = this.usernameAvailable;
-
-    this.clearFormInfo();
-
-    // Check if username is too short
-    if (username.length < 3) {
-      usernameAvailable.textContent = 'too short';
+    if (isValidEthereumAddress(rawInput.trim())) {
+      usernameAvailable.textContent = 'address not supported';
       usernameAvailable.style.color = '#dc3545';
       usernameAvailable.style.display = 'inline';
       await this.refreshSendButtonDisabledState();
       return;
     }
 
-    // Check network availability
+    // Preserve the query in the field and resolve only username-shaped input.
+    const username = rawInput.trim().replace(/^@/, '').toLowerCase();
+    if (!SendAssetFormModal.USERNAME_PATTERN.test(username)) {
+      if (/^[a-z0-9]{1,2}$/.test(username)) {
+        usernameAvailable.textContent = 'too short';
+        usernameAvailable.style.color = '#dc3545';
+        usernameAvailable.style.display = 'inline';
+      }
+      await this.refreshSendButtonDisabledState();
+      return;
+    }
+
     this.sendAssetFormModalCheckTimeout = setTimeout(async () => {
-      const found = { address: null };
+      this.sendAssetFormModalCheckTimeout = null;
+      const found = { ...unresolvedRecipient, username };
       if (!this.isCurrentSession(session)) return;
       const taken = await checkUsernameAvailability(username, session.account.keys.address, found);
-      if (!this.isCurrentSession(session) || this.usernameInput.value !== username) return;
+      if (!this.isCurrentSession(session) || this.foundAddressObject !== unresolvedRecipient
+        || this.usernameInput.value !== rawInput) return;
+      if (expectedAddress && taken === 'taken' && normalizeAddress(found.address) !== normalizeAddress(expectedAddress)) {
+        usernameAvailable.textContent = 'contact changed';
+        usernameAvailable.style.color = '#dc3545';
+        usernameAvailable.style.display = 'inline';
+        return;
+      }
       this.foundAddressObject = found;
       if (taken == 'taken') {
         usernameAvailable.textContent = 'found';
@@ -34319,6 +34476,7 @@ class SendAssetFormModal {
    */
   async handleSendFormSubmit(event) {
     event.preventDefault();
+    this.contactAutocomplete.close();
     const session = this.session;
     const recipient = this.foundAddressObject;
 
@@ -34337,14 +34495,14 @@ class SendAssetFormModal {
     const confirmButton = sendAssetConfirmModal.confirmSendButton;
     const cancelButton = sendAssetConfirmModal.cancelButton;
 
+    let recipientAddress;
     // Ensure recipient account type matches sender (public/private).
     try {
-      const recipientRaw = this.foundAddressObject?.address;
-      if (!recipientRaw) {
+      if (!recipient.address || this.usernameInput.value !== recipient.input) {
         showToast('Recipient address not resolved; enter a valid username', 0, 'error');
         return;
       }
-      const recipientAddress = normalizeAddress(recipientRaw);
+      recipientAddress = normalizeAddress(recipient.address);
 
       await getNetworkParams();
       const myIsPrivate = !!myData?.account?.private;
@@ -34373,7 +34531,7 @@ class SendAssetFormModal {
     }
     const amountText = this.amountInput.value.trim();
     const amountUnit = this.balanceSymbol.textContent;
-    const username = this.usernameInput.value.trim();
+    const username = recipient.username;
     const memo = this.memoInput.value.trim();
     const amountWei = this.getAmountWei();
     if (amountWei === null) {
@@ -34386,12 +34544,12 @@ class SendAssetFormModal {
     const hasBalance = await validateBalance(amountWei, assetIndex, warning);
     if (!this.isCurrentSession(session) || this.foundAddressObject !== recipient
       || this.amountInput.value.trim() !== amountText || this.balanceSymbol.textContent !== amountUnit
-      || this.usernameInput.value.trim() !== username || this.memoInput.value.trim() !== memo) return;
+      || this.usernameInput.value !== recipient.input || this.memoInput.value.trim() !== memo) return;
     this.balanceWarning.textContent = warning.textContent;
     this.balanceWarning.style.display = warning.style.display;
     if (!hasBalance || !this.validateToll(amountWei)) return;
 
-    const payment = { amountWei, username, memo, retryTxId: this.retryTxIdInput.value };
+    const payment = { amountWei, username, recipientAddress, memo, retryTxId: this.retryTxIdInput.value };
     if (!sendAssetConfirmModal.open(payment)) return;
     const libAmount = EthNum.toStr(amountWei);
     const usdAmount = amountUnit === 'USD' ? Number(amountText) : Number(libAmount) * getStabilityFactor();
@@ -34686,13 +34844,14 @@ class SendAssetFormModal {
    * @returns {Promise<void>}
    */
   async reopen() {
-    const tempUsername = this.usernameInput?.value;
+    const input = this.usernameInput.value;
+    const recipient = this.foundAddressObject;
+    const expectedAddress = recipient.input === input ? recipient.address || recipient.expectedAddress : undefined;
     const tempAmount = this.amountInput?.value;
     const tempUnit = this.balanceSymbol.textContent;
     const tempMemo = this.memoInput?.value;
     await this.close();
-    this.username = tempUsername;
-    if (!await this.open()) return;
+    if (!await this.open({ input, expectedAddress })) return;
     this.amountInput.value = tempAmount;
     this.balanceSymbol.textContent = tempUnit;
     this.memoInput.value = tempMemo || '';
@@ -34713,6 +34872,7 @@ class SendAssetFormModal {
    * @returns {void}
    */
   resetForm(){
+    this.contactAutocomplete.close();
     this.sendForm?.reset();
     this.usernameAvailable.textContent = '';
     this.balanceWarning.textContent = '';
@@ -34939,6 +35099,12 @@ class SendAssetConfirmModal {
     } catch (error) {
       console.error('Error looking up username:', error);
       showToast('Error looking up username', 0, 'error');
+      return;
+    }
+
+    if (toAddress !== payment.recipientAddress) {
+      this.close();
+      showToast('Recipient address changed. Check the recipient and enter the username again.', 0, 'error');
       return;
     }
 
