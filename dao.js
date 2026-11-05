@@ -1098,7 +1098,6 @@ async function submitDaoTransaction({ transaction, submitTransaction, errorMessa
 
     return { ok: true, response, transaction };
   } catch (error) {
-    if (error?.name === 'AbortError') throw error;
     return {
       ok: false,
       error: error?.message || errorMessage,
@@ -2610,7 +2609,6 @@ export const daoRepo = {
         transaction,
       };
     } catch (error) {
-      if (error?.name === 'AbortError') throw error;
       return {
         ok: false,
         error: error?.message || 'Proposal submission failed',

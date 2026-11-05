@@ -1354,7 +1354,6 @@ export class EvmTransactionService {
     if (chat && status === 'pending') {
       try { await this.sendPaymentMessage(record, account); }
       catch (error) {
-        if (error?.name === 'AbortError') throw error;
         if (!error.toastAlreadyShown) this.showToast(error.message, 0, 'error');
       }
     }
@@ -2574,7 +2573,6 @@ class EvmAssetsController {
         this.sending = false;
       }
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       if (!error.toastAlreadyShown) this.showToast(error.message, 0, 'error');
     } finally {
       if (this.assetsModal.isActive()) this.assetsModal.renderRecovery();
@@ -2735,7 +2733,6 @@ class EvmAssetsController {
       }
       return result;
     } catch (error) {
-      if (error?.name === 'AbortError') return { status: 'cancelled', transactionHash: null };
       console.error('EVM transfer failed:', error);
       if (!isCurrent()) return { status: 'cancelled', transactionHash: null };
       if (error?.code === 'USERNAME_ASSOCIATION_CHANGED') {

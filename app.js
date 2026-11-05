@@ -256,7 +256,6 @@ const IS_DEV_NETWORK = network?.name === 'Devnet';
 
 let myData = null;
 let myAccount = null; // this is set to myData.account for convience
-let transactionAbortController = new AbortController();
 let timeSkew = 0;
 let useLongPolling = true;
 let longPollTimeoutId = null;
@@ -557,12 +556,10 @@ function newDataRecord(myAccount) {
 }
 
 /**
- * Cancel transaction submissions and clear myData and myAccount variables
+ * Clear myData and myAccount variables
  * This function centralizes the clearing of user data to ensure consistency
  */
 function clearMyData() {
-  transactionAbortController.abort();
-  transactionAbortController = new AbortController();
   chatModal.resetPendingMessageConfirmations();
   myData = null;
   myAccount = null;
@@ -5583,7 +5580,6 @@ class ConfirmProposalModal {
       addProposalModal.close();
       showToast('Proposal submitted—pending confirmation', 4000, 'info');
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.warn('Failed to submit DAO proposal:', error);
       if (loadingToastId) {
         hideToast(loadingToastId);
@@ -8087,7 +8083,6 @@ class ProposalInfoModal {
       this.updateSubmitButtons();
       this.setCommitteeActionHelp();
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.warn('Failed to submit committee review:', error);
       showToast(error?.message || 'Committee review submission failed', 3000, 'warning');
     } finally {
@@ -8134,7 +8129,6 @@ class ProposalInfoModal {
       showToast(getDaoTransactionMessage(DAO_ACTION_TYPES.COMMITTEE_RESULT, 'pending'), 4000, 'info');
       this.updateSubmitButtons();
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.warn('Failed to finalize review result:', error);
       showToast(error?.message || 'Review result finalization failed', 3000, 'warning');
     } finally {
@@ -8339,7 +8333,6 @@ class ProposalInfoModal {
       showToast(getDaoTransactionMessage(actionType, 'pending'), 4000, 'info');
       this.updateSubmitButtons();
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.warn('Failed to submit DAO lifecycle action:', error);
       showToast(error?.message || `${action.title} failed`, 3000, 'warning');
     } finally {
@@ -8423,7 +8416,6 @@ class ProposalInfoModal {
       showToast(getDaoTransactionMessage(DAO_ACTION_TYPES.VOTE, 'pending'), 4000, 'info');
       this.updateSubmitButtons();
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.warn('Failed to submit vote:', error);
       showToast(error?.message || 'Vote submission failed', 3000, 'warning');
     } finally {
@@ -10762,7 +10754,6 @@ class FriendModal {
         }
         updateTollRequiredResponse = res;
       } catch (error) {
-        if (error?.name === 'AbortError') return;
         console.error('Error sending transaction to update chat toll:', error);
         showToast('Failed to update friend status. Please try again.', 0, 'error');
         return;
@@ -14697,7 +14688,6 @@ async function refreshNetworkParamsOnTxFeeMismatch(reason) {
  * @param {Object} tx - The transaction object
  * @param {string} txid - The transaction ID
  * @returns {Promise<Object>} The response from the injectTx call
- * @throws {DOMException} AbortError when account teardown cancels the submission
  */
 async function injectTx(tx, txid) {
   if (!isOnline) {
@@ -14708,7 +14698,6 @@ async function injectTx(tx, txid) {
     console.error('No gateway available for transaction injection');
     return null;
   }
-  const signal = transactionAbortController.signal;
 
   function maybeShowLowLibToast() {
     try {
@@ -14742,7 +14731,6 @@ async function injectTx(tx, txid) {
 
     const options = {
       method: 'POST',
-      signal,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -14753,7 +14741,6 @@ async function injectTx(tx, txid) {
       options
     );
     const data = await response.json();
-    signal.throwIfAborted();
     data.txid = txid;
 
     // Support both response shapes:
@@ -14810,7 +14797,6 @@ async function injectTx(tx, txid) {
     } else {
       const failureReason = normalizedReason;
       const feeMismatchStatus = await refreshNetworkParamsOnTxFeeMismatch(failureReason);
-      signal.throwIfAborted();
       const userFailureReason = getUserFacingTxFailureReason(failureReason, feeMismatchStatus);
       let toastMessage = userFailureReason === failureReason
         ? 'Error injecting transaction: ' + failureReason
@@ -14833,7 +14819,6 @@ async function injectTx(tx, txid) {
     }
     return data;
   } catch (error) {
-    signal.throwIfAborted();
     // if error is a string and contains 'timestamp out of range' 
     if (typeof error === 'string' && error.includes('timestamp out of range')) {
       showToast('Error injecting transaction (Please try again): ' + error, 0, 'error');
@@ -14849,11 +14834,9 @@ async function injectTx(tx, txid) {
       toastAlreadyShown: true,
     };
   } finally {
-    if (!signal.aborted) {
-      setTimeout(() => {
-        if (!signal.aborted) saveState();
-      }, 1000);
-    }
+    setTimeout(() => {
+      saveState();
+    }, 1000);
   }
 }
 
@@ -19441,13 +19424,7 @@ class TollModal {
     }
 
     // Post the new toll to the network
-    let response;
-    try {
-      response = await this.postToll(newToll, this.currentCurrency);
-    } catch (error) {
-      if (error?.name === 'AbortError') return;
-      throw error;
-    }
+    const response = await this.postToll(newToll, this.currentCurrency);
 
     if (response && response.result && response.result.success) {
       this.editMyDataToll(newToll, this.currentCurrency);
@@ -20610,7 +20587,6 @@ class ValidatorStakingModal {
         console.error('Unstake failed. API Response:', response);
       }
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.error('Error submitting unstake transaction:', error);
       // Provide a user-friendly error message
       showToast('Unstake transaction failed. Network or server error.', 0, 'error');
@@ -20996,7 +20972,6 @@ class StakeValidatorModal {
         validatorModal.open();
       }
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.error('Stake transaction error:', error);
       showToast('Stake transaction failed. See console for details.', 0, 'error');
     }
@@ -22932,14 +22907,8 @@ class ChatModal {
       timestamp: getTransactionTimestamp(),
       networkId: network.netid,
     };
-    let response;
-    try {
-      const txid = await signObj(tx, myAccount.keys);
-      response = await injectTx(tx, txid);
-    } catch (error) {
-      if (error?.name === 'AbortError') return;
-      throw error;
-    }
+    const txid = await signObj(tx, myAccount.keys);
+    const response = await injectTx(tx, txid);
     if (response?.result?.success) {
       return;
     }
@@ -22967,15 +22936,10 @@ class ChatModal {
     }
 
     const readTransaction = await this.createReadTransaction(contactAddress);
-    let response;
-    try {
-      const txid = await signObj(readTransaction, myAccount.keys);
-      showToast(`Sending read transaction`, 3000, 'info');
-      response = await injectTx(readTransaction, txid);
-    } catch (error) {
-      if (error?.name === 'AbortError') return;
-      throw error;
-    }
+    const txid = await signObj(readTransaction, myAccount.keys);
+    showToast(`Sending read transaction`, 3000, 'info');
+
+    const response = await injectTx(readTransaction, txid);
     if (!response || !response.result || !response.result.success) {
       console.warn('read transaction failed to send', response);
     } else {
@@ -23335,7 +23299,6 @@ class ChatModal {
         }
       }
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.error('Message error:', error);
       showToast('Failed to send message. Please try again.', 0, 'error');
       // Revert optimistic edit on exception
@@ -23732,7 +23695,6 @@ class ChatModal {
         return;
       }
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.error('Location message error:', error);
       showToast('Failed to send location. Please try again.', 0, 'error');
       if (txid) {
@@ -24065,7 +24027,6 @@ class ChatModal {
       }
       await this.sendIntentsPaymentMessage(address, message.payment);
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.error('Payment receipt retry failed:', error);
       showToast(`The payment message did not go through: ${error?.message || 'try again'}`, 0, 'error');
     }
@@ -27847,13 +27808,7 @@ class ChatModal {
     trackPendingReactionBeforeInject(txid, currentAddress, reactionPendingState);
     syncPendingReactionChainState(currentAddress, reaction.reactId);
 
-    let response;
-    try {
-      response = await injectTx(chatMessageObj, txid);
-    } catch (error) {
-      if (error?.name === 'AbortError') return false;
-      throw error;
-    }
+    const response = await injectTx(chatMessageObj, txid);
     if (!response?.result?.success) {
       console.error('reaction message failed to send', response);
       const pendingTxInfo = finishPendingReactionInject(txid);
@@ -28449,7 +28404,6 @@ class ChatModal {
       // The message will be deleted when we process the delete tx from the network
       
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.error('Delete for all error:', error);
       showToast('Failed to delete message. Please try again.', 0, 'error');
     } finally {
@@ -28747,7 +28701,6 @@ class ChatModal {
       }
       
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.error('Error handling call user:', error);
       showToast('Failed to start call. Please try again.', 0, 'error');
     }
@@ -28901,7 +28854,6 @@ class ChatModal {
       return true;
       
     } catch (error) {
-      if (error?.name === 'AbortError') throw error;
       console.error('Call message error:', error);
       showToast('Failed to send call invitation. Please try again.', 0, 'error');
       return false;
@@ -29088,7 +29040,6 @@ class ChatModal {
         newMessage.status = 'sent';
       }
     } catch (error) {
-      if (error?.name === 'AbortError') throw error;
       console.error('Failed to send voice message to network:', error);
       newMessage.status = 'failed';
       updateTransactionStatus(txid, this.address, 'failed', 'message');
@@ -30285,7 +30236,6 @@ class CallInviteModal {
       }
 
     } catch (err) {
-      if (err?.name === 'AbortError') return;
       console.error('Invite send error', err);
       showToast('Failed to send invites', 0, 'error');
     } finally {
@@ -30724,7 +30674,6 @@ class ShareAttachmentModal {
       }
 
     } catch (err) {
-      if (err?.name === 'AbortError') return;
       console.error('Share send error', err);
       showToast('Failed to share attachment', 0, 'error');
     } finally {
@@ -32654,7 +32603,6 @@ class FailedMessageMenu {
         void chatModal
           .sendVoiceMessageTx(voiceUrl, duration, pqEncSharedKeyBin, selfKey)
           .catch((err) => {
-            if (err?.name === 'AbortError') return;
             console.error('Voice message retry failed:', err);
             showToast(err?.message || 'Failed to retry voice message', 0, 'error');
           });
@@ -33239,10 +33187,9 @@ class VoiceRecordingModal {
       this.close();
       
     } catch (error) {
-      this.voiceMessageSendStarted = false;
-      if (error?.name === 'AbortError') return;
       console.error('Error sending voice message:', error);
       showToast(`Failed to send voice message: ${error.message}`, 0, 'error');
+      this.voiceMessageSendStarted = false;
     } finally {
       hideToast(loadingToastId);
     }
@@ -34054,10 +34001,9 @@ class CreateAccountModal {
       res = await postRegisterAlias(username, myAccount.keys, myAccount.private || false);
     } catch (error) {
       if (waitingToastId) hideToast(waitingToastId);
-      this.setAccountCreationInProgress(false);
-      if (error?.name === 'AbortError') return;
       showToast(`Failed to fetch network parameters, try again later.`, 0, 'error');
       console.error('Failed to fetch network parameters, using defaults:', error);
+      this.setAccountCreationInProgress(false);
       return;
     }
 
@@ -35392,7 +35338,6 @@ class SendAssetConfirmModal {
           }
   */
     } catch (error) {
-      if (error?.name === 'AbortError') return;
       console.error('Transaction error:', error);
       //showToast('Transaction failed. Please try again.', 0, 'error');
     }
@@ -36342,9 +36287,6 @@ class MigrateAccountsModal {
     try {
       createAccountModal.refreshControlStates();
       await this.migrateSelectedAccounts();
-    } catch (error) {
-      if (error?.name === 'AbortError') return;
-      throw error;
     } finally {
       this.isMigrating = false;
       createAccountModal.refreshControlStates();
@@ -36363,27 +36305,24 @@ class MigrateAccountsModal {
       const netid = checkbox.dataset.netid;
   
       const loadingToastId = showToast('Migrating '+username, 0, 'loading');
-      try {
-        // Start processing this account
-        if (section === 'mine') {
-          this.migrateAccountData(username, netid, parameters.networkId)
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } else if (section === 'available') {
-          myData = loadState(username+'_'+netid)
-          if (myData){
-            const isPrivate = myData.account?.private || false;
-            const res = await postRegisterAlias(username, myData.account.keys, isPrivate)
-            if (res !== null){
-              res.submittedts = getCorrectedTimestamp()
-              res.netid = netid
-              results[username] = res;
-            }
+      // Start processing this account
+      if (section === 'mine') {
+        this.migrateAccountData(username, netid, parameters.networkId)
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } else if (section === 'available') {
+        myData = loadState(username+'_'+netid)
+        if (myData){ 
+          const isPrivate = myData.account?.private || false;
+          const res = await postRegisterAlias(username, myData.account.keys, isPrivate)
+          if (res !== null){
+            res.submittedts = getCorrectedTimestamp()
+            res.netid = netid
+            results[username] = res;
           }
-          await new Promise(resolve => setTimeout(resolve, 2000));
         }
-      } finally {
-        hideToast(loadingToastId);
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
+      hideToast(loadingToastId);
       welcomeScreen.orderButtons();
     }
 
