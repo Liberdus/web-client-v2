@@ -2004,8 +2004,8 @@
 
             <!-- Most payments carry no note, so it starts as one quiet row. -->
             <button type="button" class="chat-send-note-toggle" id="chatSendNoteToggle">Add a note</button>
-            <textarea class="form-control chat-send-note" id="chatSendNote" maxlength="140" rows="2"
-              aria-label="Payment note" autocomplete="off" placeholder="What is it for?" hidden></textarea>
+            <input class="form-control chat-send-note" id="chatSendNote" type="text" maxlength="140"
+              autocomplete="off" placeholder="What is it for?" hidden />
 
             <button class="btn btn--primary btn--pill btn--full" id="chatSendButton" disabled>Review payment</button>
             <div class="multichain-quote-note">Arrives instantly. No network fee.</div>

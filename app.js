@@ -34948,7 +34948,6 @@ class SendAssetFormModal {
    * */
   async fillFromQR(data) {
     const session = this.session;
-    const request = this.qrRequest = {};
     // Explicitly check for the required prefix
     if (!data || !data.startsWith('liberdus://')) {
       console.error("Invalid payment QR code format. Missing 'liberdus://' prefix.", data);
@@ -34970,16 +34969,7 @@ class SendAssetFormModal {
       const base64Data = data.substring('liberdus://'.length);
       const jsonData = bin2utf8(base642bin(base64Data));
       const paymentData = JSON.parse(jsonData);
-
-      if (paymentData.t !== undefined) {
-        if (paymentData.t !== 'intents') throw new Error('Unsupported payment request type.');
-        await chatPaymentPanel.fillFromRequest(paymentData, () => {
-          if (!this.isCurrentSession(session) || this.qrRequest !== request) return false;
-          this.reset();
-          return true;
-        });
-        return;
-      }
+      if (paymentData.t !== undefined) throw new Error('Unsupported payment request type.');
 
       if (paymentData.u) {
         this.usernameInput.value = paymentData.u;
@@ -34998,7 +34988,7 @@ class SendAssetFormModal {
           console.error('Error toggling balance from QR display unit field', err);
         }
       }
-      if (!this.isCurrentSession(session) || this.qrRequest !== request) return;
+      if (!this.isCurrentSession(session)) return;
       if (paymentData.a) {
         this.amountInput.value = paymentData.a;
       }
@@ -35010,9 +35000,8 @@ class SendAssetFormModal {
       this.usernameInput.dispatchEvent(new Event('input'));
       this.amountInput.dispatchEvent(new Event('input'));
     } catch (error) {
-      if (!this.isCurrentSession(session) || this.qrRequest !== request) return;
       console.error('Error parsing payment QR data:', error, data);
-      showToast(error.message || 'Failed to parse payment QR data.', 0, 'error');
+      showToast('Failed to parse payment QR data.', 0, 'error');
       // Clear fields on error
       this.usernameInput.value = '';
       this.amountInput.value = '';
@@ -35655,7 +35644,6 @@ function getMessagePaymentContacts() {
 
 chatPaymentPanel.configure({
   getAccount: () => myAccount,
-  resolveUsername: (username) => getUsernameAddress(username),
   onSent: (recipientAddress, messageObj) =>
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
   showToast,

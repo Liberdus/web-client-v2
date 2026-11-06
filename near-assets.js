@@ -5701,7 +5701,6 @@ class ContactPicker {
 export class ChatPaymentPanel {
   constructor() {
     this.loaded = false;
-    this.session = null;
     this.recipientAddress = null;
     this.recipientName = null;
     this.assetKey = null;
@@ -5714,7 +5713,6 @@ export class ChatPaymentPanel {
     this.onSent = null;
     this.showToast = () => {};
     this.listContacts = () => [];
-    this.resolveUsername = async () => null;
     this.renderAvatar = () => '';
     // Resolves to { problem } -- null when a receipt can reach them and be
     // paid for, else the reason it cannot.
@@ -5722,7 +5720,7 @@ export class ChatPaymentPanel {
     this.contactPicker = new ContactPicker(this);
   }
 
-  configure({ getAccount, onSent, showToast, listContacts, resolveUsername, renderAvatar, prepareRecipient } = {}) {
+  configure({ getAccount, onSent, showToast, listContacts, renderAvatar, prepareRecipient } = {}) {
     if (typeof getAccount === 'function') {
       this.getAccount = getAccount;
       intentsChatPayments.configure({ getAccount });
@@ -5730,7 +5728,6 @@ export class ChatPaymentPanel {
     if (typeof onSent === 'function') this.onSent = onSent;
     if (typeof showToast === 'function') this.showToast = showToast;
     if (typeof listContacts === 'function') this.listContacts = listContacts;
-    if (typeof resolveUsername === 'function') this.resolveUsername = resolveUsername;
     if (typeof renderAvatar === 'function') this.renderAvatar = renderAvatar;
     if (typeof prepareRecipient === 'function') this.prepareRecipient = prepareRecipient;
   }
@@ -5799,51 +5796,6 @@ export class ChatPaymentPanel {
     });
   }
 
-  /** Read an internal payment request without trusting its recipient or display symbol. */
-  async fillFromRequest(data, beforeOpen) {
-    if (!data || data.t !== 'intents' || typeof data.u !== 'string' || !/^[a-z0-9]{3,15}$/.test(data.u)
-      || typeof data.address !== 'string' || !/^0x[0-9a-f]{40}$/.test(data.address)
-      || typeof data.i !== 'string' || !data.i || typeof data.s !== 'string'
-      || (data.a !== undefined && typeof data.a !== 'string')
-      || (data.m !== undefined && (typeof data.m !== 'string' || data.m.length > 140))) {
-      throw new Error('Invalid NEAR Intents payment request.');
-    }
-    const account = this.getAccount();
-    const address = await this.resolveUsername(data.u);
-    if (this.getAccount() !== account) return false;
-    if (intentsAccountIdForAddress(address) !== data.address) {
-      throw new Error('Payment request username does not match its address.');
-    }
-    const contact = this.listContacts().find((entry) => intentsAccountIdForAddress(entry.address) === data.address);
-    if (!contact) throw new Error('Add this person to your contacts before paying this request.');
-
-    await intentsAssets.refresh();
-    if (this.getAccount() !== account) return false;
-    const assetKey = `${INTENTS_NETWORK_ID}:${data.i}`;
-    const asset = intentsAssets.getAsset(assetKey);
-    if (!asset || asset.rawAmount === '0' || asset.tokenSymbol !== data.s) {
-      throw new Error('The requested NEAR Intents asset is unavailable in your balance.');
-    }
-    if (data.a !== undefined) parseTokenAmount(data.a, asset.tokenDecimals);
-    if (!beforeOpen()) return false;
-    const opening = this.open(contact.address, contact.name, { assetKey });
-    const session = this.session;
-    try {
-      if (!await opening) return false;
-    } catch (error) {
-      if (this.session === session && this.getAccount() === account) {
-        this.setStatus('Could not load the requested asset. Try again.', 'error');
-      }
-      return false;
-    }
-    this.amountInput.value = data.a || '';
-    this.noteInput.value = data.m || '';
-    this.noteInput.hidden = !data.m;
-    this.noteToggle.hidden = Boolean(data.m);
-    this.amount.changed();
-    return true;
-  }
-
   selectedAsset() {
     return this.assetKey ? intentsAssets.getAsset(this.assetKey) : null;
   }
@@ -5856,8 +5808,6 @@ export class ChatPaymentPanel {
 
   async open(recipientAddress, recipientName = null, { assetKey = null } = {}) {
     this.load();
-    if (!openModal(this.modal)) return false;
-    const session = this.session = { account: this.getAccount() };
     this.recipientAddress = recipientAddress;
     this.recipientName = recipientName;
     this.sending = false;
@@ -5876,28 +5826,25 @@ export class ChatPaymentPanel {
     this.form.hidden = false;
     this.empty.hidden = true;
     this.assetChip.innerHTML = '<span>Loading…</span>';
+    openModal(this.modal);
+
     await intentsAssets.refresh({ force: true });
-    if (this.session !== session || this.getAccount() !== session.account) return false;
     // The asset it was opened for, else the largest holding: the likeliest
     // thing to be sent, and a choice the picker is one tap from changing.
     const held = intentsAssets.getAssets()
       .filter((asset) => asset.rawAmount !== '0')
       .sort((a, b) => (Number(b.tokenValueUsd) || 0) - (Number(a.tokenValueUsd) || 0));
-    if (!held.length || (assetKey && !held.some((asset) => asset.key === assetKey))) {
+    if (!held.length) {
       this.form.hidden = true;
       this.empty.hidden = false;
-      if (assetKey) this.showToast('The requested NEAR Intents asset is unavailable in your balance.', 0, 'error');
-      return false;
+      return;
     }
     const preferred = assetKey || this.assetKey;
     this.assetKey = held.some((asset) => asset.key === preferred) ? preferred : held[0].key;
     this.renderAsset();
     this.amount.changed();
     // Off-screen while it slides in; see DESIGN.md §6.
-    setTimeout(() => {
-      if (this.session === session && this.isActive()) this.amountInput.focus({ preventScroll: true });
-    }, 350);
-    return true;
+    setTimeout(() => this.amountInput.focus({ preventScroll: true }), 350);
   }
 
   renderAsset() {
@@ -5918,7 +5865,6 @@ export class ChatPaymentPanel {
 
   close() {
     if (this.sending) return;
-    this.session = null;
     this.modal.classList.remove('active');
     this.recipientAddress = null;
     this.pendingReceipt = null;
