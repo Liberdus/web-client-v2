@@ -1748,23 +1748,35 @@
             <div class="multichain-asset-value" id="multichainAssetValue">&#8212;</div>
           </section>
 
-          <div class="wallet-actions asset-detail-actions">
-            <button class="wallet-action-button" id="multichainAssetReceive">
-              <span class="action-icon"></span>
-              <span class="action-label">Deposit</span>
-            </button>
-            <button class="wallet-action-button" id="multichainAssetSend">
-              <span class="action-icon"></span>
-              <span class="action-label">Send</span>
-            </button>
-            <button class="wallet-action-button" id="multichainAssetWithdraw">
-              <span class="action-icon"></span>
-              <span class="action-label">Withdraw</span>
-            </button>
-            <button class="wallet-action-button" id="multichainAssetSwap">
-              <span class="action-icon"></span>
-              <span class="action-label">Swap</span>
-            </button>
+          <div class="multichain-action-groups">
+            <section aria-labelledby="multichainExternalActionsTitle">
+              <h3 class="multichain-action-group-title" id="multichainExternalActionsTitle">Move in or out</h3>
+              <p class="multichain-action-group-description">Between NEAR Intents and an external wallet</p>
+              <div class="wallet-actions asset-detail-actions">
+                <button type="button" class="wallet-action-button" id="multichainAssetReceive">
+                  <span class="action-icon"></span>
+                  <span class="action-label">Deposit</span>
+                </button>
+                <button type="button" class="wallet-action-button" id="multichainAssetWithdraw">
+                  <span class="action-icon"></span>
+                  <span class="action-label">Withdraw</span>
+                </button>
+              </div>
+            </section>
+            <section aria-labelledby="multichainIntentsActionsTitle">
+              <h3 class="multichain-action-group-title" id="multichainIntentsActionsTitle">Within NEAR Intents</h3>
+              <p class="multichain-action-group-description">Send to a Liberdus user or swap assets</p>
+              <div class="wallet-actions asset-detail-actions">
+                <button type="button" class="wallet-action-button" id="multichainAssetSend">
+                  <span class="action-icon"></span>
+                  <span class="action-label">Send</span>
+                </button>
+                <button type="button" class="wallet-action-button" id="multichainAssetSwap">
+                  <span class="action-icon"></span>
+                  <span class="action-label">Swap</span>
+                </button>
+              </div>
+            </section>
           </div>
 
           <!-- What happened to this asset: deposits, payments, swaps, withdrawals. -->

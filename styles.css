@@ -12523,17 +12523,36 @@ small {
   color: var(--secondary-text-color);
 }
 
-/* The asset screen's three actions. Spaced apart and given a tinted icon disc,
-   so they read as three choices rather than one grey band. */
-#multichainAssetModal .asset-detail-actions {
-  display: flex;
-  gap: 12px;
+/* Separate external wallet transfers from actions on the Intents balance. */
+#multichainAssetModal .multichain-action-groups {
+  display: grid;
+  gap: 24px;
   margin: 32px 16px 0;
+  text-align: left;
+}
+
+#multichainAssetModal .multichain-action-group-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+#multichainAssetModal .multichain-action-group-description {
+  margin: 4px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+
+#multichainAssetModal .asset-detail-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
   padding: 0;
 }
 
 #multichainAssetModal .wallet-action-button {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
