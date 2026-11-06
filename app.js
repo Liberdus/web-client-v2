@@ -34969,6 +34969,7 @@ class SendAssetFormModal {
       const base64Data = data.substring('liberdus://'.length);
       const jsonData = bin2utf8(base642bin(base64Data));
       const paymentData = JSON.parse(jsonData);
+      if (paymentData.t !== undefined) throw new Error('Unsupported payment request type.');
 
       if (paymentData.u) {
         this.usernameInput.value = paymentData.u;
@@ -40197,6 +40198,7 @@ const modalCloseHandlers = new Map([
   ['multichainModal', () => multichain.close('multichainModal')],
   ['multichainAssetModal', () => multichain.close('multichainAssetModal')],
   ['multichainReceiveModal', () => multichain.close('multichainReceiveModal')],
+  ['multichainRequestModal', () => multichain.close('multichainRequestModal')],
   ['multichainWithdrawModal', () => multichain.close('multichainWithdrawModal')],
   ['multichainSwapModal', () => multichain.close('multichainSwapModal')],
   ['multichainTokenPickerModal', () => multichain.close('multichainTokenPickerModal')],

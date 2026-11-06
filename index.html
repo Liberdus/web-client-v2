@@ -1753,12 +1753,12 @@
               <h3 class="multichain-action-group-title" id="multichainExternalActionsTitle">Move in or out</h3>
               <p class="multichain-action-group-description">Between NEAR Intents addresses and external wallet addresses</p>
               <div class="wallet-actions asset-detail-actions">
-                <button type="button" class="wallet-action-button" id="multichainAssetReceive">
-                  <span class="action-icon"></span>
+                <button type="button" class="wallet-action-button" id="multichainAssetDeposit">
+                  <span class="action-icon" aria-hidden="true"></span>
                   <span class="action-label">Deposit</span>
                 </button>
                 <button type="button" class="wallet-action-button" id="multichainAssetWithdraw">
-                  <span class="action-icon"></span>
+                  <span class="action-icon" aria-hidden="true"></span>
                   <span class="action-label">Withdraw</span>
                 </button>
               </div>
@@ -1767,12 +1767,16 @@
               <h3 class="multichain-action-group-title" id="multichainIntentsActionsTitle">Within NEAR Intents</h3>
               <p class="multichain-action-group-description">Send to other NEAR Intents addresses or swap assets</p>
               <div class="wallet-actions asset-detail-actions">
+                <button type="button" class="wallet-action-button" id="multichainAssetReceive">
+                  <span class="action-icon" aria-hidden="true"></span>
+                  <span class="action-label">Receive</span>
+                </button>
                 <button type="button" class="wallet-action-button" id="multichainAssetSend">
-                  <span class="action-icon"></span>
+                  <span class="action-icon" aria-hidden="true"></span>
                   <span class="action-label">Send</span>
                 </button>
                 <button type="button" class="wallet-action-button" id="multichainAssetSwap">
-                  <span class="action-icon"></span>
+                  <span class="action-icon" aria-hidden="true"></span>
                   <span class="action-label">Swap</span>
                 </button>
               </div>
@@ -1784,6 +1788,50 @@
             <div class="multichain-section-title" id="multichainAssetActivityTitle">Activity</div>
             <div id="multichainAssetActivity"></div>
           </section>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- A payment request for another NEAR Intents user. -->
+      <div class="modal fixed-header" id="multichainRequestModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeMultichainRequestModal"></button>
+          <div class="modal-title" id="multichainRequestTitle">Receive</div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="form-group">
+              <label>Your Address</label>
+              <div class="address-container">
+                <div class="form-control address-display" id="multichainRequestAddress"></div>
+                <button type="button" class="icon-button address-copy-button" id="copyMultichainRequestAddress"
+                  aria-label="Copy address"></button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Your Username</label>
+              <div class="address-container">
+                <div class="form-control address-display" id="multichainRequestUsername"></div>
+                <button type="button" class="icon-button address-copy-button" id="copyMultichainRequestUsername"
+                  aria-label="Copy username"></button>
+              </div>
+            </div>
+            <div class="multichain-qr" id="multichainRequestQr"></div>
+            <div class="multichain-field-note" id="multichainRequestStatus" role="status" aria-live="polite"></div>
+            <div class="form-group">
+              <label for="multichainRequestAmount">Amount (Optional)</label>
+              <div class="amount-container">
+                <input type="text" inputmode="decimal" class="form-control" id="multichainRequestAmount"
+                  placeholder="Enter amount" autocomplete="off" maxlength="80" />
+                <span class="toggle-balance" id="multichainRequestSymbol"></span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="multichainRequestMemo">Memo (Optional)</label>
+              <textarea class="form-control" id="multichainRequestMemo"
+                placeholder="Add a note for the payment" maxlength="140"></textarea>
+            </div>
+          </div>
         </div>
         <a class="last-item" href="#"> </a>
       </div>

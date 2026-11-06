@@ -3881,6 +3881,7 @@ class MultichainAssetModal {
     this.icon = document.getElementById('multichainAssetIcon');
     this.amount = document.getElementById('multichainAssetAmount');
     this.value = document.getElementById('multichainAssetValue');
+    this.depositButton = document.getElementById('multichainAssetDeposit');
     this.receiveButton = document.getElementById('multichainAssetReceive');
     this.sendButton = document.getElementById('multichainAssetSend');
     this.withdrawButton = document.getElementById('multichainAssetWithdraw');
@@ -3893,7 +3894,8 @@ class MultichainAssetModal {
 
     document.getElementById('closeMultichainAssetModal')
       .addEventListener('click', () => this.close());
-    this.receiveButton.addEventListener('click', () => this.controller.receiveModal.open(this.assetKey));
+    this.depositButton.addEventListener('click', () => this.controller.receiveModal.open(this.assetKey));
+    this.receiveButton.addEventListener('click', () => this.controller.requestModal.open(this.assetKey));
     this.sendButton.addEventListener('click', () => this.controller.onSend(this.assetKey));
     this.withdrawButton.addEventListener('click', () => this.controller.withdrawModal.open(this.assetKey));
     this.swapButton.addEventListener('click', () => this.controller.swapModal.open(this.assetKey));
@@ -4002,6 +4004,147 @@ class MultichainAssetModal {
 
   isActive() {
     return this.modal.classList.contains('active');
+  }
+}
+
+/** A request for a transfer between NEAR Intents accounts, not a deposit. */
+class MultichainRequestModal {
+  constructor(controller) {
+    this.controller = controller;
+    this.session = null;
+  }
+
+  load() {
+    this.modal = document.getElementById('multichainRequestModal');
+    this.title = document.getElementById('multichainRequestTitle');
+    this.addressDisplay = document.getElementById('multichainRequestAddress');
+    this.usernameDisplay = document.getElementById('multichainRequestUsername');
+    this.addressButton = document.getElementById('copyMultichainRequestAddress');
+    this.usernameButton = document.getElementById('copyMultichainRequestUsername');
+    this.qrcodeContainer = document.getElementById('multichainRequestQr');
+    this.status = document.getElementById('multichainRequestStatus');
+    this.amountInput = document.getElementById('multichainRequestAmount');
+    this.memoInput = document.getElementById('multichainRequestMemo');
+    this.symbol = document.getElementById('multichainRequestSymbol');
+
+    document.getElementById('closeMultichainRequestModal').addEventListener('click', () => this.close());
+    this.addressButton.addEventListener('click', () => this.copyValue('address'));
+    this.usernameButton.addEventListener('click', () => this.copyValue('username'));
+    this.amountInput.addEventListener('input', () => this.updateQRCode());
+    this.memoInput.addEventListener('input', () => this.updateQRCode());
+    window.addEventListener('resize', () => this.sizeQRCode());
+  }
+
+  open(assetKey) {
+    if (this.isActive()) return false;
+    const asset = intentsAssets.getCatalogAsset(assetKey);
+    const account = this.controller.getAccount();
+    const address = intentsAccountIdForAddress(account?.keys?.address);
+    if (!asset || !address || !account.username) return false;
+
+    this.close();
+    this.session = { account, address, username: account.username, asset };
+    this.title.textContent = `Receive ${assetTitle(asset)}`;
+    this.addressDisplay.textContent = address;
+    this.usernameDisplay.textContent = account.username;
+    this.symbol.textContent = asset.tokenSymbol;
+    this.updateQRCode();
+    if (!openModal(this.modal)) {
+      this.close();
+      return false;
+    }
+    return true;
+  }
+
+  isCurrentSession(session) {
+    return Boolean(session && this.session === session && this.controller.getAccount() === session.account);
+  }
+
+  createQRPaymentData() {
+    const session = this.session;
+    if (!this.isCurrentSession(session)) throw new Error('This payment request is no longer active.');
+    const { asset, address, username } = session;
+    const data = { t: 'intents', address, u: username, i: asset.assetId, s: asset.tokenSymbol };
+    const amount = this.amountInput.value.trim();
+    if (amount) {
+      parseTokenAmount(amount, asset.tokenDecimals);
+      data.a = amount;
+    }
+    const memo = this.memoInput.value.trim();
+    if (memo.length > 140) throw new Error('Memo must be 140 characters or fewer.');
+    if (memo) data.m = memo;
+    return data;
+  }
+
+  updateQRCode() {
+    if (!this.isCurrentSession(this.session)) {
+      this.close();
+      return;
+    }
+    this.qrcodeContainer.replaceChildren();
+    this.status.textContent = '';
+    try {
+      const data = this.createQRPaymentData();
+      const text = `liberdus://${bin2base64(utf82bin(JSON.stringify(data)))}`;
+      const bytes = globalThis.qr.encodeQR(text, 'gif', { scale: 4, border: 4 });
+      const img = document.createElement('img');
+      img.addEventListener('load', () => this.sizeQRCode());
+      img.src = `data:image/gif;base64,${bin2base64(bytes)}`;
+      img.alt = 'NEAR Intents payment request QR code';
+      this.qrcodeContainer.appendChild(img);
+    } catch (error) {
+      this.status.textContent = error.message || 'Could not generate the payment request QR code.';
+    }
+  }
+
+  sizeQRCode() {
+    const img = this.qrcodeContainer.firstElementChild;
+    if (!img?.naturalWidth) return;
+    // The encoder uses four pixels per module. Keep visible modules at an
+    // integer scale too, so long requests remain readable on narrow screens.
+    const modules = img.naturalWidth / 4;
+    const scale = Math.max(1, Math.min(4, Math.floor(this.qrcodeContainer.clientWidth / modules)));
+    img.width = modules * scale;
+    img.height = modules * scale;
+  }
+
+  async copyValue(field) {
+    const session = this.session;
+    if (!this.isCurrentSession(session)) return;
+    try {
+      await navigator.clipboard.writeText(session[field]);
+      if (!this.isCurrentSession(session)) return;
+      const button = field === 'address' ? this.addressButton : this.usernameButton;
+      button.classList.add('success');
+      const feedback = `${field === 'address' ? 'Address' : 'Username'} copied to clipboard`;
+      this.status.textContent = feedback;
+      clearTimeout(this.copyTimer);
+      this.copyTimer = setTimeout(() => {
+        this.addressButton.classList.remove('success');
+        this.usernameButton.classList.remove('success');
+        if (this.status.textContent === feedback) this.status.textContent = '';
+      }, 2000);
+    } catch {
+      if (this.isCurrentSession(session)) this.status.textContent = `Could not copy ${field}.`;
+    }
+  }
+
+  close() {
+    this.session = null;
+    clearTimeout(this.copyTimer);
+    this.modal?.classList.remove('active');
+    this.addressButton?.classList.remove('success');
+    this.usernameButton?.classList.remove('success');
+    if (this.addressDisplay) this.addressDisplay.textContent = '';
+    if (this.usernameDisplay) this.usernameDisplay.textContent = '';
+    if (this.qrcodeContainer) this.qrcodeContainer.replaceChildren();
+    if (this.amountInput) this.amountInput.value = '';
+    if (this.memoInput) this.memoInput.value = '';
+    if (this.status) this.status.textContent = '';
+  }
+
+  isActive() {
+    return this.modal?.classList.contains('active') || false;
   }
 }
 
@@ -5281,6 +5424,7 @@ class MultichainController {
     this.assetsModal = new MultichainModal(this);
     this.assetModal = new MultichainAssetModal(this);
     this.receiveModal = new MultichainReceiveModal(this);
+    this.requestModal = new MultichainRequestModal(this);
     this.withdrawModal = new MultichainWithdrawModal(this);
     this.swapModal = new MultichainSwapModal(this);
     this.tokenPicker = new MultichainTokenPicker(this);
@@ -5335,6 +5479,7 @@ class MultichainController {
     this.assetsModal.load();
     this.assetModal.load();
     this.receiveModal.load();
+    this.requestModal.load();
     this.withdrawModal.load();
     this.swapModal.load();
     this.tokenPicker.load();
@@ -5355,6 +5500,7 @@ class MultichainController {
     intentsAssets.reset();
     intentsDeposits.reset();
     this.assetsModal.reset();
+    this.requestModal.close();
     if (this.summaryValue) {
       this.summaryValue.textContent = '$ -';
       this.summaryValue.style.color = '';
@@ -5369,6 +5515,7 @@ class MultichainController {
       multichainModal: this.assetsModal,
       multichainAssetModal: this.assetModal,
       multichainReceiveModal: this.receiveModal,
+      multichainRequestModal: this.requestModal,
       multichainWithdrawModal: this.withdrawModal,
       multichainSwapModal: this.swapModal,
       multichainTokenPickerModal: this.tokenPicker,
