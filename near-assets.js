@@ -1752,7 +1752,8 @@ export class IntentsTransferService {
       assetId: asset.assetId,
       symbol: asset.tokenSymbol,
       chainName: asset.chainName,
-      amount: String(amount).trim(),
+      // Receipts need a plain decimal even when the input is ".5" or "2.".
+      amount: formatUnits(rawAmount, asset.tokenDecimals),
       rawAmount: rawAmount.toString(),
       memo: memo ? String(memo) : null,
       payload: buildIntentPayload({
