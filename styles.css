@@ -12694,6 +12694,12 @@ small {
   overflow-wrap: anywhere;
 }
 
+#multichainRequestAddress {
+  white-space: nowrap;
+  padding-inline: 8px;
+  font-size: clamp(9px, 2.8vw, 11px);
+}
+
 #multichainRequestModal .address-copy-button {
   flex-shrink: 0;
 }
