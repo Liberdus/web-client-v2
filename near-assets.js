@@ -3881,6 +3881,7 @@ class MultichainAssetModal {
     this.icon = document.getElementById('multichainAssetIcon');
     this.amount = document.getElementById('multichainAssetAmount');
     this.value = document.getElementById('multichainAssetValue');
+    this.depositButton = document.getElementById('multichainAssetDeposit');
     this.receiveButton = document.getElementById('multichainAssetReceive');
     this.sendButton = document.getElementById('multichainAssetSend');
     this.withdrawButton = document.getElementById('multichainAssetWithdraw');
@@ -3893,7 +3894,8 @@ class MultichainAssetModal {
 
     document.getElementById('closeMultichainAssetModal')
       .addEventListener('click', () => this.close());
-    this.receiveButton.addEventListener('click', () => this.controller.receiveModal.open(this.assetKey));
+    this.depositButton.addEventListener('click', () => this.controller.receiveModal.open(this.assetKey));
+    this.receiveButton.addEventListener('click', () => this.controller.requestModal.open(this.assetKey));
     this.sendButton.addEventListener('click', () => this.controller.onSend(this.assetKey));
     this.withdrawButton.addEventListener('click', () => this.controller.withdrawModal.open(this.assetKey));
     this.swapButton.addEventListener('click', () => this.controller.swapModal.open(this.assetKey));
@@ -4002,6 +4004,147 @@ class MultichainAssetModal {
 
   isActive() {
     return this.modal.classList.contains('active');
+  }
+}
+
+/** A request for a transfer between NEAR Intents accounts, not a deposit. */
+class MultichainRequestModal {
+  constructor(controller) {
+    this.controller = controller;
+    this.session = null;
+  }
+
+  load() {
+    this.modal = document.getElementById('multichainRequestModal');
+    this.title = document.getElementById('multichainRequestTitle');
+    this.addressDisplay = document.getElementById('multichainRequestAddress');
+    this.usernameDisplay = document.getElementById('multichainRequestUsername');
+    this.addressButton = document.getElementById('copyMultichainRequestAddress');
+    this.usernameButton = document.getElementById('copyMultichainRequestUsername');
+    this.qrcodeContainer = document.getElementById('multichainRequestQr');
+    this.status = document.getElementById('multichainRequestStatus');
+    this.amountInput = document.getElementById('multichainRequestAmount');
+    this.memoInput = document.getElementById('multichainRequestMemo');
+    this.symbol = document.getElementById('multichainRequestSymbol');
+
+    document.getElementById('closeMultichainRequestModal').addEventListener('click', () => this.close());
+    this.addressButton.addEventListener('click', () => this.copyValue('address'));
+    this.usernameButton.addEventListener('click', () => this.copyValue('username'));
+    this.amountInput.addEventListener('input', () => this.updateQRCode());
+    this.memoInput.addEventListener('input', () => this.updateQRCode());
+    window.addEventListener('resize', () => this.sizeQRCode());
+  }
+
+  open(assetKey) {
+    if (this.isActive()) return false;
+    const asset = intentsAssets.getCatalogAsset(assetKey);
+    const account = this.controller.getAccount();
+    const address = intentsAccountIdForAddress(account?.keys?.address);
+    if (!asset || !address || !account.username) return false;
+
+    this.close();
+    this.session = { account, address, username: account.username, asset };
+    this.title.textContent = `Receive ${assetTitle(asset)}`;
+    this.addressDisplay.textContent = address;
+    this.usernameDisplay.textContent = account.username;
+    this.symbol.textContent = asset.tokenSymbol;
+    this.updateQRCode();
+    if (!openModal(this.modal)) {
+      this.close();
+      return false;
+    }
+    return true;
+  }
+
+  isCurrentSession(session) {
+    return Boolean(session && this.session === session && this.controller.getAccount() === session.account);
+  }
+
+  createQRPaymentData() {
+    const session = this.session;
+    if (!this.isCurrentSession(session)) throw new Error('This payment request is no longer active.');
+    const { asset, address, username } = session;
+    const data = { t: 'intents', address, u: username, i: asset.assetId, s: asset.tokenSymbol };
+    const amount = this.amountInput.value.trim();
+    if (amount) {
+      parseTokenAmount(amount, asset.tokenDecimals);
+      data.a = amount;
+    }
+    const memo = this.memoInput.value.trim();
+    if (memo.length > 140) throw new Error('Memo must be 140 characters or fewer.');
+    if (memo) data.m = memo;
+    return data;
+  }
+
+  updateQRCode() {
+    if (!this.isCurrentSession(this.session)) {
+      this.close();
+      return;
+    }
+    this.qrcodeContainer.replaceChildren();
+    this.status.textContent = '';
+    try {
+      const data = this.createQRPaymentData();
+      const text = `liberdus://${bin2base64(utf82bin(JSON.stringify(data)))}`;
+      const bytes = globalThis.qr.encodeQR(text, 'gif', { scale: 4, border: 4 });
+      const img = document.createElement('img');
+      img.addEventListener('load', () => this.sizeQRCode());
+      img.src = `data:image/gif;base64,${bin2base64(bytes)}`;
+      img.alt = 'NEAR Intents payment request QR code';
+      this.qrcodeContainer.appendChild(img);
+    } catch (error) {
+      this.status.textContent = error.message || 'Could not generate the payment request QR code.';
+    }
+  }
+
+  sizeQRCode() {
+    const img = this.qrcodeContainer.firstElementChild;
+    if (!img?.naturalWidth) return;
+    // The encoder uses four pixels per module. Keep visible modules at an
+    // integer scale too, so long requests remain readable on narrow screens.
+    const modules = img.naturalWidth / 4;
+    const scale = Math.max(1, Math.min(4, Math.floor(this.qrcodeContainer.clientWidth / modules)));
+    img.width = modules * scale;
+    img.height = modules * scale;
+  }
+
+  async copyValue(field) {
+    const session = this.session;
+    if (!this.isCurrentSession(session)) return;
+    try {
+      await navigator.clipboard.writeText(session[field]);
+      if (!this.isCurrentSession(session)) return;
+      const button = field === 'address' ? this.addressButton : this.usernameButton;
+      button.classList.add('success');
+      const feedback = `${field === 'address' ? 'Address' : 'Username'} copied to clipboard`;
+      this.status.textContent = feedback;
+      clearTimeout(this.copyTimer);
+      this.copyTimer = setTimeout(() => {
+        this.addressButton.classList.remove('success');
+        this.usernameButton.classList.remove('success');
+        if (this.status.textContent === feedback) this.status.textContent = '';
+      }, 2000);
+    } catch {
+      if (this.isCurrentSession(session)) this.status.textContent = `Could not copy ${field}.`;
+    }
+  }
+
+  close() {
+    this.session = null;
+    clearTimeout(this.copyTimer);
+    this.modal?.classList.remove('active');
+    this.addressButton?.classList.remove('success');
+    this.usernameButton?.classList.remove('success');
+    if (this.addressDisplay) this.addressDisplay.textContent = '';
+    if (this.usernameDisplay) this.usernameDisplay.textContent = '';
+    if (this.qrcodeContainer) this.qrcodeContainer.replaceChildren();
+    if (this.amountInput) this.amountInput.value = '';
+    if (this.memoInput) this.memoInput.value = '';
+    if (this.status) this.status.textContent = '';
+  }
+
+  isActive() {
+    return this.modal?.classList.contains('active') || false;
   }
 }
 
@@ -5281,6 +5424,7 @@ class MultichainController {
     this.assetsModal = new MultichainModal(this);
     this.assetModal = new MultichainAssetModal(this);
     this.receiveModal = new MultichainReceiveModal(this);
+    this.requestModal = new MultichainRequestModal(this);
     this.withdrawModal = new MultichainWithdrawModal(this);
     this.swapModal = new MultichainSwapModal(this);
     this.tokenPicker = new MultichainTokenPicker(this);
@@ -5335,6 +5479,7 @@ class MultichainController {
     this.assetsModal.load();
     this.assetModal.load();
     this.receiveModal.load();
+    this.requestModal.load();
     this.withdrawModal.load();
     this.swapModal.load();
     this.tokenPicker.load();
@@ -5355,6 +5500,7 @@ class MultichainController {
     intentsAssets.reset();
     intentsDeposits.reset();
     this.assetsModal.reset();
+    this.requestModal.close();
     if (this.summaryValue) {
       this.summaryValue.textContent = '$ -';
       this.summaryValue.style.color = '';
@@ -5369,6 +5515,7 @@ class MultichainController {
       multichainModal: this.assetsModal,
       multichainAssetModal: this.assetModal,
       multichainReceiveModal: this.receiveModal,
+      multichainRequestModal: this.requestModal,
       multichainWithdrawModal: this.withdrawModal,
       multichainSwapModal: this.swapModal,
       multichainTokenPickerModal: this.tokenPicker,
@@ -5554,6 +5701,7 @@ class ContactPicker {
 export class ChatPaymentPanel {
   constructor() {
     this.loaded = false;
+    this.session = null;
     this.recipientAddress = null;
     this.recipientName = null;
     this.assetKey = null;
@@ -5566,6 +5714,7 @@ export class ChatPaymentPanel {
     this.onSent = null;
     this.showToast = () => {};
     this.listContacts = () => [];
+    this.resolveUsername = async () => null;
     this.renderAvatar = () => '';
     // Resolves to { problem } -- null when a receipt can reach them and be
     // paid for, else the reason it cannot.
@@ -5573,7 +5722,7 @@ export class ChatPaymentPanel {
     this.contactPicker = new ContactPicker(this);
   }
 
-  configure({ getAccount, onSent, showToast, listContacts, renderAvatar, prepareRecipient } = {}) {
+  configure({ getAccount, onSent, showToast, listContacts, resolveUsername, renderAvatar, prepareRecipient } = {}) {
     if (typeof getAccount === 'function') {
       this.getAccount = getAccount;
       intentsChatPayments.configure({ getAccount });
@@ -5581,6 +5730,7 @@ export class ChatPaymentPanel {
     if (typeof onSent === 'function') this.onSent = onSent;
     if (typeof showToast === 'function') this.showToast = showToast;
     if (typeof listContacts === 'function') this.listContacts = listContacts;
+    if (typeof resolveUsername === 'function') this.resolveUsername = resolveUsername;
     if (typeof renderAvatar === 'function') this.renderAvatar = renderAvatar;
     if (typeof prepareRecipient === 'function') this.prepareRecipient = prepareRecipient;
   }
@@ -5649,6 +5799,51 @@ export class ChatPaymentPanel {
     });
   }
 
+  /** Read an internal payment request without trusting its recipient or display symbol. */
+  async fillFromRequest(data, beforeOpen) {
+    if (!data || data.t !== 'intents' || typeof data.u !== 'string' || !/^[a-z0-9]{3,15}$/.test(data.u)
+      || typeof data.address !== 'string' || !/^0x[0-9a-f]{40}$/.test(data.address)
+      || typeof data.i !== 'string' || !data.i || typeof data.s !== 'string'
+      || (data.a !== undefined && typeof data.a !== 'string')
+      || (data.m !== undefined && (typeof data.m !== 'string' || data.m.length > 140))) {
+      throw new Error('Invalid NEAR Intents payment request.');
+    }
+    const account = this.getAccount();
+    const address = await this.resolveUsername(data.u);
+    if (this.getAccount() !== account) return false;
+    if (intentsAccountIdForAddress(address) !== data.address) {
+      throw new Error('Payment request username does not match its address.');
+    }
+    const contact = this.listContacts().find((entry) => intentsAccountIdForAddress(entry.address) === data.address);
+    if (!contact) throw new Error('Add this person to your contacts before paying this request.');
+
+    await intentsAssets.refresh();
+    if (this.getAccount() !== account) return false;
+    const assetKey = `${INTENTS_NETWORK_ID}:${data.i}`;
+    const asset = intentsAssets.getAsset(assetKey);
+    if (!asset || asset.rawAmount === '0' || asset.tokenSymbol !== data.s) {
+      throw new Error('The requested NEAR Intents asset is unavailable in your balance.');
+    }
+    if (data.a !== undefined) parseTokenAmount(data.a, asset.tokenDecimals);
+    if (!beforeOpen()) return false;
+    const opening = this.open(contact.address, contact.name, { assetKey });
+    const session = this.session;
+    try {
+      if (!await opening) return false;
+    } catch (error) {
+      if (this.session === session && this.getAccount() === account) {
+        this.setStatus('Could not load the requested asset. Try again.', 'error');
+      }
+      return false;
+    }
+    this.amountInput.value = data.a || '';
+    this.noteInput.value = data.m || '';
+    this.noteInput.hidden = !data.m;
+    this.noteToggle.hidden = Boolean(data.m);
+    this.amount.changed();
+    return true;
+  }
+
   selectedAsset() {
     return this.assetKey ? intentsAssets.getAsset(this.assetKey) : null;
   }
@@ -5661,6 +5856,8 @@ export class ChatPaymentPanel {
 
   async open(recipientAddress, recipientName = null, { assetKey = null } = {}) {
     this.load();
+    if (!openModal(this.modal)) return false;
+    const session = this.session = { account: this.getAccount() };
     this.recipientAddress = recipientAddress;
     this.recipientName = recipientName;
     this.sending = false;
@@ -5679,25 +5876,28 @@ export class ChatPaymentPanel {
     this.form.hidden = false;
     this.empty.hidden = true;
     this.assetChip.innerHTML = '<span>Loading…</span>';
-    openModal(this.modal);
-
     await intentsAssets.refresh({ force: true });
+    if (this.session !== session || this.getAccount() !== session.account) return false;
     // The asset it was opened for, else the largest holding: the likeliest
     // thing to be sent, and a choice the picker is one tap from changing.
     const held = intentsAssets.getAssets()
       .filter((asset) => asset.rawAmount !== '0')
       .sort((a, b) => (Number(b.tokenValueUsd) || 0) - (Number(a.tokenValueUsd) || 0));
-    if (!held.length) {
+    if (!held.length || (assetKey && !held.some((asset) => asset.key === assetKey))) {
       this.form.hidden = true;
       this.empty.hidden = false;
-      return;
+      if (assetKey) this.showToast('The requested NEAR Intents asset is unavailable in your balance.', 0, 'error');
+      return false;
     }
     const preferred = assetKey || this.assetKey;
     this.assetKey = held.some((asset) => asset.key === preferred) ? preferred : held[0].key;
     this.renderAsset();
     this.amount.changed();
     // Off-screen while it slides in; see DESIGN.md §6.
-    setTimeout(() => this.amountInput.focus({ preventScroll: true }), 350);
+    setTimeout(() => {
+      if (this.session === session && this.isActive()) this.amountInput.focus({ preventScroll: true });
+    }, 350);
+    return true;
   }
 
   renderAsset() {
@@ -5718,6 +5918,7 @@ export class ChatPaymentPanel {
 
   close() {
     if (this.sending) return;
+    this.session = null;
     this.modal.classList.remove('active');
     this.recipientAddress = null;
     this.pendingReceipt = null;

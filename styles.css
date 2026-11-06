@@ -12546,7 +12546,8 @@ small {
 
 #multichainAssetModal .asset-detail-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 12px;
   margin: 12px 0 0;
   padding: 0;
@@ -12682,6 +12683,40 @@ small {
   font-family: var(--font-primary);
   font-size: var(--font-size-xs);
   font-weight: 600;
+}
+
+#multichainRequestModal .form-group:has(.address-container) {
+  margin-bottom: 12px;
+}
+
+#multichainRequestModal .address-display {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#multichainRequestModal .address-copy-button {
+  flex-shrink: 0;
+}
+
+#multichainRequestQr {
+  margin-top: 16px;
+  overflow: hidden;
+}
+
+#multichainRequestQr img {
+  max-width: 100%;
+  height: auto;
+}
+
+#multichainRequestStatus {
+  margin-bottom: 16px;
+}
+
+#multichainRequestSymbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
 }
 
 /* --- confirmation --------------------------------------------------------- */
@@ -13360,7 +13395,7 @@ button.multichain-token-chip:hover {
   mask: var(--action-icon) center / contain no-repeat;
 }
 
-#multichainAssetReceive .action-icon,
+:is(#multichainAssetReceive, #multichainAssetDeposit) .action-icon,
 .multichain-activity-icon[data-icon='in'] {
   --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
 }
