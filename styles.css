@@ -12089,6 +12089,27 @@ small {
 
 /* --- list screen ---------------------------------------------------------- */
 
+/* Keep the overview controls visible; only its asset rows scroll. */
+#multichainModal .modal-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#multichainModal .modal-content > :not(.multichain-assets, .multichain-empty) {
+  flex-shrink: 0;
+}
+
+#multichainAssetsList,
+#multichainEmpty {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
 /* Mirrors the back button, which is positioned out of the flow. In the flow,
    this took 40px from the title's box and pulled "Multichain" 20px left of
    the balance centred beneath it. */
@@ -12140,50 +12161,6 @@ small {
 .multichain-hero-warning {
   font-size: var(--font-size-sm);
   color: var(--warning-color);
-}
-
-/* Two equal choices, tinted rather than solid: neither moves money on its
-   own, so neither is the screen's one blue action (DESIGN.md §5). One class
-   for both, so they cannot come out different widths (§6). */
-.multichain-hero-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 32px 16px 0;
-}
-
-.multichain-hero-action {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 48px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 24px;
-  background: var(--hover-background-purple);
-  color: var(--primary-color);
-  font-family: var(--font-primary);
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.multichain-hero-action:hover:not(:disabled) {
-  background: var(--primary-tint-20);
-}
-
-/* Not an action while it is unavailable, so not in the accent. */
-.multichain-hero-action:disabled {
-  background: var(--input-background);
-  color: var(--muted-text-color);
-  opacity: 1;
-  cursor: default;
-}
-
-.multichain-hero-action .action-icon {
-  width: 20px;
-  height: 20px;
 }
 
 /* The list's own heading, holding the one setting that shapes it. */
@@ -12263,76 +12240,19 @@ small {
   outline-offset: 2px;
 }
 
-/* Nothing held: where to start, rather than a list of zeros. */
 .multichain-empty {
-  margin: 32px 16px 0;
+  margin: 24px 16px;
   text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text-color);
 }
 
 .multichain-empty[hidden] {
   display: none;
 }
 
-.multichain-empty-title {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-.multichain-empty-text {
-  margin: 8px 0 16px;
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text-color);
-}
-
-/* Rows of three: more across leaves each chip too narrow to name its network,
-   and "BNB C…" is exactly the part that must not be cut. */
-.multichain-quick {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-.multichain-quick-chip {
-  flex: 0 0 calc((100% - 16px) / 3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  padding: 12px 4px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--background-color);
-  font-family: var(--font-primary);
-  cursor: pointer;
-}
-
-.multichain-quick-chip:hover {
-  border-color: var(--primary-color);
-  background: var(--hover-background-purple);
-}
-
-.multichain-quick-chip .asset-mark {
-  margin-bottom: 4px;
-}
-
-.multichain-quick-symbol {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-/* The network is part of the answer, not decoration: it says where the
-   address below the chip will accept this coin. */
-.multichain-quick-network {
-  max-width: 100%;
-  font-size: var(--font-size-xs);
-  color: var(--secondary-text-color);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.multichain-deposit-another {
+  margin: 16px 16px 0;
 }
 
 /* Custody is a standing fact about every row above it, so it sits under the
@@ -12342,6 +12262,27 @@ small {
   font-size: var(--font-size-xs);
   color: var(--muted-text-color);
   text-align: center;
+}
+
+/* Leave room for asset rows when the phone's available height is short. */
+@media (max-width: 768px) and (max-height: 700px) {
+  #multichainModal .multichain-hero {
+    gap: 4px;
+    padding-top: 8px;
+  }
+
+  #multichainModal .multichain-list-head {
+    margin-top: 16px;
+  }
+
+  #multichainModal .multichain-deposit-another {
+    margin-top: 8px;
+  }
+
+  #multichainModal .multichain-footnote {
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
 }
 
 /* --- activity ------------------------------------------------------------- */
@@ -12530,12 +12471,6 @@ small {
   background: var(--hover-background-purple);
 }
 
-/* An asset you hold nothing of is shown so the chain is findable before the
-   first deposit, but it should not compete with the ones that have money. */
-.multichain-row.is-empty {
-  opacity: 0.55;
-}
-
 .multichain-row-main {
   flex: 1;
   min-width: 0;
@@ -12588,17 +12523,36 @@ small {
   color: var(--secondary-text-color);
 }
 
-/* The asset screen's three actions. Spaced apart and given a tinted icon disc,
-   so they read as three choices rather than one grey band. */
-#multichainAssetModal .asset-detail-actions {
-  display: flex;
-  gap: 12px;
+/* Separate external wallet transfers from actions on the Intents balance. */
+#multichainAssetModal .multichain-action-groups {
+  display: grid;
+  gap: 24px;
   margin: 32px 16px 0;
+  text-align: left;
+}
+
+#multichainAssetModal .multichain-action-group-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+#multichainAssetModal .multichain-action-group-description {
+  margin: 4px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text-color);
+}
+
+#multichainAssetModal .asset-detail-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
   padding: 0;
 }
 
 #multichainAssetModal .wallet-action-button {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -13394,19 +13348,19 @@ button.multichain-token-chip:hover {
 
 
 /* Action icons, in the app's own language: diagonals rather than chevrons,
-   matching the asset detail screen. Receive points in, withdraw points out.
+   matching the asset detail screen. Deposit points in, withdraw points out.
 
    Painted as masks: `currentColor` does not reach inside a data-URI SVG, so as
    background images these drew black whatever colour the icon was given
    (DESIGN.md §6). Each rule publishes its artwork; the mask takes the colour. */
-:is(#multichainAssetModal, #multichainModal) .action-icon {
+#multichainAssetModal .action-icon {
   background-color: currentColor;
   background-image: none;
   -webkit-mask: var(--action-icon) center / contain no-repeat;
   mask: var(--action-icon) center / contain no-repeat;
 }
 
-:is(#multichainAssetReceive, #multichainReceiveAny) .action-icon,
+#multichainAssetReceive .action-icon,
 .multichain-activity-icon[data-icon='in'] {
   --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
 }
@@ -13416,7 +13370,7 @@ button.multichain-token-chip:hover {
   --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
 }
 
-:is(#multichainAssetSend, #multichainSendAny) .action-icon,
+#multichainAssetSend .action-icon,
 .multichain-activity-icon[data-icon='send'] {
   --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13'/%3E%3Cpath d='M22 2 15 22l-4-9-9-4z'/%3E%3C/svg%3E");
 }

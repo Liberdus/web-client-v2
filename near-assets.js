@@ -1752,7 +1752,8 @@ export class IntentsTransferService {
       assetId: asset.assetId,
       symbol: asset.tokenSymbol,
       chainName: asset.chainName,
-      amount: String(amount).trim(),
+      // Receipts need a plain decimal even when the input is ".5" or "2.".
+      amount: formatUnits(rawAmount, asset.tokenDecimals),
       rawAmount: rawAmount.toString(),
       memo: memo ? String(memo) : null,
       payload: buildIntentPayload({
@@ -3327,11 +3328,10 @@ export const intentsActivity = new IntentsActivity();
 // (a chevron is an expand/collapse glyph), and no protocol nouns in product
 // copy -- what the verifier is called belongs in the code, not on the screen.
 
-// What a new account is offered first: the largest coins, each on the one
-// network its chip names. Six, so they sit in two even rows of three.
+// Starter assets for a new account, each labeled with its chain.
 //
-// USDT is the one that exists on many chains, so its chip -- like every
-// chip -- carries its network, and its receive screen says the same: USDT on
+// USDT exists on many chains, so each row carries its network, and its
+// receive screen says the same: USDT on
 // Tron sent to this address is lost.
 //
 // The same coins head the token picker's Popular section, with a few more:
@@ -3347,7 +3347,7 @@ const POPULAR = Object.freeze([
   'nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near', // USDC on Ethereum
   'nep141:zec.omft.near',
 ]);
-const QUICK_RECEIVE = POPULAR.slice(0, 6);
+const STARTER_ASSETS = POPULAR.slice(0, 6);
 
 // Where a deposit to an asset's address is actually credited, when that is
 // not the asset itself. Bitcoin sent to the btc:mainnet address lands as nBTC
@@ -3671,11 +3671,6 @@ class MultichainModal {
     this.refreshButton = document.getElementById('refreshMultichainBalance');
     this.assetsList = document.getElementById('multichainAssetsList');
     this.statusLine = document.getElementById('multichainStatus');
-    this.receiveButton = document.getElementById('multichainReceiveAny');
-    this.receiveButton.addEventListener('click', () => this.controller.startDeposit());
-    this.sendButton = document.getElementById('multichainSendAny');
-    // No asset chosen: the send screen starts on the largest holding.
-    this.sendButton.addEventListener('click', () => this.controller.onSend(null));
     this.listHead = document.getElementById('multichainListHead');
     this.hideEmpty = document.getElementById('multichainHideEmpty');
     this.hideEmpty.addEventListener('change', () => {
@@ -3683,11 +3678,8 @@ class MultichainModal {
       this.render();
     });
     this.empty = document.getElementById('multichainEmpty');
-    this.quick = document.getElementById('multichainQuick');
-    this.quick.addEventListener('click', (event) => {
-      const chip = event.target.closest('[data-asset-key]');
-      if (chip) this.controller.receiveModal.open(chip.dataset.assetKey);
-    });
+    document.getElementById('multichainDepositAnother')
+      .addEventListener('click', () => this.controller.startDeposit());
 
     document.getElementById('closeMultichainModal')
       .addEventListener('click', () => this.close());
@@ -3767,8 +3759,6 @@ class MultichainModal {
     this.assetsList.hidden = false;
     this.assetsList.setAttribute('aria-busy', 'true');
     this.assetsList.innerHTML = SKELETON_ROW.repeat(3);
-    // Nothing is known to be held yet.
-    this.sendButton.disabled = true;
   }
 
   render() {
@@ -3793,20 +3783,14 @@ class MultichainModal {
     // fact, and lives in the footnote under the list.
     this.statusLine.textContent = status === 'unavailable'
       ? 'Balances are unavailable right now. Refresh to try again.' : '';
-    this.sendButton.disabled = held.length === 0;
 
-    // The list is what you hold, plus what you held before and spent to zero.
-    // "Hide empty" drops those; the switch only appears when there are any.
+    const assets = this.listAssets();
     const { hideEmpty } = this.controller.settings();
-    const zeros = network.assets.filter((asset) => asset.rawAmount === '0');
-    const visible = hideEmpty ? held : network.assets;
-    this.listHead.hidden = zeros.length === 0;
+    const visible = hideEmpty ? assets.filter((asset) => asset.rawAmount !== '0') : assets;
+    this.listHead.hidden = !assets.some((asset) => asset.rawAmount === '0');
     this.hideEmpty.checked = hideEmpty;
-
-    // Nothing held: the way to start, not a list of zeros. Only when the
-    // balances were actually read -- "nothing here" is a claim.
-    this.empty.hidden = !(['connected', 'unpriced'].includes(status) && held.length === 0 && visible.length === 0);
-    if (!this.empty.hidden) this.renderQuickReceive();
+    this.empty.hidden = visible.length !== 0;
+    this.empty.textContent = hideEmpty ? 'No assets to show. Turn off Hide empty to see all assets.' : 'No assets to show.';
 
     this.assetsList.hidden = visible.length === 0;
     if (visible.length === 0) {
@@ -3814,12 +3798,14 @@ class MultichainModal {
       return;
     }
 
+    const balancesKnown = intentsAssets.balances !== null;
     this.assetsList.innerHTML = visible.map((asset) => {
-      const valuation = WalletUsdValuation.fromValue(asset.rawAmount === '0' ? 0 : asset.tokenValueUsd);
+      const valuation = WalletUsdValuation.fromValue(balancesKnown ? (asset.rawAmount === '0' ? 0 : asset.tokenValueUsd) : null);
+      const amount = balancesKnown ? `${formatDisplayAmount(asset.tokenAmount)} ${asset.tokenSymbol}` : '—';
       return `
       <button
         type="button"
-        class="multichain-row multichain-asset-button${asset.rawAmount === '0' ? ' is-empty' : ''}"
+        class="multichain-row multichain-asset-button"
         data-asset-key="${escapeHtml(asset.key)}"
         aria-label="${escapeHtml(assetTitle(asset))}"
       >
@@ -3829,7 +3815,7 @@ class MultichainModal {
           <span class="multichain-row-chain">${escapeHtml(asset.chainName)}</span>
         </span>
         <span class="multichain-row-values wallet-value-stack">
-          <span class="multichain-row-amount">${escapeHtml(formatDisplayAmount(asset.tokenAmount))}</span>
+          <span class="multichain-row-amount">${escapeHtml(amount)}</span>
           <span class="multichain-row-usd"${valuation.state === 'none' ? ' style="color: var(--danger-color)"' : ''}>${escapeHtml(valuation.valueText)}</span>
           ${valuation.caption ? `<span class="wallet-price-status">${escapeHtml(valuation.caption)}</span>` : ''}
         </span>
@@ -3838,18 +3824,15 @@ class MultichainModal {
     }).join('');
   }
 
-  /** The coins a new account is offered first, each one tap from its address. */
-  renderQuickReceive() {
-    const assets = QUICK_RECEIVE
-      .map((assetId) => intentsAssets.getCatalogAsset(`intents:${assetId}`))
-      .filter(Boolean);
-    this.quick.innerHTML = assets.map((asset) => `
-      <button type="button" class="multichain-quick-chip" data-asset-key="${escapeHtml(asset.key)}"
-        aria-label="Receive ${escapeHtml(assetTitle(asset))}">
-        ${assetMark(asset, 32)}
-        <span class="multichain-quick-symbol">${escapeHtml(asset.tokenSymbol)}</span>
-        <span class="multichain-quick-network">${escapeHtml(asset.chainName)}</span>
-      </button>`).join('');
+  /** Nonzero balances and starter rows, without changing portfolio history. */
+  listAssets() {
+    const assets = new Map(intentsAssets.getAssets()
+      .filter((asset) => asset.rawAmount !== '0')
+      .map((asset) => [asset.key, asset]));
+    for (const asset of intentsAssets.listCatalogAssets()) {
+      if (STARTER_ASSETS.includes(asset.assetId) && !assets.has(asset.key)) assets.set(asset.key, asset);
+    }
+    return [...assets.values()];
   }
 }
 
@@ -3917,7 +3900,7 @@ class MultichainAssetModal {
   }
 
   open(assetKey) {
-    const asset = intentsAssets.getAsset(assetKey);
+    const asset = intentsAssets.getCatalogAsset(assetKey);
     if (!asset) return;
     this.assetKey = assetKey;
     this.render();
@@ -3930,7 +3913,7 @@ class MultichainAssetModal {
    * the same asset keeps what is on screen until the new answer lands.
    */
   async loadActivity() {
-    const asset = intentsAssets.getAsset(this.assetKey);
+    const asset = intentsAssets.getCatalogAsset(this.assetKey);
     if (!asset) return;
     const seq = ++this.activitySeq;
     if (this.activityKey !== this.assetKey) {
@@ -3995,13 +3978,14 @@ class MultichainAssetModal {
   }
 
   render() {
-    const asset = intentsAssets.getAsset(this.assetKey);
+    const asset = intentsAssets.getCatalogAsset(this.assetKey);
     if (!asset) return;
     // The title carries symbol and chain, so the body never repeats them.
     this.title.textContent = assetTitle(asset);
     this.icon.innerHTML = assetMark(asset, 64);
-    this.amount.textContent = `${formatDisplayAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
-    this.value.textContent = asset.tokenValueUsd === null
+    const balancesKnown = intentsAssets.balances !== null;
+    this.amount.textContent = balancesKnown ? `${formatDisplayAmount(asset.tokenAmount)} ${asset.tokenSymbol}` : '—';
+    this.value.textContent = !balancesKnown ? '$ -' : asset.tokenValueUsd === null
       ? 'No price available'
       : formatUsd(asset.tokenValueUsd);
     // Nothing to send is not a state worth offering a form for.
@@ -4022,7 +4006,7 @@ class MultichainAssetModal {
 }
 
 /**
- * Receive: the deposit address is the whole screen.
+ * Deposit: the deposit address is the whole screen.
  *
  * Watches the balance while it is open, because a deposit lands a minute or
  * two after it is sent and a screen that never updates reads as broken.
@@ -4054,7 +4038,7 @@ class MultichainReceiveModal {
     if (!asset || !accountId) return;
 
     this.assetKey = assetKey;
-    this.title.textContent = `Receive ${assetTitle(asset)}`;
+    this.title.textContent = `Deposit ${assetTitle(asset)}`;
     this.body.innerHTML = '<div class="multichain-quote-working">Getting your deposit address…</div>';
     this.stopWatching();
     openModal(this.modal);
@@ -5400,26 +5384,22 @@ class MultichainController {
   }
 
   /**
-   * Receive anything the bridge carries. The listed assets are only what is
-   * held plus two defaults, so without this every other chain was unreachable.
+   * Deposit anything the bridge carries, including assets outside the
+   * holdings and starter rows shown on the asset screen.
    *
    * The picker's rows are asset-on-chain, so one tap answers both "which
    * token" and "which network" -- no separate network question.
    */
   async startDeposit() {
-    const button = this.assetsModal.receiveButton;
-    button.disabled = true;
     try {
       await intentsDeposits.loadBridgeTokens();
     } catch (error) {
       console.warn('Deposit options unavailable:', error);
       this.assetsModal.statusLine.textContent = 'Could not load what you can receive. Try again in a moment.';
       return;
-    } finally {
-      button.disabled = false;
     }
     this.tokenPicker.open({
-      title: 'Receive',
+      title: 'Deposit',
       // Not an asset deposits never land on, whatever the bridge lists.
       accepts: (asset) => intentsDeposits.isDepositable(asset.assetId) && !DEPOSIT_CREDITS[asset.assetId],
       onPick: (key) => this.receiveModal.open(key),

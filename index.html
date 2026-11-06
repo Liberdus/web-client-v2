@@ -221,7 +221,7 @@
           <div class="wallet-asset-groups">
             <button type="button" class="wallet-asset-summary" id="multichainSummary">
               <span class="wallet-asset-group-icon" aria-hidden="true"></span>
-              <span class="wallet-asset-summary-label">Multichain</span>
+              <span class="wallet-asset-summary-label">NEAR Assets</span>
               <span class="wallet-value-stack">
                 <span class="wallet-asset-summary-value" id="multichainSummaryValue">$ -</span>
                 <span class="wallet-price-status wallet-price-warning" id="multichainSummaryStatus" role="status"></span>
@@ -307,7 +307,7 @@
           <ul class="menu-list">
             <li class="menu-item" id="openInvite" data-icon="mail">Invite</li>
             <li class="menu-item" id="openAssets" data-icon="assets">EVM Assets</li>
-            <li class="menu-item" id="openMultichain" data-icon="multichain">Multichain</li>
+            <li class="menu-item" id="openMultichain" data-icon="multichain">NEAR Assets</li>
             <li class="menu-item" id="openFarm" data-icon="trending-up">Farm</li>
             <li class="menu-item" id="openValidator" data-icon="shield">Validator</li>
             <li class="menu-item" id="openDao" data-icon="dao" style="display: none;">DAO</li>
@@ -1706,7 +1706,7 @@
       <div class="modal fixed-header" id="multichainModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainModal"></button>
-          <div class="modal-title">Multichain</div>
+          <div class="modal-title">NEAR Assets</div>
           <button class="refresh-button" id="refreshMultichainBalance">&#8635;</button>
         </div>
         <div class="modal-content">
@@ -1718,15 +1718,6 @@
             <!-- Only ever a problem: a healthy screen says nothing here. -->
             <div class="multichain-hero-warning" id="multichainStatus" role="status"></div>
           </section>
-          <div class="multichain-hero-actions">
-            <!-- Any asset the bridge carries, not only the ones already listed. -->
-            <button type="button" class="multichain-hero-action" id="multichainReceiveAny">
-              <span class="action-icon" aria-hidden="true"></span>Receive
-            </button>
-            <button type="button" class="multichain-hero-action" id="multichainSendAny">
-              <span class="action-icon" aria-hidden="true"></span>Send
-            </button>
-          </div>
           <!-- Shown only when there is a zero row to hide. -->
           <div class="multichain-list-head" id="multichainListHead" hidden>
             <div class="multichain-section-title">Assets</div>
@@ -1736,13 +1727,9 @@
               <span class="multichain-switch-track" aria-hidden="true"></span>
             </label>
           </div>
-          <!-- Nothing held: the way to start, one tap from each coin's address. -->
-          <div class="multichain-empty" id="multichainEmpty" hidden>
-            <div class="multichain-empty-title">Nothing here yet</div>
-            <p class="multichain-empty-text">Most people start with one of these.</p>
-            <div class="multichain-quick" id="multichainQuick"></div>
-          </div>
+          <div class="multichain-empty" id="multichainEmpty" role="status" hidden></div>
           <div class="multichain-assets" id="multichainAssetsList"></div>
+          <button type="button" class="btn btn--secondary multichain-deposit-another" id="multichainDepositAnother">Deposit another asset</button>
           <p class="multichain-footnote">Held for you, not on each asset’s own chain. Withdraw any time.</p>
         </div>
         <a class="last-item" href="#"> </a>
@@ -1761,23 +1748,35 @@
             <div class="multichain-asset-value" id="multichainAssetValue">&#8212;</div>
           </section>
 
-          <div class="wallet-actions asset-detail-actions">
-            <button class="wallet-action-button" id="multichainAssetReceive">
-              <span class="action-icon"></span>
-              <span class="action-label">Receive</span>
-            </button>
-            <button class="wallet-action-button" id="multichainAssetSend">
-              <span class="action-icon"></span>
-              <span class="action-label">Send</span>
-            </button>
-            <button class="wallet-action-button" id="multichainAssetWithdraw">
-              <span class="action-icon"></span>
-              <span class="action-label">Withdraw</span>
-            </button>
-            <button class="wallet-action-button" id="multichainAssetSwap">
-              <span class="action-icon"></span>
-              <span class="action-label">Swap</span>
-            </button>
+          <div class="multichain-action-groups">
+            <section aria-labelledby="multichainExternalActionsTitle">
+              <h3 class="multichain-action-group-title" id="multichainExternalActionsTitle">Move in or out</h3>
+              <p class="multichain-action-group-description">Between NEAR Intents addresses and external wallet addresses</p>
+              <div class="wallet-actions asset-detail-actions">
+                <button type="button" class="wallet-action-button" id="multichainAssetReceive">
+                  <span class="action-icon"></span>
+                  <span class="action-label">Deposit</span>
+                </button>
+                <button type="button" class="wallet-action-button" id="multichainAssetWithdraw">
+                  <span class="action-icon"></span>
+                  <span class="action-label">Withdraw</span>
+                </button>
+              </div>
+            </section>
+            <section aria-labelledby="multichainIntentsActionsTitle">
+              <h3 class="multichain-action-group-title" id="multichainIntentsActionsTitle">Within NEAR Intents</h3>
+              <p class="multichain-action-group-description">Send to other NEAR Intents addresses or swap assets</p>
+              <div class="wallet-actions asset-detail-actions">
+                <button type="button" class="wallet-action-button" id="multichainAssetSend">
+                  <span class="action-icon"></span>
+                  <span class="action-label">Send</span>
+                </button>
+                <button type="button" class="wallet-action-button" id="multichainAssetSwap">
+                  <span class="action-icon"></span>
+                  <span class="action-label">Swap</span>
+                </button>
+              </div>
+            </section>
           </div>
 
           <!-- What happened to this asset: deposits, payments, swaps, withdrawals. -->
@@ -1789,11 +1788,11 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Receive: the address is the whole screen. -->
+      <!-- Deposit: the address is the whole screen. -->
       <div class="modal fixed-header" id="multichainReceiveModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainReceiveModal"></button>
-          <div class="modal-title" id="multichainReceiveTitle">Receive</div>
+          <div class="modal-title" id="multichainReceiveTitle">Deposit</div>
         </div>
         <div class="modal-content">
           <div class="multichain-screen" id="multichainReceiveBody"></div>
@@ -1968,8 +1967,8 @@
           <!-- Nothing to send: the way to fix that, in place. -->
           <div class="multichain-screen chat-send-empty" id="chatSendEmpty" hidden>
             <div class="multichain-deposit-minimum">Nothing to send yet</div>
-            <p class="chat-send-empty-text">Receive crypto into your multichain wallet, then send it from here.</p>
-            <button class="btn btn--primary btn--pill btn--full" id="chatSendReceive">Receive</button>
+            <p class="chat-send-empty-text">Deposit crypto into your multichain wallet, then send it from here.</p>
+            <button class="btn btn--primary btn--pill btn--full" id="chatSendReceive">Deposit</button>
           </div>
         </div>
         <a class="last-item" href="#"> </a>
