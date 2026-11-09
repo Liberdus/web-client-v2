@@ -23832,7 +23832,9 @@ class ChatModal {
         return { problem: 'This account cannot receive a NEAR Intents payment.' };
       }
       try {
-        connection = await this.prepareExternalPaymentRecipient({ address, username }, account, { forIntents: true });
+        connection = await this.prepareExternalPaymentRecipient(
+          { address, username }, account, { forIntents: true, isCurrentLookup },
+        );
       } catch (error) {
         return { problem: error.message || 'Could not check that this payment can reach them. Try again.' };
       }
@@ -23864,7 +23866,7 @@ class ChatModal {
   }
 
   /** Check the actual recipient and live LIB funds before an external payment. */
-  async prepareExternalPaymentRecipient(resolution, account, { forIntents = false } = {}) {
+  async prepareExternalPaymentRecipient(resolution, account, { forIntents = false, isCurrentLookup } = {}) {
     const address = normalizeAddress(resolution.address);
     const sorted = [longAddress(account.keys.address), longAddress(address)].sort();
     const chatId = hashBytes(sorted.join(''));
@@ -23872,7 +23874,7 @@ class ChatModal {
       queryNetwork(`/account/${longAddress(address)}`),
       queryNetwork(`/messages/${chatId}/toll`),
       queryNetwork(`/account/${longAddress(account.keys.address)}/balance`),
-      getNetworkParams(true),
+      getNetworkParams(true, isCurrentLookup),
     ]);
     const recipient = recipientInfo?.account;
     const fee = paramsOk ? getTransactionFeeWei({ allowNull: true }) : null;
@@ -38426,9 +38428,11 @@ function ignoreShiftTabKey(e) {
 /**
  * Fetches and caches network account data if it's stale or not yet fetched.
  * @param {boolean} forceRefresh - If true, bypass staleness interval and fetch immediately.
+ * @param {() => boolean} isCurrentLookup - Whether the lookup that requested the refresh is still active.
  * @returns {Promise<boolean>} - True when params are usable (fresh/cache/fetched), false otherwise
  */
-async function getNetworkParams(forceRefresh = false) {
+async function getNetworkParams(forceRefresh = false, isCurrentLookup = () => true) {
+  if (!isCurrentLookup()) return false;
   const now = getCorrectedTimestamp();
 
   // Check if data is fresh; (this.networkAccountTimeStamp || 0) handles initial undefined state
@@ -38454,6 +38458,7 @@ async function getNetworkParams(forceRefresh = false) {
   console.log(`getNetworkParams: Data for account ${NETWORK_ACCOUNT_ID} is stale or missing. Attempting to fetch...`);
   try {
     const fetchedData = await queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`);
+    if (!isCurrentLookup()) return false;
 
     if (fetchedData !== undefined && fetchedData !== null) {
       parameters = fetchedData.account;
@@ -38484,6 +38489,7 @@ async function getNetworkParams(forceRefresh = false) {
       return false;
     }
   } catch (error) {
+    if (!isCurrentLookup()) return false;
     isOnline = false;
     updateUIForConnectivity();
     console.error(
