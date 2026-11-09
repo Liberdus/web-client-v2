@@ -13331,19 +13331,8 @@ button.multichain-token-chip:hover {
   height: 14px;
 }
 
-.chat-send-contact-avatar {
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--input-background);
-}
-
-/* An avatar fills its frame (DESIGN.md §6). */
-.chat-send-contact-avatar > * {
-  width: 100%;
-  height: 100%;
+#chatSendRecipientGroup > label {
+  margin-bottom: 8px;
 }
 
 /* One quiet row until someone wants a note (DESIGN.md §1.7). */

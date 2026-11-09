@@ -568,6 +568,7 @@ function clearMyData() {
   evmAssets.reset();
   sendAssetFormModal.reset();
   receiveModal.close();
+  chatPaymentPanel.close();
   multichain.reset();
   daoRepo.reset();
   daoModal.resetNotificationState();
@@ -872,7 +873,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Connected EVM assets
   evmAssets.load();
 
-  // Sending an intents balance inside a conversation
+  // Sending a NEAR Intents balance from the wallet or chat
   chatPaymentPanel.load();
 
   // Multichain (NEAR Intents) assets
@@ -23733,13 +23734,23 @@ class ChatModal {
    * has to be found here, not after the money has gone. Throws when it
    * cannot be checked; the caller refuses then too.
    */
-  async checkPaymentRecipient(recipientAddress) {
+  async checkPaymentRecipient(recipientAddress, fromWallet = false) {
     const address = normalizeAddress(recipientAddress);
-    const contact = myData.contacts[address];
+    const account = myAccount;
+    const contact = myData?.contacts[address];
     if (!contact) return 'Add this person to your contacts first.';
+    if (fromWallet && !this.canSendIntentsPaymentTo(contact)) {
+      return 'This contact cannot receive a NEAR Intents payment.';
+    }
     const name = getContactDisplayName(contact);
+    const assertCurrentContact = () => {
+      if (myAccount !== account || myData?.contacts[address] !== contact) {
+        throw new Error('Payment account or contact changed during receipt checks');
+      }
+    };
 
     const accountRes = await queryNetwork(`/account/${longAddress(address)}`);
+    assertCurrentContact();
     if (!accountRes?.account) throw new Error('Recipient account lookup failed');
     const myIsPrivate = isPrivateAccount();
     if ((accountRes.account.private === true) !== myIsPrivate) {
@@ -23747,17 +23758,23 @@ class ChatModal {
     }
 
     await this.refreshRecipientTollState(address);
+    assertCurrentContact();
     if (Number(contact.tollRequiredToSend) === 2) {
       return `${name} is not accepting messages from you, so a payment cannot reach them here.`;
     }
-    if (!(await ensureContactKeys(address)) || !contact.public || !contact.pqPublic) {
+    const hasKeys = await ensureContactKeys(address);
+    assertCurrentContact();
+    if (!hasKeys || !contact.public || !contact.pqPublic) {
       throw new Error('Recipient encryption keys are unavailable');
     }
 
     // Fresh where it can be; the saved balance otherwise, as any send uses.
     await walletScreen.updateWalletBalances().catch((error) => console.warn('LIB balance refresh failed:', error));
+    assertCurrentContact();
     const toll = this.paymentMessageToll(address);
-    if (!(await validateBalance(toll))) {
+    const canPayReceipt = await validateBalance(toll);
+    assertCurrentContact();
+    if (!canPayReceipt) {
       // validateBalance also refuses when it cannot learn the fee.
       const fee = getTransactionFeeWei({ allowNull: true });
       if (fee === null) throw new Error('Message fee unavailable');
@@ -23765,6 +23782,11 @@ class ChatModal {
       return `The chat message to ${name} costs ${needed} LIB with its fee, and you do not have enough LIB. Add LIB first.`;
     }
     return null;
+  }
+
+  /** Local contact requirements for a NEAR Intents payment from the wallet. */
+  canSendIntentsPaymentTo(contact) {
+    return Boolean(contact.address && !isFaucetAddress(contact.address) && contact.friend !== 0 && contact.public);
   }
 
   /** Check the actual recipient and live LIB funds before an external payment. */
@@ -28537,7 +28559,10 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async updateTollRequired(address) {
-    const myAddr = longAddress(myAccount.keys.address);
+    const account = myAccount;
+    const localContact = myData?.contacts[address];
+    if (!account || !localContact) return;
+    const myAddr = longAddress(account.keys.address);
     const contactAddr = longAddress(address);
     // use `hashBytes([fromAddr, toAddr].sort().join(''))` to get the hash of the sorted addresses and have variable to keep track fromAddr which will be the current users order in the array
     const sortedAddresses = [myAddr, contactAddr].sort();
@@ -28550,6 +28575,7 @@ class ChatModal {
     try {
       // query the contact's toll field from the network
       const contactAccountData = await queryNetwork(`/messages/${hash}/toll`);
+      if (myAccount !== account || myData?.contacts[address] !== localContact) return;
 
       if (contactAccountData?.error === 'No account with the given chatId') {
         console.warn(`chatId has not been created yet: ${address}`, contactAccountData.error);
@@ -28558,7 +28584,6 @@ class ChatModal {
         return;
       }
 
-      const localContact = myData.contacts[address];
       localContact.tollRequiredToSend = contactAccountData.toll.required[toIndex];
       localContact.tollRequiredToReceive = contactAccountData.toll.required[myIndex];
 
@@ -28590,8 +28615,12 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async updateTollValue(address) {
+    const account = myAccount;
+    const contact = myData?.contacts[address];
+    if (!account || !contact) return;
     // query the contact's toll field from the network
     const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
+    if (myAccount !== account || myData?.contacts[address] !== contact) return;
     // If invalid response, do not overwrite cached values
     if (!contactAccountData?.account?.data) {
       console.warn('updateTollValue: no network data available; skipping update');
@@ -28601,9 +28630,9 @@ class ChatModal {
     const queriedTollUnit = contactAccountData.account.data.tollUnit; // type string
 
     // update the toll value in the UI if the queried toll value is different from the toll value or toll unit in localStorage
-    if (myData.contacts[address].toll != queriedToll || myData.contacts[address].tollUnit != queriedTollUnit) {
-      myData.contacts[address].toll = queriedToll;
-      myData.contacts[address].tollUnit = queriedTollUnit;
+    if (contact.toll != queriedToll || contact.tollUnit != queriedTollUnit) {
+      contact.toll = queriedToll;
+      contact.tollUnit = queriedTollUnit;
       // if correct modal is open for this address, update the toll value
       if (this.isActive() && this.address === address) {
         this.updateTollAmountUI(address);
@@ -28620,11 +28649,14 @@ class ChatModal {
    */
   async refreshRecipientTollState(address) {
     assert(address, 'Recipient address is required to refresh toll state');
+    const account = myAccount;
     const contact = myData.contacts[address];
     assert(contact, `Contact is required to refresh toll state: ${address}`);
 
     await this.updateTollValue(address);
+    if (myAccount !== account || myData?.contacts[address] !== contact) return;
     await this.updateTollRequired(address);
+    if (myAccount !== account || myData?.contacts[address] !== contact) return;
 
     if (!this.isActive() || this.address !== address) {
       saveState();
@@ -35636,35 +35668,26 @@ multichain.configure({
   getAccount: () => myAccount,
 });
 
-function getMessagePaymentContacts() {
-  return Object.values(myData?.contacts || {})
-    .filter((contact) => contact.address && !isFaucetAddress(contact.address))
-    .filter((contact) => contact.friend !== 0 && contact.public);
-}
-
 chatPaymentPanel.configure({
   getAccount: () => myAccount,
   onSent: (recipientAddress, messageObj) =>
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
   showToast,
-  // Who a payment from the wallet can go to: people a message can reach.
-  // Blocked contacts and ones with no public key would take the money and
-  // never get the receipt. Recent conversations first.
-  listContacts: () => {
-    const recency = new Map((myData?.chats || []).map((chat, index) => [chat.address, index]));
-    return getMessagePaymentContacts()
-      .sort((a, b) => (recency.get(a.address) ?? Infinity) - (recency.get(b.address) ?? Infinity)
-        || getContactDisplayName(a).localeCompare(getContactDisplayName(b)))
-      .map((contact) => ({
-        address: contact.address,
-        name: getContactDisplayName(contact),
-        username: contact.username || null,
-      }));
-  },
-  renderAvatar: (address, size) => getContactAvatarHtml(myData.contacts[address] || address, size),
+  lookupUsername: (username) => getUsernameAddress(username),
+  createContactAutocomplete: ({ input, list, onSelect }) => new ContactAutocomplete({
+    input,
+    list,
+    onSelect,
+    getContacts: () => {
+      if (!input.value.trim()) return [];
+      return Object.values(myData?.contacts || {})
+        .filter((contact) => contact.username && chatModal.canSendIntentsPaymentTo(contact))
+        .map((contact) => ({ ...contact, displayName: getContactDisplayName(contact) }));
+    },
+  }),
   // Whether the receipt can reach them and be paid for, checked fresh: the
   // toll may be stale when the chat was never opened.
-  prepareRecipient: async (address) => ({ problem: await chatModal.checkPaymentRecipient(address) }),
+  checkReceiptRecipient: (address, fromWallet) => chatModal.checkPaymentRecipient(address, fromWallet),
 });
 
 // The asset screen's activity. Swaps and withdrawals this device placed are
@@ -40203,7 +40226,6 @@ const modalCloseHandlers = new Map([
   ['multichainSwapModal', () => multichain.close('multichainSwapModal')],
   ['multichainTokenPickerModal', () => multichain.close('multichainTokenPickerModal')],
   ['chatSendModal', () => chatPaymentPanel.close()],
-  ['chatSendContactModal', () => chatPaymentPanel.contactPicker.close()],
   ['multichainConfirmModal', () => multichain.close('multichainConfirmModal')],
   ['sendAssetConfirmModal', () => sendAssetConfirmModal.close()],
   ['googleDrivePickerModal', () => importModal.closeGoogleDrivePicker()],
