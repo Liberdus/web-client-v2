@@ -5838,13 +5838,14 @@ export class ChatPaymentPanel {
     this.assetPicker.hidden = session.fromWallet;
     this.renderAsset();
 
-    // Focus after the slide, without stealing focus from a control already in use.
-    const input = session.fromWallet ? this.recipientInput : this.amountInput;
-    setTimeout(() => {
-      if (this.isCurrentSession(session) && !this.form.hidden && !this.modal.contains(document.activeElement)) {
-        input.focus({ preventScroll: true });
-      }
-    }, 350);
+    if (!session.fromWallet) {
+      // Focus after the slide, without stealing focus from a control already in use.
+      setTimeout(() => {
+        if (this.isCurrentSession(session) && !this.form.hidden && !this.modal.contains(document.activeElement)) {
+          this.amountInput.focus({ preventScroll: true });
+        }
+      }, 350);
+    }
 
     await intentsAssets.refresh({ force: true });
     if (!this.isCurrentSession(session)) return false;

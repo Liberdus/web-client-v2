@@ -35785,7 +35785,6 @@ chatPaymentPanel.configure({
     list,
     onSelect,
     getContacts: () => {
-      if (!input.value.trim()) return [];
       return Object.values(myData?.contacts || {})
         .filter((contact) => contact.username && chatModal.canSendIntentsPaymentTo(contact))
         .map((contact) => ({ ...contact, displayName: getContactDisplayName(contact) }));
