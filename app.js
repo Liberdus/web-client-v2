@@ -23782,7 +23782,14 @@ class ChatModal {
     };
     if (!isCurrentLookup()) return 'The recipient changed. Go back and review the payment again.';
     Object.assign(contact, tollState);
-    if (!noChat) contact.tollRequiredToReceive = required[1 - recipientIndex];
+    if (!noChat) {
+      const senderRequired = required[1 - recipientIndex];
+      if (senderRequired === 2) {
+        applyUpdateTollRequiredState(contact, { my: true, required: senderRequired }, { preservePendingFriend: true });
+      } else {
+        contact.tollRequiredToReceive = senderRequired;
+      }
+    }
     this.saveRecipientTollState(address, contact);
     if (tollState.tollRequiredToSend === 2) {
       return `${name} is not accepting messages from you, so a payment cannot reach them here.`;
@@ -23812,10 +23819,10 @@ class ChatModal {
 
   /** Local eligibility for wallet Send. The receipt check can load missing keys. */
   canSendIntentsPaymentTo(contact) {
-    return Boolean(contact.address && !isFaucetAddress(contact.address) && contact.friend !== 0);
+    return Boolean(contact.address && !isFaucetAddress(contact.address));
   }
 
-  /** Check receipt eligibility and save a new Connection just before publication. */
+  /** Check receipt eligibility and save a new contact just before publication. */
   async checkIntentsPaymentReceipt(address, username, isCurrentLookup) {
     const contact = myData?.contacts[address];
     if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
@@ -23852,13 +23859,14 @@ class ChatModal {
         }
         if (contact) this.validatePaymentRecipientKeys(address, contact, myAccount.keys);
         if (!connection) return;
-        createNewContact(address, username, 2);
+        const friendStatus = connection.contactUpdates.tollRequiredToReceive === 2 ? 0 : 2;
+        createNewContact(address, username, friendStatus);
         Object.assign(myData.contacts[address], connection.contactUpdates);
         try {
           saveState();
         } catch (error) {
           delete myData.contacts[address];
-          throw new Error('Could not save this Connection. Try again.', { cause: error });
+          throw new Error('Could not save this contact. Try again.', { cause: error });
         }
       },
     };
@@ -23893,7 +23901,6 @@ class ChatModal {
       throw new Error('Cannot check recipient toll. Try again.');
     }
     if (required === 2) throw new Error('This recipient has blocked messages.');
-    if (forIntents && senderRequired === 2) throw new Error('You have blocked this recipient.');
     const tollUnit = recipient.data.tollUnit || 'LIB';
     if (typeof recipient.data.toll !== 'bigint' || !['LIB', 'USD'].includes(tollUnit)) {
       throw new Error('Cannot determine recipient toll.');
@@ -23902,6 +23909,7 @@ class ChatModal {
       public: recipient.publicKey, pqPublic: recipient.pqPublicKey,
       toll: recipient.data.toll, tollUnit, tollRequiredToSend: required,
     };
+    if (forIntents) contactUpdates.tollRequiredToReceive = senderRequired;
     let toll = 0n;
     if (required !== 0) {
       toll = forIntents
