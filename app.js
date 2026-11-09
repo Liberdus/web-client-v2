@@ -23721,10 +23721,14 @@ class ChatModal {
    * wallet may go to someone whose chat was never opened this session.
    */
   paymentMessageToll(recipient) {
-    const { libWei: recipientTollLib } = this.formatTollDisplay(recipient.toll, recipient.tollUnit);
-    return recipient.tollRequiredToSend == 0
-      ? 0n
-      : getEffectiveTollLibWei(typeof recipientTollLib === 'bigint' ? recipientTollLib : 0n);
+    const { toll, tollUnit, tollRequiredToSend } = recipient;
+    if (tollRequiredToSend == 0 || typeof toll !== 'bigint' || toll === 0n) return 0n;
+    if (tollUnit !== 'LIB' && tollUnit !== 'USD') return 0n;
+
+    const libWei = tollUnit === 'USD'
+      ? EthNum.usdToWei(EthNum.toStr(toll), parameters?.current?.stabilityFactorStr)
+      : toll;
+    return getEffectiveTollLibWei(libWei);
   }
 
   /**
