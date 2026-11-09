@@ -23720,8 +23720,7 @@ class ChatModal {
    * which belongs to whichever conversation is open. A payment sent from the
    * wallet may go to someone whose chat was never opened this session.
    */
-  paymentMessageToll(address) {
-    const recipient = myData.contacts[address];
+  paymentMessageToll(recipient) {
     const { libWei: recipientTollLib } = this.formatTollDisplay(recipient.toll, recipient.tollUnit);
     return recipient.tollRequiredToSend == 0
       ? 0n
@@ -23775,7 +23774,7 @@ class ChatModal {
     // Fresh where it can be; the saved balance otherwise, as any send uses.
     await walletScreen.updateWalletBalances().catch((error) => console.warn('LIB balance refresh failed:', error));
     assertCurrentContact();
-    const toll = this.paymentMessageToll(address);
+    const toll = this.paymentMessageToll(contact);
     const canPayReceipt = await validateBalance(toll);
     assertCurrentContact();
     if (!canPayReceipt) {
@@ -23793,8 +23792,51 @@ class ChatModal {
     return Boolean(contact.address && !isFaucetAddress(contact.address) && contact.friend !== 0 && contact.public);
   }
 
+  /** Check receipt eligibility now, and save a new Connection only before sending. */
+  async checkIntentsPaymentReceipt(address, username) {
+    const account = myAccount;
+    const contact = myData?.contacts[address];
+    let connection;
+    if (contact || !username) {
+      const problem = await this.checkPaymentRecipient(address, Boolean(username));
+      if (problem) return { problem };
+    } else {
+      if (isFaucetAddress(address)) {
+        return { problem: 'This account cannot receive a NEAR Intents payment.' };
+      }
+      try {
+        connection = await this.prepareExternalPaymentRecipient({ address, username }, account, { forIntents: true });
+      } catch (error) {
+        return { problem: error.message || 'Could not check that this payment can reach them. Try again.' };
+      }
+    }
+
+    return {
+      beforeSend: () => {
+        if (myAccount !== account || myData?.contacts[address] !== contact) {
+          throw new Error('The recipient changed. Go back and review the payment again.');
+        }
+        if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
+          throw new Error('This contact cannot receive a NEAR Intents payment.');
+        }
+        if (Number(contact?.tollRequiredToSend) === 2) {
+          throw new Error('This recipient has blocked messages.');
+        }
+        if (!connection) return;
+        createNewContact(address, username, 2);
+        Object.assign(myData.contacts[address], connection.contactUpdates);
+        try {
+          saveState();
+        } catch (error) {
+          delete myData.contacts[address];
+          throw new Error('Could not save this Connection. Try again.', { cause: error });
+        }
+      },
+    };
+  }
+
   /** Check the actual recipient and live LIB funds before an external payment. */
-  async prepareEvmPaymentRecipient(resolution, account) {
+  async prepareExternalPaymentRecipient(resolution, account, { forIntents = false } = {}) {
     const address = normalizeAddress(resolution.address);
     const sorted = [longAddress(account.keys.address), longAddress(address)].sort();
     const chatId = hashBytes(sorted.join(''));
@@ -23817,10 +23859,20 @@ class ChatModal {
       ? 1 : tollInfo?.toll?.required?.[sorted.indexOf(longAddress(address))];
     if (![0, 1, 2].includes(required)) throw new Error('Cannot check recipient toll. Try again.');
     if (required === 2) throw new Error('This recipient has blocked messages.');
-    if (typeof recipient.data.toll !== 'bigint' || !['LIB', 'USD'].includes(recipient.data.tollUnit || 'LIB')) {
+    const tollUnit = recipient.data.tollUnit || 'LIB';
+    if (typeof recipient.data.toll !== 'bigint' || !['LIB', 'USD'].includes(tollUnit)) {
       throw new Error('Cannot determine recipient toll.');
     }
-    const toll = required === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(recipient.data.toll, recipient.data.tollUnit));
+    const contactUpdates = {
+      public: recipient.publicKey, pqPublic: recipient.pqPublicKey,
+      toll: recipient.data.toll, tollUnit, tollRequiredToSend: required,
+    };
+    let toll = 0n;
+    if (required !== 0) {
+      toll = forIntents
+        ? this.paymentMessageToll(contactUpdates)
+        : getEffectiveTollLibWei(normalizeTollToLibWei(contactUpdates.toll, tollUnit));
+    }
     const totalRequired = fee + toll;
     const available = BigInt(balanceInfo.balance);
     if (available < totalRequired) {
@@ -23829,18 +23881,18 @@ class ChatModal {
       throw error;
     }
     // Validate current encryption keys without mutating the saved contact.
-    const publicKey = recipient.publicKey;
-    const pqPublicKey = recipient.pqPublicKey;
-    if (!publicKey || !pqPublicKey || bin2hex(generateAddress(hex2bin(publicKey))) !== address) {
+    const { public: publicKey, pqPublic: pqPublicKey } = contactUpdates;
+    try {
+      if (!publicKey || !pqPublicKey || bin2hex(generateAddress(hex2bin(publicKey))) !== address) {
+        throw new Error('Missing or invalid recipient key');
+      }
+      dhkeyCombined(account.keys.secret, publicKey, pqPublicKey);
+    } catch {
       throw new Error('Cannot verify recipient encryption keys. Try again.');
     }
-    dhkeyCombined(account.keys.secret, publicKey, pqPublicKey);
     return {
       address, username: resolution.username, fee: fee.toString(), toll: toll.toString(), totalRequired: totalRequired.toString(),
-      contactUpdates: {
-        public: publicKey, pqPublic: pqPublicKey, toll: recipient.data.toll,
-        tollUnit: recipient.data.tollUnit || 'LIB', tollRequiredToSend: required,
-      },
+      contactUpdates,
     };
   }
 
@@ -23849,7 +23901,7 @@ class ChatModal {
     if (record.kind !== 'outgoing') throw new Error('Only outgoing payments can send a chat message.');
     const payment = parseEvmTransferMessage(record.payment);
     if (!payment || payment.from !== `0x${normalizeAddress(account.keys.address)}`) throw new Error('Invalid payment sender.');
-    const prepared = await this.prepareEvmPaymentRecipient({ address: payment.to, username: record.username }, account);
+    const prepared = await this.prepareExternalPaymentRecipient({ address: payment.to, username: record.username }, account);
     if (myAccount !== account || !isCurrent()) return false;
     const contact = myData.contacts[prepared.address];
     if (!contact && (record.broadcastState !== 'not_started' || !prepared.username)) {
@@ -23994,12 +24046,15 @@ class ChatModal {
 
   /** The body of sendIntentsPaymentMessage, run once per intent at a time. */
   async submitIntentsPaymentMessage(currentAddress, contact, payment, keys) {
+    const account = myAccount;
+    const isCurrentRecipient = () => myAccount === account && myData?.contacts[currentAddress] === contact;
     let card = contact.messages.find((message) => message.my && !message.deleted
       && message.type === INTENTS_CHAT_MESSAGE_TYPE && message.payment?.intentHash === payment.intentHash);
     // Already sent, or on its way: nothing to retry.
     if (card && card.status !== 'failed') return;
 
     const placeCard = (txid, timestamp, status) => {
+      if (!isCurrentRecipient()) return;
       if (card) contact.messages.splice(contact.messages.indexOf(card), 1);
       card = card || {
         message: '',
@@ -24025,8 +24080,18 @@ class ChatModal {
 
     let built;
     try {
-      const tollInLib = this.paymentMessageToll(currentAddress);
-      const sufficientBalance = await validateBalance(tollInLib);
+      const tollInLib = this.paymentMessageToll(contact);
+      let sufficientBalance = await validateBalance(tollInLib);
+      if (!sufficientBalance && isCurrentRecipient()) {
+        // A first-time recipient was checked against live LIB, which can be
+        // higher than the cached wallet balance used by validateBalance.
+        const fee = getTransactionFeeWei({ allowNull: true });
+        if (fee !== null) {
+          const balance = await queryNetwork(`/account/${longAddress(keys.address)}/balance`);
+          sufficientBalance = typeof balance?.balance === 'bigint' && balance.balance >= tollInLib + fee;
+        }
+      }
+      if (!isCurrentRecipient()) throw new Error('The account or recipient changed during receipt preparation.');
       if (!sufficientBalance) {
         throw new Error('Not enough LIB for the message fee.');
       }
@@ -24048,13 +24113,16 @@ class ChatModal {
     }
 
     const { payload, chatMessageObj, txid } = built;
+    if (!isCurrentRecipient()) throw new Error('The account or recipient changed during receipt preparation.');
     placeCard(txid, payload.sent_timestamp, 'sent');
 
     const response = await injectTx(chatMessageObj, txid);
     if (!response?.result?.success) {
-      updateTransactionStatus(txid, currentAddress, 'failed', 'message');
-      this.appendChatModal();
-      saveState();
+      if (isCurrentRecipient()) {
+        updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+        this.appendChatModal();
+        saveState();
+      }
       throw new Error(response?.result?.reason || 'The chat receipt was rejected.');
     }
   }
@@ -35691,7 +35759,7 @@ chatPaymentPanel.configure({
   }),
   // Whether the receipt can reach them and be paid for, checked fresh: the
   // toll may be stale when the chat was never opened.
-  checkReceiptRecipient: (address, fromWallet) => chatModal.checkPaymentRecipient(address, fromWallet),
+  checkReceiptRecipient: (address, username) => chatModal.checkIntentsPaymentReceipt(address, username),
 });
 
 // The asset screen's activity. Swaps and withdrawals this device placed are
@@ -35818,7 +35886,7 @@ evmAssets.configure({
         && /^[a-z0-9]{3,15}$/i.test(contact.username || '') && normalizeAddress(contact.address) !== ownAddress);
     },
   }),
-  prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
+  prepareChatPayment: (resolution, account) => chatModal.prepareExternalPaymentRecipient(resolution, account),
   preparePaymentMessage: (record, account, isCurrent) => chatModal.prepareEvmPaymentMessage(record, account, isCurrent),
   sendChatPayment: (record, account) => chatModal.sendEvmPaymentMessage(record, account),
   getPayments: loadEvmPayments,

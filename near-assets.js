@@ -5629,7 +5629,7 @@ export class ChatPaymentPanel {
     this.getAccount = () => null;
     this.onSent = null;
     this.showToast = () => {};
-    this.checkReceiptRecipient = async () => null;
+    this.checkReceiptRecipient = async () => ({});
   }
 
   configure({ getAccount, onSent, showToast, lookupUsername, createContactAutocomplete, checkReceiptRecipient } = {}) {
@@ -5782,7 +5782,7 @@ export class ChatPaymentPanel {
     }
 
     const address = accountId.slice(2);
-    const problem = await this.recipientProblem(address);
+    const { problem } = await this.checkRecipient(address, lookup);
     if (!this.isCurrentRecipientLookup(lookup)) return;
     if (problem) {
       this.setRecipientStatus(problem, 'error');
@@ -5930,7 +5930,7 @@ export class ChatPaymentPanel {
     this.contactAutocomplete?.close();
     this.sendButton.disabled = true;
     this.setStatus('Checking…');
-    const problem = await this.recipientProblem(payment.address);
+    const { problem } = await this.checkRecipient(payment.address, payment.lookup);
     if (!this.isCurrentSession(session)) return;
     this.reviewing = false;
     this.validate();
@@ -5973,20 +5973,13 @@ export class ChatPaymentPanel {
       && this.amount.problem() === null;
   }
 
-  /**
-   * Why a receipt could not follow this payment, or null when it can.
-   *
-   * The receipt travels as a chat message, so a payment to someone it cannot
-   * reach -- blocked, the other kind of account, or no LIB for the fee --
-   * would leave them with money and no word of who sent it or why. Asked
-   * before anything moves, and a check that cannot be made refuses too.
-   */
-  async recipientProblem(address) {
+  /** Check whether the chat receipt can reach the recipient before funds move. */
+  async checkRecipient(address, lookup) {
     try {
-      return await this.checkReceiptRecipient(address, this.session.fromWallet);
+      return await this.checkReceiptRecipient(address, lookup?.username);
     } catch (error) {
       console.warn('Payment recipient check failed:', error);
-      return 'Could not check that this payment can reach them. Try again.';
+      return { problem: 'Could not check that this payment can reach them. Try again.' };
     }
   }
 
@@ -6014,7 +6007,16 @@ export class ChatPaymentPanel {
     try {
       // Toll, blocks, and the LIB balance can change during confirmation.
       sheet.setStatus('Checking…');
-      const problem = await this.recipientProblem(address);
+      if (payment.lookup) {
+        const resolved = await this.lookupUsername(payment.lookup.username).catch(() => {
+          throw new Error('Could not check the username. Try again.');
+        });
+        if (!this.isCurrentPayment(payment)) throw new Error(changed);
+        if (intentsAccountIdForAddress(resolved) !== intentsAccountIdForAddress(address)) {
+          throw new Error('This username no longer matches the reviewed recipient. Go back and enter it again.');
+        }
+      }
+      const { problem, beforeSend } = await this.checkRecipient(address, payment.lookup);
       if (!this.isCurrentPayment(payment)) throw new Error(changed);
       if (problem) throw new Error(problem);
 
@@ -6023,6 +6025,7 @@ export class ChatPaymentPanel {
         asset, recipientAddress: address, amount,
       });
       if (!this.isCurrentPayment(payment)) throw new Error(changed);
+      beforeSend?.();
       sendStarted = true;
       sent = await intentsChatPayments.send(prepared, secretKey, { asset, note });
     } catch (error) {
