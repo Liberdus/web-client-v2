@@ -35916,7 +35916,7 @@ evmAssets.configure({
       if (!myAccount) return [];
       const ownAddress = normalizeAddress(myAccount.keys.address);
       return Object.values(myData?.contacts || {}).filter((contact) =>
-        contact.address && contact.public && !isFaucetAddress(contact.address)
+        contact.address && !isFaucetAddress(contact.address)
         && /^[a-z0-9]{3,15}$/i.test(contact.username || '') && normalizeAddress(contact.address) !== ownAddress);
     },
   }),
