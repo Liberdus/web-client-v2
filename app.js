@@ -25082,6 +25082,28 @@ class ChatModal {
     
     // Normalize file type (fallback to extension detection for missing MIME types)
     const normalizedType = this.getMimeTypeFromFilename(file.name, file.type);
+
+    const clearLoadingToast = () => {
+      if (!loadingToastId) return;
+      hideToast(loadingToastId);
+      this.untrackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
+      loadingToastId = null;
+    };
+
+    // Enter the busy state and show the loading toast before any slow work.
+    // Image and video thumbnails can take seconds to generate, so doing this
+    // first gives immediate feedback and blocks a second attach or a send meanwhile.
+    this.isEncrypting = true;
+    this.sendButton.disabled = true; // Disable send button during thumbnailing and encryption
+    this.addAttachmentButton.disabled = true;
+    loadingToastId = showToast(
+      `Attaching "${file.name}" to ${uploadContactName}...`,
+      0,
+      'loading',
+      false,
+      { dedupe: false }
+    );
+    this.trackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
     
     // Generate thumbnail for images before encryption
     const isImage = normalizedType.startsWith('image/');
@@ -25104,12 +25126,6 @@ class ChatModal {
     }
 
     const capturedThumbnailBlob = thumbnailBlob;
-    const clearLoadingToast = () => {
-      if (!loadingToastId) return;
-      hideToast(loadingToastId);
-      this.untrackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
-      loadingToastId = null;
-    };
     const refreshChatsScreenIfActive = () => {
       if (chatsScreen?.isActive?.()) {
         chatsScreen.updateChatList();
@@ -25120,18 +25136,6 @@ class ChatModal {
     // This ensures processIncomingAttachmentFiles can properly await each upload
     return new Promise((resolve, reject) => {
       try {
-        this.isEncrypting = true;
-        this.sendButton.disabled = true; // Disable send button during encryption
-        this.addAttachmentButton.disabled = true;
-        loadingToastId = showToast(
-          `Attaching "${file.name}" to ${uploadContactName}...`,
-          0,
-          'loading',
-          false,
-          { dedupe: false }
-        );
-        this.trackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
-        
         // Generate random encryption key for this attachment
         const encKey = generateRandomBytes(32);
 
