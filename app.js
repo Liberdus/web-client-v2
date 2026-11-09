@@ -23743,13 +23743,12 @@ class ChatModal {
    */
   async checkPaymentRecipient(recipientAddress, isCurrentLookup = () => true) {
     const address = normalizeAddress(recipientAddress);
-    const account = myAccount;
     const contact = myData?.contacts[address];
     if (!contact) return 'Add this person to your contacts first.';
     const name = getContactDisplayName(contact);
     const assertCurrentContact = () => {
-      if (myAccount !== account || myData?.contacts[address] !== contact) {
-        throw new Error('Payment account or contact changed during receipt checks');
+      if (myData?.contacts[address] !== contact) {
+        throw new Error('Payment contact changed during receipt checks');
       }
     };
 
@@ -23768,7 +23767,7 @@ class ChatModal {
     if (typeof recipientToll !== 'bigint' || recipientToll < 0n || !['LIB', 'USD'].includes(tollUnit)) {
       throw new Error('Cannot determine recipient toll.');
     }
-    const sorted = [longAddress(account.keys.address), recipientLongAddress].sort();
+    const sorted = [longAddress(myAccount.keys.address), recipientLongAddress].sort();
     const recipientIndex = sorted.indexOf(recipientLongAddress);
     const tollInfo = await queryNetwork(`/messages/${hashBytes(sorted.join(''))}/toll`);
     assertCurrentContact();
@@ -23792,7 +23791,7 @@ class ChatModal {
       public: accountRes.account.publicKey || contact.public,
       pqPublic: accountRes.account.pqPublicKey || contact.pqPublic,
     };
-    this.validatePaymentRecipientKeys(address, recipientKeys, account.keys);
+    this.validatePaymentRecipientKeys(address, recipientKeys, myAccount.keys);
     if (recipientKeys !== contact) Object.assign(contact, recipientKeys);
 
     // Fresh where it can be; the saved balance otherwise, as any send uses.
@@ -23818,7 +23817,6 @@ class ChatModal {
 
   /** Check receipt eligibility and save a new Connection just before publication. */
   async checkIntentsPaymentReceipt(address, username, isCurrentLookup) {
-    const account = myAccount;
     const contact = myData?.contacts[address];
     if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
       return { problem: 'This contact cannot receive a NEAR Intents payment.' };
@@ -23834,7 +23832,7 @@ class ChatModal {
       }
       try {
         connection = await this.prepareExternalPaymentRecipient(
-          { address, username }, account, { forIntents: true, isCurrentLookup },
+          { address, username }, myAccount, { forIntents: true, isCurrentLookup },
         );
       } catch (error) {
         return { problem: error.message || 'Could not check that this payment can reach them. Try again.' };
@@ -23843,7 +23841,7 @@ class ChatModal {
 
     return {
       beforePublish: () => {
-        if (myAccount !== account || myData?.contacts[address] !== contact) {
+        if (myData?.contacts[address] !== contact) {
           throw new Error('The recipient changed. Go back and review the payment again.');
         }
         if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
@@ -23852,7 +23850,7 @@ class ChatModal {
         if (Number(contact?.tollRequiredToSend) === 2) {
           throw new Error('This recipient has blocked messages.');
         }
-        if (contact) this.validatePaymentRecipientKeys(address, contact, account.keys);
+        if (contact) this.validatePaymentRecipientKeys(address, contact, myAccount.keys);
         if (!connection) return;
         createNewContact(address, username, 2);
         Object.assign(myData.contacts[address], connection.contactUpdates);
