@@ -23741,14 +23741,11 @@ class ChatModal {
    * has to be found here, not after the money has gone. Throws when it
    * cannot be checked; the caller refuses then too.
    */
-  async checkPaymentRecipient(recipientAddress, fromWallet = false, isCurrentLookup = () => true) {
+  async checkPaymentRecipient(recipientAddress, isCurrentLookup = () => true) {
     const address = normalizeAddress(recipientAddress);
     const account = myAccount;
     const contact = myData?.contacts[address];
     if (!contact) return 'Add this person to your contacts first.';
-    if (fromWallet && !this.canSendIntentsPaymentTo(contact)) {
-      return 'This contact cannot receive a NEAR Intents payment.';
-    }
     const name = getContactDisplayName(contact);
     const assertCurrentContact = () => {
       if (myAccount !== account || myData?.contacts[address] !== contact) {
@@ -23823,9 +23820,13 @@ class ChatModal {
   async checkIntentsPaymentReceipt(address, username, isCurrentLookup) {
     const account = myAccount;
     const contact = myData?.contacts[address];
+    if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
+      return { problem: 'This contact cannot receive a NEAR Intents payment.' };
+    }
+
     let connection;
     if (contact || !username) {
-      const problem = await this.checkPaymentRecipient(address, Boolean(username), isCurrentLookup);
+      const problem = await this.checkPaymentRecipient(address, isCurrentLookup);
       if (problem) return { problem };
     } else {
       if (isFaucetAddress(address)) {
