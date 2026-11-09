@@ -568,6 +568,7 @@ function clearMyData() {
   evmAssets.reset();
   sendAssetFormModal.reset();
   receiveModal.close();
+  chatPaymentPanel.close();
   multichain.reset();
   daoRepo.reset();
   daoModal.resetNotificationState();
@@ -872,7 +873,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Connected EVM assets
   evmAssets.load();
 
-  // Sending an intents balance inside a conversation
+  // Sending a NEAR Intents balance from the wallet or chat
   chatPaymentPanel.load();
 
   // Multichain (NEAR Intents) assets
@@ -14403,28 +14404,32 @@ function restoreWalletNotificationDots() {
 /**
  * Get the address of a username and return the address if it exists
  * @param {string} username - The username to check
+ * @param {{requireNetworkResult?: boolean}} options - Throw on lookup failure when enabled
  * @returns {Promise<string|null>} The address of the username or null if it doesn't exist
  */
-async function getUsernameAddress(username) {
+async function getUsernameAddress(username, { requireNetworkResult = false } = {}) {
   const usernameBytes = utf82bin(normalizeUsername(username));
   const usernameHash = hashBytes(usernameBytes);
-  const selectedGateway = getGatewayForRequest();
-  if (!selectedGateway) {
-    console.error('No gateway available for username check');
-    return null;
-  }
   try {
+    const selectedGateway = getGatewayForRequest();
+    if (!selectedGateway) throw new Error('No gateway available for username check');
     const response = await fetch(
       `${selectedGateway.web}/address/${usernameHash}`
     );
-    const data = await response.json();
-    // if address is not present, return null
-    if (!data || !data.address) {
-      return null;
+    if (requireNetworkResult && !response.ok) {
+      throw new Error(`Username lookup returned HTTP ${response.status}`);
     }
-    return data.address;
+    const data = await response.json();
+    if (requireNetworkResult) {
+      if (data?.error === 'No account exists for the given handle') return null;
+      if (data?.error || typeof data?.address !== 'string' || !data.address) {
+        throw new Error('Invalid username lookup response');
+      }
+    }
+    return data?.address || null;
   } catch (error) {
     console.error('Error checking username:', error);
+    if (requireNetworkResult) throw error;
     return null;
   }
 }
@@ -23715,12 +23720,15 @@ class ChatModal {
    * which belongs to whichever conversation is open. A payment sent from the
    * wallet may go to someone whose chat was never opened this session.
    */
-  paymentMessageToll(address) {
-    const recipient = myData.contacts[address];
-    const { libWei: recipientTollLib } = this.formatTollDisplay(recipient.toll, recipient.tollUnit);
-    return recipient.tollRequiredToSend == 0
-      ? 0n
-      : getEffectiveTollLibWei(typeof recipientTollLib === 'bigint' ? recipientTollLib : 0n);
+  paymentMessageToll(recipient) {
+    const { toll, tollUnit, tollRequiredToSend } = recipient;
+    if (tollRequiredToSend == 0 || typeof toll !== 'bigint' || toll === 0n) return 0n;
+    if (tollUnit !== 'LIB' && tollUnit !== 'USD') return 0n;
+
+    const libWei = tollUnit === 'USD'
+      ? EthNum.usdToWei(EthNum.toStr(toll), parameters?.current?.stabilityFactorStr)
+      : toll;
+    return getEffectiveTollLibWei(libWei);
   }
 
   /**
@@ -23733,31 +23741,73 @@ class ChatModal {
    * has to be found here, not after the money has gone. Throws when it
    * cannot be checked; the caller refuses then too.
    */
-  async checkPaymentRecipient(recipientAddress) {
+  async checkPaymentRecipient(recipientAddress, isCurrentLookup = () => true) {
     const address = normalizeAddress(recipientAddress);
-    const contact = myData.contacts[address];
+    const contact = myData?.contacts[address];
     if (!contact) return 'Add this person to your contacts first.';
     const name = getContactDisplayName(contact);
+    const assertCurrentContact = () => {
+      if (myData?.contacts[address] !== contact) {
+        throw new Error('Payment contact changed during receipt checks');
+      }
+    };
 
-    const accountRes = await queryNetwork(`/account/${longAddress(address)}`);
-    if (!accountRes?.account) throw new Error('Recipient account lookup failed');
+    const recipientLongAddress = longAddress(address);
+    const accountRes = await queryNetwork(`/account/${recipientLongAddress}`);
+    assertCurrentContact();
+    const recipient = accountRes?.account;
+    if (accountRes?.error || !recipient) throw new Error('Recipient account lookup failed');
     const myIsPrivate = isPrivateAccount();
-    if ((accountRes.account.private === true) !== myIsPrivate) {
+    if ((recipient.private === true) !== myIsPrivate) {
       return `${myIsPrivate ? 'Private' : 'Public'} accounts can only send to other ${myIsPrivate ? 'private' : 'public'} accounts, so a payment cannot reach ${name} here.`;
     }
 
-    await this.refreshRecipientTollState(address);
-    if (Number(contact.tollRequiredToSend) === 2) {
+    const recipientToll = recipient.data?.toll;
+    const tollUnit = recipient.data?.tollUnit ?? 'LIB';
+    if (typeof recipientToll !== 'bigint' || recipientToll < 0n || !['LIB', 'USD'].includes(tollUnit)) {
+      throw new Error('Cannot determine recipient toll.');
+    }
+    const sorted = [longAddress(myAccount.keys.address), recipientLongAddress].sort();
+    const recipientIndex = sorted.indexOf(recipientLongAddress);
+    const tollInfo = await queryNetwork(`/messages/${hashBytes(sorted.join(''))}/toll`);
+    assertCurrentContact();
+    const noChat = tollInfo?.error === 'No account with the given chatId';
+    const required = tollInfo?.toll?.required;
+    if (!noChat && (tollInfo?.error || !Array.isArray(required) || required.length !== 2
+      || !required.every((value) => [0, 1, 2].includes(value)))) {
+      throw new Error('Cannot check recipient toll. Try again.');
+    }
+    const tollState = {
+      toll: recipientToll, tollUnit, tollRequiredToSend: noChat ? 1 : required[recipientIndex],
+    };
+    if (!isCurrentLookup()) return 'The recipient changed. Go back and review the payment again.';
+    Object.assign(contact, tollState);
+    if (!noChat) {
+      const senderRequired = required[1 - recipientIndex];
+      if (senderRequired === 2) {
+        applyUpdateTollRequiredState(contact, { my: true, required: senderRequired }, { preservePendingFriend: true });
+      } else {
+        contact.tollRequiredToReceive = senderRequired;
+      }
+    }
+    this.saveRecipientTollState(address, contact);
+    if (tollState.tollRequiredToSend === 2) {
       return `${name} is not accepting messages from you, so a payment cannot reach them here.`;
     }
-    if (!(await ensureContactKeys(address)) || !contact.public || !contact.pqPublic) {
-      throw new Error('Recipient encryption keys are unavailable');
-    }
+    const recipientKeys = contact.public && contact.pqPublic ? contact : {
+      public: accountRes.account.publicKey || contact.public,
+      pqPublic: accountRes.account.pqPublicKey || contact.pqPublic,
+    };
+    this.validatePaymentRecipientKeys(address, recipientKeys, myAccount.keys);
+    if (recipientKeys !== contact) Object.assign(contact, recipientKeys);
 
     // Fresh where it can be; the saved balance otherwise, as any send uses.
     await walletScreen.updateWalletBalances().catch((error) => console.warn('LIB balance refresh failed:', error));
-    const toll = this.paymentMessageToll(address);
-    if (!(await validateBalance(toll))) {
+    assertCurrentContact();
+    const toll = this.paymentMessageToll(tollState);
+    const canPayReceipt = await validateBalance(toll);
+    assertCurrentContact();
+    if (!canPayReceipt) {
       // validateBalance also refuses when it cannot learn the fee.
       const fee = getTransactionFeeWei({ allowNull: true });
       if (fee === null) throw new Error('Message fee unavailable');
@@ -23767,8 +23817,63 @@ class ChatModal {
     return null;
   }
 
+  /** Local eligibility for wallet Send. The receipt check can load missing keys. */
+  canSendIntentsPaymentTo(contact) {
+    return Boolean(contact.address && !isFaucetAddress(contact.address));
+  }
+
+  /** Check receipt eligibility and save a new contact just before publication. */
+  async checkIntentsPaymentReceipt(address, username, isCurrentLookup) {
+    const contact = myData?.contacts[address];
+    if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
+      return { problem: 'This contact cannot receive a NEAR Intents payment.' };
+    }
+
+    let connection;
+    if (contact || !username) {
+      const problem = await this.checkPaymentRecipient(address, isCurrentLookup);
+      if (problem) return { problem };
+    } else {
+      if (isFaucetAddress(address)) {
+        return { problem: 'This account cannot receive a NEAR Intents payment.' };
+      }
+      try {
+        connection = await this.prepareExternalPaymentRecipient(
+          { address, username }, myAccount, { forIntents: true, isCurrentLookup },
+        );
+      } catch (error) {
+        return { problem: error.message || 'Could not check that this payment can reach them. Try again.' };
+      }
+    }
+
+    return {
+      beforePublish: () => {
+        if (myData?.contacts[address] !== contact) {
+          throw new Error('The recipient changed. Go back and review the payment again.');
+        }
+        if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
+          throw new Error('This contact cannot receive a NEAR Intents payment.');
+        }
+        if (Number(contact?.tollRequiredToSend) === 2) {
+          throw new Error('This recipient has blocked messages.');
+        }
+        if (contact) this.validatePaymentRecipientKeys(address, contact, myAccount.keys);
+        if (!connection) return;
+        const friendStatus = connection.contactUpdates.tollRequiredToReceive === 2 ? 0 : 2;
+        createNewContact(address, username, friendStatus);
+        Object.assign(myData.contacts[address], connection.contactUpdates);
+        try {
+          saveState();
+        } catch (error) {
+          delete myData.contacts[address];
+          throw new Error('Could not save this contact. Try again.', { cause: error });
+        }
+      },
+    };
+  }
+
   /** Check the actual recipient and live LIB funds before an external payment. */
-  async prepareEvmPaymentRecipient(resolution, account) {
+  async prepareExternalPaymentRecipient(resolution, account, { forIntents = false, isCurrentLookup } = {}) {
     const address = normalizeAddress(resolution.address);
     const sorted = [longAddress(account.keys.address), longAddress(address)].sort();
     const chatId = hashBytes(sorted.join(''));
@@ -23776,7 +23881,7 @@ class ChatModal {
       queryNetwork(`/account/${longAddress(address)}`),
       queryNetwork(`/messages/${chatId}/toll`),
       queryNetwork(`/account/${longAddress(account.keys.address)}/balance`),
-      getNetworkParams(true),
+      getNetworkParams(true, isCurrentLookup),
     ]);
     const recipient = recipientInfo?.account;
     const fee = paramsOk ? getTransactionFeeWei({ allowNull: true }) : null;
@@ -23787,14 +23892,30 @@ class ChatModal {
     if ((recipient.private === true) !== senderIsPrivate) {
       throw new Error(`${senderIsPrivate ? 'Private' : 'Public'} accounts can only send chat payments to other ${senderIsPrivate ? 'private' : 'public'} accounts.`);
     }
-    const required = tollInfo?.error === 'No account with the given chatId'
-      ? 1 : tollInfo?.toll?.required?.[sorted.indexOf(longAddress(address))];
-    if (![0, 1, 2].includes(required)) throw new Error('Cannot check recipient toll. Try again.');
+    const noChat = tollInfo?.error === 'No account with the given chatId';
+    const recipientIndex = sorted.indexOf(longAddress(address));
+    const tollRequirements = tollInfo?.toll?.required;
+    const required = noChat ? 1 : tollRequirements?.[recipientIndex];
+    const senderRequired = noChat ? 1 : tollRequirements?.[1 - recipientIndex];
+    if (![0, 1, 2].includes(required) || (forIntents && ![0, 1, 2].includes(senderRequired))) {
+      throw new Error('Cannot check recipient toll. Try again.');
+    }
     if (required === 2) throw new Error('This recipient has blocked messages.');
-    if (typeof recipient.data.toll !== 'bigint' || !['LIB', 'USD'].includes(recipient.data.tollUnit || 'LIB')) {
+    const tollUnit = recipient.data.tollUnit || 'LIB';
+    if (typeof recipient.data.toll !== 'bigint' || !['LIB', 'USD'].includes(tollUnit)) {
       throw new Error('Cannot determine recipient toll.');
     }
-    const toll = required === 0 ? 0n : getEffectiveTollLibWei(normalizeTollToLibWei(recipient.data.toll, recipient.data.tollUnit));
+    const contactUpdates = {
+      public: recipient.publicKey, pqPublic: recipient.pqPublicKey,
+      toll: recipient.data.toll, tollUnit, tollRequiredToSend: required,
+    };
+    if (forIntents) contactUpdates.tollRequiredToReceive = senderRequired;
+    let toll = 0n;
+    if (required !== 0) {
+      toll = forIntents
+        ? this.paymentMessageToll(contactUpdates)
+        : getEffectiveTollLibWei(normalizeTollToLibWei(contactUpdates.toll, tollUnit));
+    }
     const totalRequired = fee + toll;
     const available = BigInt(balanceInfo.balance);
     if (available < totalRequired) {
@@ -23802,20 +23923,22 @@ class ChatModal {
       error.recipientToll = toll;
       throw error;
     }
-    // Validate current encryption keys without mutating the saved contact.
-    const publicKey = recipient.publicKey;
-    const pqPublicKey = recipient.pqPublicKey;
-    if (!publicKey || !pqPublicKey || bin2hex(generateAddress(hex2bin(publicKey))) !== address) {
-      throw new Error('Cannot verify recipient encryption keys. Try again.');
-    }
-    dhkeyCombined(account.keys.secret, publicKey, pqPublicKey);
+    this.validatePaymentRecipientKeys(address, contactUpdates, account.keys);
     return {
       address, username: resolution.username, fee: fee.toString(), toll: toll.toString(), totalRequired: totalRequired.toString(),
-      contactUpdates: {
-        public: publicKey, pqPublic: pqPublicKey, toll: recipient.data.toll,
-        tollUnit: recipient.data.tollUnit || 'LIB', tollRequiredToSend: required,
-      },
+      contactUpdates,
     };
+  }
+
+  validatePaymentRecipientKeys(address, { public: publicKey, pqPublic: pqPublicKey }, keys) {
+    try {
+      if (!pqPublicKey || !isPublicKeyForAddress(publicKey, address, generateAddress)) {
+        throw new Error('Missing or invalid recipient key');
+      }
+      dhkeyCombined(keys.secret, publicKey, pqPublicKey);
+    } catch (error) {
+      throw new Error('Cannot verify recipient encryption keys. Try again.', { cause: error });
+    }
   }
 
   async prepareEvmPaymentMessage(record, account, isCurrent = () => true) {
@@ -23823,7 +23946,7 @@ class ChatModal {
     if (record.kind !== 'outgoing') throw new Error('Only outgoing payments can send a chat message.');
     const payment = parseEvmTransferMessage(record.payment);
     if (!payment || payment.from !== `0x${normalizeAddress(account.keys.address)}`) throw new Error('Invalid payment sender.');
-    const prepared = await this.prepareEvmPaymentRecipient({ address: payment.to, username: record.username }, account);
+    const prepared = await this.prepareExternalPaymentRecipient({ address: payment.to, username: record.username }, account);
     if (myAccount !== account || !isCurrent()) return false;
     const contact = myData.contacts[prepared.address];
     if (!contact && (record.broadcastState !== 'not_started' || !prepared.username)) {
@@ -23968,12 +24091,14 @@ class ChatModal {
 
   /** The body of sendIntentsPaymentMessage, run once per intent at a time. */
   async submitIntentsPaymentMessage(currentAddress, contact, payment, keys) {
+    const isCurrentRecipient = () => myData?.contacts[currentAddress] === contact;
     let card = contact.messages.find((message) => message.my && !message.deleted
       && message.type === INTENTS_CHAT_MESSAGE_TYPE && message.payment?.intentHash === payment.intentHash);
     // Already sent, or on its way: nothing to retry.
     if (card && card.status !== 'failed') return;
 
     const placeCard = (txid, timestamp, status) => {
+      if (!isCurrentRecipient()) return;
       if (card) contact.messages.splice(contact.messages.indexOf(card), 1);
       card = card || {
         message: '',
@@ -23999,8 +24124,18 @@ class ChatModal {
 
     let built;
     try {
-      const tollInLib = this.paymentMessageToll(currentAddress);
-      const sufficientBalance = await validateBalance(tollInLib);
+      const tollInLib = this.paymentMessageToll(contact);
+      let sufficientBalance = await validateBalance(tollInLib);
+      if (!sufficientBalance && isCurrentRecipient()) {
+        // A first-time recipient was checked against live LIB, which can be
+        // higher than the cached wallet balance used by validateBalance.
+        const fee = getTransactionFeeWei({ allowNull: true });
+        if (fee !== null) {
+          const balance = await queryNetwork(`/account/${longAddress(keys.address)}/balance`);
+          sufficientBalance = typeof balance?.balance === 'bigint' && balance.balance >= tollInLib + fee;
+        }
+      }
+      if (!isCurrentRecipient()) throw new Error('The account or recipient changed during receipt preparation.');
       if (!sufficientBalance) {
         throw new Error('Not enough LIB for the message fee.');
       }
@@ -24022,13 +24157,16 @@ class ChatModal {
     }
 
     const { payload, chatMessageObj, txid } = built;
+    if (!isCurrentRecipient()) throw new Error('The account or recipient changed during receipt preparation.');
     placeCard(txid, payload.sent_timestamp, 'sent');
 
     const response = await injectTx(chatMessageObj, txid);
     if (!response?.result?.success) {
-      updateTransactionStatus(txid, currentAddress, 'failed', 'message');
-      this.appendChatModal();
-      saveState();
+      if (isCurrentRecipient()) {
+        updateTransactionStatus(txid, currentAddress, 'failed', 'message');
+        this.appendChatModal();
+        saveState();
+      }
       throw new Error(response?.result?.reason || 'The chat receipt was rejected.');
     }
   }
@@ -28626,16 +28764,16 @@ class ChatModal {
     await this.updateTollValue(address);
     await this.updateTollRequired(address);
 
-    if (!this.isActive() || this.address !== address) {
-      saveState();
-      return;
+    this.saveRecipientTollState(address, contact);
+  }
+
+  saveRecipientTollState(address, contact) {
+    if (this.isActive() && this.address === address) {
+      this.blockedByRecipient = Number(contact.tollRequiredToSend) === 2;
+      this.updateTollAmountUI(address);
+      this.addAttachmentButton.disabled = this.isEncrypting || this.isEditingMessage() || this.blockedByRecipient;
+      this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
     }
-
-    this.blockedByRecipient = Number(contact.tollRequiredToSend) === 2;
-    this.updateTollAmountUI(address);
-    this.addAttachmentButton.disabled = this.isEncrypting || this.isEditingMessage() || this.blockedByRecipient;
-    this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
-
     saveState();
   }
 
@@ -35636,35 +35774,26 @@ multichain.configure({
   getAccount: () => myAccount,
 });
 
-function getMessagePaymentContacts() {
-  return Object.values(myData?.contacts || {})
-    .filter((contact) => contact.address && !isFaucetAddress(contact.address))
-    .filter((contact) => contact.friend !== 0 && contact.public);
-}
-
 chatPaymentPanel.configure({
   getAccount: () => myAccount,
   onSent: (recipientAddress, messageObj) =>
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
   showToast,
-  // Who a payment from the wallet can go to: people a message can reach.
-  // Blocked contacts and ones with no public key would take the money and
-  // never get the receipt. Recent conversations first.
-  listContacts: () => {
-    const recency = new Map((myData?.chats || []).map((chat, index) => [chat.address, index]));
-    return getMessagePaymentContacts()
-      .sort((a, b) => (recency.get(a.address) ?? Infinity) - (recency.get(b.address) ?? Infinity)
-        || getContactDisplayName(a).localeCompare(getContactDisplayName(b)))
-      .map((contact) => ({
-        address: contact.address,
-        name: getContactDisplayName(contact),
-        username: contact.username || null,
-      }));
-  },
-  renderAvatar: (address, size) => getContactAvatarHtml(myData.contacts[address] || address, size),
+  lookupUsername: (username) => getUsernameAddress(username, { requireNetworkResult: true }),
+  createContactAutocomplete: ({ input, list, onSelect }) => new ContactAutocomplete({
+    input,
+    list,
+    onSelect,
+    getContacts: () => {
+      return Object.values(myData?.contacts || {})
+        .filter((contact) => contact.username && chatModal.canSendIntentsPaymentTo(contact))
+        .map((contact) => ({ ...contact, displayName: getContactDisplayName(contact) }));
+    },
+  }),
   // Whether the receipt can reach them and be paid for, checked fresh: the
   // toll may be stale when the chat was never opened.
-  prepareRecipient: async (address) => ({ problem: await chatModal.checkPaymentRecipient(address) }),
+  checkReceiptRecipient: (address, username, isCurrentLookup) =>
+    chatModal.checkIntentsPaymentReceipt(address, username, isCurrentLookup),
 });
 
 // The asset screen's activity. Swaps and withdrawals this device placed are
@@ -35791,7 +35920,7 @@ evmAssets.configure({
         && /^[a-z0-9]{3,15}$/i.test(contact.username || '') && normalizeAddress(contact.address) !== ownAddress);
     },
   }),
-  prepareChatPayment: (resolution, account) => chatModal.prepareEvmPaymentRecipient(resolution, account),
+  prepareChatPayment: (resolution, account) => chatModal.prepareExternalPaymentRecipient(resolution, account),
   preparePaymentMessage: (record, account, isCurrent) => chatModal.prepareEvmPaymentMessage(record, account, isCurrent),
   sendChatPayment: (record, account) => chatModal.sendEvmPaymentMessage(record, account),
   getPayments: loadEvmPayments,
@@ -38300,9 +38429,11 @@ function ignoreShiftTabKey(e) {
 /**
  * Fetches and caches network account data if it's stale or not yet fetched.
  * @param {boolean} forceRefresh - If true, bypass staleness interval and fetch immediately.
+ * @param {() => boolean} isCurrentLookup - Whether the lookup that requested the refresh is still active.
  * @returns {Promise<boolean>} - True when params are usable (fresh/cache/fetched), false otherwise
  */
-async function getNetworkParams(forceRefresh = false) {
+async function getNetworkParams(forceRefresh = false, isCurrentLookup = () => true) {
+  if (!isCurrentLookup()) return false;
   const now = getCorrectedTimestamp();
 
   // Check if data is fresh; (this.networkAccountTimeStamp || 0) handles initial undefined state
@@ -38328,6 +38459,7 @@ async function getNetworkParams(forceRefresh = false) {
   console.log(`getNetworkParams: Data for account ${NETWORK_ACCOUNT_ID} is stale or missing. Attempting to fetch...`);
   try {
     const fetchedData = await queryNetwork(`/account/${NETWORK_ACCOUNT_ID}`);
+    if (!isCurrentLookup()) return false;
 
     if (fetchedData !== undefined && fetchedData !== null) {
       parameters = fetchedData.account;
@@ -38358,6 +38490,7 @@ async function getNetworkParams(forceRefresh = false) {
       return false;
     }
   } catch (error) {
+    if (!isCurrentLookup()) return false;
     isOnline = false;
     updateUIForConnectivity();
     console.error(
@@ -40203,7 +40336,6 @@ const modalCloseHandlers = new Map([
   ['multichainSwapModal', () => multichain.close('multichainSwapModal')],
   ['multichainTokenPickerModal', () => multichain.close('multichainTokenPickerModal')],
   ['chatSendModal', () => chatPaymentPanel.close()],
-  ['chatSendContactModal', () => chatPaymentPanel.contactPicker.close()],
   ['multichainConfirmModal', () => multichain.close('multichainConfirmModal')],
   ['sendAssetConfirmModal', () => sendAssetConfirmModal.close()],
   ['googleDrivePickerModal', () => importModal.closeGoogleDrivePicker()],

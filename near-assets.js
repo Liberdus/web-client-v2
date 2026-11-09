@@ -2904,7 +2904,7 @@ export class IntentsChatPayments {
    * Publishing and announcing are separate on purpose: the caller sends the
    * chat message, and if that fails it still knows the funds moved.
    */
-  async send(prepared, secretKey, { asset, note = null } = {}) {
+  async send(prepared, secretKey, { asset, note = null, beforePublish } = {}) {
     const signed = await this.transfers.sign(prepared, secretKey);
 
     // Rehearse first. A refusal here costs nothing; discovering the same
@@ -2918,6 +2918,7 @@ export class IntentsChatPayments {
       );
     }
 
+    beforePublish?.();
     const initiatedAt = Date.now();
     const intentHash = await publishIntent(signed);
 
@@ -5593,9 +5594,8 @@ export const multichain = new MultichainController();
 // Sending crypto to a Liberdus contact.
 //
 // Sends an intents balance to another account. Their intents account is their
-// Liberdus address, so there is nobody to look up and nothing to paste: from a
-// conversation the recipient is whoever the chat is with, and from the wallet
-// it is a contact picked from a list.
+// Liberdus address. A conversation supplies its recipient, while the wallet
+// resolves the username entered in the form.
 //
 // Built from the swap screen's parts -- the same amount panel, token chip and
 // picker, and the same confirmation screen -- so they read as one wallet.
@@ -5613,94 +5613,12 @@ const $ = (id) => document.getElementById(id);
 const CARET = '<svg class="multichain-chip-caret" viewBox="0 0 24 24" aria-hidden="true">'
   + '<polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.5" '
   + 'stroke-linecap="round" stroke-linejoin="round"/></svg>';
-/**
- * Who to send to, when sending starts from the wallet.
- *
- * The app supplies the contacts and their avatars: this module knows nothing
- * of the address book, and the avatar has to honour the style the person
- * chose, which only the app knows how to draw.
- */
-class ContactPicker {
-  constructor(owner) {
-    this.owner = owner;
-    this.onPick = null;
-    this.contacts = [];
-  }
-
-  load() {
-    this.modal = $('chatSendContactModal');
-    this.title = $('chatSendContactTitle');
-    this.search = $('chatSendContactSearch');
-    this.results = $('chatSendContactResults');
-    $('closeChatSendContactModal').addEventListener('click', () => this.close());
-    this.search.addEventListener('input', () => this.render());
-    this.results.addEventListener('click', (event) => {
-      const row = event.target.closest('[data-address]');
-      if (!row) return;
-      const contact = this.contacts.find((entry) => entry.address === row.dataset.address);
-      const pick = this.onPick;
-      this.close();
-      if (contact) pick?.(contact);
-    });
-  }
-
-  open({ title, onPick }) {
-    this.onPick = onPick;
-    this.title.textContent = title;
-    this.search.value = '';
-    this.contacts = this.owner.listContacts();
-    this.render();
-    openModal(this.modal);
-    // Off-screen while it slides in; see DESIGN.md §6.
-    setTimeout(() => this.search.focus({ preventScroll: true }), 350);
-  }
-
-  render() {
-    if (!this.contacts.length) {
-      this.results.innerHTML = '<p class="multichain-picker-none">No contacts yet. Add someone in Contacts first.</p>';
-      return;
-    }
-    const query = this.search.value.trim().toLowerCase();
-    const matches = query
-      ? this.contacts.filter((contact) => [contact.name, contact.username]
-        .some((text) => String(text || '').toLowerCase().includes(query)))
-      : this.contacts;
-    if (!matches.length) {
-      this.results.innerHTML =
-        `<p class="multichain-picker-none">No contact matches “${escapeHtml(this.search.value.trim())}”.</p>`;
-      return;
-    }
-    this.results.innerHTML = `<div class="multichain-list">${matches.map((contact) => `
-      <button type="button" class="multichain-row" data-address="${escapeHtml(contact.address)}">
-        <span class="chat-send-contact-avatar" data-avatar-for="${escapeHtml(contact.address)}"></span>
-        <span class="multichain-row-main">
-          <span class="multichain-row-name">${escapeHtml(contact.name)}</span>
-          ${contact.username && contact.username !== contact.name
-            ? `<span class="multichain-row-chain">@${escapeHtml(contact.username)}</span>` : ''}
-        </span>
-      </button>`).join('')}</div>`;
-    // Avatars are drawn asynchronously by the app; a row is usable before its
-    // avatar arrives.
-    for (const slot of this.results.querySelectorAll('[data-avatar-for]')) {
-      Promise.resolve(this.owner.renderAvatar(slot.dataset.avatarFor, 40))
-        .then((html) => { if (html) slot.innerHTML = html; })
-        .catch(() => {});
-    }
-  }
-
-  close() {
-    this.onPick = null;
-    this.modal.classList.remove('active');
-  }
-
-  isActive() {
-    return this.modal?.classList.contains('active') || false;
-  }
-}
-
 export class ChatPaymentPanel {
   constructor() {
     this.loaded = false;
+    this.session = null;
+    this.recipientLookup = null;
+    this.reviewing = false;
     this.recipientAddress = null;
     this.recipientName = null;
     this.assetKey = null;
@@ -5712,24 +5630,19 @@ export class ChatPaymentPanel {
     this.getAccount = () => null;
     this.onSent = null;
     this.showToast = () => {};
-    this.listContacts = () => [];
-    this.renderAvatar = () => '';
-    // Resolves to { problem } -- null when a receipt can reach them and be
-    // paid for, else the reason it cannot.
-    this.prepareRecipient = async () => ({ problem: null });
-    this.contactPicker = new ContactPicker(this);
+    this.checkReceiptRecipient = async () => ({});
   }
 
-  configure({ getAccount, onSent, showToast, listContacts, renderAvatar, prepareRecipient } = {}) {
+  configure({ getAccount, onSent, showToast, lookupUsername, createContactAutocomplete, checkReceiptRecipient } = {}) {
     if (typeof getAccount === 'function') {
       this.getAccount = getAccount;
       intentsChatPayments.configure({ getAccount });
     }
     if (typeof onSent === 'function') this.onSent = onSent;
     if (typeof showToast === 'function') this.showToast = showToast;
-    if (typeof listContacts === 'function') this.listContacts = listContacts;
-    if (typeof renderAvatar === 'function') this.renderAvatar = renderAvatar;
-    if (typeof prepareRecipient === 'function') this.prepareRecipient = prepareRecipient;
+    if (typeof lookupUsername === 'function') this.lookupUsername = lookupUsername;
+    if (typeof createContactAutocomplete === 'function') this.createContactAutocomplete = createContactAutocomplete;
+    if (typeof checkReceiptRecipient === 'function') this.checkReceiptRecipient = checkReceiptRecipient;
   }
 
   load() {
@@ -5738,8 +5651,12 @@ export class ChatPaymentPanel {
     this.title = $('chatSendTitle');
     this.form = $('chatSendForm');
     this.empty = $('chatSendEmpty');
+    this.recipientGroup = $('chatSendRecipientGroup');
+    this.recipientInput = $('chatSendRecipient');
+    this.recipientStatus = $('chatSendRecipientStatus');
     this.amountInput = $('chatSendAmount');
-    this.assetChip = $('chatSendAsset');
+    this.assetLabel = $('chatSendAssetLabel');
+    this.assetPicker = $('chatSendAsset');
     // Token or dollars, Max and the balance line: the same control as swap.
     this.amount = new AmountField({
       input: this.amountInput,
@@ -5755,15 +5672,28 @@ export class ChatPaymentPanel {
     this.sendButton = $('chatSendButton');
     this.statusLine = $('chatSendStatus');
 
+    this.recipientInput.addEventListener('input', () => this.handleRecipientInput());
+    this.contactAutocomplete = this.createContactAutocomplete?.({
+      input: this.recipientInput,
+      list: $('chatSendRecipientSuggestions'),
+      onSelect: (contact) => {
+        this.recipientInput.value = contact.username;
+        this.handleRecipientInput(contact.address);
+      },
+    });
+
     $('closeChatSendModal').addEventListener('click', () => this.close());
     this.sendButton.addEventListener('click', () => this.primaryAction());
-    this.assetChip.addEventListener('click', () => {
+    this.assetPicker.addEventListener('click', () => {
+      const session = this.session;
+      if (!this.isCurrentSession(session) || session.fromWallet) return;
       multichain.tokenPicker.open({
         title: 'Send',
         // Only what can actually be sent: an empty asset would produce a
         // failure the person could have been spared.
         accepts: (asset) => asset.rawAmount !== '0',
         onPick: (key) => {
+          if (!this.isCurrentSession(session)) return;
           this.assetKey = key;
           this.renderAsset();
           this.amount.assetChanged();
@@ -5782,18 +5712,87 @@ export class ChatPaymentPanel {
       void multichain.startDeposit();
     });
 
-    this.contactPicker.load();
-    // The asset screen's Send: pick a contact, then this same screen.
-    multichain.configure({ onSend: (assetKey) => this.startFromWallet(assetKey) });
+    multichain.configure({ onSend: (assetKey) => this.open(null, null, { assetKey }) });
     this.loaded = true;
   }
 
-  startFromWallet(assetKey) {
-    this.load();
-    this.contactPicker.open({
-      title: 'Send to',
-      onPick: (contact) => this.open(contact.address, contact.name, { assetKey }),
-    });
+  isCurrentSession(session) {
+    return session && this.session === session && this.getAccount() === session.account && this.isActive();
+  }
+
+  clearRecipientLookup() {
+    clearTimeout(this.recipientLookupTimer);
+    this.recipientLookup = null;
+  }
+
+  setRecipientStatus(message, kind = '') {
+    this.recipientStatus.hidden = !message;
+    this.recipientStatus.textContent = message;
+    this.recipientStatus.dataset.kind = kind;
+  }
+
+  handleRecipientInput(expectedAddress) {
+    const session = this.session;
+    if (!this.isCurrentSession(session) || !session.fromWallet || this.recipientInput.disabled) return;
+
+    this.clearRecipientLookup();
+    this.recipientAddress = null;
+    this.recipientName = null;
+    this.setRecipientStatus('');
+    this.validate();
+
+    const input = this.recipientInput.value;
+    const username = input.trim().replace(/^@/, '').toLowerCase();
+    if (!username) return;
+    if (!/^[a-z0-9]{3,15}$/.test(username)) {
+      this.setRecipientStatus('Enter a username with 3 to 15 letters or numbers.', 'error');
+      return;
+    }
+
+    const lookup = this.recipientLookup = { session, input, username, expectedAddress };
+    this.setRecipientStatus('Checking username…');
+    if (expectedAddress) return this.resolveRecipient(lookup);
+    this.recipientLookupTimer = setTimeout(() => this.resolveRecipient(lookup), 300);
+  }
+
+  isCurrentRecipientLookup(lookup) {
+    return lookup && this.recipientLookup === lookup && this.isCurrentSession(lookup.session)
+      && this.recipientInput.value === lookup.input;
+  }
+
+  async resolveRecipient(lookup) {
+    if (!this.isCurrentRecipientLookup(lookup)) return;
+    const resolved = await this.lookupUsername(lookup.username).catch(() => undefined);
+    if (!this.isCurrentRecipientLookup(lookup)) return;
+    if (resolved === null) {
+      this.setRecipientStatus('Username not found on the network.', 'error');
+      return;
+    }
+    const accountId = intentsAccountIdForAddress(resolved);
+    if (!accountId) {
+      this.setRecipientStatus('Could not check the username. Try again.', 'error');
+      return;
+    }
+    if (accountId === intentsAccountIdForAddress(lookup.session.account.keys.address)) {
+      this.setRecipientStatus('Choose a username other than your own.', 'error');
+      return;
+    }
+    if (lookup.expectedAddress && accountId !== intentsAccountIdForAddress(lookup.expectedAddress)) {
+      this.setRecipientStatus('This username no longer matches the saved contact.', 'error');
+      return;
+    }
+
+    const address = accountId.slice(2);
+    const { problem } = await this.checkRecipient(address, lookup);
+    if (!this.isCurrentRecipientLookup(lookup)) return;
+    if (problem) {
+      this.setRecipientStatus(problem, 'error');
+      return;
+    }
+    this.recipientAddress = address;
+    this.recipientName = `@${lookup.username}`;
+    this.setRecipientStatus(`Verified ${this.recipientName}`, 'ok');
+    this.validate();
   }
 
   selectedAsset() {
@@ -5808,12 +5807,22 @@ export class ChatPaymentPanel {
 
   async open(recipientAddress, recipientName = null, { assetKey = null } = {}) {
     this.load();
+    const account = this.getAccount();
+    if (!account || !openModal(this.modal)) return false;
+    const session = this.session = { account, fromWallet: recipientAddress === null, loading: true };
+    this.clearRecipientLookup();
+    this.contactAutocomplete?.close();
+    this.recipientGroup.hidden = !session.fromWallet;
+    this.recipientInput.value = '';
+    this.setRecipientStatus('');
     this.recipientAddress = recipientAddress;
     this.recipientName = recipientName;
     this.sending = false;
     this.pendingReceipt = null;
     this.done = false;
+    this.reviewing = false;
     this.title.textContent = recipientName ? `Send to ${recipientName}` : 'Send';
+    this.assetKey = assetKey || this.assetKey;
     this.amount.reset();
     this.noteInput.value = '';
     this.noteInput.hidden = true;
@@ -5825,33 +5834,53 @@ export class ChatPaymentPanel {
     this.lockForm(false);
     this.form.hidden = false;
     this.empty.hidden = true;
-    this.assetChip.innerHTML = '<span>Loading…</span>';
-    openModal(this.modal);
+    this.assetLabel.hidden = !session.fromWallet;
+    this.assetPicker.hidden = session.fromWallet;
+    this.renderAsset();
+
+    if (!session.fromWallet) {
+      // Focus after the slide, without stealing focus from a control already in use.
+      setTimeout(() => {
+        if (this.isCurrentSession(session) && !this.form.hidden && !this.modal.contains(document.activeElement)) {
+          this.amountInput.focus({ preventScroll: true });
+        }
+      }, 350);
+    }
 
     await intentsAssets.refresh({ force: true });
+    if (!this.isCurrentSession(session)) return false;
     // The asset it was opened for, else the largest holding: the likeliest
     // thing to be sent, and a choice the picker is one tap from changing.
     const held = intentsAssets.getAssets()
       .filter((asset) => asset.rawAmount !== '0')
       .sort((a, b) => (Number(b.tokenValueUsd) || 0) - (Number(a.tokenValueUsd) || 0));
-    if (!held.length) {
+    const selected = held.find((asset) => asset.key === this.assetKey) || (!assetKey ? held[0] : null);
+    if (!selected) {
       this.form.hidden = true;
       this.empty.hidden = false;
-      return;
+      this.contactAutocomplete?.close();
+      return false;
     }
-    const preferred = assetKey || this.assetKey;
-    this.assetKey = held.some((asset) => asset.key === preferred) ? preferred : held[0].key;
+    this.assetKey = selected.key;
+    session.loading = false;
+    this.assetPicker.disabled = session.fromWallet;
     this.renderAsset();
     this.amount.changed();
-    // Off-screen while it slides in; see DESIGN.md §6.
-    setTimeout(() => this.amountInput.focus({ preventScroll: true }), 350);
+    return true;
   }
 
   renderAsset() {
+    const fromWallet = this.session.fromWallet;
+    const display = fromWallet ? this.assetLabel : this.assetPicker;
     const asset = this.selectedAsset();
-    if (!asset) return;
-    this.assetChip.innerHTML = `${assetMark(asset, 24)}<span>${escapeHtml(asset.tokenSymbol)}</span>${CARET}`;
-    this.assetChip.setAttribute('aria-label', `Sending ${asset.tokenSymbol} on ${asset.chainName}. Change`);
+    if (!asset) {
+      display.textContent = 'Loading…';
+      return;
+    }
+    display.innerHTML = `${assetMark(asset, 24)}<span>${escapeHtml(asset.tokenSymbol)}</span>${fromWallet ? '' : CARET}`;
+    if (!fromWallet) {
+      this.assetPicker.setAttribute('aria-label', `Sending ${asset.tokenSymbol} on ${asset.chainName}. Change`);
+    }
   }
 
   /** Live, so the button is only ever pressable for an amount that can go. */
@@ -5859,13 +5888,18 @@ export class ChatPaymentPanel {
     // After the money has gone, nothing may turn this back into a Send button.
     if (this.pendingReceipt || this.done) return;
     const problem = this.amount.problem();
-    this.setStatus(problem || '', problem ? 'error' : '');
-    this.sendButton.disabled = problem !== null;
+    if (!this.reviewing) this.setStatus(problem || '', problem ? 'error' : '');
+    this.sendButton.disabled = this.session?.loading || this.reviewing || this.sending
+      || !this.recipientAddress || problem !== null;
   }
 
   close() {
     if (this.sending) return;
-    this.modal.classList.remove('active');
+    this.session = null;
+    this.reviewing = false;
+    this.clearRecipientLookup();
+    this.contactAutocomplete?.close();
+    this.modal?.classList.remove('active');
     this.recipientAddress = null;
     this.pendingReceipt = null;
   }
@@ -5885,14 +5919,24 @@ export class ChatPaymentPanel {
    * confirmation screen, which is what swap and withdraw end with too.
    */
   async review() {
+    const session = this.session;
     const asset = this.selectedAsset();
     const amount = this.amount.tokenAmount();
-    if (!asset || !this.recipientAddress || this.amount.problem() !== null) return;
+    if (!this.isCurrentSession(session) || session.loading || this.reviewing || this.sending
+      || !asset || !this.recipientAddress || this.amount.problem() !== null) return;
 
+    const note = this.noteInput.value.trim() || null;
+    const payment = { session, asset, amount, note, address: this.recipientAddress, lookup: this.recipientLookup };
+
+    this.reviewing = true;
+    this.contactAutocomplete?.close();
     this.sendButton.disabled = true;
     this.setStatus('Checking…');
-    const problem = await this.recipientProblem();
-    this.sendButton.disabled = false;
+    const { problem } = await this.checkRecipient(payment.address, payment.lookup);
+    if (!this.isCurrentSession(session)) return;
+    this.reviewing = false;
+    this.validate();
+    if (!this.isCurrentPayment(payment)) return;
     if (problem) {
       this.setStatus(problem, 'error');
       return;
@@ -5902,7 +5946,6 @@ export class ChatPaymentPanel {
     const price = priceOf(asset);
     const usd = price ? Number(amount) * price : null;
     const name = this.recipientName || 'this contact';
-    const note = this.noteInput.value.trim() || null;
     const shown = formatDisplayAmount(amount, 6);
     // Each fact once: the hero carries the amount and its value, the rows the
     // rest. The exact amount earns a row only when the hero had to trim it --
@@ -5920,62 +5963,92 @@ export class ChatPaymentPanel {
       rows,
       actionLabel: `Send ${asset.tokenSymbol}`,
       note: 'Payments cannot be undone.',
-      run: (sheet) => this.run(sheet, { asset, amount, note }),
+      run: (sheet) => this.run(sheet, payment),
     });
   }
 
-  /**
-   * Why a receipt could not follow this payment, or null when it can.
-   *
-   * The receipt travels as a chat message, so a payment to someone it cannot
-   * reach -- blocked, the other kind of account, or no LIB for the fee --
-   * would leave them with money and no word of who sent it or why. Asked
-   * before anything moves, and a check that cannot be made refuses too.
-   */
-  async recipientProblem() {
+  isCurrentPayment(payment) {
+    return this.isCurrentSession(payment.session)
+      && (!payment.session.fromWallet || this.isCurrentRecipientLookup(payment.lookup))
+      && this.recipientAddress === payment.address && this.assetKey === payment.asset.key
+      && this.amount.tokenAmount() === payment.amount && (this.noteInput.value.trim() || null) === payment.note
+      && this.amount.problem() === null;
+  }
+
+  /** Check whether the chat receipt can reach the recipient before funds move. */
+  async checkRecipient(address, lookup) {
     try {
-      const result = await this.prepareRecipient(this.recipientAddress);
-      return result?.problem || null;
+      const isCurrentLookup = () => !lookup || this.isCurrentRecipientLookup(lookup);
+      return await this.checkReceiptRecipient(address, lookup?.username, isCurrentLookup);
     } catch (error) {
       console.warn('Payment recipient check failed:', error);
-      return 'Could not check that this payment can reach them. Try again.';
+      return { problem: 'Could not check that this payment can reach them. Try again.' };
     }
   }
 
-  async run(sheet, { asset, amount, note }) {
-    const secretKey = this.getAccount()?.keys?.secret;
+  async run(sheet, payment) {
+    if (this.sending) return;
+    const changed = 'Payment details changed. Go back and review again.';
+    if (!this.isCurrentPayment(payment)) {
+      sheet.finish(changed, 'error');
+      return;
+    }
+    const { asset, amount, note, address } = payment;
+    const secretKey = payment.session.account.keys?.secret;
     if (!secretKey) {
       sheet.finish('Your account is not available. Sign in again to continue.', 'error');
       return;
     }
 
     this.sending = true;
-    // Again at the last moment: the confirmation can sit open while the toll,
-    // a block or the LIB balance changes.
-    sheet.setStatus('Checking…');
-    const problem = await this.recipientProblem();
-    if (problem) {
-      this.sending = false;
-      sheet.setStatus(problem, 'error');
-      sheet.action.disabled = false;
-      return;
-    }
-    sheet.setStatus('Sending…');
+    this.lockForm(true);
+    this.validate();
 
     let prepared;
     let sent;
+    let publishStarted = false;
     try {
+      // Toll, blocks, and the LIB balance can change during confirmation.
+      sheet.setStatus('Checking…');
+      if (payment.lookup) {
+        const resolved = await this.lookupUsername(payment.lookup.username).catch(() => {
+          throw new Error('Could not check the username. Try again.');
+        });
+        if (!this.isCurrentPayment(payment)) throw new Error(changed);
+        if (intentsAccountIdForAddress(resolved) !== intentsAccountIdForAddress(address)) {
+          throw new Error('This username no longer matches the reviewed recipient. Go back and enter it again.');
+        }
+      }
+      const { problem, beforePublish } = await this.checkRecipient(address, payment.lookup);
+      if (!this.isCurrentPayment(payment)) throw new Error(changed);
+      if (problem) throw new Error(problem);
+
+      sheet.setStatus('Sending…');
       prepared = await intentsChatPayments.prepare({
-        asset, recipientAddress: this.recipientAddress, amount,
+        asset, recipientAddress: address, amount,
       });
-      sent = await intentsChatPayments.send(prepared, secretKey, { asset, note });
+      if (!this.isCurrentPayment(payment)) throw new Error(changed);
+      sent = await intentsChatPayments.send(prepared, secretKey, {
+        asset,
+        note,
+        beforePublish: () => {
+          if (!this.isCurrentPayment(payment)) throw new Error(changed);
+          beforePublish?.();
+          publishStarted = true;
+        },
+      });
     } catch (error) {
       this.sending = false;
-      // Refused while preparing or in rehearsal: nothing was published, so
-      // trying again is safe.
-      if (!prepared || error?.code === 'WOULD_FAIL') {
-        sheet.setStatus(error.message || 'That payment is not valid.', 'error');
-        sheet.action.disabled = false;
+      // Any failure before publication is safe to retry.
+      if (!publishStarted) {
+        this.lockForm(false);
+        this.validate();
+        if (this.isCurrentPayment(payment)) {
+          sheet.setStatus(error.message || 'That payment is not valid.', 'error');
+          sheet.action.disabled = false;
+        } else {
+          sheet.finish(changed, 'error');
+        }
         return;
       }
       // A failure while publishing may come after the relay took it.
@@ -6028,7 +6101,8 @@ export class ChatPaymentPanel {
   /** Every control that could describe a different payment. */
   lockForm(locked) {
     this.amount.setLocked(locked);
-    for (const control of [this.assetChip, this.noteInput, this.noteToggle]) control.disabled = locked;
+    for (const control of [this.recipientInput, this.noteInput, this.noteToggle]) control.disabled = locked;
+    this.assetPicker.disabled = locked || this.session.fromWallet || this.session.loading;
   }
 
   /** The transfer's outcome is unknowable: leave, never resend. */

@@ -1955,28 +1955,7 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Who to send to, when sending starts from the wallet rather than a
-           conversation. -->
-      <div class="modal fixed-header" id="chatSendContactModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeChatSendContactModal"></button>
-          <div class="modal-title" id="chatSendContactTitle">Send to</div>
-        </div>
-        <div class="modal-content">
-          <div class="multichain-picker">
-            <div class="search-bar multichain-picker-search">
-              <span class="search-icon"></span>
-              <input type="search" id="chatSendContactSearch" class="search-input" placeholder="Search contacts"
-                autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" />
-            </div>
-            <div id="chatSendContactResults"></div>
-          </div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-      <!-- Sending to the person a conversation is with. The recipient is the
-           chat, so the screen asks only what and how much. -->
+      <!-- Send from the wallet by username or to the current chat recipient. -->
       <div class="modal fixed-header" id="chatSendModal">
         <div class="modal-header">
           <button class="back-button" id="closeChatSendModal"></button>
@@ -1984,13 +1963,24 @@
         </div>
         <div class="modal-content">
           <div class="multichain-screen multichain-swap" id="chatSendForm">
+            <section id="chatSendRecipientGroup" hidden>
+              <label class="multichain-swap-label" for="chatSendRecipient">Username</label>
+              <div class="contact-autocomplete-field">
+                <input type="text" id="chatSendRecipient" class="form-control" placeholder="Enter username"
+                  autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="chatSendRecipientStatus" />
+                <div id="chatSendRecipientSuggestions" class="contact-autocomplete-list" aria-label="Saved contacts" hidden></div>
+              </div>
+              <div class="multichain-status" id="chatSendRecipientStatus" role="status" hidden></div>
+            </section>
+
             <section class="multichain-swap-leg">
               <label class="multichain-swap-label" for="chatSendAmount">You send</label>
               <div class="multichain-swap-line">
                 <span class="multichain-amount-currency" id="chatSendCurrency" hidden>$</span>
                 <input class="multichain-swap-amount" id="chatSendAmount" type="text" inputmode="decimal"
                   autocomplete="off" spellcheck="false" placeholder="0" />
-                <button type="button" class="multichain-token-chip is-picker" id="chatSendAsset"></button>
+                <span class="multichain-token-chip" id="chatSendAssetLabel" hidden></span>
+                <button type="button" class="multichain-token-chip is-picker" id="chatSendAsset" hidden></button>
               </div>
               <div class="multichain-swap-meta">
                 <!-- The other unit, and the way to type in it instead. -->
