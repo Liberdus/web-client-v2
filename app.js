@@ -16735,6 +16735,27 @@ function hideToast(toastId) {
   }, 300); // Match transition duration
 }
 
+/**
+ * Resolves once the browser has painted pending UI changes, so the caller can start
+ * work that may block the main thread without hiding what was just shown.
+ * @param {number} delayMs - Time to wait before the frame, e.g. for showToast() to reveal its toast
+ * @returns {Promise<void>}
+ */
+function waitForPaint(delayMs = 0) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // requestAnimationFrame is paused in background tabs, so never wait on it alone
+      const fallback = setTimeout(resolve, 100);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          clearTimeout(fallback);
+          resolve();
+        });
+      });
+    }, delayMs);
+  });
+}
+
 
 // Handle online/offline events
 async function handleConnectivityChange() {
@@ -25220,9 +25241,38 @@ class ChatModal {
     
     // Normalize file type (fallback to extension detection for missing MIME types)
     const normalizedType = this.getMimeTypeFromFilename(file.name, file.type);
+
+    const clearLoadingToast = () => {
+      if (!loadingToastId) return;
+      hideToast(loadingToastId);
+      this.untrackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
+      loadingToastId = null;
+    };
+
+    // Enter the busy state and show the loading toast before any slow work.
+    // Image and video thumbnails can take seconds to generate, so doing this
+    // first gives immediate feedback and blocks a second attach or a send meanwhile.
+    this.isEncrypting = true;
+    this.sendButton.disabled = true; // Disable send button during thumbnailing and encryption
+    this.addAttachmentButton.disabled = true;
+    loadingToastId = showToast(
+      `Attaching "${file.name}" to ${uploadContactName}...`,
+      0,
+      'loading',
+      false,
+      { dedupe: false }
+    );
+    this.trackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
     
-    // Generate thumbnail for images before encryption
     const isImage = normalizedType.startsWith('image/');
+    const isVideo = normalizedType.startsWith('video/');
+    if (isImage || isVideo) {
+      // Decoding a large image or video frame can block the main thread for seconds.
+      // showToast() reveals its toast on a 10ms timer, so let that run and paint first.
+      await waitForPaint(20);
+    }
+
+    // Generate thumbnail for images before encryption
     if (isImage) {
       try {
         thumbnailBlob = await thumbnailCache.generateThumbnail(file);
@@ -25232,7 +25282,6 @@ class ChatModal {
     }
 
     // Generate thumbnail for videos before encryption
-    const isVideo = normalizedType.startsWith('video/');
     if (isVideo && !thumbnailBlob) {
       try {
         thumbnailBlob = await thumbnailCache.extractVideoThumbnail(file);
@@ -25242,12 +25291,6 @@ class ChatModal {
     }
 
     const capturedThumbnailBlob = thumbnailBlob;
-    const clearLoadingToast = () => {
-      if (!loadingToastId) return;
-      hideToast(loadingToastId);
-      this.untrackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
-      loadingToastId = null;
-    };
     const refreshChatsScreenIfActive = () => {
       if (chatsScreen?.isActive?.()) {
         chatsScreen.updateChatList();
@@ -25258,18 +25301,6 @@ class ChatModal {
     // This ensures processIncomingAttachmentFiles can properly await each upload
     return new Promise((resolve, reject) => {
       try {
-        this.isEncrypting = true;
-        this.sendButton.disabled = true; // Disable send button during encryption
-        this.addAttachmentButton.disabled = true;
-        loadingToastId = showToast(
-          `Attaching "${file.name}" to ${uploadContactName}...`,
-          0,
-          'loading',
-          false,
-          { dedupe: false }
-        );
-        this.trackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
-        
         // Generate random encryption key for this attachment
         const encKey = generateRandomBytes(32);
 
