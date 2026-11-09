@@ -28663,10 +28663,7 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async updateTollRequired(address) {
-    const account = myAccount;
-    const localContact = myData?.contacts[address];
-    if (!account || !localContact) return;
-    const myAddr = longAddress(account.keys.address);
+    const myAddr = longAddress(myAccount.keys.address);
     const contactAddr = longAddress(address);
     // use `hashBytes([fromAddr, toAddr].sort().join(''))` to get the hash of the sorted addresses and have variable to keep track fromAddr which will be the current users order in the array
     const sortedAddresses = [myAddr, contactAddr].sort();
@@ -28679,7 +28676,6 @@ class ChatModal {
     try {
       // query the contact's toll field from the network
       const contactAccountData = await queryNetwork(`/messages/${hash}/toll`);
-      if (myAccount !== account || myData?.contacts[address] !== localContact) return;
 
       if (contactAccountData?.error === 'No account with the given chatId') {
         console.warn(`chatId has not been created yet: ${address}`, contactAccountData.error);
@@ -28688,6 +28684,7 @@ class ChatModal {
         return;
       }
 
+      const localContact = myData.contacts[address];
       localContact.tollRequiredToSend = contactAccountData.toll.required[toIndex];
       localContact.tollRequiredToReceive = contactAccountData.toll.required[myIndex];
 
@@ -28719,12 +28716,8 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async updateTollValue(address) {
-    const account = myAccount;
-    const contact = myData?.contacts[address];
-    if (!account || !contact) return;
     // query the contact's toll field from the network
     const contactAccountData = await queryNetwork(`/account/${longAddress(address)}`);
-    if (myAccount !== account || myData?.contacts[address] !== contact) return;
     // If invalid response, do not overwrite cached values
     if (!contactAccountData?.account?.data) {
       console.warn('updateTollValue: no network data available; skipping update');
@@ -28734,9 +28727,9 @@ class ChatModal {
     const queriedTollUnit = contactAccountData.account.data.tollUnit; // type string
 
     // update the toll value in the UI if the queried toll value is different from the toll value or toll unit in localStorage
-    if (contact.toll != queriedToll || contact.tollUnit != queriedTollUnit) {
-      contact.toll = queriedToll;
-      contact.tollUnit = queriedTollUnit;
+    if (myData.contacts[address].toll != queriedToll || myData.contacts[address].tollUnit != queriedTollUnit) {
+      myData.contacts[address].toll = queriedToll;
+      myData.contacts[address].tollUnit = queriedTollUnit;
       // if correct modal is open for this address, update the toll value
       if (this.isActive() && this.address === address) {
         this.updateTollAmountUI(address);
@@ -28753,14 +28746,11 @@ class ChatModal {
    */
   async refreshRecipientTollState(address) {
     assert(address, 'Recipient address is required to refresh toll state');
-    const account = myAccount;
     const contact = myData.contacts[address];
     assert(contact, `Contact is required to refresh toll state: ${address}`);
 
     await this.updateTollValue(address);
-    if (myAccount !== account || myData?.contacts[address] !== contact) return;
     await this.updateTollRequired(address);
-    if (myAccount !== account || myData?.contacts[address] !== contact) return;
 
     this.saveRecipientTollState(address, contact);
   }
