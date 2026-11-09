@@ -23741,7 +23741,7 @@ class ChatModal {
    * has to be found here, not after the money has gone. Throws when it
    * cannot be checked; the caller refuses then too.
    */
-  async checkPaymentRecipient(recipientAddress, fromWallet = false) {
+  async checkPaymentRecipient(recipientAddress, fromWallet = false, isCurrentLookup = () => true) {
     const address = normalizeAddress(recipientAddress);
     const account = myAccount;
     const contact = myData?.contacts[address];
@@ -23784,6 +23784,7 @@ class ChatModal {
     const tollState = {
       toll: recipientToll, tollUnit, tollRequiredToSend: noChat ? 1 : required[recipientIndex],
     };
+    if (!isCurrentLookup()) return 'The recipient changed. Go back and review the payment again.';
     Object.assign(contact, tollState);
     if (!noChat) contact.tollRequiredToReceive = required[1 - recipientIndex];
     this.saveRecipientTollState(address, contact);
@@ -23819,12 +23820,12 @@ class ChatModal {
   }
 
   /** Check receipt eligibility and save a new Connection just before publication. */
-  async checkIntentsPaymentReceipt(address, username) {
+  async checkIntentsPaymentReceipt(address, username, isCurrentLookup) {
     const account = myAccount;
     const contact = myData?.contacts[address];
     let connection;
     if (contact || !username) {
-      const problem = await this.checkPaymentRecipient(address, Boolean(username));
+      const problem = await this.checkPaymentRecipient(address, Boolean(username), isCurrentLookup);
       if (problem) return { problem };
     } else {
       if (isFaucetAddress(address)) {
@@ -35788,7 +35789,8 @@ chatPaymentPanel.configure({
   }),
   // Whether the receipt can reach them and be paid for, checked fresh: the
   // toll may be stale when the chat was never opened.
-  checkReceiptRecipient: (address, username) => chatModal.checkIntentsPaymentReceipt(address, username),
+  checkReceiptRecipient: (address, username, isCurrentLookup) =>
+    chatModal.checkIntentsPaymentReceipt(address, username, isCurrentLookup),
 });
 
 // The asset screen's activity. Swaps and withdrawals this device placed are

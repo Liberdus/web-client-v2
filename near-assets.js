@@ -5977,7 +5977,8 @@ export class ChatPaymentPanel {
   /** Check whether the chat receipt can reach the recipient before funds move. */
   async checkRecipient(address, lookup) {
     try {
-      return await this.checkReceiptRecipient(address, lookup?.username);
+      const isCurrentLookup = () => !lookup || this.isCurrentRecipientLookup(lookup);
+      return await this.checkReceiptRecipient(address, lookup?.username, isCurrentLookup);
     } catch (error) {
       console.warn('Payment recipient check failed:', error);
       return { problem: 'Could not check that this payment can reach them. Try again.' };
