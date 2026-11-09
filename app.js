@@ -16730,6 +16730,27 @@ function hideToast(toastId) {
   }, 300); // Match transition duration
 }
 
+/**
+ * Resolves once the browser has painted pending UI changes, so the caller can start
+ * work that may block the main thread without hiding what was just shown.
+ * @param {number} delayMs - Time to wait before the frame, e.g. for showToast() to reveal its toast
+ * @returns {Promise<void>}
+ */
+function waitForPaint(delayMs = 0) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // requestAnimationFrame is paused in background tabs, so never wait on it alone
+      const fallback = setTimeout(resolve, 100);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          clearTimeout(fallback);
+          resolve();
+        });
+      });
+    }, delayMs);
+  });
+}
+
 
 // Handle online/offline events
 async function handleConnectivityChange() {
@@ -25105,8 +25126,15 @@ class ChatModal {
     );
     this.trackAttachmentLoadingToast(uploadContactAddress, loadingToastId);
     
-    // Generate thumbnail for images before encryption
     const isImage = normalizedType.startsWith('image/');
+    const isVideo = normalizedType.startsWith('video/');
+    if (isImage || isVideo) {
+      // Decoding a large image or video frame can block the main thread for seconds.
+      // showToast() reveals its toast on a 10ms timer, so let that run and paint first.
+      await waitForPaint(20);
+    }
+
+    // Generate thumbnail for images before encryption
     if (isImage) {
       try {
         thumbnailBlob = await thumbnailCache.generateThumbnail(file);
@@ -25116,7 +25144,6 @@ class ChatModal {
     }
 
     // Generate thumbnail for videos before encryption
-    const isVideo = normalizedType.startsWith('video/');
     if (isVideo && !thumbnailBlob) {
       try {
         thumbnailBlob = await thumbnailCache.extractVideoThumbnail(file);
