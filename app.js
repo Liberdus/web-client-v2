@@ -23756,17 +23756,38 @@ class ChatModal {
       }
     };
 
-    const accountRes = await queryNetwork(`/account/${longAddress(address)}`);
+    const recipientLongAddress = longAddress(address);
+    const accountRes = await queryNetwork(`/account/${recipientLongAddress}`);
     assertCurrentContact();
-    if (!accountRes?.account) throw new Error('Recipient account lookup failed');
+    const recipient = accountRes?.account;
+    if (accountRes?.error || !recipient) throw new Error('Recipient account lookup failed');
     const myIsPrivate = isPrivateAccount();
-    if ((accountRes.account.private === true) !== myIsPrivate) {
+    if ((recipient.private === true) !== myIsPrivate) {
       return `${myIsPrivate ? 'Private' : 'Public'} accounts can only send to other ${myIsPrivate ? 'private' : 'public'} accounts, so a payment cannot reach ${name} here.`;
     }
 
-    await this.refreshRecipientTollState(address);
+    const recipientToll = recipient.data?.toll;
+    const tollUnit = recipient.data?.tollUnit ?? 'LIB';
+    if (typeof recipientToll !== 'bigint' || recipientToll < 0n || !['LIB', 'USD'].includes(tollUnit)) {
+      throw new Error('Cannot determine recipient toll.');
+    }
+    const sorted = [longAddress(account.keys.address), recipientLongAddress].sort();
+    const recipientIndex = sorted.indexOf(recipientLongAddress);
+    const tollInfo = await queryNetwork(`/messages/${hashBytes(sorted.join(''))}/toll`);
     assertCurrentContact();
-    if (Number(contact.tollRequiredToSend) === 2) {
+    const noChat = tollInfo?.error === 'No account with the given chatId';
+    const required = tollInfo?.toll?.required;
+    if (!noChat && (tollInfo?.error || !Array.isArray(required) || required.length !== 2
+      || !required.every((value) => [0, 1, 2].includes(value)))) {
+      throw new Error('Cannot check recipient toll. Try again.');
+    }
+    const tollState = {
+      toll: recipientToll, tollUnit, tollRequiredToSend: noChat ? 1 : required[recipientIndex],
+    };
+    Object.assign(contact, tollState);
+    if (!noChat) contact.tollRequiredToReceive = required[1 - recipientIndex];
+    this.saveRecipientTollState(address, contact);
+    if (tollState.tollRequiredToSend === 2) {
       return `${name} is not accepting messages from you, so a payment cannot reach them here.`;
     }
     const recipientKeys = contact.public && contact.pqPublic ? contact : {
@@ -23779,7 +23800,7 @@ class ChatModal {
     // Fresh where it can be; the saved balance otherwise, as any send uses.
     await walletScreen.updateWalletBalances().catch((error) => console.warn('LIB balance refresh failed:', error));
     assertCurrentContact();
-    const toll = this.paymentMessageToll(contact);
+    const toll = this.paymentMessageToll(tollState);
     const canPayReceipt = await validateBalance(toll);
     assertCurrentContact();
     if (!canPayReceipt) {
@@ -28738,16 +28759,16 @@ class ChatModal {
     await this.updateTollRequired(address);
     if (myAccount !== account || myData?.contacts[address] !== contact) return;
 
-    if (!this.isActive() || this.address !== address) {
-      saveState();
-      return;
+    this.saveRecipientTollState(address, contact);
+  }
+
+  saveRecipientTollState(address, contact) {
+    if (this.isActive() && this.address === address) {
+      this.blockedByRecipient = Number(contact.tollRequiredToSend) === 2;
+      this.updateTollAmountUI(address);
+      this.addAttachmentButton.disabled = this.isEncrypting || this.isEditingMessage() || this.blockedByRecipient;
+      this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
     }
-
-    this.blockedByRecipient = Number(contact.tollRequiredToSend) === 2;
-    this.updateTollAmountUI(address);
-    this.addAttachmentButton.disabled = this.isEncrypting || this.isEditingMessage() || this.blockedByRecipient;
-    this.voiceRecordButton.disabled = this.blockedByRecipient || !isOnline;
-
     saveState();
   }
 
