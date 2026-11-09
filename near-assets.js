@@ -5654,7 +5654,8 @@ export class ChatPaymentPanel {
     this.recipientInput = $('chatSendRecipient');
     this.recipientStatus = $('chatSendRecipientStatus');
     this.amountInput = $('chatSendAmount');
-    this.assetChip = $('chatSendAsset');
+    this.assetLabel = $('chatSendAssetLabel');
+    this.assetPicker = $('chatSendAsset');
     // Token or dollars, Max and the balance line: the same control as swap.
     this.amount = new AmountField({
       input: this.amountInput,
@@ -5682,13 +5683,16 @@ export class ChatPaymentPanel {
 
     $('closeChatSendModal').addEventListener('click', () => this.close());
     this.sendButton.addEventListener('click', () => this.primaryAction());
-    this.assetChip.addEventListener('click', () => {
+    this.assetPicker.addEventListener('click', () => {
+      const session = this.session;
+      if (!this.isCurrentSession(session) || session.fromWallet) return;
       multichain.tokenPicker.open({
         title: 'Send',
         // Only what can actually be sent: an empty asset would produce a
         // failure the person could have been spared.
         accepts: (asset) => asset.rawAmount !== '0',
         onPick: (key) => {
+          if (!this.isCurrentSession(session)) return;
           this.assetKey = key;
           this.renderAsset();
           this.amount.assetChanged();
@@ -5757,28 +5761,36 @@ export class ChatPaymentPanel {
 
   async resolveRecipient(lookup) {
     if (!this.isCurrentRecipientLookup(lookup)) return;
-    try {
-      const accountId = intentsAccountIdForAddress(await this.lookupUsername(lookup.username));
-      if (!this.isCurrentRecipientLookup(lookup)) return;
-      if (!accountId) throw new Error('Username not found.');
-      if (accountId === intentsAccountIdForAddress(lookup.session.account.keys.address)) {
-        throw new Error('Choose a username other than your own.');
-      }
-      if (lookup.expectedAddress && accountId !== intentsAccountIdForAddress(lookup.expectedAddress)) {
-        throw new Error('This username no longer matches the saved contact.');
-      }
-
-      const address = accountId.slice(2);
-      const problem = await this.recipientProblem(address);
-      if (!this.isCurrentRecipientLookup(lookup)) return;
-      if (problem) throw new Error(problem);
-      this.recipientAddress = address;
-      this.recipientName = `@${lookup.username}`;
-      this.setRecipientStatus(`Verified ${this.recipientName}`, 'ok');
-    } catch (error) {
-      if (!this.isCurrentRecipientLookup(lookup)) return;
-      this.setRecipientStatus(error.message || 'Could not check this username. Try again.', 'error');
+    const resolved = await this.lookupUsername(lookup.username).catch(() => undefined);
+    if (!this.isCurrentRecipientLookup(lookup)) return;
+    if (resolved === null) {
+      this.setRecipientStatus('Username not found on the network.', 'error');
+      return;
     }
+    const accountId = intentsAccountIdForAddress(resolved);
+    if (!accountId) {
+      this.setRecipientStatus('Could not check the username. Try again.', 'error');
+      return;
+    }
+    if (accountId === intentsAccountIdForAddress(lookup.session.account.keys.address)) {
+      this.setRecipientStatus('Choose a username other than your own.', 'error');
+      return;
+    }
+    if (lookup.expectedAddress && accountId !== intentsAccountIdForAddress(lookup.expectedAddress)) {
+      this.setRecipientStatus('This username no longer matches the saved contact.', 'error');
+      return;
+    }
+
+    const address = accountId.slice(2);
+    const problem = await this.recipientProblem(address);
+    if (!this.isCurrentRecipientLookup(lookup)) return;
+    if (problem) {
+      this.setRecipientStatus(problem, 'error');
+      return;
+    }
+    this.recipientAddress = address;
+    this.recipientName = `@${lookup.username}`;
+    this.setRecipientStatus(`Verified ${this.recipientName}`, 'ok');
     this.validate();
   }
 
@@ -5821,8 +5833,8 @@ export class ChatPaymentPanel {
     this.lockForm(false);
     this.form.hidden = false;
     this.empty.hidden = true;
-    this.assetChip.innerHTML = '<span>Loading…</span>';
-    this.assetChip.disabled = true;
+    this.assetLabel.hidden = !session.fromWallet;
+    this.assetPicker.hidden = session.fromWallet;
     this.renderAsset();
 
     // Focus after the slide, without stealing focus from a control already in use.
@@ -5849,17 +5861,24 @@ export class ChatPaymentPanel {
     }
     this.assetKey = selected.key;
     session.loading = false;
-    this.assetChip.disabled = false;
+    this.assetPicker.disabled = session.fromWallet;
     this.renderAsset();
     this.amount.changed();
     return true;
   }
 
   renderAsset() {
+    const fromWallet = this.session.fromWallet;
+    const display = fromWallet ? this.assetLabel : this.assetPicker;
     const asset = this.selectedAsset();
-    if (!asset) return;
-    this.assetChip.innerHTML = `${assetMark(asset, 24)}<span>${escapeHtml(asset.tokenSymbol)}</span>${CARET}`;
-    this.assetChip.setAttribute('aria-label', `Sending ${asset.tokenSymbol} on ${asset.chainName}. Change`);
+    if (!asset) {
+      display.textContent = 'Loading…';
+      return;
+    }
+    display.innerHTML = `${assetMark(asset, 24)}<span>${escapeHtml(asset.tokenSymbol)}</span>${fromWallet ? '' : CARET}`;
+    if (!fromWallet) {
+      this.assetPicker.setAttribute('aria-label', `Sending ${asset.tokenSymbol} on ${asset.chainName}. Change`);
+    }
   }
 
   /** Live, so the button is only ever pressable for an amount that can go. */
@@ -6071,7 +6090,8 @@ export class ChatPaymentPanel {
   /** Every control that could describe a different payment. */
   lockForm(locked) {
     this.amount.setLocked(locked);
-    for (const control of [this.recipientInput, this.assetChip, this.noteInput, this.noteToggle]) control.disabled = locked;
+    for (const control of [this.recipientInput, this.noteInput, this.noteToggle]) control.disabled = locked;
+    this.assetPicker.disabled = locked || this.session.fromWallet || this.session.loading;
   }
 
   /** The transfer's outcome is unknowable: leave, never resend. */

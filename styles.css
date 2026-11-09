@@ -12916,6 +12916,10 @@ small {
   font-weight: 600;
 }
 
+.multichain-token-chip[hidden] {
+  display: none;
+}
+
 button.multichain-token-chip {
   cursor: pointer;
 }

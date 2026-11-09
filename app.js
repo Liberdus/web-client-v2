@@ -14404,28 +14404,32 @@ function restoreWalletNotificationDots() {
 /**
  * Get the address of a username and return the address if it exists
  * @param {string} username - The username to check
+ * @param {{requireNetworkResult?: boolean}} options - Throw on lookup failure when enabled
  * @returns {Promise<string|null>} The address of the username or null if it doesn't exist
  */
-async function getUsernameAddress(username) {
+async function getUsernameAddress(username, { requireNetworkResult = false } = {}) {
   const usernameBytes = utf82bin(normalizeUsername(username));
   const usernameHash = hashBytes(usernameBytes);
-  const selectedGateway = getGatewayForRequest();
-  if (!selectedGateway) {
-    console.error('No gateway available for username check');
-    return null;
-  }
   try {
+    const selectedGateway = getGatewayForRequest();
+    if (!selectedGateway) throw new Error('No gateway available for username check');
     const response = await fetch(
       `${selectedGateway.web}/address/${usernameHash}`
     );
-    const data = await response.json();
-    // if address is not present, return null
-    if (!data || !data.address) {
-      return null;
+    if (requireNetworkResult && !response.ok) {
+      throw new Error(`Username lookup returned HTTP ${response.status}`);
     }
-    return data.address;
+    const data = await response.json();
+    if (requireNetworkResult) {
+      if (data?.error === 'No account exists for the given handle') return null;
+      if (data?.error || typeof data?.address !== 'string' || !data.address) {
+        throw new Error('Invalid username lookup response');
+      }
+    }
+    return data?.address || null;
   } catch (error) {
     console.error('Error checking username:', error);
+    if (requireNetworkResult) throw error;
     return null;
   }
 }
@@ -35673,7 +35677,7 @@ chatPaymentPanel.configure({
   onSent: (recipientAddress, messageObj) =>
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
   showToast,
-  lookupUsername: (username) => getUsernameAddress(username),
+  lookupUsername: (username) => getUsernameAddress(username, { requireNetworkResult: true }),
   createContactAutocomplete: ({ input, list, onSelect }) => new ContactAutocomplete({
     input,
     list,
