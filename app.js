@@ -24079,8 +24079,7 @@ class ChatModal {
 
   /** The body of sendIntentsPaymentMessage, run once per intent at a time. */
   async submitIntentsPaymentMessage(currentAddress, contact, payment, keys) {
-    const account = myAccount;
-    const isCurrentRecipient = () => myAccount === account && myData?.contacts[currentAddress] === contact;
+    const isCurrentRecipient = () => myData?.contacts[currentAddress] === contact;
     let card = contact.messages.find((message) => message.my && !message.deleted
       && message.type === INTENTS_CHAT_MESSAGE_TYPE && message.payment?.intentHash === payment.intentHash);
     // Already sent, or on its way: nothing to retry.
