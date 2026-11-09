@@ -23792,7 +23792,7 @@ class ChatModal {
     return Boolean(contact.address && !isFaucetAddress(contact.address) && contact.friend !== 0 && contact.public);
   }
 
-  /** Check receipt eligibility now, and save a new Connection only before sending. */
+  /** Check receipt eligibility and save a new Connection just before publication. */
   async checkIntentsPaymentReceipt(address, username) {
     const account = myAccount;
     const contact = myData?.contacts[address];
@@ -23812,7 +23812,7 @@ class ChatModal {
     }
 
     return {
-      beforeSend: () => {
+      beforePublish: () => {
         if (myAccount !== account || myData?.contacts[address] !== contact) {
           throw new Error('The recipient changed. Go back and review the payment again.');
         }

@@ -2904,7 +2904,7 @@ export class IntentsChatPayments {
    * Publishing and announcing are separate on purpose: the caller sends the
    * chat message, and if that fails it still knows the funds moved.
    */
-  async send(prepared, secretKey, { asset, note = null } = {}) {
+  async send(prepared, secretKey, { asset, note = null, beforePublish } = {}) {
     const signed = await this.transfers.sign(prepared, secretKey);
 
     // Rehearse first. A refusal here costs nothing; discovering the same
@@ -2918,6 +2918,7 @@ export class IntentsChatPayments {
       );
     }
 
+    beforePublish?.();
     const initiatedAt = Date.now();
     const intentHash = await publishIntent(signed);
 
@@ -6003,7 +6004,7 @@ export class ChatPaymentPanel {
 
     let prepared;
     let sent;
-    let sendStarted = false;
+    let publishStarted = false;
     try {
       // Toll, blocks, and the LIB balance can change during confirmation.
       sheet.setStatus('Checking…');
@@ -6016,7 +6017,7 @@ export class ChatPaymentPanel {
           throw new Error('This username no longer matches the reviewed recipient. Go back and enter it again.');
         }
       }
-      const { problem, beforeSend } = await this.checkRecipient(address, payment.lookup);
+      const { problem, beforePublish } = await this.checkRecipient(address, payment.lookup);
       if (!this.isCurrentPayment(payment)) throw new Error(changed);
       if (problem) throw new Error(problem);
 
@@ -6025,14 +6026,19 @@ export class ChatPaymentPanel {
         asset, recipientAddress: address, amount,
       });
       if (!this.isCurrentPayment(payment)) throw new Error(changed);
-      beforeSend?.();
-      sendStarted = true;
-      sent = await intentsChatPayments.send(prepared, secretKey, { asset, note });
+      sent = await intentsChatPayments.send(prepared, secretKey, {
+        asset,
+        note,
+        beforePublish: () => {
+          if (!this.isCurrentPayment(payment)) throw new Error(changed);
+          beforePublish?.();
+          publishStarted = true;
+        },
+      });
     } catch (error) {
       this.sending = false;
-      // Refused while preparing or in rehearsal: nothing was published, so
-      // trying again is safe.
-      if (!sendStarted || error?.code === 'WOULD_FAIL') {
+      // Any failure before publication is safe to retry.
+      if (!publishStarted) {
         this.lockForm(false);
         this.validate();
         if (this.isCurrentPayment(payment)) {
