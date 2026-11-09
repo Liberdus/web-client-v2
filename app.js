@@ -23791,9 +23791,9 @@ class ChatModal {
     return null;
   }
 
-  /** Local contact requirements for a NEAR Intents payment from the wallet. */
+  /** Local eligibility for wallet Send. The receipt check can load missing keys. */
   canSendIntentsPaymentTo(contact) {
-    return Boolean(contact.address && !isFaucetAddress(contact.address) && contact.friend !== 0 && contact.public);
+    return Boolean(contact.address && !isFaucetAddress(contact.address) && contact.friend !== 0);
   }
 
   /** Check receipt eligibility and save a new Connection just before publication. */
@@ -23820,7 +23820,7 @@ class ChatModal {
         if (myAccount !== account || myData?.contacts[address] !== contact) {
           throw new Error('The recipient changed. Go back and review the payment again.');
         }
-        if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
+        if (username && contact && (!this.canSendIntentsPaymentTo(contact) || !contact.public || !contact.pqPublic)) {
           throw new Error('This contact cannot receive a NEAR Intents payment.');
         }
         if (Number(contact?.tollRequiredToSend) === 2) {
