@@ -23769,11 +23769,12 @@ class ChatModal {
     if (Number(contact.tollRequiredToSend) === 2) {
       return `${name} is not accepting messages from you, so a payment cannot reach them here.`;
     }
-    const hasKeys = await ensureContactKeys(address);
-    assertCurrentContact();
-    if (!hasKeys || !contact.public || !contact.pqPublic) {
-      throw new Error('Recipient encryption keys are unavailable');
-    }
+    const recipientKeys = contact.public && contact.pqPublic ? contact : {
+      public: accountRes.account.publicKey || contact.public,
+      pqPublic: accountRes.account.pqPublicKey || contact.pqPublic,
+    };
+    this.validatePaymentRecipientKeys(address, recipientKeys, account.keys);
+    if (recipientKeys !== contact) Object.assign(contact, recipientKeys);
 
     // Fresh where it can be; the saved balance otherwise, as any send uses.
     await walletScreen.updateWalletBalances().catch((error) => console.warn('LIB balance refresh failed:', error));
@@ -23820,12 +23821,13 @@ class ChatModal {
         if (myAccount !== account || myData?.contacts[address] !== contact) {
           throw new Error('The recipient changed. Go back and review the payment again.');
         }
-        if (username && contact && (!this.canSendIntentsPaymentTo(contact) || !contact.public || !contact.pqPublic)) {
+        if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
           throw new Error('This contact cannot receive a NEAR Intents payment.');
         }
         if (Number(contact?.tollRequiredToSend) === 2) {
           throw new Error('This recipient has blocked messages.');
         }
+        if (contact) this.validatePaymentRecipientKeys(address, contact, account.keys);
         if (!connection) return;
         createNewContact(address, username, 2);
         Object.assign(myData.contacts[address], connection.contactUpdates);
@@ -23884,20 +23886,22 @@ class ChatModal {
       error.recipientToll = toll;
       throw error;
     }
-    // Validate current encryption keys without mutating the saved contact.
-    const { public: publicKey, pqPublic: pqPublicKey } = contactUpdates;
-    try {
-      if (!publicKey || !pqPublicKey || bin2hex(generateAddress(hex2bin(publicKey))) !== address) {
-        throw new Error('Missing or invalid recipient key');
-      }
-      dhkeyCombined(account.keys.secret, publicKey, pqPublicKey);
-    } catch {
-      throw new Error('Cannot verify recipient encryption keys. Try again.');
-    }
+    this.validatePaymentRecipientKeys(address, contactUpdates, account.keys);
     return {
       address, username: resolution.username, fee: fee.toString(), toll: toll.toString(), totalRequired: totalRequired.toString(),
       contactUpdates,
     };
+  }
+
+  validatePaymentRecipientKeys(address, { public: publicKey, pqPublic: pqPublicKey }, keys) {
+    try {
+      if (!pqPublicKey || !isPublicKeyForAddress(publicKey, address, generateAddress)) {
+        throw new Error('Missing or invalid recipient key');
+      }
+      dhkeyCombined(keys.secret, publicKey, pqPublicKey);
+    } catch (error) {
+      throw new Error('Cannot verify recipient encryption keys. Try again.', { cause: error });
+    }
   }
 
   async prepareEvmPaymentMessage(record, account, isCurrent = () => true) {
