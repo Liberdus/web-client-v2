@@ -23884,10 +23884,16 @@ class ChatModal {
     if ((recipient.private === true) !== senderIsPrivate) {
       throw new Error(`${senderIsPrivate ? 'Private' : 'Public'} accounts can only send chat payments to other ${senderIsPrivate ? 'private' : 'public'} accounts.`);
     }
-    const required = tollInfo?.error === 'No account with the given chatId'
-      ? 1 : tollInfo?.toll?.required?.[sorted.indexOf(longAddress(address))];
-    if (![0, 1, 2].includes(required)) throw new Error('Cannot check recipient toll. Try again.');
+    const noChat = tollInfo?.error === 'No account with the given chatId';
+    const recipientIndex = sorted.indexOf(longAddress(address));
+    const tollRequirements = tollInfo?.toll?.required;
+    const required = noChat ? 1 : tollRequirements?.[recipientIndex];
+    const senderRequired = noChat ? 1 : tollRequirements?.[1 - recipientIndex];
+    if (![0, 1, 2].includes(required) || (forIntents && ![0, 1, 2].includes(senderRequired))) {
+      throw new Error('Cannot check recipient toll. Try again.');
+    }
     if (required === 2) throw new Error('This recipient has blocked messages.');
+    if (forIntents && senderRequired === 2) throw new Error('You have blocked this recipient.');
     const tollUnit = recipient.data.tollUnit || 'LIB';
     if (typeof recipient.data.toll !== 'bigint' || !['LIB', 'USD'].includes(tollUnit)) {
       throw new Error('Cannot determine recipient toll.');
