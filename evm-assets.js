@@ -2277,12 +2277,14 @@ class EvmReceiveModal {
     this.preview.textContent = '';
     try {
       const text = `liberdus://${bin2base64(utf82bin(JSON.stringify(this.createQRPaymentData())))}`;
-      const bytes = qr.encodeQR(text, 'gif', { scale: 4 });
+      const scale = 2;
+      const bytes = qr.encodeQR(text, 'gif', { scale, border: 4 });
       const img = document.createElement('img');
-      img.src = `data:image/gif;base64,${bin2base64(new Uint8Array(bytes))}`;
       img.width = 200;
       img.height = 200;
       img.alt = 'EVM payment request QR code';
+      img.addEventListener('load', () => this.sizeQRCode(img, scale));
+      img.src = `data:image/gif;base64,${bin2base64(new Uint8Array(bytes))}`;
       this.qrcodeContainer.appendChild(img);
       return text;
     } catch (error) {
@@ -2290,6 +2292,14 @@ class EvmReceiveModal {
       this.preview.textContent = 'Unable to generate the payment QR code. You can still copy your address.';
       this.preview.style.display = 'block';
     }
+  }
+
+  sizeQRCode(img, scale) {
+    // Keep QR modules on whole pixels so dense requests remain readable.
+    const modules = img.naturalWidth / scale;
+    const size = modules * Math.max(1, Math.round(200 / modules));
+    img.width = size;
+    img.height = size;
   }
 
   handleToggleBalance() {

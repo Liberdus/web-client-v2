@@ -6684,14 +6684,21 @@ input[type='file'].form-control {
   align-items: center;
 }
 
-:is(#qrcode, #evmReceiveQRCode) img,
-:is(#qrcode, #evmReceiveQRCode) canvas,
+#qrcode img,
+#qrcode canvas,
 #secretQRCode img,
 #secretQRCode canvas {
   display: block;
   width: 200px;
   height: 200px;
   max-width: 100%;
+}
+
+#evmReceiveQRCode img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
 }
 
 #availableBalance {
