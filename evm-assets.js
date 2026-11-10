@@ -2170,7 +2170,13 @@ class EvmSendModal {
         this.controller.showToast('This asset is no longer available. Refresh and try again.', 3000, 'warning');
         return;
       }
-      const assetId = asset.contractAddress ? normalizeEvmAddress(asset.contractAddress, 'token contract') : 'native';
+      const contractAddress = asset.contractAddress?.trim();
+      let assetId = null;
+      if (contractAddress && EVM_ADDRESS_PATTERN.test(contractAddress)) {
+        assetId = contractAddress.toLowerCase();
+      } else if (!asset.contractAddress && String(asset.tokenType).toLowerCase() === 'native') {
+        assetId = 'native';
+      }
       if (!request.matches(`evm:${asset.chainId}`, assetId)) {
         this.controller.showToast(request.switchMessage, 0, 'warning');
         return;
