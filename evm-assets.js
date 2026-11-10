@@ -2269,12 +2269,13 @@ class EvmReceiveModal {
 
   createQRPaymentData() {
     const { account, network, asset, address } = this.session;
+    const isNative = String(asset.tokenType).toLowerCase() === 'native' && !asset.contractAddress;
     const data = {
       u: account.username,
       n: network.id,
       nn: network.name,
       c: network.chainId,
-      i: asset.contractAddress ? normalizeEvmAddress(asset.contractAddress, 'token contract') : 'native',
+      i: isNative ? 'native' : normalizeEvmAddress(asset.contractAddress, 'token contract'),
       s: asset.tokenSymbol,
       d: this.balanceSymbol.textContent.toUpperCase(),
       r: address,
