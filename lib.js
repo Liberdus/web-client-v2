@@ -1443,6 +1443,7 @@ export class PaymentQR {
   }
 
   static encode(payment) {
+    this.fromPayment(payment);
     return this.prefix + bin2base64(utf82bin(JSON.stringify(payment)));
   }
 
@@ -1455,6 +1456,11 @@ export class PaymentQR {
     } catch {
       throw new Error(invalid);
     }
+    return this.fromPayment(payment, allowProfile);
+  }
+
+  static fromPayment(payment, allowProfile = false) {
+    const invalid = 'Invalid payment QR code format.';
     if (!payment || typeof payment.u !== 'string' || !payment.u.trim()) throw new Error(invalid);
     if (allowProfile && Object.keys(payment).length === 1) return new PaymentQR(payment);
 

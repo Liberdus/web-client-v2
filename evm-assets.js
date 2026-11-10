@@ -2170,7 +2170,8 @@ class EvmSendModal {
         this.controller.showToast('This asset is no longer available. Refresh and try again.', 3000, 'warning');
         return;
       }
-      if (!request.matches(`evm:${asset.chainId}`, asset.contractAddress?.toLowerCase() || 'native')) {
+      const assetId = asset.contractAddress ? normalizeEvmAddress(asset.contractAddress, 'token contract') : 'native';
+      if (!request.matches(`evm:${asset.chainId}`, assetId)) {
         this.controller.showToast(request.switchMessage, 0, 'warning');
         return;
       }
@@ -2267,7 +2268,7 @@ class EvmReceiveModal {
       n: network.id,
       nn: network.name,
       c: network.chainId,
-      i: asset.contractAddress?.toLowerCase() || 'native',
+      i: asset.contractAddress ? normalizeEvmAddress(asset.contractAddress, 'token contract') : 'native',
       s: asset.tokenSymbol,
       d: this.balanceSymbol.textContent.toUpperCase(),
       r: address,
