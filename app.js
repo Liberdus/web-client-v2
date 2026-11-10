@@ -8907,13 +8907,14 @@ class ScanQRModal {
     this.closeButton.addEventListener('click', () => { this.close(); });
   }
 
-  open(fill) {
-    if (!openModal(this.modal)) return;
-    const session = this.session = { fill, stream: null, scanInterval: null };
+  open(fill, onCancel) {
+    if (!openModal(this.modal)) return false;
+    const session = this.session = { fill, onCancel, stream: null, scanInterval: null };
     void this.startCamera(session);
+    return true;
   }
 
-  close() {
+  close(decodedText) {
     const session = this.session;
     this.session = null;
     this.modal.classList.remove('active');
@@ -8923,6 +8924,8 @@ class ScanQRModal {
     this.video.onerror = null;
     session.stream?.getTracks().forEach((track) => track.stop());
     this.video.srcObject = null;
+    if (decodedText) session.fill(decodedText);
+    else session.onCancel?.();
   }
 
   async startCamera(session) {
@@ -9016,8 +9019,7 @@ class ScanQRModal {
 
         // If QR code found and decoded
         if (decodedText) {
-          this.close();
-          session.fill(decodedText);
+          this.close(decodedText);
         }
       } catch (error) {
         // qr.decodeQR throws error if not found or on error
@@ -35782,7 +35784,7 @@ chatPaymentPanel.configure({
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
   showToast,
   lookupUsername: (username) => getUsernameAddress(username, { requireNetworkResult: true }),
-  openQRScanner: (fill) => qrScanModal.open(fill),
+  openQRScanner: (fill, onCancel) => qrScanModal.open(fill, onCancel),
   createContactAutocomplete: ({ input, list, onSelect }) => new ContactAutocomplete({
     input,
     list,

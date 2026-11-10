@@ -5741,11 +5741,12 @@ export class ChatPaymentPanel {
   }
 
   canReadQR(session) {
-    return this.isCurrentSession(session) && session.fromWallet && !this.scanQRButton.disabled && !this.reviewing;
+    return this.isCurrentSession(session) && session.fromWallet && !session.scanningQR
+      && !this.scanQRButton.disabled && !this.reviewing;
   }
 
   hasPendingQR() {
-    return Boolean(this.qrLookup || this.qrFileInput.files.length);
+    return Boolean(this.session?.scanningQR || this.qrLookup || this.qrFileInput.files.length);
   }
 
   scanQR() {
@@ -5753,8 +5754,18 @@ export class ChatPaymentPanel {
     if (!this.canReadQR(session)) return;
     this.qrFileInput.value = '';
     this.qrLookup = null;
+    session.scanningQR = true;
+    this.uploadQRButton.disabled = true;
     this.validate();
-    this.openQRScanner((data) => this.fillFromQR(data, session));
+
+    const finishScan = (data) => {
+      session.scanningQR = false;
+      if (!this.isCurrentSession(session)) return;
+      this.uploadQRButton.disabled = false;
+      if (data) void this.fillFromQR(data, session);
+      this.validate();
+    };
+    if (!this.openQRScanner(finishScan, finishScan)) finishScan();
   }
 
   async readQRFile(event) {
