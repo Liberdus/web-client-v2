@@ -12258,7 +12258,7 @@ small {
   display: none;
 }
 
-.multichain-deposit-another {
+.multichain-other-assets {
   margin: 16px 16px 0;
 }
 
@@ -12282,7 +12282,7 @@ small {
     margin-top: 16px;
   }
 
-  #multichainModal .multichain-deposit-another {
+  #multichainModal .multichain-other-assets {
     margin-top: 8px;
   }
 

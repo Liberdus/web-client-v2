@@ -3345,7 +3345,7 @@ const POPULAR = Object.freeze([
   'nep141:eth.omft.near',
   'nep141:sol.omft.near',
   'nep141:xrp.omft.near',
-  'nep245:v2_1.omni.hot.tg:56_11111111111111111111', // BNB on BNB Chain
+  'nep141:bnb.omdep.near', // BNB on BNB Chain
   'nep141:eth-0xdac17f958d2ee523a2206206994597c13d831ec7.omft.near', // USDT on Ethereum
   'nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near', // USDC on Ethereum
   'nep141:zec.omft.near',
@@ -3681,8 +3681,8 @@ class MultichainModal {
       this.render();
     });
     this.empty = document.getElementById('multichainEmpty');
-    document.getElementById('multichainDepositAnother')
-      .addEventListener('click', () => this.controller.startDeposit());
+    document.getElementById('multichainOtherAssets')
+      .addEventListener('click', () => this.controller.openOtherAssets());
 
     document.getElementById('closeMultichainModal')
       .addEventListener('click', () => this.close());
@@ -5543,14 +5543,21 @@ class MultichainController {
     return intentsAssets.refresh(options);
   }
 
-  /**
-   * Deposit anything the bridge carries, including assets outside the
-   * holdings and starter rows shown on the asset screen.
-   *
-   * The picker's rows are asset-on-chain, so one tap answers both "which
-   * token" and "which network" -- no separate network question.
-   */
-  async startDeposit() {
+  openOtherAssets() {
+    return this.openDepositableAssetPicker({
+      title: 'Other assets',
+      onPick: (key) => this.assetModal.open(key),
+    });
+  }
+
+  startDeposit() {
+    return this.openDepositableAssetPicker({
+      title: 'Deposit',
+      onPick: (key) => this.receiveModal.open(key),
+    });
+  }
+
+  async openDepositableAssetPicker({ title, onPick }) {
     try {
       await intentsDeposits.loadBridgeTokens();
     } catch (error) {
@@ -5559,10 +5566,10 @@ class MultichainController {
       return;
     }
     this.tokenPicker.open({
-      title: 'Deposit',
-      // Not an asset deposits never land on, whatever the bridge lists.
+      title,
+      // Skip assets whose deposits credit a different asset.
       accepts: (asset) => intentsDeposits.isDepositable(asset.assetId) && !DEPOSIT_CREDITS[asset.assetId],
-      onPick: (key) => this.receiveModal.open(key),
+      onPick,
     });
   }
 
