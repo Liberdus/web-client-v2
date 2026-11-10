@@ -4360,6 +4360,7 @@ class MultichainReceiveModal {
 class MultichainConfirmModal {
   constructor(controller) {
     this.controller = controller;
+    this.session = 0;
     this.run = null;
   }
 
@@ -4377,11 +4378,13 @@ class MultichainConfirmModal {
     this.action.addEventListener('click', () => this.confirm());
   }
 
-  open({ title, hero, rows, actionLabel, note, run }) {
+  open({ title, hero, rows, actionLabel, note, run, onClose }) {
     // Each opening is a session. An order's payout can resolve minutes later,
     // after this sheet was left or reopened for something else; only the
     // session that started it may still write to it.
-    this.session = (this.session || 0) + 1;
+    this.session++;
+    this.onClose?.();
+    this.onClose = onClose;
     this.run = run;
     this.done = false;
     this.title.textContent = title;
@@ -4396,7 +4399,7 @@ class MultichainConfirmModal {
     this.note.textContent = note || '';
     this.status.hidden = true;
     this.status.textContent = '';
-    this.show();
+    this.show(this.session);
   }
 
   /**
@@ -4405,16 +4408,18 @@ class MultichainConfirmModal {
    * a refusal has to be retried rather than silently dropping the screen the
    * person is waiting for.
    */
-  show(attempt = 0) {
+  show(session, attempt = 0) {
+    if (this.session !== session) return;
     if (openModal(this.modal) || this.modal.classList.contains('active')) return;
     // Long enough to outlast openModal's lock, which falls back to 1s when a
     // slide-in's transitionend never fires. Shorter, and a quick Review
     // press on a screen still sliding in would show nothing at all.
     if (attempt >= 20) {
       console.warn('Confirmation screen could not be opened');
+      this.close();
       return;
     }
-    setTimeout(() => this.show(attempt + 1), 60);
+    setTimeout(() => this.show(session, attempt + 1), 60);
   }
 
   setStatus(message, kind = '') {
@@ -4440,6 +4445,7 @@ class MultichainConfirmModal {
   }
 
   async confirm() {
+    if (!this.isActive()) return;
     if (this.done) {
       this.controller.finishMove();
       return;
@@ -4461,7 +4467,11 @@ class MultichainConfirmModal {
   }
 
   close() {
+    this.session++;
     this.modal.classList.remove('active');
+    const onClose = this.onClose;
+    this.onClose = null;
+    onClose?.();
   }
 
   isActive() {
@@ -5734,6 +5744,10 @@ export class ChatPaymentPanel {
     return this.isCurrentSession(session) && session.fromWallet && !this.scanQRButton.disabled && !this.reviewing;
   }
 
+  hasPendingQR() {
+    return Boolean(this.qrLookup || this.qrFileInput.files.length);
+  }
+
   scanQR() {
     const session = this.session;
     if (!this.canReadQR(session)) return;
@@ -6022,7 +6036,7 @@ export class ChatPaymentPanel {
     // After the money has gone, nothing may turn this back into a Send button.
     if (this.pendingReceipt || this.done) return;
     const problem = this.amount.problem();
-    const checkingQR = Boolean(this.qrLookup || this.qrFileInput.files.length);
+    const checkingQR = this.hasPendingQR();
     if (checkingQR) this.setStatus('Checking QR request…');
     else if (!this.reviewing) this.setStatus(problem || '', problem ? 'error' : '');
     this.sendButton.disabled = this.session?.loading || checkingQR || this.reviewing || this.sending
@@ -6058,27 +6072,24 @@ export class ChatPaymentPanel {
     const session = this.session;
     const asset = this.selectedAsset();
     const amount = this.amount.tokenAmount();
-    if (!this.isCurrentSession(session) || session.loading || this.qrLookup || this.qrFileInput.files.length
-      || this.reviewing || this.sending
+    if (!this.isCurrentSession(session) || session.loading || this.hasPendingQR() || this.reviewing || this.sending
       || !asset || !this.recipientAddress || this.amount.problem() !== null) return;
 
     const note = this.noteInput.value.trim() || null;
     const payment = { session, asset, amount, note, address: this.recipientAddress, lookup: this.recipientLookup };
 
     this.reviewing = true;
-    this.uploadQRButton.disabled = true;
+    this.scanQRButton.disabled = this.uploadQRButton.disabled = true;
     this.qrFileInput.value = '';
     this.contactAutocomplete?.close();
     this.sendButton.disabled = true;
     this.setStatus('Checking…');
     const { problem } = await this.checkRecipient(payment.address, payment.lookup);
     if (!this.isCurrentSession(session)) return;
-    this.reviewing = false;
-    this.uploadQRButton.disabled = false;
-    this.validate();
-    if (!this.isCurrentPayment(payment)) return;
-    if (problem) {
-      this.setStatus(problem, 'error');
+    const current = this.isCurrentPayment(payment);
+    if (!current || problem) {
+      this.endReview(session);
+      if (current && problem) this.setStatus(problem, 'error');
       return;
     }
     this.setStatus('');
@@ -6105,11 +6116,20 @@ export class ChatPaymentPanel {
       actionLabel: `Send ${asset.tokenSymbol}`,
       note: 'Payments cannot be undone.',
       run: (sheet) => this.run(sheet, payment),
+      onClose: () => this.endReview(session),
     });
+  }
+
+  endReview(session) {
+    if (!this.isCurrentSession(session)) return;
+    this.reviewing = false;
+    this.scanQRButton.disabled = this.uploadQRButton.disabled = this.recipientInput.disabled;
+    this.validate();
   }
 
   isCurrentPayment(payment) {
     return this.isCurrentSession(payment.session)
+      && !this.hasPendingQR()
       && (!payment.session.fromWallet || this.isCurrentRecipientLookup(payment.lookup))
       && this.recipientAddress === payment.address && this.assetKey === payment.asset.key
       && this.amount.tokenAmount() === payment.amount && (this.noteInput.value.trim() || null) === payment.note
@@ -6244,7 +6264,7 @@ export class ChatPaymentPanel {
     this.amount.setLocked(locked);
     for (const control of [this.recipientInput, this.noteInput, this.noteToggle]) control.disabled = locked;
     this.assetPicker.disabled = locked || this.session.fromWallet || this.session.loading;
-    this.scanQRButton.disabled = this.uploadQRButton.disabled = locked || this.session.loading;
+    this.scanQRButton.disabled = this.uploadQRButton.disabled = locked || this.session.loading || this.reviewing;
   }
 
   /** The transfer's outcome is unknowable: leave, never resend. */
