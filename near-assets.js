@@ -5745,7 +5745,11 @@ export class ChatPaymentPanel {
     const input = event.target;
     const file = input.files[0];
     const session = this.session;
-    if (!file || !this.canReadQR(session)) return;
+    if (!file) return;
+    if (!this.canReadQR(session)) {
+      input.value = '';
+      return;
+    }
     let text;
     try {
       text = await QRImageDecoder.decode(file);
@@ -6050,6 +6054,7 @@ export class ChatPaymentPanel {
     const payment = { session, asset, amount, note, address: this.recipientAddress, lookup: this.recipientLookup };
 
     this.reviewing = true;
+    this.uploadQRButton.disabled = true;
     this.qrFileInput.value = '';
     this.contactAutocomplete?.close();
     this.sendButton.disabled = true;
@@ -6057,6 +6062,7 @@ export class ChatPaymentPanel {
     const { problem } = await this.checkRecipient(payment.address, payment.lookup);
     if (!this.isCurrentSession(session)) return;
     this.reviewing = false;
+    this.uploadQRButton.disabled = false;
     this.validate();
     if (!this.isCurrentPayment(payment)) return;
     if (problem) {
