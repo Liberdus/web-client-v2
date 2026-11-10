@@ -5431,6 +5431,8 @@ class MultichainSwapModal {
 class MultichainController {
   constructor() {
     this.loaded = false;
+    this.depositPickerLoad = null;
+    this.depositPickerRequestId = 0;
     this.getAccount = () => null;
     // The chat payment panel registers its send action when configured.
     this.onSend = () => {};
@@ -5558,13 +5560,19 @@ class MultichainController {
   }
 
   async openDepositableAssetPicker({ title, onPick }) {
+    const requestId = ++this.depositPickerRequestId;
     try {
-      await intentsDeposits.loadBridgeTokens();
+      this.depositPickerLoad ??= intentsDeposits.loadBridgeTokens().finally(() => {
+        this.depositPickerLoad = null;
+      });
+      await this.depositPickerLoad;
     } catch (error) {
+      if (requestId !== this.depositPickerRequestId) return;
       console.warn('Deposit options unavailable:', error);
       this.assetsModal.statusLine.textContent = 'Could not load what you can receive. Try again in a moment.';
       return;
     }
+    if (requestId !== this.depositPickerRequestId) return;
     this.tokenPicker.open({
       title,
       // Skip assets whose deposits credit a different asset.
@@ -5668,7 +5676,7 @@ export class ChatPaymentPanel {
 
   load() {
     if (this.loaded) return;
-    this.modal = $('chatSendModal');
+    this.modal = $('nearIntentsSendModal');
     this.title = $('chatSendTitle');
     this.form = $('chatSendForm');
     this.empty = $('chatSendEmpty');
@@ -5709,7 +5717,7 @@ export class ChatPaymentPanel {
       },
     });
 
-    $('closeChatSendModal').addEventListener('click', () => this.close());
+    $('closeNearIntentsSendModal').addEventListener('click', () => this.close());
     this.sendButton.addEventListener('click', () => this.primaryAction());
     this.assetPicker.addEventListener('click', () => {
       const session = this.session;
