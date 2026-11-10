@@ -35510,6 +35510,8 @@ class SendAssetConfirmModal {
 const sendAssetConfirmModal = new SendAssetConfirmModal();
 
 class ReceiveModal {
+  static qrScale = 4;
+
   constructor() {
     this.session = null;
   }
@@ -35538,6 +35540,7 @@ class ReceiveModal {
     this.amountInput.addEventListener('input', () => this.scheduleQRCode());
     this.memoInput.addEventListener('input', () => this.scheduleQRCode());
     this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
+    window.addEventListener('resize', () => this.sizeQRCode());
   }
 
   open() {
@@ -35647,19 +35650,7 @@ class ReceiveModal {
       // Create URI with liberdus:// prefix
       const qrText = `liberdus://${base64Data}`;
 
-      const gifBytes = qr.encodeQR(qrText, 'gif', { scale: 4 });
-      // Convert the raw bytes to a base64 data URL
-      const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(gifBytes)));
-      const dataUrl = 'data:image/gif;base64,' + base64;
-      // Create an image element and set its source to the data URL
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      img.width = 200;
-      img.height = 200;
-      // Add the image to the container
-      this.qrcodeContainer.appendChild(img);
-
-      return qrText;
+      return this.renderQRCode(qrText);
     } catch (error) {
       console.error('Error in updateQRCode:', error);
 
@@ -35673,17 +35664,7 @@ class ReceiveModal {
         const fallbackBase64Data = btoa(fallbackJsonData);
         const fallbackQrText = `liberdus://${fallbackBase64Data}`;
 
-        const gifBytes = qr.encodeQR(fallbackQrText, 'gif', { scale: 4 });
-        // Convert the raw bytes to a base64 data URL
-        const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(gifBytes)));
-        const dataUrl = 'data:image/gif;base64,' + base64;
-        // Create an image element and set its source to the data URL
-        const img = document.createElement('img');
-        img.src = dataUrl;
-        img.width = 200;
-        img.height = 200;
-        // Add the image to the container
-        this.qrcodeContainer.appendChild(img);
+        this.renderQRCode(fallbackQrText);
 
         console.error('Error generating full QR', error);
 
@@ -35697,6 +35678,30 @@ class ReceiveModal {
         this.qrcodeContainer.innerHTML = '<p style="color: red; text-align: center;">Failed to generate QR code.</p>';
       }
     }
+  }
+
+  renderQRCode(text) {
+    const gifBytes = qr.encodeQR(text, 'gif', { scale: ReceiveModal.qrScale, border: 4 });
+    const img = document.createElement('img');
+    img.width = 200;
+    img.height = 200;
+    img.addEventListener('load', () => this.sizeQRCode(), { once: true });
+    img.src = `data:image/gif;base64,${bin2base64(new Uint8Array(gifBytes))}`;
+    this.qrcodeContainer.appendChild(img);
+    return text;
+  }
+
+  sizeQRCode() {
+    const img = this.qrcodeContainer.firstElementChild;
+    if (!img?.naturalWidth) return;
+
+    // Keep modules on whole pixels and leave room for the QR container's padding.
+    const modules = img.naturalWidth / ReceiveModal.qrScale;
+    const { paddingLeft, paddingRight } = getComputedStyle(this.qrcodeContainer);
+    const availableWidth = this.qrcodeContainer.clientWidth - parseFloat(paddingLeft) - parseFloat(paddingRight);
+    const scale = Math.max(1, Math.floor(availableWidth / modules));
+    img.width = modules * scale;
+    img.height = img.width;
   }
 
   /**
