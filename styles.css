@@ -584,6 +584,13 @@ body {
   top: env(safe-area-inset-top, 0);
   /* z-index: 1000; */
   margin-top: env(safe-area-inset-top, 0);
+  /* On desktop the frame has a fixed height, so a shorter window scrolls the
+     page. Keep the header in its place in the frame there, like the footer and
+     the modal headers, instead of sliding over the active screen. */
+  @media (min-width: 769px) {
+    position: relative;
+    top: auto;
+  }
 }
 
 #logo {
