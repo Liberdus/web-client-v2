@@ -6684,7 +6684,10 @@ input[type='file'].form-control {
   align-items: center;
 }
 
-#qrcode img,
+#qrcode {
+  max-width: 100%;
+}
+
 #qrcode canvas,
 #secretQRCode img,
 #secretQRCode canvas {
@@ -6694,7 +6697,7 @@ input[type='file'].form-control {
   max-width: 100%;
 }
 
-#evmReceiveQRCode img {
+:is(#qrcode, #evmReceiveQRCode) img {
   display: block;
   max-width: 100%;
   height: auto;

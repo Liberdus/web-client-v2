@@ -35487,6 +35487,8 @@ class SendAssetConfirmModal {
 const sendAssetConfirmModal = new SendAssetConfirmModal();
 
 class ReceiveModal {
+  static qrScale = 4;
+
   constructor() {
     this.session = null;
   }
@@ -35515,6 +35517,7 @@ class ReceiveModal {
     this.amountInput.addEventListener('input', () => this.scheduleQRCode());
     this.memoInput.addEventListener('input', () => this.scheduleQRCode());
     this.toggleReceiveBalanceButton.addEventListener('click', this.handleToggleBalance.bind(this));
+    window.addEventListener('resize', () => this.sizeQRCode());
   }
 
   open() {
@@ -35606,13 +35609,27 @@ class ReceiveModal {
 
   renderQRCode(payment) {
     const text = PaymentQR.encode(payment);
-    const gifBytes = qr.encodeQR(text, 'gif', { scale: 4 });
+    const gifBytes = qr.encodeQR(text, 'gif', { scale: ReceiveModal.qrScale, border: 4 });
     const img = document.createElement('img');
-    img.src = `data:image/gif;base64,${bin2base64(new Uint8Array(gifBytes))}`;
     img.width = 200;
     img.height = 200;
+    img.addEventListener('load', () => this.sizeQRCode(), { once: true });
+    img.src = `data:image/gif;base64,${bin2base64(new Uint8Array(gifBytes))}`;
     this.qrcodeContainer.appendChild(img);
     return text;
+  }
+
+  sizeQRCode() {
+    const img = this.qrcodeContainer.firstElementChild;
+    if (!img?.naturalWidth) return;
+
+    // Keep modules on whole pixels and leave room for the QR container's padding.
+    const modules = img.naturalWidth / ReceiveModal.qrScale;
+    const { paddingLeft, paddingRight } = getComputedStyle(this.qrcodeContainer);
+    const availableWidth = this.qrcodeContainer.parentElement.clientWidth - parseFloat(paddingLeft) - parseFloat(paddingRight);
+    const scale = Math.max(1, Math.min(Math.round(200 / modules), Math.floor(availableWidth / modules)));
+    img.width = modules * scale;
+    img.height = img.width;
   }
 
   /**
