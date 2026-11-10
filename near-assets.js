@@ -5738,6 +5738,8 @@ export class ChatPaymentPanel {
     const session = this.session;
     if (!this.canReadQR(session)) return;
     this.qrFileInput.value = '';
+    this.qrLookup = null;
+    this.validate();
     this.openQRScanner((data) => this.fillFromQR(data, session));
   }
 
@@ -5745,22 +5747,30 @@ export class ChatPaymentPanel {
     const input = event.target;
     const file = input.files[0];
     const session = this.session;
-    if (!file) return;
     if (!this.canReadQR(session)) {
       input.value = '';
       return;
     }
-    let text;
+    if (!file) {
+      this.validate();
+      return;
+    }
+    this.qrLookup = null;
+    // Keep the selected file in place until decoding and verification finish.
+    this.validate();
     try {
-      text = await QRImageDecoder.decode(file);
-    } catch {
-      if (this.canReadQR(session) && input.files[0] === file) {
-        this.showToast('Could not read QR code from image.', 0, 'error');
+      const text = await QRImageDecoder.decode(file).catch(() => {
+        if (this.canReadQR(session) && input.files[0] === file) {
+          this.showToast('Could not read QR code from image.', 0, 'error');
+        }
+      });
+      if (text && input.files[0] === file) await this.fillFromQR(text, session);
+    } finally {
+      if (input.files[0] === file) {
+        input.value = '';
+        if (this.isCurrentSession(session)) this.validate();
       }
     }
-    if (input.files[0] !== file) return;
-    input.value = '';
-    if (text) await this.fillFromQR(text, session);
   }
 
   parseQRRequest(text) {
@@ -6012,9 +6022,10 @@ export class ChatPaymentPanel {
     // After the money has gone, nothing may turn this back into a Send button.
     if (this.pendingReceipt || this.done) return;
     const problem = this.amount.problem();
-    if (this.qrLookup) this.setStatus('Checking QR request…');
+    const checkingQR = Boolean(this.qrLookup || this.qrFileInput.files.length);
+    if (checkingQR) this.setStatus('Checking QR request…');
     else if (!this.reviewing) this.setStatus(problem || '', problem ? 'error' : '');
-    this.sendButton.disabled = this.session?.loading || this.qrLookup !== null || this.reviewing || this.sending
+    this.sendButton.disabled = this.session?.loading || checkingQR || this.reviewing || this.sending
       || !this.recipientAddress || problem !== null;
   }
 
@@ -6047,7 +6058,8 @@ export class ChatPaymentPanel {
     const session = this.session;
     const asset = this.selectedAsset();
     const amount = this.amount.tokenAmount();
-    if (!this.isCurrentSession(session) || session.loading || this.qrLookup || this.reviewing || this.sending
+    if (!this.isCurrentSession(session) || session.loading || this.qrLookup || this.qrFileInput.files.length
+      || this.reviewing || this.sending
       || !asset || !this.recipientAddress || this.amount.problem() !== null) return;
 
     const note = this.noteInput.value.trim() || null;
