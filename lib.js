@@ -1433,6 +1433,43 @@ export function validateChatTransaction(transaction, context, crypto) {
   return { ok: true, txid };
 }
 
+/** Encode a Liberdus payment request after checking its target. */
+export class PaymentQR {
+  static prefix = 'liberdus://';
+
+  static encode(payment) {
+    this.validatePayment(payment);
+    return this.prefix + bin2base64(utf82bin(JSON.stringify(payment)));
+  }
+
+  static validatePayment(payment) {
+    const invalid = 'Invalid payment QR code format.';
+    if (!payment || typeof payment.u !== 'string' || !payment.u.trim()) throw new Error(invalid);
+
+    const {
+      t: type, n: networkSlug, netid, c: chainId,
+      i: assetId, s: symbol, nn: networkName,
+    } = payment;
+    if (typeof assetId !== 'string' || !assetId.trim() || typeof symbol !== 'string' || !symbol.trim()) {
+      throw new Error(invalid);
+    }
+
+    if (type === 'intents' && networkSlug === undefined && chainId === undefined) return;
+    if (type !== undefined || typeof networkSlug !== 'string' || !networkSlug.trim()
+      || typeof networkName !== 'string' || !networkName.trim()) throw new Error(invalid);
+
+    if (networkSlug === 'liberdus') {
+      if (typeof netid !== 'string' || !netid.trim() || assetId !== 'liberdus' || chainId !== undefined) {
+        throw new Error(invalid);
+      }
+      return;
+    }
+    if (!Number.isSafeInteger(chainId) || chainId <= 0 || (assetId !== 'native' && !isValidEthereumAddress(assetId))) {
+      throw new Error(invalid);
+    }
+  }
+}
+
 /** Decode an uploaded image without owning any caller's form state. */
 export class QRImageDecoder {
   /** @param {File} file @returns {Promise<string>} */
