@@ -1,6 +1,4 @@
 import {
-  base642bin,
-  bin2utf8,
   bin2base64,
   normalizeUnsignedFloat,
   BUTTON_COOLDOWN_MS,
@@ -2165,12 +2163,28 @@ class EvmSendModal {
   }
 
   fillFromQR(data) {
-    this.resetForm();
     try {
-      if (!data?.startsWith('liberdus://')) throw new Error('Invalid payment QR code format.');
-      const payment = JSON.parse(bin2utf8(base642bin(data.slice('liberdus://'.length))));
-      // QR data does not change the selected asset.
-      this.usernameInput.value = payment.u || '';
+      const request = PaymentQR.decode(data, { allowProfile: true });
+      const asset = this.getSelectedAsset();
+      if (!asset) {
+        this.controller.showToast('This asset is no longer available. Refresh and try again.', 3000, 'warning');
+        return;
+      }
+      const contractAddress = asset.contractAddress?.trim();
+      let assetId = null;
+      if (contractAddress && EVM_ADDRESS_PATTERN.test(contractAddress)) {
+        assetId = contractAddress.toLowerCase();
+      } else if (!asset.contractAddress && String(asset.tokenType).toLowerCase() === 'native') {
+        assetId = 'native';
+      }
+      if (!request.matches(`evm:${asset.chainId}`, assetId)) {
+        this.controller.showToast(request.switchMessage, 0, 'warning');
+        return;
+      }
+
+      this.resetForm();
+      const { payment } = request;
+      this.usernameInput.value = payment.u;
       this.amountInput.value = payment.a || '';
       return this.handleRecipientInput({ memo: typeof payment.m === 'string' ? payment.m : '' });
     } catch (error) {

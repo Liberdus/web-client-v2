@@ -4,7 +4,6 @@
 
 import {
   base582bin,
-  base642bin,
   bin2base58,
   bin2base64,
   bin2hex,
@@ -5825,28 +5824,17 @@ export class ChatPaymentPanel {
     }
   }
 
-  parseQRRequest(text) {
-    const prefix = 'liberdus://';
-    let data;
-    try {
-      if (!text.startsWith(prefix)) throw new Error();
-      data = JSON.parse(bin2utf8(base642bin(text.slice(prefix.length))));
-    } catch {
-      throw new Error('Invalid payment QR code.');
+  parseQRRequest(payment, asset) {
+    const username = payment.u.toLowerCase();
+    const address = typeof payment.address === 'string' && intentsAccountIdForAddress(payment.address);
+    if (!/^[a-z0-9]{3,15}$/.test(username) || !address) {
+      throw new Error('This payment request has an invalid username or address.');
     }
-    if (data?.t !== 'intents') throw new Error('Scan a NEAR Assets Receive QR code.');
-
-    const username = typeof data.u === 'string' ? data.u.toLowerCase() : '';
-    const address = typeof data.address === 'string' && intentsAccountIdForAddress(data.address);
-    if (!/^[a-z0-9]{3,15}$/.test(username) || !address || typeof data.i !== 'string' || !data.i) {
-      throw new Error('This payment request has an invalid username, address, or asset ID.');
-    }
-    const { a: amount = '', m: memo = '' } = data;
+    const { a: amount = '', m: memo = '' } = payment;
     if (typeof amount !== 'string' || typeof memo !== 'string' || memo.length > 140) {
       throw new Error('This payment request has an invalid amount or note.');
     }
-    const asset = intentsAssets.getAssets().find(({ assetId, rawAmount }) => assetId === data.i && rawAmount !== '0');
-    if (!asset) throw new Error('The requested asset is unavailable in your NEAR Assets wallet.');
+    if (!asset || asset.rawAmount === '0') throw new Error('The requested asset is unavailable in your NEAR Assets wallet.');
     if (amount) parseTokenAmount(amount, asset.tokenDecimals);
     return { username, address, assetKey: asset.key, amount, memo };
   }
@@ -5855,7 +5843,14 @@ export class ChatPaymentPanel {
     if (!this.canReadQR(session)) return;
     let request;
     try {
-      request = this.parseQRRequest(text);
+      const qr = PaymentQR.decode(text);
+      const asset = this.selectedAsset();
+      const assetId = asset?.assetId ?? intentsAssets.getCatalogAsset(this.assetKey)?.assetId;
+      if (!qr.matches(INTENTS_NETWORK_ID, assetId)) {
+        this.showToast(qr.switchMessage, 0, 'warning');
+        return;
+      }
+      request = this.parseQRRequest(qr.payment, asset);
     } catch (error) {
       this.showToast(error.message, 0, 'error');
       return;
@@ -5877,12 +5872,10 @@ export class ChatPaymentPanel {
   }
 
   applyQRRequest(lookup) {
-    const { assetKey, amount, memo } = lookup.request;
+    const { amount, memo } = lookup.request;
     this.clearRecipientLookup();
     this.recipientLookup = lookup;
     this.recipientInput.value = lookup.input = lookup.username;
-    this.assetKey = assetKey;
-    this.renderAsset();
     this.amount.reset(amount);
     this.noteInput.value = memo;
     this.noteInput.hidden = !memo;
@@ -5966,8 +5959,8 @@ export class ChatPaymentPanel {
       return;
     }
     if (lookup.request) {
-      const asset = intentsAssets.getAsset(lookup.request.assetKey);
-      if (!asset || asset.rawAmount === '0') {
+      const asset = this.selectedAsset();
+      if (!asset || asset.key !== lookup.request.assetKey || asset.rawAmount === '0') {
         showError('The requested asset is unavailable in your NEAR Assets wallet.');
         return;
       }
