@@ -516,7 +516,7 @@ function newDataRecord(myAccount) {
       networth: 0.0,
       timestamp: 0, // balance refresh throttle
       balanceUpdatedAt: 0, // last complete successful native balance refresh
-      overviewUpdatedAt: 0, // last successful refresh of all wallet balance groups
+      overviewUpdatedAt: 0, // last finished attempt to refresh all wallet balance groups
       priceTimestamp: 0, // last time when prices were updated
       assets: [
         {
@@ -2407,11 +2407,10 @@ class WalletScreen {
 
     const externalRefreshes = Promise.allSettled([
       multichain.updateSummary({ refresh: true }),
-      evmAssets.refresh().then(() => evmAssets.getStatus() === 'connected'),
+      evmAssets.refresh(),
     ]);
-    let nativeUpdated = false;
     try {
-      nativeUpdated = await this.updateWalletBalances();
+      await this.updateWalletBalances();
       if (!this.isCurrentWallet(account, walletData) || refreshId !== this.walletViewRefreshId) return;
 
       const walletUsdValue = calculateWalletUsdValue(walletData.assets);
@@ -2450,13 +2449,11 @@ class WalletScreen {
     } catch (error) {
       console.error('Error updating wallet balances:', error);
     } finally {
-      const [multichainResult, evmResult] = await externalRefreshes;
+      await externalRefreshes;
       if (loadingToastId) hideToast(loadingToastId);
       if (this.isCurrentWallet(account, walletData) && refreshId === this.walletViewRefreshId) {
-        if (nativeUpdated === true && multichainResult.status === 'fulfilled' && multichainResult.value === true
-          && evmResult.status === 'fulfilled' && evmResult.value === true) {
-          walletData.overviewUpdatedAt = getCorrectedTimestamp();
-        }
+        // Track the attempt itself: missing prices and balances are captioned beside each total.
+        walletData.overviewUpdatedAt = getCorrectedTimestamp();
         this.isUpdating = false;
         this.updateBalanceUpdatedAt();
       }
