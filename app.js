@@ -35811,6 +35811,10 @@ chatPaymentPanel.configure({
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
   showToast,
   lookupUsername: (username) => getUsernameAddress(username, { requireNetworkResult: true }),
+  openQRScanner: (fill) => {
+    qrScanModal.fillFunction = fill;
+    qrScanModal.open();
+  },
   createContactAutocomplete: ({ input, list, onSelect }) => new ContactAutocomplete({
     input,
     list,
