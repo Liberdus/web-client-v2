@@ -5758,14 +5758,15 @@ export class ChatPaymentPanel {
     this.uploadQRButton.disabled = true;
     this.validate();
 
-    const finishScan = (data) => {
+    const finishScan = (data, restoreFocus = true) => {
       session.scanningQR = false;
       if (!this.isCurrentSession(session)) return;
       this.uploadQRButton.disabled = false;
       if (data) void this.fillFromQR(data, session);
       this.validate();
+      if (restoreFocus) this.scanQRButton.focus({ preventScroll: true });
     };
-    if (!this.openQRScanner(finishScan, finishScan)) finishScan();
+    if (!this.openQRScanner(finishScan, finishScan, this.modal)) finishScan(undefined, false);
   }
 
   async readQRFile(event) {

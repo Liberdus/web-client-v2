@@ -8907,9 +8907,13 @@ class ScanQRModal {
     this.closeButton.addEventListener('click', () => { this.close(); });
   }
 
-  open(fill, onCancel) {
+  open(fill, onCancel, background) {
     if (!openModal(this.modal)) return false;
-    const session = this.session = { fill, onCancel, stream: null, scanInterval: null };
+    const session = this.session = { fill, onCancel, background, stream: null, scanInterval: null };
+    if (background) {
+      background.inert = true;
+      this.closeButton.focus({ preventScroll: true });
+    }
     void this.startCamera(session);
     return true;
   }
@@ -8924,6 +8928,7 @@ class ScanQRModal {
     this.video.onerror = null;
     session.stream?.getTracks().forEach((track) => track.stop());
     this.video.srcObject = null;
+    if (session.background) session.background.inert = false;
     if (decodedText) session.fill(decodedText);
     else session.onCancel?.();
   }
@@ -35784,7 +35789,7 @@ chatPaymentPanel.configure({
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
   showToast,
   lookupUsername: (username) => getUsernameAddress(username, { requireNetworkResult: true }),
-  openQRScanner: (fill, onCancel) => qrScanModal.open(fill, onCancel),
+  openQRScanner: (fill, onCancel, background) => qrScanModal.open(fill, onCancel, background),
   createContactAutocomplete: ({ input, list, onSelect }) => new ContactAutocomplete({
     input,
     list,
