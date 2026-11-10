@@ -2691,10 +2691,7 @@ class MenuModal {
       getSystemNoticeIntervalId = null;
     }
     callsModal.stopPeriodicCallsRefresh();
-    // Stop camera if it's running
-    if (typeof qrScanModal !== 'undefined' && qrScanModal.camera.scanInterval) {
-      qrScanModal.stopCamera();
-    }
+    if (qrScanModal.session) qrScanModal.close();
 
     // Save myData to localStorage if it exists
     saveState();
@@ -8897,12 +8894,7 @@ function createNewContact(addr, username, friendStatus = 1, tolledDepositToastSh
 
 class ScanQRModal {
   constructor() {
-    this.fillFunction = null;
-    this.camera = {
-      stream: null,
-      scanning: false,
-      scanInterval: null
-    };
+    this.session = null;
   }
 
   load() {
@@ -8915,31 +8907,43 @@ class ScanQRModal {
     this.closeButton.addEventListener('click', () => { this.close(); });
   }
 
-  open() {
-    openModal(this.modal);
-    this.startCamera();
+  open(fill, onCancel, background) {
+    if (!openModal(this.modal)) return false;
+    const session = this.session = { fill, onCancel, background, stream: null, scanInterval: null };
+    if (background) {
+      background.inert = true;
+      this.closeButton.focus({ preventScroll: true });
+    }
+    void this.startCamera(session);
+    return true;
   }
 
-  close() {
+  close(decodedText) {
+    const session = this.session;
+    this.session = null;
     this.modal.classList.remove('active');
-    this.stopCamera();
+    if (!session) return;
+    clearInterval(session.scanInterval);
+    this.video.onloadedmetadata = null;
+    this.video.onerror = null;
+    session.stream?.getTracks().forEach((track) => track.stop());
+    this.video.srcObject = null;
+    if (session.background) session.background.inert = false;
+    if (decodedText) session.fill(decodedText);
+    else session.onCancel?.();
   }
 
-  async startCamera() {
+  async startCamera(session) {
     try {
       // First check if camera API is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera API is not supported in this browser');
       }
 
-      // Stop any existing stream
-      if (this.camera.stream) {
-        this.stopCamera();
-      }
-
       // Request camera access with specific error handling
+      let stream;
       try {
-        this.camera.stream = await navigator.mediaDevices.getUserMedia({
+        stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'environment', // Use back camera
             width: { ideal: 1280 },
@@ -8951,7 +8955,6 @@ class ScanQRModal {
         // Handle specific getUserMedia errors
         switch (mediaError.name) {
           case 'NotAllowedError':
-            this.close();
             throw new Error(
               'Camera access was denied. Please check your device settings and grant permission to use the camera.'
             );
@@ -8968,53 +8971,38 @@ class ScanQRModal {
         }
       }
 
-      // Connect the camera stream to the video element
-      this.video.srcObject = this.camera.stream;
+      if (this.session !== session) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      session.stream = stream;
       this.video.setAttribute('playsinline', true); // required for iOS Safari
 
-      // When video is ready to play
+      const reportPlaybackError = () => {
+        if (this.session !== session) return;
+        this.close();
+        showToast('Failed to start video stream.', 0, 'error');
+      };
       this.video.onloadedmetadata = () => {
-        this.video.play();
-
-        // Enable scanning and update button
-        this.camera.scanning = true;
-
-        // Start scanning for QR codes
-        // Use interval instead of requestAnimationFrame for better control over scan frequency
-        this.camera.scanInterval = setInterval(() => this.readQRCode(), 100); // scan every 100ms (10 times per second)
+        if (this.session !== session) return;
+        this.video.onloadedmetadata = null;
+        this.video.play().catch(reportPlaybackError);
+        session.scanInterval = setInterval(() => this.readQRCode(session), 100);
       };
-
-      // Add error handler for video element
-      this.video.onerror = function (error) {
-        console.error('Video element error:', error);
-        this.stopCamera();
-        throw new Error('Failed to start video stream');
-      };
+      this.video.onerror = reportPlaybackError;
+      this.video.srcObject = stream;
     } catch (error) {
+      if (this.session !== session) return;
       console.error('Error accessing camera:', error);
-      this.stopCamera(); // Ensure we clean up any partial setup
+      this.close();
 
       // Show user-friendly error message
       showToast(error.message || 'Failed to access camera. Please check your permissions and try again.', 0, 'error');
     }
   }
 
-  stopCamera() {
-    if (this.camera.scanInterval) {
-      clearInterval(this.camera.scanInterval);
-      this.camera.scanInterval = null;
-    }
-
-    if (this.camera.stream) {
-      this.camera.stream.getTracks().forEach((track) => track.stop());
-      this.camera.stream = null;
-      this.video.srcObject = null;
-      this.camera.scanning = false;
-    }
-  }
-
-  readQRCode() {
-    if (this.camera.scanning && this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
+  readQRCode(session) {
+    if (this.session === session && this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
       // Set canvas size to match video dimensions
       this.canvasElement.height = this.video.videoHeight;
       this.canvasElement.width = this.video.videoWidth;
@@ -9036,18 +9024,13 @@ class ScanQRModal {
 
         // If QR code found and decoded
         if (decodedText) {
-          this.handleSuccessfulScan(decodedText);
+          this.close(decodedText);
         }
       } catch (error) {
         // qr.decodeQR throws error if not found or on error
         //console.log('QR scanning error or not found:', error); // Optional: Log if needed since function is called every 100ms
       }
     }
-  }
-
-  handleSuccessfulScan(data) {
-    this.close();
-    if (this.fillFunction) this.fillFunction(data); // Call the assigned fill function (e.g., fillPaymentFromQR or fillStakeAddressFromQR)
   }
 }
 
@@ -20873,7 +20856,7 @@ class StakeValidatorModal {
       this.amountInput.value = normalizeUnsignedFloat(this.amountInput.value);
     });
     this.amountInput.addEventListener('input', this.debouncedValidateStakeInputs);
-    this.scanStakeQRButton.addEventListener('click', () => qrScanModal.open());
+    this.scanStakeQRButton.addEventListener('click', () => qrScanModal.open((data) => this.fillFromQR(data)));
     this.uploadStakeQRButton.addEventListener('click', () => this.stakeQRFileInput.click());
     this.stakeQRFileInput.addEventListener('change', (event) => this.readQRFile(event));
     this.faucetButton.addEventListener('click', withButtonCooldown(
@@ -20890,9 +20873,6 @@ class StakeValidatorModal {
   open() {
     if (!openModal(this.modal)) return;
     this.openContext = { account: myAccount };
-
-    // Set the correct fill function for the staking context
-    qrScanModal.fillFunction = this.fillFromQR.bind(this);
 
     // Display Available Balance and Fee
     this.updateStakeBalanceDisplay();
@@ -33617,7 +33597,7 @@ class NewChatModal {
   // Open camera scanner and fill username from scanned QR
   scanUsernameFromQR() {
     try {
-      qrScanModal.fillFunction = (data) => {
+      qrScanModal.open((data) => {
         const user = this.parseUsernameFromQRData(data);
         if (user) {
           this.recipientInput.value = normalizeUsername(user);
@@ -33625,8 +33605,7 @@ class NewChatModal {
         } else {
           showToast('QR does not contain a username', 0, 'error');
         }
-      };
-      qrScanModal.open();
+      });
     } catch (e) {
       console.error('Error starting QR scan:', e);
       showToast('Unable to start camera for scanning.', 0, 'error');
@@ -35087,10 +35066,9 @@ class SendAssetFormModal {
 
   scanQR() {
     const session = this.session;
-    qrScanModal.fillFunction = (data) => {
+    qrScanModal.open((data) => {
       if (this.isCurrentSession(session)) this.fillFromQR(data);
-    };
-    qrScanModal.open();
+    });
   }
 
   async readQRFile(event) {
@@ -35811,6 +35789,7 @@ chatPaymentPanel.configure({
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj),
   showToast,
   lookupUsername: (username) => getUsernameAddress(username, { requireNetworkResult: true }),
+  openQRScanner: (fill, onCancel, background) => qrScanModal.open(fill, onCancel, background),
   createContactAutocomplete: ({ input, list, onSelect }) => new ContactAutocomplete({
     input,
     list,
@@ -35962,10 +35941,7 @@ evmAssets.configure({
     removeEvmPayment(record);
     saveState();
   },
-  openQRScanner: (fill) => {
-    qrScanModal.fillFunction = fill;
-    qrScanModal.open();
-  },
+  openQRScanner: (fill) => qrScanModal.open(fill),
   showToast,
   hideToast,
   syncSelect: (select) => PopupSelect.sync(select),

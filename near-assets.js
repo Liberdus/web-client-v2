@@ -4,6 +4,7 @@
 
 import {
   base582bin,
+  base642bin,
   bin2base58,
   bin2base64,
   bin2hex,
@@ -11,6 +12,7 @@ import {
   hex2bin,
   utf82bin,
   BUTTON_COOLDOWN_MS,
+  QRImageDecoder,
   WalletUsdValuation,
   escapeHtml,
   openModal,
@@ -3526,10 +3528,10 @@ export class AmountField {
     max.addEventListener('click', () => this.fillMax());
   }
 
-  reset() {
+  reset(value = '') {
     this.unit = 'token';
     this.exactToken = null;
-    this.input.value = '';
+    this.input.value = value;
     this.render();
   }
 
@@ -4358,6 +4360,7 @@ class MultichainReceiveModal {
 class MultichainConfirmModal {
   constructor(controller) {
     this.controller = controller;
+    this.session = 0;
     this.run = null;
   }
 
@@ -4375,11 +4378,13 @@ class MultichainConfirmModal {
     this.action.addEventListener('click', () => this.confirm());
   }
 
-  open({ title, hero, rows, actionLabel, note, run }) {
+  open({ title, hero, rows, actionLabel, note, run, onClose }) {
     // Each opening is a session. An order's payout can resolve minutes later,
     // after this sheet was left or reopened for something else; only the
     // session that started it may still write to it.
-    this.session = (this.session || 0) + 1;
+    this.session++;
+    this.onClose?.();
+    this.onClose = onClose;
     this.run = run;
     this.done = false;
     this.title.textContent = title;
@@ -4394,7 +4399,7 @@ class MultichainConfirmModal {
     this.note.textContent = note || '';
     this.status.hidden = true;
     this.status.textContent = '';
-    this.show();
+    this.show(this.session);
   }
 
   /**
@@ -4403,16 +4408,18 @@ class MultichainConfirmModal {
    * a refusal has to be retried rather than silently dropping the screen the
    * person is waiting for.
    */
-  show(attempt = 0) {
+  show(session, attempt = 0) {
+    if (this.session !== session) return;
     if (openModal(this.modal) || this.modal.classList.contains('active')) return;
     // Long enough to outlast openModal's lock, which falls back to 1s when a
     // slide-in's transitionend never fires. Shorter, and a quick Review
     // press on a screen still sliding in would show nothing at all.
     if (attempt >= 20) {
       console.warn('Confirmation screen could not be opened');
+      this.close();
       return;
     }
-    setTimeout(() => this.show(attempt + 1), 60);
+    setTimeout(() => this.show(session, attempt + 1), 60);
   }
 
   setStatus(message, kind = '') {
@@ -4438,6 +4445,7 @@ class MultichainConfirmModal {
   }
 
   async confirm() {
+    if (!this.isActive()) return;
     if (this.done) {
       this.controller.finishMove();
       return;
@@ -4459,7 +4467,11 @@ class MultichainConfirmModal {
   }
 
   close() {
+    this.session++;
     this.modal.classList.remove('active');
+    const onClose = this.onClose;
+    this.onClose = null;
+    onClose?.();
   }
 
   isActive() {
@@ -5618,6 +5630,7 @@ export class ChatPaymentPanel {
     this.loaded = false;
     this.session = null;
     this.recipientLookup = null;
+    this.qrLookup = null;
     this.reviewing = false;
     this.recipientAddress = null;
     this.recipientName = null;
@@ -5633,7 +5646,7 @@ export class ChatPaymentPanel {
     this.checkReceiptRecipient = async () => ({});
   }
 
-  configure({ getAccount, onSent, showToast, lookupUsername, createContactAutocomplete, checkReceiptRecipient } = {}) {
+  configure({ getAccount, onSent, showToast, lookupUsername, openQRScanner, createContactAutocomplete, checkReceiptRecipient } = {}) {
     if (typeof getAccount === 'function') {
       this.getAccount = getAccount;
       intentsChatPayments.configure({ getAccount });
@@ -5641,6 +5654,7 @@ export class ChatPaymentPanel {
     if (typeof onSent === 'function') this.onSent = onSent;
     if (typeof showToast === 'function') this.showToast = showToast;
     if (typeof lookupUsername === 'function') this.lookupUsername = lookupUsername;
+    if (typeof openQRScanner === 'function') this.openQRScanner = openQRScanner;
     if (typeof createContactAutocomplete === 'function') this.createContactAutocomplete = createContactAutocomplete;
     if (typeof checkReceiptRecipient === 'function') this.checkReceiptRecipient = checkReceiptRecipient;
   }
@@ -5654,6 +5668,9 @@ export class ChatPaymentPanel {
     this.recipientGroup = $('chatSendRecipientGroup');
     this.recipientInput = $('chatSendRecipient');
     this.recipientStatus = $('chatSendRecipientStatus');
+    this.scanQRButton = $('chatSendScanQR');
+    this.uploadQRButton = $('chatSendUploadQR');
+    this.qrFileInput = $('chatSendQRFile');
     this.amountInput = $('chatSendAmount');
     this.assetLabel = $('chatSendAssetLabel');
     this.assetPicker = $('chatSendAsset');
@@ -5673,6 +5690,9 @@ export class ChatPaymentPanel {
     this.statusLine = $('chatSendStatus');
 
     this.recipientInput.addEventListener('input', () => this.handleRecipientInput());
+    this.scanQRButton.addEventListener('click', () => this.scanQR());
+    this.uploadQRButton.addEventListener('click', () => this.qrFileInput.click());
+    this.qrFileInput.addEventListener('change', (event) => this.readQRFile(event));
     this.contactAutocomplete = this.createContactAutocomplete?.({
       input: this.recipientInput,
       list: $('chatSendRecipientSuggestions'),
@@ -5720,9 +5740,137 @@ export class ChatPaymentPanel {
     return session && this.session === session && this.getAccount() === session.account && this.isActive();
   }
 
+  canReadQR(session) {
+    return this.isCurrentSession(session) && session.fromWallet && !session.scanningQR
+      && !this.scanQRButton.disabled && !this.reviewing;
+  }
+
+  syncQRButtons() {
+    const disabled = this.session?.loading || this.reviewing || this.recipientInput.disabled;
+    this.scanQRButton.disabled = disabled;
+    this.uploadQRButton.disabled = disabled || Boolean(this.session?.scanningQR);
+  }
+
+  hasPendingQR() {
+    return Boolean(this.session?.scanningQR || this.qrLookup || this.qrFileInput.files.length);
+  }
+
+  scanQR() {
+    const session = this.session;
+    if (!this.canReadQR(session)) return;
+    this.qrFileInput.value = '';
+    this.qrLookup = null;
+    session.scanningQR = true;
+    this.validate();
+
+    const finishScan = (data, restoreFocus = true) => {
+      session.scanningQR = false;
+      if (!this.isCurrentSession(session)) return;
+      if (data) void this.fillFromQR(data, session);
+      this.validate();
+      if (restoreFocus) this.scanQRButton.focus({ preventScroll: true });
+    };
+    if (!this.openQRScanner(finishScan, finishScan, this.modal)) finishScan(undefined, false);
+  }
+
+  async readQRFile(event) {
+    const input = event.target;
+    const file = input.files[0];
+    const session = this.session;
+    if (!this.canReadQR(session)) {
+      input.value = '';
+      return;
+    }
+    if (!file) {
+      this.validate();
+      return;
+    }
+    this.qrLookup = null;
+    // Keep the selected file in place until decoding and verification finish.
+    this.validate();
+    try {
+      const text = await QRImageDecoder.decode(file).catch(() => {
+        if (this.canReadQR(session) && input.files[0] === file) {
+          this.showToast('Could not read QR code from image.', 0, 'error');
+        }
+      });
+      if (text && input.files[0] === file) await this.fillFromQR(text, session);
+    } finally {
+      if (input.files[0] === file) {
+        input.value = '';
+        if (this.isCurrentSession(session)) this.validate();
+      }
+    }
+  }
+
+  parseQRRequest(text) {
+    const prefix = 'liberdus://';
+    let data;
+    try {
+      if (!text.startsWith(prefix)) throw new Error();
+      data = JSON.parse(bin2utf8(base642bin(text.slice(prefix.length))));
+    } catch {
+      throw new Error('Invalid payment QR code.');
+    }
+    if (data?.t !== 'intents') throw new Error('Scan a NEAR Assets Receive QR code.');
+
+    const username = typeof data.u === 'string' ? data.u.toLowerCase() : '';
+    const address = typeof data.address === 'string' && intentsAccountIdForAddress(data.address);
+    if (!/^[a-z0-9]{3,15}$/.test(username) || !address || typeof data.i !== 'string' || !data.i) {
+      throw new Error('This payment request has an invalid username, address, or asset ID.');
+    }
+    const { a: amount = '', m: memo = '' } = data;
+    if (typeof amount !== 'string' || typeof memo !== 'string' || memo.length > 140) {
+      throw new Error('This payment request has an invalid amount or note.');
+    }
+    const asset = intentsAssets.getAssets().find(({ assetId, rawAmount }) => assetId === data.i && rawAmount !== '0');
+    if (!asset) throw new Error('The requested asset is unavailable in your NEAR Assets wallet.');
+    if (amount) parseTokenAmount(amount, asset.tokenDecimals);
+    return { username, address, assetKey: asset.key, amount, memo };
+  }
+
+  async fillFromQR(text, session) {
+    if (!this.canReadQR(session)) return;
+    let request;
+    try {
+      request = this.parseQRRequest(text);
+    } catch (error) {
+      this.showToast(error.message, 0, 'error');
+      return;
+    }
+
+    this.contactAutocomplete?.close();
+    const lookup = this.qrLookup = {
+      session, input: this.recipientInput.value, username: request.username, expectedAddress: request.address, request,
+    };
+    this.validate();
+    try {
+      await this.resolveRecipient(lookup);
+    } finally {
+      if (this.qrLookup === lookup) {
+        this.qrLookup = null;
+        if (this.isCurrentSession(session)) this.validate();
+      }
+    }
+  }
+
+  applyQRRequest(lookup) {
+    const { assetKey, amount, memo } = lookup.request;
+    this.clearRecipientLookup();
+    this.recipientLookup = lookup;
+    this.recipientInput.value = lookup.input = lookup.username;
+    this.assetKey = assetKey;
+    this.renderAsset();
+    this.amount.reset(amount);
+    this.noteInput.value = memo;
+    this.noteInput.hidden = !memo;
+    this.noteToggle.hidden = Boolean(memo);
+  }
+
   clearRecipientLookup() {
     clearTimeout(this.recipientLookupTimer);
     this.recipientLookup = null;
+    this.qrLookup = null;
   }
 
   setRecipientStatus(message, kind = '') {
@@ -5735,6 +5883,7 @@ export class ChatPaymentPanel {
     const session = this.session;
     if (!this.isCurrentSession(session) || !session.fromWallet || this.recipientInput.disabled) return;
 
+    this.qrFileInput.value = '';
     this.clearRecipientLookup();
     this.recipientAddress = null;
     this.recipientName = null;
@@ -5756,29 +5905,34 @@ export class ChatPaymentPanel {
   }
 
   isCurrentRecipientLookup(lookup) {
-    return lookup && this.recipientLookup === lookup && this.isCurrentSession(lookup.session)
+    return lookup && (this.recipientLookup === lookup || this.qrLookup === lookup) && this.isCurrentSession(lookup.session)
       && this.recipientInput.value === lookup.input;
   }
 
   async resolveRecipient(lookup) {
     if (!this.isCurrentRecipientLookup(lookup)) return;
+    const showError = (message) => {
+      if (lookup.request) this.showToast(message, 0, 'error');
+      else this.setRecipientStatus(message, 'error');
+    };
     const resolved = await this.lookupUsername(lookup.username).catch(() => undefined);
     if (!this.isCurrentRecipientLookup(lookup)) return;
     if (resolved === null) {
-      this.setRecipientStatus('Username not found on the network.', 'error');
+      showError('Username not found on the network.');
       return;
     }
     const accountId = intentsAccountIdForAddress(resolved);
     if (!accountId) {
-      this.setRecipientStatus('Could not check the username. Try again.', 'error');
+      showError('Could not check the username. Try again.');
       return;
     }
     if (accountId === intentsAccountIdForAddress(lookup.session.account.keys.address)) {
-      this.setRecipientStatus('Choose a username other than your own.', 'error');
+      showError('Choose a username other than your own.');
       return;
     }
     if (lookup.expectedAddress && accountId !== intentsAccountIdForAddress(lookup.expectedAddress)) {
-      this.setRecipientStatus('This username no longer matches the saved contact.', 'error');
+      const source = lookup.request ? 'the payment request address' : 'the saved contact';
+      showError(`This username no longer matches ${source}.`);
       return;
     }
 
@@ -5786,8 +5940,16 @@ export class ChatPaymentPanel {
     const { problem } = await this.checkRecipient(address, lookup);
     if (!this.isCurrentRecipientLookup(lookup)) return;
     if (problem) {
-      this.setRecipientStatus(problem, 'error');
+      showError(problem);
       return;
+    }
+    if (lookup.request) {
+      const asset = intentsAssets.getAsset(lookup.request.assetKey);
+      if (!asset || asset.rawAmount === '0') {
+        showError('The requested asset is unavailable in your NEAR Assets wallet.');
+        return;
+      }
+      this.applyQRRequest(lookup);
     }
     this.recipientAddress = address;
     this.recipientName = `@${lookup.username}`;
@@ -5814,6 +5976,7 @@ export class ChatPaymentPanel {
     this.contactAutocomplete?.close();
     this.recipientGroup.hidden = !session.fromWallet;
     this.recipientInput.value = '';
+    this.qrFileInput.value = '';
     this.setRecipientStatus('');
     this.recipientAddress = recipientAddress;
     this.recipientName = recipientName;
@@ -5863,7 +6026,7 @@ export class ChatPaymentPanel {
     }
     this.assetKey = selected.key;
     session.loading = false;
-    this.assetPicker.disabled = session.fromWallet;
+    this.lockForm(false);
     this.renderAsset();
     this.amount.changed();
     return true;
@@ -5877,7 +6040,8 @@ export class ChatPaymentPanel {
       display.textContent = 'Loading…';
       return;
     }
-    display.innerHTML = `${assetMark(asset, 24)}<span>${escapeHtml(asset.tokenSymbol)}</span>${fromWallet ? '' : CARET}`;
+    const label = fromWallet ? assetTitle(asset) : asset.tokenSymbol;
+    display.innerHTML = `${assetMark(asset, 24)}<span>${escapeHtml(label)}</span>${fromWallet ? '' : CARET}`;
     if (!fromWallet) {
       this.assetPicker.setAttribute('aria-label', `Sending ${asset.tokenSymbol} on ${asset.chainName}. Change`);
     }
@@ -5887,9 +6051,12 @@ export class ChatPaymentPanel {
   validate() {
     // After the money has gone, nothing may turn this back into a Send button.
     if (this.pendingReceipt || this.done) return;
+    this.syncQRButtons();
     const problem = this.amount.problem();
-    if (!this.reviewing) this.setStatus(problem || '', problem ? 'error' : '');
-    this.sendButton.disabled = this.session?.loading || this.reviewing || this.sending
+    const checkingQR = this.hasPendingQR();
+    if (checkingQR) this.setStatus('Checking QR request…');
+    else if (!this.reviewing) this.setStatus(problem || '', problem ? 'error' : '');
+    this.sendButton.disabled = this.session?.loading || checkingQR || this.reviewing || this.sending
       || !this.recipientAddress || problem !== null;
   }
 
@@ -5922,23 +6089,23 @@ export class ChatPaymentPanel {
     const session = this.session;
     const asset = this.selectedAsset();
     const amount = this.amount.tokenAmount();
-    if (!this.isCurrentSession(session) || session.loading || this.reviewing || this.sending
+    if (!this.isCurrentSession(session) || session.loading || this.hasPendingQR() || this.reviewing || this.sending
       || !asset || !this.recipientAddress || this.amount.problem() !== null) return;
 
     const note = this.noteInput.value.trim() || null;
     const payment = { session, asset, amount, note, address: this.recipientAddress, lookup: this.recipientLookup };
 
     this.reviewing = true;
+    this.syncQRButtons();
     this.contactAutocomplete?.close();
     this.sendButton.disabled = true;
     this.setStatus('Checking…');
     const { problem } = await this.checkRecipient(payment.address, payment.lookup);
     if (!this.isCurrentSession(session)) return;
-    this.reviewing = false;
-    this.validate();
-    if (!this.isCurrentPayment(payment)) return;
-    if (problem) {
-      this.setStatus(problem, 'error');
+    const current = this.isCurrentPayment(payment);
+    if (!current || problem) {
+      this.endReview(session);
+      if (current && problem) this.setStatus(problem, 'error');
       return;
     }
     this.setStatus('');
@@ -5951,6 +6118,7 @@ export class ChatPaymentPanel {
     // rest. The exact amount earns a row only when the hero had to trim it --
     // this is the screen where what is sent must be readable in full.
     const rows = [['To', name]];
+    if (session.fromWallet && asset.chainName) rows.push(['Asset network', asset.chainName]);
     if (shown !== amount) rows.push(['Exact amount', `${amount} ${asset.tokenSymbol}`]);
     if (note) rows.push(['Note', note]);
     rows.push(['Network fee', 'None'], ['Arrives', 'Instantly']);
@@ -5964,11 +6132,19 @@ export class ChatPaymentPanel {
       actionLabel: `Send ${asset.tokenSymbol}`,
       note: 'Payments cannot be undone.',
       run: (sheet) => this.run(sheet, payment),
+      onClose: () => this.endReview(session),
     });
+  }
+
+  endReview(session) {
+    if (!this.isCurrentSession(session)) return;
+    this.reviewing = false;
+    this.validate();
   }
 
   isCurrentPayment(payment) {
     return this.isCurrentSession(payment.session)
+      && !this.hasPendingQR()
       && (!payment.session.fromWallet || this.isCurrentRecipientLookup(payment.lookup))
       && this.recipientAddress === payment.address && this.assetKey === payment.asset.key
       && this.amount.tokenAmount() === payment.amount && (this.noteInput.value.trim() || null) === payment.note
@@ -6103,6 +6279,7 @@ export class ChatPaymentPanel {
     this.amount.setLocked(locked);
     for (const control of [this.recipientInput, this.noteInput, this.noteToggle]) control.disabled = locked;
     this.assetPicker.disabled = locked || this.session.fromWallet || this.session.loading;
+    this.syncQRButtons();
   }
 
   /** The transfer's outcome is unknowable: leave, never resend. */

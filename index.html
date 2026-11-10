@@ -277,8 +277,8 @@
                     style="flex: 1"
                   />
                   <span class="input-append-icons">
-                    <button type="button" id="newChatUploadQRButton" class="icon-button" title="Upload QR image"></button>
-                    <button type="button" id="newChatScanQRButton" class="icon-button" title="Scan QR"></button>
+                    <button type="button" id="newChatUploadQRButton" class="icon-button qr-upload-icon" title="Upload QR image"></button>
+                    <button type="button" id="newChatScanQRButton" class="icon-button qr-scan-icon" title="Scan QR"></button>
                   </span>
                   <input type="file" id="newChatQRFileInput" accept="image/*" style="display: none" />
                 </div>
@@ -1966,8 +1966,13 @@
             <section id="chatSendRecipientGroup" hidden>
               <label class="multichain-swap-label" for="chatSendRecipient">Username</label>
               <div class="contact-autocomplete-field">
-                <input type="text" id="chatSendRecipient" class="form-control" placeholder="Enter username"
-                  autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="chatSendRecipientStatus" />
+                <div class="chat-send-recipient-line">
+                  <input type="text" id="chatSendRecipient" class="form-control" placeholder="Enter username"
+                    autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="chatSendRecipientStatus" />
+                  <button type="button" id="chatSendUploadQR" class="icon-button qr-upload-icon" title="Upload QR Code" aria-label="Upload QR Code"></button>
+                  <button type="button" id="chatSendScanQR" class="icon-button qr-scan-icon" title="Scan QR Code" aria-label="Scan QR Code"></button>
+                  <input type="file" id="chatSendQRFile" accept="image/*" hidden />
+                </div>
                 <div id="chatSendRecipientSuggestions" class="contact-autocomplete-list" aria-label="Saved contacts" hidden></div>
               </div>
               <div class="multichain-status" id="chatSendRecipientStatus" role="status" hidden></div>
@@ -1994,8 +1999,8 @@
 
             <!-- Most payments carry no note, so it starts as one quiet row. -->
             <button type="button" class="chat-send-note-toggle" id="chatSendNoteToggle">Add a note</button>
-            <input class="form-control chat-send-note" id="chatSendNote" type="text" maxlength="140"
-              autocomplete="off" placeholder="What is it for?" hidden />
+            <textarea class="form-control chat-send-note" id="chatSendNote" rows="2" maxlength="140"
+              autocomplete="off" aria-label="Note" placeholder="What is it for?" hidden></textarea>
 
             <button class="btn btn--primary btn--pill btn--full" id="chatSendButton" disabled>Review payment</button>
             <div class="multichain-quote-note">Arrives instantly. No network fee.</div>
@@ -3702,7 +3707,7 @@
       <!-- QR Scan Modal -->
       <div class="modal fixed-header" id="qrScanModal">
         <div class="modal-header">
-          <button class="back-button" id="closeQRScanModal"></button>
+          <button type="button" class="back-button" id="closeQRScanModal" aria-label="Back"></button>
           <div class="modal-title">Scan QR</div>
         </div>
         <div class="scanner-container">
