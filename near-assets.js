@@ -5620,6 +5620,7 @@ export class ChatPaymentPanel {
     this.loaded = false;
     this.session = null;
     this.recipientLookup = null;
+    this.qrLookup = null;
     this.reviewing = false;
     this.recipientAddress = null;
     this.recipientName = null;
@@ -5795,19 +5796,24 @@ export class ChatPaymentPanel {
     }
 
     this.contactAutocomplete?.close();
-    this.clearRecipientLookup();
-    this.recipientAddress = null;
-    this.recipientName = null;
-    const lookup = this.recipientLookup = {
+    const lookup = this.qrLookup = {
       session, input: this.recipientInput.value, username: request.username, expectedAddress: request.address, request,
     };
-    this.setRecipientStatus('Checking username…');
     this.validate();
-    await this.resolveRecipient(lookup);
+    try {
+      await this.resolveRecipient(lookup);
+    } finally {
+      if (this.qrLookup === lookup) {
+        this.qrLookup = null;
+        if (this.isCurrentSession(session)) this.validate();
+      }
+    }
   }
 
   applyQRRequest(lookup) {
     const { assetKey, amount, memo } = lookup.request;
+    this.clearRecipientLookup();
+    this.recipientLookup = lookup;
     this.recipientInput.value = lookup.input = lookup.username;
     this.assetKey = assetKey;
     this.renderAsset();
@@ -5820,6 +5826,7 @@ export class ChatPaymentPanel {
   clearRecipientLookup() {
     clearTimeout(this.recipientLookupTimer);
     this.recipientLookup = null;
+    this.qrLookup = null;
   }
 
   setRecipientStatus(message, kind = '') {
@@ -5854,30 +5861,34 @@ export class ChatPaymentPanel {
   }
 
   isCurrentRecipientLookup(lookup) {
-    return lookup && this.recipientLookup === lookup && this.isCurrentSession(lookup.session)
+    return lookup && (this.recipientLookup === lookup || this.qrLookup === lookup) && this.isCurrentSession(lookup.session)
       && this.recipientInput.value === lookup.input;
   }
 
   async resolveRecipient(lookup) {
     if (!this.isCurrentRecipientLookup(lookup)) return;
+    const showError = (message) => {
+      if (lookup.request) this.showToast(message, 0, 'error');
+      else this.setRecipientStatus(message, 'error');
+    };
     const resolved = await this.lookupUsername(lookup.username).catch(() => undefined);
     if (!this.isCurrentRecipientLookup(lookup)) return;
     if (resolved === null) {
-      this.setRecipientStatus('Username not found on the network.', 'error');
+      showError('Username not found on the network.');
       return;
     }
     const accountId = intentsAccountIdForAddress(resolved);
     if (!accountId) {
-      this.setRecipientStatus('Could not check the username. Try again.', 'error');
+      showError('Could not check the username. Try again.');
       return;
     }
     if (accountId === intentsAccountIdForAddress(lookup.session.account.keys.address)) {
-      this.setRecipientStatus('Choose a username other than your own.', 'error');
+      showError('Choose a username other than your own.');
       return;
     }
     if (lookup.expectedAddress && accountId !== intentsAccountIdForAddress(lookup.expectedAddress)) {
       const source = lookup.request ? 'the payment request address' : 'the saved contact';
-      this.setRecipientStatus(`This username no longer matches ${source}.`, 'error');
+      showError(`This username no longer matches ${source}.`);
       return;
     }
 
@@ -5885,13 +5896,13 @@ export class ChatPaymentPanel {
     const { problem } = await this.checkRecipient(address, lookup);
     if (!this.isCurrentRecipientLookup(lookup)) return;
     if (problem) {
-      this.setRecipientStatus(problem, 'error');
+      showError(problem);
       return;
     }
     if (lookup.request) {
       const asset = intentsAssets.getAsset(lookup.request.assetKey);
       if (!asset || asset.rawAmount === '0') {
-        this.setRecipientStatus('The requested asset is unavailable in your NEAR Assets wallet.', 'error');
+        showError('The requested asset is unavailable in your NEAR Assets wallet.');
         return;
       }
       this.applyQRRequest(lookup);
@@ -5997,8 +6008,9 @@ export class ChatPaymentPanel {
     // After the money has gone, nothing may turn this back into a Send button.
     if (this.pendingReceipt || this.done) return;
     const problem = this.amount.problem();
-    if (!this.reviewing) this.setStatus(problem || '', problem ? 'error' : '');
-    this.sendButton.disabled = this.session?.loading || this.reviewing || this.sending
+    if (this.qrLookup) this.setStatus('Checking QR request…');
+    else if (!this.reviewing) this.setStatus(problem || '', problem ? 'error' : '');
+    this.sendButton.disabled = this.session?.loading || this.qrLookup !== null || this.reviewing || this.sending
       || !this.recipientAddress || problem !== null;
   }
 
@@ -6031,7 +6043,7 @@ export class ChatPaymentPanel {
     const session = this.session;
     const asset = this.selectedAsset();
     const amount = this.amount.tokenAmount();
-    if (!this.isCurrentSession(session) || session.loading || this.reviewing || this.sending
+    if (!this.isCurrentSession(session) || session.loading || this.qrLookup || this.reviewing || this.sending
       || !asset || !this.recipientAddress || this.amount.problem() !== null) return;
 
     const note = this.noteInput.value.trim() || null;
