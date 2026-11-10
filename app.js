@@ -2355,10 +2355,8 @@ class WalletScreen {
     if (!Number.isFinite(timestamp) || timestamp <= 0 || !Number.isFinite(new Date(timestamp).getTime())) {
       return 'Not updated yet';
     }
-    const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
-    if (seconds === 0) return 'Updated just now';
-    if (seconds < 60) return `Updated ${seconds}s ago`;
-    const minutes = Math.floor(seconds / 60);
+    const minutes = Math.max(0, Math.floor((now - timestamp) / 60000));
+    if (minutes === 0) return 'Updated just now';
     if (minutes < 60) return `Updated ${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `Updated ${hours}h ago`;
@@ -2369,24 +2367,21 @@ class WalletScreen {
     if (!this.balanceUpdatedLabel) return;
     const timestamp = myData?.wallet?.overviewUpdatedAt;
     const text = this.isUpdating ? 'Updating…' : this.getBalanceUpdatedText(timestamp);
-    const date = this.isUpdating || text === 'Not updated yet' ? null : new Date(timestamp);
-    const datetime = date ? date.toISOString() : null;
-    // The timer ticks every second, but most ticks change nothing once the label counts minutes.
-    if (this.balanceUpdatedLabel.textContent === text && this.balanceUpdatedLabel.getAttribute('datetime') === datetime) return;
     this.balanceUpdatedLabel.textContent = text;
-    if (!date) {
+    if (this.isUpdating || text === 'Not updated yet') {
       this.balanceUpdatedLabel.removeAttribute('datetime');
       this.balanceUpdatedLabel.removeAttribute('title');
       return;
     }
-    this.balanceUpdatedLabel.setAttribute('datetime', datetime);
+    const date = new Date(timestamp);
+    this.balanceUpdatedLabel.setAttribute('datetime', date.toISOString());
     this.balanceUpdatedLabel.title = `Balances updated ${date.toLocaleString()}`;
   }
 
   startBalanceUpdatedTimer() {
     this.updateBalanceUpdatedAt();
     if (this.balanceUpdatedTimer !== null) return;
-    this.balanceUpdatedTimer = setInterval(() => this.updateBalanceUpdatedAt(), 1000);
+    this.balanceUpdatedTimer = setInterval(() => this.updateBalanceUpdatedAt(), 30000);
   }
 
   stopBalanceUpdatedTimer() {
