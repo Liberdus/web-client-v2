@@ -516,7 +516,7 @@ function newDataRecord(myAccount) {
       networth: 0.0,
       timestamp: 0, // balance refresh throttle
       balanceUpdatedAt: 0, // last complete successful native balance refresh
-      overviewUpdatedAt: 0, // last successful refresh of all wallet balance groups
+      overviewUpdatedAt: 0, // last finished attempt to refresh all wallet balance groups
       priceTimestamp: 0, // last time when prices were updated
       assets: [
         {
@@ -2355,8 +2355,10 @@ class WalletScreen {
     if (!Number.isFinite(timestamp) || timestamp <= 0 || !Number.isFinite(new Date(timestamp).getTime())) {
       return 'Not updated yet';
     }
-    const minutes = Math.max(0, Math.floor((now - timestamp) / 60000));
-    if (minutes === 0) return 'Updated just now';
+    const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+    if (seconds === 0) return 'Updated just now';
+    if (seconds < 60) return `Updated ${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `Updated ${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `Updated ${hours}h ago`;
@@ -2367,21 +2369,24 @@ class WalletScreen {
     if (!this.balanceUpdatedLabel) return;
     const timestamp = myData?.wallet?.overviewUpdatedAt;
     const text = this.isUpdating ? 'Updating…' : this.getBalanceUpdatedText(timestamp);
+    const date = this.isUpdating || text === 'Not updated yet' ? null : new Date(timestamp);
+    const datetime = date ? date.toISOString() : null;
+    // The timer ticks every second, but most ticks change nothing once the label counts minutes.
+    if (this.balanceUpdatedLabel.textContent === text && this.balanceUpdatedLabel.getAttribute('datetime') === datetime) return;
     this.balanceUpdatedLabel.textContent = text;
-    if (this.isUpdating || text === 'Not updated yet') {
+    if (!date) {
       this.balanceUpdatedLabel.removeAttribute('datetime');
       this.balanceUpdatedLabel.removeAttribute('title');
       return;
     }
-    const date = new Date(timestamp);
-    this.balanceUpdatedLabel.setAttribute('datetime', date.toISOString());
+    this.balanceUpdatedLabel.setAttribute('datetime', datetime);
     this.balanceUpdatedLabel.title = `Balances updated ${date.toLocaleString()}`;
   }
 
   startBalanceUpdatedTimer() {
     this.updateBalanceUpdatedAt();
     if (this.balanceUpdatedTimer !== null) return;
-    this.balanceUpdatedTimer = setInterval(() => this.updateBalanceUpdatedAt(), 30000);
+    this.balanceUpdatedTimer = setInterval(() => this.updateBalanceUpdatedAt(), 1000);
   }
 
   stopBalanceUpdatedTimer() {
@@ -2407,11 +2412,10 @@ class WalletScreen {
 
     const externalRefreshes = Promise.allSettled([
       multichain.updateSummary({ refresh: true }),
-      evmAssets.refresh().then(() => evmAssets.getStatus() === 'connected'),
+      evmAssets.refresh(),
     ]);
-    let nativeUpdated = false;
     try {
-      nativeUpdated = await this.updateWalletBalances();
+      await this.updateWalletBalances();
       if (!this.isCurrentWallet(account, walletData) || refreshId !== this.walletViewRefreshId) return;
 
       const walletUsdValue = calculateWalletUsdValue(walletData.assets);
@@ -2450,13 +2454,11 @@ class WalletScreen {
     } catch (error) {
       console.error('Error updating wallet balances:', error);
     } finally {
-      const [multichainResult, evmResult] = await externalRefreshes;
+      await externalRefreshes;
       if (loadingToastId) hideToast(loadingToastId);
       if (this.isCurrentWallet(account, walletData) && refreshId === this.walletViewRefreshId) {
-        if (nativeUpdated === true && multichainResult.status === 'fulfilled' && multichainResult.value === true
-          && evmResult.status === 'fulfilled' && evmResult.value === true) {
-          walletData.overviewUpdatedAt = getCorrectedTimestamp();
-        }
+        // Track the attempt itself: missing prices and balances are captioned beside each total.
+        walletData.overviewUpdatedAt = getCorrectedTimestamp();
         this.isUpdating = false;
         this.updateBalanceUpdatedAt();
       }
