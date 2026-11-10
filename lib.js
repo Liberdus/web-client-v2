@@ -1468,7 +1468,9 @@ export class PaymentQR {
 
     if (type === 'intents' && networkSlug === undefined && chainId === undefined) {
       const label = typeof assetName === 'string' && assetName.trim() ? assetName : symbol;
-      return new PaymentQR(payment, { networkId: 'intents', assetId, networkName: 'NEAR Intents', assetName: label });
+      return new PaymentQR(payment, {
+        networkId: 'intents', assetId, networkName: 'NEAR Intents', assetName: label, walletAction: 'NEAR Assets',
+      });
     }
     if (type !== undefined || typeof networkSlug !== 'string' || !networkSlug.trim()
       || typeof networkName !== 'string' || !networkName.trim()) throw new Error(invalid);
@@ -1477,13 +1479,15 @@ export class PaymentQR {
       if (typeof netid !== 'string' || !netid.trim() || assetId !== 'liberdus' || chainId !== undefined) {
         throw new Error(invalid);
       }
-      return new PaymentQR(payment, { networkId: `liberdus:${netid}`, assetId, networkName, assetName: symbol });
+      return new PaymentQR(payment, {
+        networkId: `liberdus:${netid}`, assetId, networkName, assetName: symbol, walletAction: 'Send',
+      });
     }
     if (!Number.isSafeInteger(chainId) || chainId <= 0 || (assetId !== 'native' && !isValidEthereumAddress(assetId))) {
       throw new Error(invalid);
     }
     return new PaymentQR(payment, {
-      networkId: `evm:${chainId}`, assetId: assetId.toLowerCase(), networkName, assetName: symbol,
+      networkId: `evm:${chainId}`, assetId: assetId.toLowerCase(), networkName, assetName: symbol, walletAction: 'EVM Assets',
     });
   }
 
@@ -1492,8 +1496,8 @@ export class PaymentQR {
   }
 
   get switchMessage() {
-    const { assetName, networkName } = this.target;
-    return `Switch to ${assetName} on ${networkName}`;
+    const { assetName, networkName, walletAction } = this.target;
+    return `From Wallet, open ${walletAction}, then switch to ${assetName} on ${networkName}.`;
   }
 }
 
