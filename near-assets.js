@@ -5745,6 +5745,12 @@ export class ChatPaymentPanel {
       && !this.scanQRButton.disabled && !this.reviewing;
   }
 
+  syncQRButtons() {
+    const disabled = this.session?.loading || this.reviewing || this.recipientInput.disabled;
+    this.scanQRButton.disabled = disabled;
+    this.uploadQRButton.disabled = disabled || Boolean(this.session?.scanningQR);
+  }
+
   hasPendingQR() {
     return Boolean(this.session?.scanningQR || this.qrLookup || this.qrFileInput.files.length);
   }
@@ -5755,13 +5761,11 @@ export class ChatPaymentPanel {
     this.qrFileInput.value = '';
     this.qrLookup = null;
     session.scanningQR = true;
-    this.uploadQRButton.disabled = true;
     this.validate();
 
     const finishScan = (data, restoreFocus = true) => {
       session.scanningQR = false;
       if (!this.isCurrentSession(session)) return;
-      this.uploadQRButton.disabled = false;
       if (data) void this.fillFromQR(data, session);
       this.validate();
       if (restoreFocus) this.scanQRButton.focus({ preventScroll: true });
@@ -6047,6 +6051,7 @@ export class ChatPaymentPanel {
   validate() {
     // After the money has gone, nothing may turn this back into a Send button.
     if (this.pendingReceipt || this.done) return;
+    this.syncQRButtons();
     const problem = this.amount.problem();
     const checkingQR = this.hasPendingQR();
     if (checkingQR) this.setStatus('Checking QR request…');
@@ -6091,8 +6096,7 @@ export class ChatPaymentPanel {
     const payment = { session, asset, amount, note, address: this.recipientAddress, lookup: this.recipientLookup };
 
     this.reviewing = true;
-    this.scanQRButton.disabled = this.uploadQRButton.disabled = true;
-    this.qrFileInput.value = '';
+    this.syncQRButtons();
     this.contactAutocomplete?.close();
     this.sendButton.disabled = true;
     this.setStatus('Checking…');
@@ -6135,7 +6139,6 @@ export class ChatPaymentPanel {
   endReview(session) {
     if (!this.isCurrentSession(session)) return;
     this.reviewing = false;
-    this.scanQRButton.disabled = this.uploadQRButton.disabled = this.recipientInput.disabled;
     this.validate();
   }
 
@@ -6276,7 +6279,7 @@ export class ChatPaymentPanel {
     this.amount.setLocked(locked);
     for (const control of [this.recipientInput, this.noteInput, this.noteToggle]) control.disabled = locked;
     this.assetPicker.disabled = locked || this.session.fromWallet || this.session.loading;
-    this.scanQRButton.disabled = this.uploadQRButton.disabled = locked || this.session.loading || this.reviewing;
+    this.syncQRButtons();
   }
 
   /** The transfer's outcome is unknowable: leave, never resend. */

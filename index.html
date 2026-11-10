@@ -277,8 +277,8 @@
                     style="flex: 1"
                   />
                   <span class="input-append-icons">
-                    <button type="button" id="newChatUploadQRButton" class="icon-button" title="Upload QR image"></button>
-                    <button type="button" id="newChatScanQRButton" class="icon-button" title="Scan QR"></button>
+                    <button type="button" id="newChatUploadQRButton" class="icon-button qr-upload-icon" title="Upload QR image"></button>
+                    <button type="button" id="newChatScanQRButton" class="icon-button qr-scan-icon" title="Scan QR"></button>
                   </span>
                   <input type="file" id="newChatQRFileInput" accept="image/*" style="display: none" />
                 </div>
@@ -1969,16 +1969,8 @@
                 <div class="chat-send-recipient-line">
                   <input type="text" id="chatSendRecipient" class="form-control" placeholder="Enter username"
                     autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="chatSendRecipientStatus" />
-                  <button type="button" id="chatSendUploadQR" class="icon-button" title="Upload QR Code" aria-label="Upload QR Code">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">
-                      <path d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z" />
-                    </svg>
-                  </button>
-                  <button type="button" id="chatSendScanQR" class="icon-button" title="Scan QR Code" aria-label="Scan QR Code">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">
-                      <path d="M3,3 L10,3 L10,10 L3,10 Z M5,5 L5,8 L8,8 L8,5 Z M14,3 L21,3 L21,10 L14,10 Z M16,5 L16,8 L19,8 L19,5 Z M3,14 L10,14 L10,21 L3,21 Z M5,16 L5,19 L8,19 L8,16 Z M14,14 L21,14 L21,21 L14,21 Z M16,16 L16,19 L19,19 L19,16 Z M11,3 L13,3 L13,10 L11,10 Z M11,14 L13,14 L13,21 L11,21 Z M3,11 L10,11 L10,13 L3,13 Z M14,11 L21,11 L21,13 L14,13 Z" />
-                    </svg>
-                  </button>
+                  <button type="button" id="chatSendUploadQR" class="icon-button qr-upload-icon" title="Upload QR Code" aria-label="Upload QR Code"></button>
+                  <button type="button" id="chatSendScanQR" class="icon-button qr-scan-icon" title="Scan QR Code" aria-label="Scan QR Code"></button>
                   <input type="file" id="chatSendQRFile" accept="image/*" hidden />
                 </div>
                 <div id="chatSendRecipientSuggestions" class="contact-autocomplete-list" aria-label="Saved contacts" hidden></div>
