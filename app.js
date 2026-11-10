@@ -35626,8 +35626,8 @@ class ReceiveModal {
     // Keep modules on whole pixels and leave room for the QR container's padding.
     const modules = img.naturalWidth / ReceiveModal.qrScale;
     const { paddingLeft, paddingRight } = getComputedStyle(this.qrcodeContainer);
-    const availableWidth = this.qrcodeContainer.parentElement.clientWidth - parseFloat(paddingLeft) - parseFloat(paddingRight);
-    const scale = Math.max(1, Math.min(Math.round(200 / modules), Math.floor(availableWidth / modules)));
+    const availableWidth = this.qrcodeContainer.clientWidth - parseFloat(paddingLeft) - parseFloat(paddingRight);
+    const scale = Math.max(1, Math.floor(availableWidth / modules));
     img.width = modules * scale;
     img.height = img.width;
   }

@@ -6684,8 +6684,9 @@ input[type='file'].form-control {
   align-items: center;
 }
 
-#qrcode {
-  max-width: 100%;
+#qrcode:not(:empty) {
+  width: min(100%, calc(300px + 1.5rem));
+  aspect-ratio: 1;
 }
 
 #qrcode canvas,
