@@ -1,6 +1,4 @@
 import {
-  base642bin,
-  bin2utf8,
   bin2base64,
   normalizeUnsignedFloat,
   BUTTON_COOLDOWN_MS,
@@ -9,6 +7,7 @@ import {
   normalizeHttpsUrl,
   normalizeResourceUrl,
   openModal,
+  PaymentQR,
   utf82bin,
   withButtonCooldown,
   QRImageDecoder,
@@ -2164,12 +2163,21 @@ class EvmSendModal {
   }
 
   fillFromQR(data) {
-    this.resetForm();
     try {
-      if (!data?.startsWith('liberdus://')) throw new Error('Invalid payment QR code format.');
-      const payment = JSON.parse(bin2utf8(base642bin(data.slice('liberdus://'.length))));
-      // QR data does not change the selected asset.
-      this.usernameInput.value = payment.u || '';
+      const request = PaymentQR.decode(data, { allowProfile: true });
+      const asset = this.getSelectedAsset();
+      if (!asset) {
+        this.controller.showToast('This asset is no longer available. Refresh and try again.', 3000, 'warning');
+        return;
+      }
+      if (!request.matches(`evm:${asset.chainId}`, asset.contractAddress?.toLowerCase() || 'native')) {
+        this.controller.showToast(request.switchMessage, 0, 'warning');
+        return;
+      }
+
+      this.resetForm();
+      const { payment } = request;
+      this.usernameInput.value = payment.u;
       this.amountInput.value = payment.a || '';
       return this.handleRecipientInput({ memo: typeof payment.m === 'string' ? payment.m : '' });
     } catch (error) {
@@ -2257,8 +2265,9 @@ class EvmReceiveModal {
     const data = {
       u: account.username,
       n: network.id,
+      nn: network.name,
       c: network.chainId,
-      i: asset.contractAddress || asset.key,
+      i: asset.contractAddress?.toLowerCase() || 'native',
       s: asset.tokenSymbol,
       d: this.balanceSymbol.textContent.toUpperCase(),
       r: address,
@@ -2276,7 +2285,7 @@ class EvmReceiveModal {
     this.preview.style.display = 'none';
     this.preview.textContent = '';
     try {
-      const text = `liberdus://${bin2base64(utf82bin(JSON.stringify(this.createQRPaymentData())))}`;
+      const text = PaymentQR.encode(this.createQRPaymentData());
       const scale = 2;
       const bytes = qr.encodeQR(text, 'gif', { scale, border: 4 });
       const img = document.createElement('img');
