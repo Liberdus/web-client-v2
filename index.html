@@ -324,118 +324,6 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Connected EVM Assets Modal -->
-      <div class="modal fixed-header" id="assetsModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeAssetsModal"></button>
-          <div class="modal-title">EVM Assets</div>
-        </div>
-        <div class="modal-content assets-modal-content">
-          <div class="wallet-balance">
-            <div class="balance-label">Total Balance</div>
-            <div class="balance-amount">
-              <span id="assetsTotalBalance">$ -</span>
-              <button class="refresh-button" id="refreshAssetsBalance">↻</button>
-            </div>
-            <div class="wallet-price-status wallet-price-warning" id="assetsPriceStatus" role="status"></div>
-          </div>
-          <section id="evmPaymentRecovery" class="evm-payment-recovery" hidden>
-            <h3>Transfers needing attention</h3>
-            <div id="evmPaymentRecoveryList" aria-live="polite"></div>
-          </section>
-          <div class="wallet-assets assets-portfolio">
-            <div class="wallet-network-panel">
-              <div class="wallet-network-heading">
-                <label for="assetsNetwork">Network</label>
-                <span id="assetsConnectionSummary" class="wallet-connection-summary" hidden>Connecting wallet networks…</span>
-              </div>
-              <select id="assetsNetwork" class="form-control wallet-network-select">
-                <option value="all">All connected networks</option>
-                <option value="ethereum">Ethereum (ETH)</option>
-                <option value="bsc">BNB Smart Chain (BSC)</option>
-                <option value="polygon">Polygon (POL)</option>
-              </select>
-            </div>
-            <div id="connectedAssetsList">
-              <div class="empty-state">
-                <div></div>
-                <div>No EVM Assets Yet</div>
-                <div>Connected assets will appear here</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
-
-      <!-- Connected EVM Asset Details Modal -->
-      <div class="modal fixed-header" id="assetDetailsModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeAssetDetailsModal"></button>
-          <div class="modal-title" id="assetDetailsModalTitle">Asset Details</div>
-        </div>
-        <div class="modal-content asset-details-content">
-          <section class="asset-detail-hero">
-            <div class="asset-detail-symbol" id="assetDetailsSymbol">—</div>
-            <div class="asset-detail-price" id="assetDetailsPrice" style="color: var(--danger-color)">$0</div>
-            <div class="asset-detail-updated" id="assetDetailsUpdated">Updated —</div>
-          </section>
-
-          <div class="wallet-actions asset-detail-actions">
-            <button class="wallet-action-button" id="assetDetailsSend">
-              <span class="action-icon"></span>
-              <span class="action-label">Send</span>
-            </button>
-            <button class="wallet-action-button" id="assetDetailsReceive">
-              <span class="action-icon"></span>
-              <span class="action-label">Receive</span>
-            </button>
-            <button class="wallet-action-button" id="assetDetailsHistory">
-              <span class="action-icon"></span>
-              <span class="action-label">History</span>
-            </button>
-          </div>
-
-          <section class="asset-detail-section">
-            <h2>Your balance</h2>
-            <div class="asset-detail-balance-card">
-              <div class="asset-logo connected-asset-logo" id="assetDetailsLogo"></div>
-              <div class="asset-detail-balance-name">
-                <strong id="assetDetailsName">—</strong>
-                <span id="assetDetailsBalanceSymbol">—</span>
-              </div>
-              <div class="asset-detail-balance-values">
-                <strong id="assetDetailsValue">Value unavailable</strong>
-                <span id="assetDetailsAmount">0</span>
-              </div>
-            </div>
-          </section>
-
-          <section class="asset-detail-section">
-            <h2>Token details</h2>
-            <dl class="asset-detail-list">
-              <div><dt>Network</dt><dd id="assetDetailsNetwork">—</dd></div>
-              <div><dt>Chain ID</dt><dd id="assetDetailsChainId">—</dd></div>
-              <div><dt>Token type</dt><dd id="assetDetailsType">—</dd></div>
-              <div><dt>Decimals</dt><dd id="assetDetailsDecimals">—</dd></div>
-              <div class="asset-detail-address-row"><dt>Contract</dt><dd id="assetDetailsContract">—</dd></div>
-            </dl>
-          </section>
-
-          <section class="asset-detail-section" hidden>
-            <h2>Market details</h2>
-            <dl class="asset-detail-list">
-              <div><dt>Token price</dt><dd id="assetDetailsMarketPrice" style="color: var(--danger-color)">$0</dd></div>
-              <div><dt>Your holding value</dt><dd id="assetDetailsHoldingValue">Value unavailable</dd></div>
-              <div><dt>Data source</dt><dd>Multichain RPC</dd></div>
-              <div><dt>Additional market data</dt><dd>Unavailable from RPC</dd></div>
-            </dl>
-          </section>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
       <!-- DAO Modal -->
       <div class="modal fixed-header" id="daoModal">
         <div class="modal-header">
@@ -2678,6 +2566,29 @@
         <a class="last-item" href="#"> </a>
       </div>
 
+      <!-- Pay Choice Modal -->
+      <div class="modal modal-dialog" id="payChoiceModal" role="dialog" aria-modal="true" aria-labelledby="payChoiceTitle" aria-describedby="payChoiceRecipient">
+        <div class="dialog-box-content">
+          <div class="modal-header">
+            <button type="button" class="back-button" id="closePayChoiceModal" aria-label="Back"></button>
+            <div class="modal-title" id="payChoiceTitle">Pay</div>
+          </div>
+          <div class="modal-content">
+            <div class="form-container">
+              <p class="modal-summary" id="payChoiceRecipient"></p>
+              <div class="form--narrow">
+                <div class="form-actions">
+                  <button type="button" id="payChoiceLibBtn" class="btn btn--primary btn--pill btn--full">LIB</button>
+                  <button type="button" id="payChoiceEvmBtn" class="btn btn--primary btn--pill btn--full">EVM Assets</button>
+                  <button type="button" id="payChoiceNearBtn" class="btn btn--primary btn--pill btn--full">NEAR Assets</button>
+                  <button type="button" id="cancelPayChoice" class="btn btn--secondary btn--pill btn--full">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Friend Modal -->
       <div class="modal fixed-header" id="friendModal">
         <div class="modal-header">
@@ -2779,6 +2690,117 @@
               ></textarea>
             </div>
           </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- EVM asset list and details follow Chat and Contact Info so they stack above both. -->
+      <div class="modal fixed-header" id="assetsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAssetsModal"></button>
+          <div class="modal-title">EVM Assets</div>
+        </div>
+        <div class="modal-content assets-modal-content">
+          <div class="wallet-balance">
+            <div class="balance-label">Total Balance</div>
+            <div class="balance-amount">
+              <span id="assetsTotalBalance">$ -</span>
+              <button class="refresh-button" id="refreshAssetsBalance">↻</button>
+            </div>
+            <div class="wallet-price-status wallet-price-warning" id="assetsPriceStatus" role="status"></div>
+          </div>
+          <section id="evmPaymentRecovery" class="evm-payment-recovery" hidden>
+            <h3>Transfers needing attention</h3>
+            <div id="evmPaymentRecoveryList" aria-live="polite"></div>
+          </section>
+          <div class="wallet-assets assets-portfolio">
+            <div class="wallet-network-panel">
+              <div class="wallet-network-heading">
+                <label for="assetsNetwork">Network</label>
+                <span id="assetsConnectionSummary" class="wallet-connection-summary" hidden>Connecting wallet networks…</span>
+              </div>
+              <select id="assetsNetwork" class="form-control wallet-network-select">
+                <option value="all">All connected networks</option>
+                <option value="ethereum">Ethereum (ETH)</option>
+                <option value="bsc">BNB Smart Chain (BSC)</option>
+                <option value="polygon">Polygon (POL)</option>
+              </select>
+            </div>
+            <div id="connectedAssetsList">
+              <div class="empty-state">
+                <div></div>
+                <div>No EVM Assets Yet</div>
+                <div>Connected assets will appear here</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- Connected EVM Asset Details Modal -->
+      <div class="modal fixed-header" id="assetDetailsModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeAssetDetailsModal"></button>
+          <div class="modal-title" id="assetDetailsModalTitle">Asset Details</div>
+        </div>
+        <div class="modal-content asset-details-content">
+          <section class="asset-detail-hero">
+            <div class="asset-detail-symbol" id="assetDetailsSymbol">—</div>
+            <div class="asset-detail-price" id="assetDetailsPrice" style="color: var(--danger-color)">$0</div>
+            <div class="asset-detail-updated" id="assetDetailsUpdated">Updated —</div>
+          </section>
+
+          <div class="wallet-actions asset-detail-actions">
+            <button class="wallet-action-button" id="assetDetailsSend">
+              <span class="action-icon"></span>
+              <span class="action-label">Send</span>
+            </button>
+            <button class="wallet-action-button" id="assetDetailsReceive">
+              <span class="action-icon"></span>
+              <span class="action-label">Receive</span>
+            </button>
+            <button class="wallet-action-button" id="assetDetailsHistory">
+              <span class="action-icon"></span>
+              <span class="action-label">History</span>
+            </button>
+          </div>
+
+          <section class="asset-detail-section">
+            <h2>Your balance</h2>
+            <div class="asset-detail-balance-card">
+              <div class="asset-logo connected-asset-logo" id="assetDetailsLogo"></div>
+              <div class="asset-detail-balance-name">
+                <strong id="assetDetailsName">—</strong>
+                <span id="assetDetailsBalanceSymbol">—</span>
+              </div>
+              <div class="asset-detail-balance-values">
+                <strong id="assetDetailsValue">Value unavailable</strong>
+                <span id="assetDetailsAmount">0</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="asset-detail-section">
+            <h2>Token details</h2>
+            <dl class="asset-detail-list">
+              <div><dt>Network</dt><dd id="assetDetailsNetwork">—</dd></div>
+              <div><dt>Chain ID</dt><dd id="assetDetailsChainId">—</dd></div>
+              <div><dt>Token type</dt><dd id="assetDetailsType">—</dd></div>
+              <div><dt>Decimals</dt><dd id="assetDetailsDecimals">—</dd></div>
+              <div class="asset-detail-address-row"><dt>Contract</dt><dd id="assetDetailsContract">—</dd></div>
+            </dl>
+          </section>
+
+          <section class="asset-detail-section" hidden>
+            <h2>Market details</h2>
+            <dl class="asset-detail-list">
+              <div><dt>Token price</dt><dd id="assetDetailsMarketPrice" style="color: var(--danger-color)">$0</dd></div>
+              <div><dt>Your holding value</dt><dd id="assetDetailsHoldingValue">Value unavailable</dd></div>
+              <div><dt>Data source</dt><dd>Multichain RPC</dd></div>
+              <div><dt>Additional market data</dt><dd>Unavailable from RPC</dd></div>
+            </dl>
+          </section>
         </div>
         <a class="last-item" href="#"> </a>
       </div>

@@ -1453,6 +1453,7 @@ class AssetsModal {
   constructor(controller) {
     this.controller = controller;
     this.loadingToastId = null;
+    this.recipient = null;
   }
 
   load() {
@@ -1495,8 +1496,9 @@ class AssetsModal {
     ));
   }
 
-  async open() {
+  async open({ recipient = null } = {}) {
     if (!openModal(this.modal)) return;
+    this.recipient = recipient ? { ...recipient } : null;
 
     // A recently closed toast may still be fading out when the modal reopens.
     const toastId = this.controller.showToast('Loading EVM assets...', 0, 'loading', false, { dedupe: false });
@@ -1509,8 +1511,14 @@ class AssetsModal {
   }
 
   close() {
+    this.recipient = null;
     this.modal.classList.remove('active');
     this.hideLoadingToast();
+  }
+
+  reset() {
+    this.recipient = null;
+    if (this.totalBalance) this.controller.renderValuation(this.totalBalance, this.priceStatus);
   }
 
   hideLoadingToast() {
@@ -1677,6 +1685,7 @@ class AssetDetailsModal {
       this.controller.openContextualSend({
         networkId: this.networkId,
         assetKey: this.assetKey,
+        prefillRecipient: this.controller.assetsModal.recipient,
       });
     });
     document.getElementById('assetDetailsReceive').addEventListener('click', () => {
@@ -1976,7 +1985,7 @@ class EvmSendModal {
     this.loaded = true;
   }
 
-  open({ networkId, assetKey }) {
+  open({ networkId, assetKey, prefillRecipient = null }) {
     if (this.modal.classList.contains('active')) return false;
     const { walletNetwork, asset } = this.controller.findAsset(networkId, assetKey);
     if (!asset) {
@@ -1992,6 +2001,10 @@ class EvmSendModal {
     if (!openModal(this.modal)) return false;
     const session = this.session = { networkId, assetKey };
     this.refreshBalance(session);
+    if (prefillRecipient?.username) {
+      this.usernameInput.value = prefillRecipient.username;
+      void this.handleRecipientInput({ expectedAddress: prefillRecipient.address });
+    }
     return true;
   }
 
@@ -2470,7 +2483,7 @@ class EvmAssetsController {
   reset() {
     this.discovery.reset();
     this.renderSummary();
-    if (this.assetsModal.totalBalance) this.renderValuation(this.assetsModal.totalBalance, this.assetsModal.priceStatus);
+    this.assetsModal.reset();
     this.transactions.paymentEvidence.clear();
     this.confirmationModal.reset();
     this.sendModal.close();

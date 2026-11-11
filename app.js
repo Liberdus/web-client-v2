@@ -573,6 +573,7 @@ function clearMyData() {
   receiveModal.close();
   chatPaymentPanel.close();
   multichain.reset();
+  payChoiceModal.close();
   daoRepo.reset();
   daoModal.resetNotificationState();
   resetDaoNotificationSummary();
@@ -1024,6 +1025,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Import Contacts Modal
   importContactsModal.load();
+
+  // Chat payment chooser
+  payChoiceModal.load();
 
   // Call scheduling and shared date/time picker modals
   callScheduleChoiceModal.load();
@@ -22492,14 +22496,6 @@ class ChatModal {
 
     this.updateTollAmountUI(address);
 
-    // Store username for context menu pay action
-    if (this.headerContextMenu) {
-      const payOption = this.headerContextMenu.querySelector('[data-action="pay"]');
-      if (payOption) {
-        payOption.dataset.username = contact.username || address;
-      }
-    }
-
     this.modalAvatar.innerHTML = await getContactAvatarHtml(contact, 40);
 
     // Stop and cleanup all voice messages from previous conversation
@@ -26844,10 +26840,7 @@ class ChatModal {
         contactInfoModal.open(createDisplayInfo(contact));
         break;
       case 'pay':
-        const payOption = this.headerContextMenu.querySelector('[data-action="pay"]');
-        const username = payOption?.dataset.username || contact.username || this.address;
-        sendAssetFormModal.username = username;
-        sendAssetFormModal.open();
+        payChoiceModal.open(contact, this.headerMenuButton);
         break;
     }
   }
@@ -32178,6 +32171,85 @@ function formatDateTimeInTimeZone(ms, tz) {
   return formatTimeInTimeZone(ms, tz, true);
 }
 
+class PayChoiceModal {
+  load() {
+    this.modal = document.getElementById('payChoiceModal');
+    this.recipientLabel = document.getElementById('payChoiceRecipient');
+    this.backButton = document.getElementById('closePayChoiceModal');
+    this.cancelButton = document.getElementById('cancelPayChoice');
+    this.backButton.addEventListener('click', () => this.close());
+    this.cancelButton.addEventListener('click', () => this.close());
+    document.getElementById('payChoiceLibBtn').addEventListener('click', () => this.select('lib'));
+    document.getElementById('payChoiceEvmBtn').addEventListener('click', () => this.select('evm'));
+    document.getElementById('payChoiceNearBtn').addEventListener('click', () => this.select('near'));
+    this.modal.addEventListener('keydown', (event) => this.handleKeydown(event));
+    new MutationObserver(() => this.openSelectedAsset()).observe(this.modal, { attributeFilter: ['class'] });
+  }
+
+  /** @param {{username?: string | null, address: string}} contact */
+  open(contact, trigger = document.activeElement) {
+    if (!openModal(this.modal)) return;
+    const recipient = { username: contact.username || '', address: contact.address };
+    this.recipient = recipient;
+    this.returnFocus = trigger;
+    this.recipientLabel.textContent = recipient.username
+      ? `To @${recipient.username}`
+      : 'This contact has no saved username. Enter a recipient in the Send form.';
+    requestAnimationFrame(() => {
+      if (this.recipient === recipient) this.backButton.focus();
+    });
+  }
+
+  /** @param {'lib' | 'evm' | 'near'} assetGroup */
+  select(assetGroup) {
+    if (!this.recipient || this.selectedAssetGroup) return;
+    this.selectedAssetGroup = assetGroup;
+    this.openSelectedAsset();
+  }
+
+  openSelectedAsset() {
+    const { recipient, selectedAssetGroup } = this;
+    // Keep early taps until the modal transition guard allows the next open.
+    if (!selectedAssetGroup || !this.modal.classList.contains('is-transition-complete')) return;
+    this.close();
+    switch (selectedAssetGroup) {
+      case 'lib':
+        void sendAssetFormModal.open({ input: recipient.username, expectedAddress: recipient.address });
+        break;
+      case 'evm':
+        void evmAssets.assetsModal.open({ recipient });
+        break;
+      case 'near':
+        void multichain.assetsModal.open({ recipient });
+        break;
+    }
+  }
+
+  handleKeydown(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.close();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const first = this.backButton;
+    const last = this.cancelButton;
+    if (event.target === (event.shiftKey ? first : last)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    }
+  }
+
+  close() {
+    if (!this.recipient) return;
+    this.modal.classList.remove('active');
+    this.recipient = null;
+    this.selectedAssetGroup = null;
+    this.returnFocus?.focus({ preventScroll: true });
+    this.returnFocus = null;
+  }
+}
+
 /**
  * Call Schedule Choice Modal
  * Presents: Call Now | Schedule | Cancel
@@ -32636,6 +32708,7 @@ class DateTimePickerModal {
 }
 
 const CALL_SCHEDULE_MAX_DAYS = 400;
+const payChoiceModal = new PayChoiceModal();
 const callScheduleChoiceModal = new CallScheduleChoiceModal();
 const dateTimePickerModal = new DateTimePickerModal();
 const durationPickerModal = new DurationPickerModal();
@@ -40304,7 +40377,7 @@ const modalCloseHandlers = new Map([
     failedTransactionModal, bridgeModal, migrateAccountsModal, lockModal,
     unlockModal, launchModal, updateWarningModal, removeAccountModal,
     removeAccountsModal, secretModal, callsModal, groupCallParticipantsModal,
-    callScheduleChoiceModal, dateTimePickerModal, durationPickerModal, callInviteModal, shareAttachmentModal,
+    payChoiceModal, callScheduleChoiceModal, dateTimePickerModal, durationPickerModal, callInviteModal, shareAttachmentModal,
     chatSettingsModal, qrScanModal, backupModal, importModal,
     accountModal, validatorModal, stakeModal, messageSearchModal, contactSearchModal,
     importContactsModal, shareContactsModal,
