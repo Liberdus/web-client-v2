@@ -24206,10 +24206,13 @@ class ChatModal {
       const latestTollWei = this.paymentMessageToll(contact);
       if (latestTollWei > approvedTollWei) throw new IntentsPaymentTollIncreasedError(latestTollWei);
     } catch (error) {
+      const currentReceipt = isCurrentReceipt();
+      // Chat sync can finish a previous attempt while Retry is checking the toll.
+      if (retry && !currentReceipt && isCurrentRecipient()) return;
       // Nothing was submitted. Keep a failed card -- under a local id when
       // there was never a transaction -- so the receipt is not lost with
       // this screen.
-      if (isCurrentReceipt()) {
+      if (currentReceipt) {
         placeCard(card?.txid || bin2hex(generateRandomBytes(32)), card?.timestamp || getTransactionTimestamp(), 'failed');
       }
       throw error;
