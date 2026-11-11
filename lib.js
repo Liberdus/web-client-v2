@@ -1433,28 +1433,51 @@ export function validateChatTransaction(transaction, context, crypto) {
   return { ok: true, txid };
 }
 
-/** Encode a Liberdus payment request after checking its target. */
+/** A Liberdus payment QR and its target, independent of the selected Send form. */
 export class PaymentQR {
   static prefix = 'liberdus://';
 
+  constructor(payment, target = null) {
+    this.payment = payment;
+    this.target = target;
+  }
+
   static encode(payment) {
-    this.validatePayment(payment);
+    this.fromPayment(payment);
     return this.prefix + bin2base64(utf82bin(JSON.stringify(payment)));
   }
 
-  static validatePayment(payment) {
+  static decode(text, { allowProfile = false } = {}) {
+    const invalid = 'Invalid payment QR code format.';
+    if (typeof text !== 'string' || !text.startsWith(this.prefix)) throw new Error(invalid);
+    let payment;
+    try {
+      payment = JSON.parse(bin2utf8(base642bin(text.slice(this.prefix.length))));
+    } catch {
+      throw new Error(invalid);
+    }
+    return this.fromPayment(payment, allowProfile);
+  }
+
+  static fromPayment(payment, allowProfile = false) {
     const invalid = 'Invalid payment QR code format.';
     if (!payment || typeof payment.u !== 'string' || !payment.u.trim()) throw new Error(invalid);
+    if (allowProfile && Object.keys(payment).length === 1) return new PaymentQR(payment);
 
     const {
       t: type, n: networkSlug, netid, c: chainId,
-      i: assetId, s: symbol, nn: networkName,
+      i: assetId, s: symbol, an: assetName, nn: networkName,
     } = payment;
     if (typeof assetId !== 'string' || !assetId.trim() || typeof symbol !== 'string' || !symbol.trim()) {
       throw new Error(invalid);
     }
 
-    if (type === 'intents' && networkSlug === undefined && chainId === undefined) return;
+    if (type === 'intents' && networkSlug === undefined && chainId === undefined) {
+      const label = typeof assetName === 'string' && assetName.trim() ? assetName : symbol;
+      return new PaymentQR(payment, {
+        networkId: 'intents', assetId, networkName: 'NEAR Intents', assetName: label, walletAction: 'NEAR Assets',
+      });
+    }
     if (type !== undefined || typeof networkSlug !== 'string' || !networkSlug.trim()
       || typeof networkName !== 'string' || !networkName.trim()) throw new Error(invalid);
 
@@ -1462,11 +1485,25 @@ export class PaymentQR {
       if (typeof netid !== 'string' || !netid.trim() || assetId !== 'liberdus' || chainId !== undefined) {
         throw new Error(invalid);
       }
-      return;
+      return new PaymentQR(payment, {
+        networkId: `liberdus:${netid}`, assetId, networkName, assetName: symbol, walletAction: 'Send',
+      });
     }
     if (!Number.isSafeInteger(chainId) || chainId <= 0 || (assetId !== 'native' && !isValidEthereumAddress(assetId))) {
       throw new Error(invalid);
     }
+    return new PaymentQR(payment, {
+      networkId: `evm:${chainId}`, assetId: assetId.toLowerCase(), networkName, assetName: symbol, walletAction: 'EVM Assets',
+    });
+  }
+
+  matches(networkId, assetId) {
+    return !this.target || (this.target.networkId === networkId && this.target.assetId === assetId);
+  }
+
+  get switchMessage() {
+    const { assetName, networkName, walletAction } = this.target;
+    return `From Wallet, open ${walletAction}, then switch to ${assetName} on ${networkName}.`;
   }
 }
 

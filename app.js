@@ -35089,70 +35089,46 @@ class SendAssetFormModal {
   /**
    * Fills the payment form from QR code data
    * @param {string} data - The QR code data to fill the form with
-   * @returns {void}
-   * */
+   * @returns {Promise<void>}
+   */
   async fillFromQR(data) {
     const session = this.session;
-    // Explicitly check for the required prefix
-    if (!data || !data.startsWith('liberdus://')) {
-      console.error("Invalid payment QR code format. Missing 'liberdus://' prefix.", data);
+    let request;
+    try {
+      request = PaymentQR.decode(data, { allowProfile: true });
+    } catch (error) {
+      console.error('Error parsing payment QR data:', error);
       showToast('Invalid payment QR code format.', 0, 'error');
-      // Optionally clear fields or leave them as they were
-      this.usernameInput.value = '';
-      this.amountInput.value = '';
-      this.memoInput.value = '';
-      return; // Stop processing if the format is wrong
+      return;
+    }
+    if (!request.matches(`liberdus:${network.netid}`, 'liberdus')) {
+      showToast(request.switchMessage, 0, 'warning');
+      return;
     }
 
-    // Clear existing fields first
-    this.usernameInput.value = '';
+    const { payment } = request;
+    this.usernameInput.value = payment.u;
     this.amountInput.value = '';
     this.memoInput.value = '';
 
-    try {
-      // Remove the prefix and process the base64 data
-      const base64Data = data.substring('liberdus://'.length);
-      const jsonData = bin2utf8(base642bin(base64Data));
-      const paymentData = JSON.parse(jsonData);
-      if (paymentData.t !== undefined) throw new Error('Unsupported payment request type.');
-
-      if (paymentData.u) {
-        this.usernameInput.value = paymentData.u;
-      }
-      if (paymentData.d) {
-        try {
-          const symbol = String(paymentData.d).toUpperCase();
-          const current = String(this.balanceSymbol.textContent || 'LIB').toUpperCase();
-          if (symbol === 'USD' && current !== 'USD') {
-            // call the existing toggle handler to reuse conversion logic
-            await this.handleToggleBalance();
-          } else if (symbol === 'LIB' && current !== 'LIB') {
-            await this.handleToggleBalance();
-          }
-        } catch (err) {
-          console.error('Error toggling balance from QR display unit field', err);
+    if (payment.d) {
+      try {
+        const symbol = String(payment.d).toUpperCase();
+        const current = String(this.balanceSymbol.textContent || 'LIB').toUpperCase();
+        if ((symbol === 'USD' || symbol === 'LIB') && symbol !== current) {
+          await this.handleToggleBalance();
         }
+      } catch (error) {
+        console.error('Error toggling balance from QR display unit field', error);
       }
-      if (!this.isCurrentSession(session)) return;
-      if (paymentData.a) {
-        this.amountInput.value = paymentData.a;
-      }
-      if (paymentData.m) {
-        this.memoInput.value = paymentData.m;
-      }
-
-      // Trigger username validation and amount validation
-      this.usernameInput.dispatchEvent(new Event('input'));
-      this.amountInput.dispatchEvent(new Event('input'));
-    } catch (error) {
-      console.error('Error parsing payment QR data:', error, data);
-      showToast('Failed to parse payment QR data.', 0, 'error');
-      // Clear fields on error
-      this.usernameInput.value = '';
-      this.amountInput.value = '';
-      this.memoInput.value = '';
     }
-  }  
+    if (!this.isCurrentSession(session)) return;
+    this.amountInput.value = payment.a || '';
+    this.memoInput.value = payment.m || '';
+
+    this.usernameInput.dispatchEvent(new Event('input'));
+    this.amountInput.dispatchEvent(new Event('input'));
+  }
 }
 
 const sendAssetFormModal = new SendAssetFormModal();
