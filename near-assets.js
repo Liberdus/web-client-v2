@@ -2677,6 +2677,22 @@ export class IntentsChatError extends Error {
   }
 }
 
+export class IntentsPaymentTollIncreasedError extends Error {
+  constructor(tollWei, problem) {
+    const message = 'The chat message toll increased. Review the new amount and confirm again.';
+    super(problem ? `${message} ${problem}` : message);
+    this.name = 'IntentsPaymentTollIncreasedError';
+    this.tollWei = tollWei;
+  }
+}
+
+export class IntentsPaymentTollRejectedError extends Error {
+  constructor(reason) {
+    super(reason);
+    this.name = 'IntentsPaymentTollRejectedError';
+  }
+}
+
 /**
  * The announcement that travels through chat.
  *
@@ -4434,6 +4450,11 @@ class MultichainConfirmModal {
     this.status.dataset.kind = kind;
   }
 
+  setRowValue(label, value) {
+    const heading = Array.from(this.rows.querySelectorAll('dt')).find((row) => row.textContent === label);
+    heading.nextElementSibling.textContent = value;
+  }
+
   /**
    * The move is over, one way or another. From here the button only leaves:
    * nothing on this screen may be able to send the same thing twice.
@@ -5641,6 +5662,7 @@ export const multichain = new MultichainController();
 // screens can send it again -- only the receipt can be retried.
 
 const $ = (id) => document.getElementById(id);
+const CHAT_MESSAGE_TOLL_LABEL = 'Chat message toll';
 
 // Inline so they take the control's colour (DESIGN.md §6).
 const CARET = '<svg class="multichain-chip-caret" viewBox="0 0 24 24" aria-hidden="true">'
@@ -6153,7 +6175,7 @@ export class ChatPaymentPanel {
     if (note) rows.push(['Note', note]);
     rows.push(
       ['Network fee', 'None'],
-      ['Chat message toll', tollWei === 0n ? 'None' : `${formatUnits(tollWei)} LIB`],
+      [CHAT_MESSAGE_TOLL_LABEL, tollWei === 0n ? 'None' : `${formatUnits(tollWei)} LIB`],
       ['Arrives', 'Instantly'],
     );
 
@@ -6199,6 +6221,7 @@ export class ChatPaymentPanel {
   async run(sheet, payment) {
     if (this.sending) return;
     const reviewSession = sheet.session;
+    const isCurrent = () => sheet.shows(reviewSession) && this.isCurrentPayment(payment);
     const changed = 'Payment details changed. Go back and review again.';
     if (!this.isCurrentPayment(payment)) {
       sheet.finish(changed, 'error');
@@ -6225,23 +6248,16 @@ export class ChatPaymentPanel {
         const resolved = await this.lookupUsername(payment.lookup.username).catch(() => {
           throw new Error('Could not check the username. Try again.');
         });
-        if (!this.isCurrentPayment(payment)) throw new Error(changed);
+        if (!isCurrent()) throw new Error(changed);
         if (intentsAccountIdForAddress(resolved) !== intentsAccountIdForAddress(address)) {
           throw new Error('This username no longer matches the reviewed recipient. Go back and enter it again.');
         }
       }
       const { problem, beforePublish, tollWei } = await this.checkRecipient(address, payment.lookup);
-      if (!this.isCurrentPayment(payment)) throw new Error(changed);
+      if (!isCurrent()) throw new Error(changed);
       if (payment.session.fromWallet) this.setReceiptToll(tollWei);
       if (tollWei !== undefined && tollWei > payment.tollWei) {
-        this.sending = false;
-        this.lockForm(false);
-        this.validate();
-        if (sheet.shows(reviewSession)) {
-          const message = 'The chat message toll increased. Go back and review the payment again.';
-          sheet.setStatus(problem ? `${message} ${problem}` : message, 'error');
-        }
-        return;
+        throw new IntentsPaymentTollIncreasedError(tollWei, problem);
       }
       if (problem) throw new Error(problem);
 
@@ -6249,13 +6265,13 @@ export class ChatPaymentPanel {
       prepared = await intentsChatPayments.prepare({
         asset, recipientAddress: address, amount,
       });
-      if (!this.isCurrentPayment(payment)) throw new Error(changed);
+      if (!isCurrent()) throw new Error(changed);
       sent = await intentsChatPayments.send(prepared, secretKey, {
         asset,
         note,
         beforePublish: () => {
-          if (!this.isCurrentPayment(payment)) throw new Error(changed);
-          beforePublish?.();
+          if (!isCurrent()) throw new Error(changed);
+          beforePublish?.(payment.tollWei);
           publishStarted = true;
         },
       });
@@ -6263,35 +6279,51 @@ export class ChatPaymentPanel {
       this.sending = false;
       // Any failure before publication is safe to retry.
       if (!publishStarted) {
-        this.lockForm(false);
-        this.validate();
-        if (this.isCurrentPayment(payment)) {
-          sheet.setStatus(error.message || 'That payment is not valid.', 'error');
-          sheet.action.disabled = false;
-        } else {
-          sheet.finish(changed, 'error');
+        if (this.isCurrentSession(payment.session)) {
+          this.lockForm(false);
+          this.validate();
         }
+        if (!sheet.shows(reviewSession)) return;
+        if (!this.isCurrentPayment(payment)) {
+          sheet.finish(changed, 'error');
+          return;
+        }
+        if (error instanceof IntentsPaymentTollIncreasedError) {
+          sheet.setRowValue(CHAT_MESSAGE_TOLL_LABEL, `${formatUnits(error.tollWei)} LIB`);
+          payment.tollWei = error.tollWei;
+          if (payment.session.fromWallet) this.setReceiptToll(error.tollWei);
+        }
+        sheet.setStatus(error.message || 'That payment is not valid.', 'error');
+        sheet.action.disabled = false;
         return;
       }
       // A failure while publishing may come after the relay took it.
       console.warn('Payment outcome unknown:', error);
       this.finish(UNCONFIRMED, 'error');
-      sheet.finish(UNCONFIRMED, 'error');
+      if (sheet.shows(reviewSession)) sheet.finish(UNCONFIRMED, 'error');
       return;
     }
 
     // The money has moved. From here a failure is about the receipt only, and
     // the form is locked so it cannot describe a second payment.
     this.lockForm(true);
-    this.pendingReceipt = { message: sent.message, amount: prepared.amount, symbol: prepared.symbol };
+    this.pendingReceipt = {
+      message: sent.message,
+      amount: prepared.amount,
+      symbol: prepared.symbol,
+      approvedTollWei: payment.tollWei,
+      settled: Boolean(sent.transactionHash),
+    };
     this.sending = false;
     void multichain.refreshAfterMove().catch(() => {});
 
-    if (await this.sendReceipt()) {
-      multichain.confirmModal.close();
+    const receipt = await this.sendReceipt();
+    if (!sheet.shows(reviewSession)) return;
+    if (receipt.closeReview) {
+      sheet.close();
       return;
     }
-    sheet.finish(`Your ${prepared.symbol} was sent, but the chat message did not go through. Go back to send it again, or retry it later from the payment in your chat.`, 'error');
+    sheet.finish(receipt.problem || `Your ${prepared.symbol} was sent, but the chat message did not go through. Go back to send it again, or retry it later from the payment in your chat.`, 'error');
   }
 
   /**
@@ -6301,22 +6333,34 @@ export class ChatPaymentPanel {
    */
   async sendReceipt() {
     const receipt = this.pendingReceipt;
-    if (!receipt || this.sending) return false;
+    if (!receipt || this.sending) return { closeReview: false };
     this.sending = true;
     this.sendButton.disabled = true;
     try {
-      await this.onSent?.(this.recipientAddress, receipt.message);
+      await this.onSent?.(this.recipientAddress, receipt.message, receipt.approvedTollWei);
       this.sending = false;
       this.close();
       this.showToast(`Sent ${receipt.amount} ${receipt.symbol}`, 3000, 'success');
-      return true;
+      return { closeReview: true };
     } catch (error) {
       console.error('Payment receipt failed to send:', error);
       this.sending = false;
+      const tollRejected = error instanceof IntentsPaymentTollRejectedError;
+      if (tollRejected || error instanceof IntentsPaymentTollIncreasedError) {
+        const transferStatus = receipt.settled ? 'Asset sent.' : 'Asset transfer submitted.';
+        const problem = `${transferStatus} The chat message failed because the toll increased. Retry it from chat.`;
+        if (tollRejected) {
+          this.close();
+          this.showToast(problem, 0, 'error');
+          return { closeReview: true };
+        }
+        this.finish(problem, 'error');
+        return { closeReview: false, problem };
+      }
       this.setStatus(`Your ${receipt.symbol} was sent, but the chat message did not go through.`, 'error');
       this.sendButton.textContent = 'Send the message again';
       this.sendButton.disabled = false;
-      return false;
+      return { closeReview: false };
     }
   }
 
@@ -6328,7 +6372,7 @@ export class ChatPaymentPanel {
     this.syncQRButtons();
   }
 
-  /** The transfer's outcome is unknowable: leave, never resend. */
+  /** This form is finished. Leave any remaining receipt retry to chat. */
   finish(message, kind) {
     this.done = true;
     this.pendingReceipt = null;
