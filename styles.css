@@ -13375,6 +13375,28 @@ button.multichain-token-chip:hover {
   cursor: default;
 }
 
+.chat-send-costs {
+  display: grid;
+  row-gap: 4px;
+}
+
+.chat-send-cost {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  column-gap: 0.35em;
+  align-items: baseline;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.chat-send-cost > :first-child {
+  text-align: end;
+}
+
+.chat-send-cost[hidden] {
+  display: none;
+}
+
 textarea.chat-send-note {
   height: auto;
   min-height: 56px;

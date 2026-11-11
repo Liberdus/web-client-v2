@@ -5689,6 +5689,7 @@ export class ChatPaymentPanel {
     this.recipientInput = $('chatSendRecipient');
     this.recipientStatus = $('chatSendRecipientStatus');
     this.receiptToll = $('chatSendReceiptToll');
+    this.receiptTollAmount = $('chatSendReceiptTollAmount');
     this.scanQRButton = $('chatSendScanQR');
     this.uploadQRButton = $('chatSendUploadQR');
     this.qrFileInput = $('chatSendQRFile');
@@ -5892,7 +5893,7 @@ export class ChatPaymentPanel {
   setReceiptToll(tollWei = 0n) {
     const hasToll = tollWei > 0n;
     this.receiptToll.hidden = !hasToll;
-    this.receiptToll.textContent = hasToll ? `Chat receipt toll · ${formatUnits(tollWei)} LIB` : '';
+    this.receiptTollAmount.textContent = hasToll ? `${formatUnits(tollWei)} LIB` : '';
   }
 
   setRecipientStatus(message, kind = '') {
