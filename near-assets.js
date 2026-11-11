@@ -6153,7 +6153,7 @@ export class ChatPaymentPanel {
     if (note) rows.push(['Note', note]);
     rows.push(
       ['Network fee', 'None'],
-      ['Chat receipt toll', tollWei === 0n ? 'None' : `${formatUnits(tollWei)} LIB`],
+      ['Chat message toll', tollWei === 0n ? 'None' : `${formatUnits(tollWei)} LIB`],
       ['Arrives', 'Instantly'],
     );
 
@@ -6238,7 +6238,7 @@ export class ChatPaymentPanel {
         this.lockForm(false);
         this.validate();
         if (sheet.shows(reviewSession)) {
-          const message = 'The chat receipt toll increased. Go back and review the payment again.';
+          const message = 'The chat message toll increased. Go back and review the payment again.';
           sheet.setStatus(problem ? `${message} ${problem}` : message, 'error');
         }
         return;
