@@ -213,6 +213,7 @@ import {
   getExpectedChatId,
   isPublicKeyForAddress,
   validateChatTransaction,
+  PaymentQR,
   QRImageDecoder,
   WalletUsdValuation,
 } from './lib.js';
@@ -35580,107 +35581,58 @@ class ReceiveModal {
   }
 
   updateDisplayAddress() {
-    // Clear previous QR code
-    this.qrcodeContainer.innerHTML = '';
-
     const address = this.session.account.keys.address;
-    const addressWithPrefix = address.startsWith('0x') ? address : `0x${address}`;
-    
-    // Store full address for copying
-    this.fullAddress = addressWithPrefix;
-    
-    // Display full address
-    this.displayAddress.textContent = addressWithPrefix;
-
-    // Generate QR code with payment data
-    try {
-      this.updateQRCode();
-    } catch (error) {
-      console.error('Error updating QR code:', error);
-
-      // Fallback to basic address QR code if there's an error
-      new QRCode(this.qrcodeContainer, {
-        text: '0x' + address,
-        width: 200,
-        height: 200,
-      });
-      console.warn('Fallback to basic address QR code');
-    }
+    this.fullAddress = address.startsWith('0x') ? address : `0x${address}`;
+    this.displayAddress.textContent = this.fullAddress;
+    this.updateQRCode();
   }
 
-  // Create QR payment data object based on form values
   createQRPaymentData() {
-    const asset = walletScreen.getLibAsset();
-    const paymentData = {
+    const payment = {
       u: this.session.account.username,
-      i: asset?.id || 'liberdus',
-      s: asset?.symbol || 'LIB',
+      n: 'liberdus',
+      netid: network.netid,
+      nn: `Liberdus ${network.name}`,
+      i: 'liberdus',
+      s: 'LIB',
       d: String(this.receiveBalanceSymbol.textContent || 'LIB').toUpperCase(),
     };
-
-    // Add optional fields if they have values
     const amount = this.amountInput.value.trim();
-    if (amount) {
-      paymentData.a = amount;
-    }
-
     const memo = this.memoInput.value.trim();
-    if (memo) {
-      paymentData.m = memo;
-    }
-
-    return paymentData;
+    if (amount) payment.a = amount;
+    if (memo) payment.m = memo;
+    return payment;
   }
 
-  // Update QR code with current payment data
   updateQRCode() {
     if (!this.isCurrentSession(this.session)) return;
-    this.qrcodeContainer.innerHTML = '';
-    this.previewElement.style.display = 'none'; // Hide preview/error area initially
-    this.previewElement.innerHTML = ''; // Clear any previous error message
+    this.qrcodeContainer.replaceChildren();
+    this.previewElement.style.display = 'none';
+    this.previewElement.textContent = '';
 
+    const payment = this.createQRPaymentData();
     try {
-      // Get payment data
-      const paymentData = this.createQRPaymentData();
-
-      // Convert to JSON and encode as base64
-      const jsonData = JSON.stringify(paymentData);
-      const base64Data = bin2base64(utf82bin(jsonData));
-
-      // Create URI with liberdus:// prefix
-      const qrText = `liberdus://${base64Data}`;
-
-      return this.renderQRCode(qrText);
+      return this.renderQRCode(payment);
     } catch (error) {
-      console.error('Error in updateQRCode:', error);
+      console.error('Error generating payment QR code:', error);
+    }
 
-      this.qrcodeContainer.innerHTML = ''; // Clear the container before adding fallback QR
-
-      // Fallback to basic username QR code in liberdus:// format
+    this.previewElement.style.display = 'block';
+    const { a: amount, m: memo, ...recipientAndTarget } = payment;
+    if (amount || memo) {
       try {
-        // Use short key 'u' for username
-        const fallbackData = { u: this.session.account.username };
-        const fallbackJsonData = JSON.stringify(fallbackData);
-        const fallbackBase64Data = btoa(fallbackJsonData);
-        const fallbackQrText = `liberdus://${fallbackBase64Data}`;
-
-        this.renderQRCode(fallbackQrText);
-
-        console.error('Error generating full QR', error);
-
-        // Show error directly in the preview element
-        if (this.previewElement) {
-          this.previewElement.innerHTML = `<span style="color: red;">Error generating full QR</span><br> Generating QR with only username. <br> Username: ${myAccount.username}`;
-          this.previewElement.style.display = 'block'; // Make the error visible
-        }
-      } catch (fallbackError) {
-        console.error('Error generating fallback QR code:', fallbackError);
-        this.qrcodeContainer.innerHTML = '<p style="color: red; text-align: center;">Failed to generate QR code.</p>';
+        const text = this.renderQRCode(recipientAndTarget);
+        this.previewElement.textContent = 'The QR code omits the amount and memo.';
+        return text;
+      } catch (error) {
+        console.error('Error generating fallback QR code:', error);
       }
     }
+    this.previewElement.textContent = 'Unable to generate the payment QR code. You can still copy your address.';
   }
 
-  renderQRCode(text) {
+  renderQRCode(payment) {
+    const text = PaymentQR.encode(payment);
     const gifBytes = qr.encodeQR(text, 'gif', { scale: ReceiveModal.qrScale, border: 4 });
     const img = document.createElement('img');
     img.width = 200;

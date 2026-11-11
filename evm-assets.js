@@ -9,6 +9,7 @@ import {
   normalizeHttpsUrl,
   normalizeResourceUrl,
   openModal,
+  PaymentQR,
   utf82bin,
   withButtonCooldown,
   QRImageDecoder,
@@ -2254,11 +2255,13 @@ class EvmReceiveModal {
 
   createQRPaymentData() {
     const { account, network, asset, address } = this.session;
+    const isNative = String(asset.tokenType).toLowerCase() === 'native' && !asset.contractAddress;
     const data = {
       u: account.username,
       n: network.id,
+      nn: network.name,
       c: network.chainId,
-      i: asset.contractAddress || asset.key,
+      i: isNative ? 'native' : normalizeEvmAddress(asset.contractAddress, 'token contract'),
       s: asset.tokenSymbol,
       d: this.balanceSymbol.textContent.toUpperCase(),
       r: address,
@@ -2276,7 +2279,7 @@ class EvmReceiveModal {
     this.preview.style.display = 'none';
     this.preview.textContent = '';
     try {
-      const text = `liberdus://${bin2base64(utf82bin(JSON.stringify(this.createQRPaymentData())))}`;
+      const text = PaymentQR.encode(this.createQRPaymentData());
       const scale = 2;
       const bytes = qr.encodeQR(text, 'gif', { scale, border: 4 });
       const img = document.createElement('img');

@@ -12,6 +12,7 @@ import {
   hex2bin,
   utf82bin,
   BUTTON_COOLDOWN_MS,
+  PaymentQR,
   QRImageDecoder,
   WalletUsdValuation,
   escapeHtml,
@@ -4067,7 +4068,14 @@ class MultichainRequestModal {
     const session = this.session;
     if (!this.isCurrentSession(session)) throw new Error('This payment request is no longer active.');
     const { asset, address, username } = session;
-    const data = { t: 'intents', address, u: username, i: asset.assetId, s: asset.tokenSymbol };
+    const data = {
+      t: INTENTS_NETWORK_ID,
+      address,
+      u: username,
+      i: asset.assetId,
+      s: asset.tokenSymbol,
+      an: assetTitle(asset),
+    };
     const amount = this.amountInput.value.trim();
     if (amount) {
       parseTokenAmount(amount, asset.tokenDecimals);
@@ -4087,8 +4095,7 @@ class MultichainRequestModal {
     this.qrcodeContainer.replaceChildren();
     this.status.textContent = '';
     try {
-      const data = this.createQRPaymentData();
-      const text = `liberdus://${bin2base64(utf82bin(JSON.stringify(data)))}`;
+      const text = PaymentQR.encode(this.createQRPaymentData());
       const bytes = globalThis.qr.encodeQR(text, 'gif', { scale: 4, border: 4 });
       const img = document.createElement('img');
       img.addEventListener('load', () => this.sizeQRCode());
