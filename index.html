@@ -2003,7 +2003,18 @@
               autocomplete="off" aria-label="Note" placeholder="What is it for?" hidden></textarea>
 
             <button class="btn btn--primary btn--pill btn--full" id="chatSendButton" disabled>Review payment</button>
-            <div class="multichain-quote-note">Arrives instantly. No network fee.</div>
+            <div class="multichain-quote-note chat-send-costs">
+              <div class="chat-send-cost" id="chatSendReceiptToll" role="status" hidden>
+                <span>Chat message toll</span>
+                <span aria-hidden="true">·</span>
+                <span id="chatSendReceiptTollAmount"></span>
+              </div>
+              <div class="chat-send-cost">
+                <span>Asset transfer</span>
+                <span aria-hidden="true">·</span>
+                <span>No network fee</span>
+              </div>
+            </div>
             <div class="multichain-status" id="chatSendStatus" hidden></div>
           </div>
 

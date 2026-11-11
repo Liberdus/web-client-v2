@@ -5664,7 +5664,6 @@ export class ChatPaymentPanel {
     this.getAccount = () => null;
     this.onSent = null;
     this.showToast = () => {};
-    this.checkReceiptRecipient = async () => ({});
   }
 
   configure({ getAccount, onSent, showToast, lookupUsername, openQRScanner, createContactAutocomplete, checkReceiptRecipient } = {}) {
@@ -5689,6 +5688,8 @@ export class ChatPaymentPanel {
     this.recipientGroup = $('chatSendRecipientGroup');
     this.recipientInput = $('chatSendRecipient');
     this.recipientStatus = $('chatSendRecipientStatus');
+    this.receiptToll = $('chatSendReceiptToll');
+    this.receiptTollAmount = $('chatSendReceiptTollAmount');
     this.scanQRButton = $('chatSendScanQR');
     this.uploadQRButton = $('chatSendUploadQR');
     this.qrFileInput = $('chatSendQRFile');
@@ -5886,6 +5887,15 @@ export class ChatPaymentPanel {
     clearTimeout(this.recipientLookupTimer);
     this.recipientLookup = null;
     this.qrLookup = null;
+    this.setReceiptToll();
+  }
+
+  setReceiptToll(tollWei = null) {
+    if (tollWei === null) {
+      this.receiptTollAmount.textContent = '';
+      return;
+    }
+    this.receiptTollAmount.textContent = tollWei === 0n ? 'No toll fee' : `${formatUnits(tollWei)} LIB`;
   }
 
   setRecipientStatus(message, kind = '') {
@@ -5952,9 +5962,10 @@ export class ChatPaymentPanel {
     }
 
     const address = accountId.slice(2);
-    const { problem } = await this.checkRecipient(address, lookup);
+    const { problem, tollWei } = await this.checkRecipient(address, lookup);
     if (!this.isCurrentRecipientLookup(lookup)) return;
     if (problem) {
+      if (!lookup.request) this.setReceiptToll(tollWei);
       showError(problem);
       return;
     }
@@ -5969,6 +5980,7 @@ export class ChatPaymentPanel {
     this.recipientAddress = address;
     this.recipientName = `@${lookup.username}`;
     this.setRecipientStatus(`Verified ${this.recipientName}`, 'ok');
+    this.setReceiptToll(tollWei);
     this.validate();
   }
 
@@ -5990,6 +6002,7 @@ export class ChatPaymentPanel {
     this.clearRecipientLookup();
     this.contactAutocomplete?.close();
     this.recipientGroup.hidden = !session.fromWallet;
+    this.receiptToll.hidden = !session.fromWallet;
     this.recipientInput.value = '';
     this.qrFileInput.value = '';
     this.setRecipientStatus('');
@@ -6076,7 +6089,7 @@ export class ChatPaymentPanel {
   }
 
   close() {
-    if (this.sending) return;
+    if (!this.loaded || this.sending) return;
     this.session = null;
     this.reviewing = false;
     this.clearRecipientLookup();
@@ -6115,15 +6128,17 @@ export class ChatPaymentPanel {
     this.contactAutocomplete?.close();
     this.sendButton.disabled = true;
     this.setStatus('Checking…');
-    const { problem } = await this.checkRecipient(payment.address, payment.lookup);
+    const { problem, tollWei } = await this.checkRecipient(payment.address, payment.lookup);
     if (!this.isCurrentSession(session)) return;
     const current = this.isCurrentPayment(payment);
+    if (current && session.fromWallet) this.setReceiptToll(tollWei);
     if (!current || problem) {
       this.endReview(session);
       if (current && problem) this.setStatus(problem, 'error');
       return;
     }
     this.setStatus('');
+    payment.tollWei = tollWei;
 
     const price = priceOf(asset);
     const usd = price ? Number(amount) * price : null;
@@ -6136,7 +6151,11 @@ export class ChatPaymentPanel {
     if (session.fromWallet && asset.chainName) rows.push(['Asset network', asset.chainName]);
     if (shown !== amount) rows.push(['Exact amount', `${amount} ${asset.tokenSymbol}`]);
     if (note) rows.push(['Note', note]);
-    rows.push(['Network fee', 'None'], ['Arrives', 'Instantly']);
+    rows.push(
+      ['Network fee', 'None'],
+      ['Chat message toll', tollWei === 0n ? 'None' : `${formatUnits(tollWei)} LIB`],
+      ['Arrives', 'Instantly'],
+    );
 
     multichain.confirmModal.open({
       title: 'Confirm payment',
@@ -6179,6 +6198,7 @@ export class ChatPaymentPanel {
 
   async run(sheet, payment) {
     if (this.sending) return;
+    const reviewSession = sheet.session;
     const changed = 'Payment details changed. Go back and review again.';
     if (!this.isCurrentPayment(payment)) {
       sheet.finish(changed, 'error');
@@ -6210,8 +6230,19 @@ export class ChatPaymentPanel {
           throw new Error('This username no longer matches the reviewed recipient. Go back and enter it again.');
         }
       }
-      const { problem, beforePublish } = await this.checkRecipient(address, payment.lookup);
+      const { problem, beforePublish, tollWei } = await this.checkRecipient(address, payment.lookup);
       if (!this.isCurrentPayment(payment)) throw new Error(changed);
+      if (payment.session.fromWallet) this.setReceiptToll(tollWei);
+      if (tollWei !== undefined && tollWei > payment.tollWei) {
+        this.sending = false;
+        this.lockForm(false);
+        this.validate();
+        if (sheet.shows(reviewSession)) {
+          const message = 'The chat message toll increased. Go back and review the payment again.';
+          sheet.setStatus(problem ? `${message} ${problem}` : message, 'error');
+        }
+        return;
+      }
       if (problem) throw new Error(problem);
 
       sheet.setStatus('Sending…');
