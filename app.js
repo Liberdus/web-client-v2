@@ -233,7 +233,6 @@ import {
 } from './evm-assets.js';
 import {
   formatDisplayAmount,
-  formatUnits,
   multichain,
   INTENTS_CHAT_MESSAGE_TYPE,
   IntentsPaymentTollIncreasedError,
@@ -24121,8 +24120,7 @@ class ChatModal {
     // Already sent, or on its way: nothing to retry.
     if (card && card.status !== 'failed') return;
     if (retry && !card) return;
-    approvedTollWei = card?.approvedTollWei ?? approvedTollWei;
-    if (!retry || approvedTollWei !== undefined) {
+    if (!retry) {
       assert(typeof approvedTollWei === 'bigint' && approvedTollWei >= 0n, 'Invalid approved payment message toll');
     }
     const isCurrentReceipt = () => isCurrentRecipient() && findCard() === card && (!card || card.status === 'failed');
@@ -24139,7 +24137,7 @@ class ChatModal {
         paymentVerified: 'unchecked',
         my: true,
       };
-      Object.assign(card, { txid, timestamp, sent_timestamp: timestamp, status, approvedTollWei });
+      Object.assign(card, { txid, timestamp, sent_timestamp: timestamp, status });
       insertSorted(contact.messages, card, 'timestamp');
 
       const chatIndex = myData.chats.findIndex((chat) => chat.address === currentAddress);
@@ -24183,15 +24181,6 @@ class ChatModal {
       if (fee === null || typeof balance !== 'bigint' || balance < tollInLib + fee) {
         throw new Error('Not enough LIB for the message fee.');
       }
-      if (retry && tollInLib > (approvedTollWei ?? 0n)) {
-        const cost = `${formatUnits(tollInLib)} LIB`;
-        const prompt = approvedTollWei === undefined
-          ? `The chat message toll is ${cost}. Send the chat message?`
-          : `The chat message toll increased from ${formatUnits(approvedTollWei)} LIB to ${cost}. Send the chat message?`;
-        if (!window.confirm(prompt)) return;
-        approvedTollWei = tollInLib;
-      }
-      approvedTollWei ??= 0n;
       built = await this.buildEncryptedStructuredChatTx(
         currentAddress,
         // Rebuilt from the parsed claim, so a retry sends what the card shows.
@@ -24204,7 +24193,7 @@ class ChatModal {
       if (!isCurrentReceipt()) return;
       if (Number(contact.tollRequiredToSend) === 2) throw new Error('This recipient has blocked messages.');
       const latestTollWei = this.paymentMessageToll(contact);
-      if (latestTollWei > approvedTollWei) throw new IntentsPaymentTollIncreasedError(latestTollWei);
+      if (!retry && latestTollWei > approvedTollWei) throw new IntentsPaymentTollIncreasedError(latestTollWei);
     } catch (error) {
       const currentReceipt = isCurrentReceipt();
       // Chat sync can finish a previous attempt while Retry is checking the toll.
@@ -24221,7 +24210,7 @@ class ChatModal {
     const { payload, chatMessageObj, txid } = built;
     placeCard(txid, payload.sent_timestamp, 'sent');
 
-    const response = await injectTx(chatMessageObj, txid, { deferTollTooLowToast: true });
+    const response = await injectTx(chatMessageObj, txid, { deferTollTooLowToast: !retry });
     if (!response?.result?.success) {
       if (isCurrentRecipient()) {
         updateTransactionStatus(txid, currentAddress, 'failed', 'message');
@@ -24229,7 +24218,7 @@ class ChatModal {
         saveState();
       }
       const reason = response?.result?.reason;
-      if (!response?.transportFailure && isRecipientTollTooLowFailure(reason)) {
+      if (!retry && !response?.transportFailure && isRecipientTollTooLowFailure(reason)) {
         throw new IntentsPaymentTollRejectedError(reason);
       }
       throw new Error(reason || 'The chat receipt was rejected.');
@@ -24241,7 +24230,7 @@ class ChatModal {
     // A second tap while the first is still going: that one will answer.
     if (intentsReceiptsInFlight.has(message.payment?.intentHash)) return;
     try {
-      await this.sendIntentsPaymentMessage(address, message.payment, message.approvedTollWei, { retry: true });
+      await this.sendIntentsPaymentMessage(address, message.payment, undefined, { retry: true });
     } catch (error) {
       console.error('Payment receipt retry failed:', error);
       showToast(`The payment message did not go through: ${error?.message || 'try again'}`, 0, 'error');
