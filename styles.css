@@ -13393,6 +13393,13 @@ button.multichain-token-chip:hover {
   text-align: end;
 }
 
+#chatSendReceiptToll {
+  /* Reserve room for a full-precision amount that wraps. */
+  line-height: 1.25;
+  min-block-size: 2.5em;
+  align-content: center;
+}
+
 .chat-send-cost[hidden] {
   display: none;
 }

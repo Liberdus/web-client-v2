@@ -5891,9 +5891,8 @@ export class ChatPaymentPanel {
   }
 
   setReceiptToll(tollWei = null) {
-    this.receiptToll.hidden = tollWei === null;
     if (tollWei === null) {
-      this.receiptTollAmount.textContent = '';
+      this.receiptTollAmount.textContent = '—';
       return;
     }
     this.receiptTollAmount.textContent = tollWei === 0n ? 'No toll fee' : `${formatUnits(tollWei)} LIB`;
@@ -6003,6 +6002,7 @@ export class ChatPaymentPanel {
     this.clearRecipientLookup();
     this.contactAutocomplete?.close();
     this.recipientGroup.hidden = !session.fromWallet;
+    this.receiptToll.hidden = !session.fromWallet;
     this.recipientInput.value = '';
     this.qrFileInput.value = '';
     this.setRecipientStatus('');
