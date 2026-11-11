@@ -23731,7 +23731,7 @@ class ChatModal {
   }
 
   /**
-   * Why a payment receipt could not reach this contact, or null when it can.
+   * The checked toll in LIB wei, or why a payment receipt could not reach this contact.
    *
    * Asked before any money moves. The transfer settles on NEAR and the
    * receipt on Liberdus, so anything that would stop the receipt -- the
@@ -23743,7 +23743,7 @@ class ChatModal {
   async checkPaymentRecipient(recipientAddress, isCurrentLookup = () => true) {
     const address = normalizeAddress(recipientAddress);
     const contact = myData?.contacts[address];
-    if (!contact) return 'Add this person to your contacts first.';
+    if (!contact) return { problem: 'Add this person to your contacts first.' };
     const name = getContactDisplayName(contact);
     const assertCurrentContact = () => {
       if (myData?.contacts[address] !== contact) {
@@ -23758,7 +23758,7 @@ class ChatModal {
     if (accountRes?.error || !recipient) throw new Error('Recipient account lookup failed');
     const myIsPrivate = isPrivateAccount();
     if ((recipient.private === true) !== myIsPrivate) {
-      return `${myIsPrivate ? 'Private' : 'Public'} accounts can only send to other ${myIsPrivate ? 'private' : 'public'} accounts, so a payment cannot reach ${name} here.`;
+      return { problem: `${myIsPrivate ? 'Private' : 'Public'} accounts can only send to other ${myIsPrivate ? 'private' : 'public'} accounts, so a payment cannot reach ${name} here.` };
     }
 
     const recipientToll = recipient.data?.toll;
@@ -23779,7 +23779,7 @@ class ChatModal {
     const tollState = {
       toll: recipientToll, tollUnit, tollRequiredToSend: noChat ? 1 : required[recipientIndex],
     };
-    if (!isCurrentLookup()) return 'The recipient changed. Go back and review the payment again.';
+    if (!isCurrentLookup()) return { problem: 'The recipient changed. Go back and review the payment again.' };
     Object.assign(contact, tollState);
     if (!noChat) {
       const senderRequired = required[1 - recipientIndex];
@@ -23791,7 +23791,7 @@ class ChatModal {
     }
     this.saveRecipientTollState(address, contact);
     if (tollState.tollRequiredToSend === 2) {
-      return `${name} is not accepting messages from you, so a payment cannot reach them here.`;
+      return { problem: `${name} is not accepting messages from you, so a payment cannot reach them here.` };
     }
     const recipientKeys = contact.public && contact.pqPublic ? contact : {
       public: accountRes.account.publicKey || contact.public,
@@ -23802,18 +23802,19 @@ class ChatModal {
 
     // Fresh where it can be; the saved balance otherwise, as any send uses.
     await walletScreen.updateWalletBalances().catch((error) => console.warn('LIB balance refresh failed:', error));
+    await getNetworkParams(false, isCurrentLookup);
     assertCurrentContact();
-    const toll = this.paymentMessageToll(tollState);
-    const canPayReceipt = await validateBalance(toll);
-    assertCurrentContact();
-    if (!canPayReceipt) {
-      // validateBalance also refuses when it cannot learn the fee.
-      const fee = getTransactionFeeWei({ allowNull: true });
-      if (fee === null) throw new Error('Message fee unavailable');
-      const needed = formatDisplayAmount(big2str(toll + fee, 18), 6);
-      return `The chat message to ${name} costs ${needed} LIB with its fee, and you do not have enough LIB. Add LIB first.`;
+    const fee = getTransactionFeeWei({ allowNull: true });
+    if (fee === null) throw new Error('Message fee unavailable');
+    const tollWei = this.paymentMessageToll(tollState);
+    if (getLibBalanceWei() < tollWei + fee) {
+      const needed = formatDisplayAmount(big2str(tollWei + fee, 18), 6);
+      return {
+        tollWei,
+        problem: `The chat message to ${name} costs ${needed} LIB with its fee, and you do not have enough LIB. Add LIB first.`,
+      };
     }
-    return null;
+    return { tollWei };
   }
 
   /** Local eligibility for wallet Send. The receipt check can load missing keys. */
@@ -23821,17 +23822,22 @@ class ChatModal {
     return Boolean(contact.address && !isFaucetAddress(contact.address));
   }
 
-  /** Check receipt eligibility and save a new contact just before publication. */
+  /**
+   * Check receipt eligibility and save a new contact just before publication.
+   * @returns {Promise<{tollWei: bigint, beforePublish: () => void} | {problem: string, tollWei?: bigint}>}
+   */
   async checkIntentsPaymentReceipt(address, username, isCurrentLookup) {
     const contact = myData?.contacts[address];
     if (username && contact && !this.canSendIntentsPaymentTo(contact)) {
       return { problem: 'This contact cannot receive a NEAR Intents payment.' };
     }
 
+    let tollWei;
     let connection;
     if (contact || !username) {
-      const problem = await this.checkPaymentRecipient(address, isCurrentLookup);
-      if (problem) return { problem };
+      const checked = await this.checkPaymentRecipient(address, isCurrentLookup);
+      if (checked.problem) return checked;
+      tollWei = checked.tollWei;
     } else {
       if (isFaucetAddress(address)) {
         return { problem: 'This account cannot receive a NEAR Intents payment.' };
@@ -23841,11 +23847,16 @@ class ChatModal {
           { address, username }, myAccount, { forIntents: true, isCurrentLookup },
         );
       } catch (error) {
-        return { problem: error.message || 'Could not check that this payment can reach them. Try again.' };
+        return {
+          tollWei: error.recipientToll,
+          problem: error.message || 'Could not check that this payment can reach them. Try again.',
+        };
       }
+      tollWei = BigInt(connection.toll);
     }
 
     return {
+      tollWei,
       beforePublish: () => {
         if (myData?.contacts[address] !== contact) {
           throw new Error('The recipient changed. Go back and review the payment again.');
@@ -24175,7 +24186,7 @@ class ChatModal {
     // A second tap while the first is still going: that one will answer.
     if (intentsReceiptsInFlight.has(message.payment?.intentHash)) return;
     try {
-      const problem = await this.checkPaymentRecipient(address);
+      const { problem } = await this.checkPaymentRecipient(address);
       if (problem) {
         showToast(problem, 0, 'error');
         return;
