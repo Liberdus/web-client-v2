@@ -1587,10 +1587,98 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Multichain (NEAR Intents) Modal.
-           After chatModal on purpose: modals stack in document order, and a
-           send screen or token picker opened from a conversation has to sit
-           above it. -->
+      <!-- Contact Info Modal -->
+      <div class="modal fixed-header" id="contactInfoModal">
+        <div class="modal-header">
+          <button class="back-button" id="closeContactInfoModal"></button>
+          <div class="modal-title">Contact Info</div>
+          <!-- Add header actions container -->
+          <div class="header-actions">
+            <button class="icon-button chat-icon" id="contactInfoChatButton" aria-label="Open chat"></button>
+            <button class="icon-button send-money-icon" id="contactInfoSendButton" aria-label="Send money"></button>
+            <button
+              class="icon-button add-friend-icon"
+              id="addFriendButtonContactInfo"
+              aria-label="Add friend"
+            ></button>
+          </div>
+        </div>
+        <div class="modal-content">
+          <div class="form-container">
+            <div class="contact-info-list">
+              <div class="contact-avatar-section">
+                <div class="avatar" id="contactInfoAvatar"></div>
+                <div class="name"></div>
+                <div class="address-container">
+                  <div id="contactInfoDisplayAddress" class="subtitle"></div>
+                  <button
+                    id="contactInfoCopyAddress"
+                    class="icon-button address-copy-button"
+                    aria-label="Copy address"
+                  ></button>
+                </div>
+              </div>
+              <!-- Template for contact info items -->
+              <template id="contactInfoItemTemplate">
+                <div class="contact-info-item">
+                  <div class="contact-info-label"></div>
+                  <div class="contact-info-value"></div>
+                </div>
+              </template>
+              <!-- Contact info fields -->
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Username</div>
+                <div class="contact-info-value" id="contactInfoUsername"></div>
+              </div>
+              <div class="contact-info-item">
+                <div class="contact-info-label">Name</div>
+                <div class="contact-info-value-container">
+                  <div class="contact-info-value" id="contactInfoName"></div>
+                  <button class="icon-button edit-icon" id="nameEditButton" aria-label="Edit name"></button>
+                </div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Provided Name</div>
+                <div class="contact-info-value" id="contactInfoProvidedName"></div>
+              </div>
+              <!-- Email and Phone fields hidden - may want to restore later
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Email</div>
+                <div class="contact-info-value">
+                  <a href="#" id="contactInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+                </div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">Phone</div>
+                <div class="contact-info-value" id="contactInfoPhone"></div>
+              </div>
+              -->
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">LinkedIn</div>
+                <div class="contact-info-value">
+                  <a href="#" id="contactInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+                </div>
+              </div>
+              <div class="contact-info-item" style="display: none">
+                <div class="contact-info-label">X-Twitter</div>
+                <div class="contact-info-value">
+                  <a href="#" id="contactInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
+                </div>
+              </div>
+              <div class="contact-info-item">
+                <div class="contact-info-label">Notes</div>
+                <div class="contact-info-value-container">
+                  <div class="contact-info-value" id="contactInfoNotes"></div>
+                  <button class="icon-button edit-icon" id="notesEditButton" aria-label="Edit notes"></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <a class="last-item" href="#"> </a>
+      </div>
+
+      <!-- NEAR asset screens follow Chat and Contact Info so they stack above both. -->
       <div class="modal fixed-header" id="multichainModal">
         <div class="modal-header">
           <button class="back-button" id="closeMultichainModal"></button>
@@ -2475,97 +2563,6 @@
         <a class="last-item" href="#"> </a>
       </div>
       
-      <!-- Contact Info Modal -->
-      <div class="modal fixed-header" id="contactInfoModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeContactInfoModal"></button>
-          <div class="modal-title">Contact Info</div>
-          <!-- Add header actions container -->
-          <div class="header-actions">
-            <button class="icon-button chat-icon" id="contactInfoChatButton" aria-label="Open chat"></button>
-            <button class="icon-button send-money-icon" id="contactInfoSendButton" aria-label="Send money"></button>
-            <button
-              class="icon-button add-friend-icon"
-              id="addFriendButtonContactInfo"
-              aria-label="Add friend"
-            ></button>
-          </div>
-        </div>
-        <div class="modal-content">
-          <div class="form-container">
-            <div class="contact-info-list">
-              <div class="contact-avatar-section">
-                <div class="avatar" id="contactInfoAvatar"></div>
-                <div class="name"></div>
-                <div class="address-container">
-                  <div id="contactInfoDisplayAddress" class="subtitle"></div>
-                  <button
-                    id="contactInfoCopyAddress"
-                    class="icon-button address-copy-button"
-                    aria-label="Copy address"
-                  ></button>
-                </div>
-              </div>
-              <!-- Template for contact info items -->
-              <template id="contactInfoItemTemplate">
-                <div class="contact-info-item">
-                  <div class="contact-info-label"></div>
-                  <div class="contact-info-value"></div>
-                </div>
-              </template>
-              <!-- Contact info fields -->
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Username</div>
-                <div class="contact-info-value" id="contactInfoUsername"></div>
-              </div>
-              <div class="contact-info-item">
-                <div class="contact-info-label">Name</div>
-                <div class="contact-info-value-container">
-                  <div class="contact-info-value" id="contactInfoName"></div>
-                  <button class="icon-button edit-icon" id="nameEditButton" aria-label="Edit name"></button>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Provided Name</div>
-                <div class="contact-info-value" id="contactInfoProvidedName"></div>
-              </div>
-              <!-- Email and Phone fields hidden - may want to restore later
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Email</div>
-                <div class="contact-info-value">
-                  <a href="#" id="contactInfoEmail" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">Phone</div>
-                <div class="contact-info-value" id="contactInfoPhone"></div>
-              </div>
-              -->
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">LinkedIn</div>
-                <div class="contact-info-value">
-                  <a href="#" id="contactInfoLinkedin" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item" style="display: none">
-                <div class="contact-info-label">X-Twitter</div>
-                <div class="contact-info-value">
-                  <a href="#" id="contactInfoX" class="contact-info-link" target="_blank" rel="noopener noreferrer"></a>
-                </div>
-              </div>
-              <div class="contact-info-item">
-                <div class="contact-info-label">Notes</div>
-                <div class="contact-info-value-container">
-                  <div class="contact-info-value" id="contactInfoNotes"></div>
-                  <button class="icon-button edit-icon" id="notesEditButton" aria-label="Edit notes"></button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <a class="last-item" href="#"> </a>
-      </div>
-
       <!-- Pay Choice Modal -->
       <div class="modal modal-dialog" id="payChoiceModal" role="dialog" aria-modal="true" aria-labelledby="payChoiceTitle" aria-describedby="payChoiceRecipient">
         <div class="dialog-box-content">

@@ -10123,7 +10123,6 @@ class ContactInfoModal {
     this.nameDiv = this.avatarSection.querySelector('.name');
     this.subtitleDiv = document.getElementById('contactInfoDisplayAddress');
     this.copyButton = document.getElementById('contactInfoCopyAddress');
-    this.usernameDiv = document.getElementById('contactInfoUsername');
     this.avatarEditButton = document.createElement('button');
     this.avatarEditButton.className = 'icon-button edit-icon avatar-edit-button avatar-edit-button-outside';
     this.avatarEditButton.setAttribute('aria-label', 'Edit photo');
@@ -10145,10 +10144,9 @@ class ContactInfoModal {
       }
     });
 
-    // Add send money button handler
     this.sendButton.addEventListener('click', () => {
-      sendAssetFormModal.username = this.usernameDiv.textContent;
-      sendAssetFormModal.open();
+      const contact = myData?.contacts?.[this.currentContactAddress];
+      if (contact) payChoiceModal.open(contact, this.sendButton);
     });
 
     // Add add friend button handler
@@ -10188,6 +10186,7 @@ class ContactInfoModal {
   // Update contact info values
   async updateContactInfo(displayInfo) {
     const avatarHtml = await getContactAvatarHtml(displayInfo, 96);
+    if (this.currentContactAddress !== displayInfo.address) return;
 
     // Update the avatar section
     this.avatarDiv.innerHTML = avatarHtml;
@@ -10290,9 +10289,13 @@ class ContactInfoModal {
 
   // Open the modal
   async open(displayInfo) {
-    friendModal.setAddress(displayInfo.address);
     this.currentContactAddress = displayInfo.address;
+    this.sendButton.disabled = true;
     await this.updateContactInfo(displayInfo);
+    if (this.currentContactAddress !== displayInfo.address) return;
+
+    this.sendButton.disabled = false;
+    friendModal.setAddress(displayInfo.address);
     this.setupChatButton(displayInfo);
 
     // Update friend button status
@@ -34387,7 +34390,6 @@ class SendAssetFormModal {
 
   constructor() {
     this.session = null;
-    this.username = null;
     this.sendAssetFormModalCheckTimeout = null;
     this.foundAddressObject = { address: null };
     this.needTollInfo = false;
@@ -34501,10 +34503,6 @@ class SendAssetFormModal {
     if (recipientToRestore) {
       this.usernameInput.value = recipientToRestore.input;
       this.handleSendToAddressInput(recipientToRestore.expectedAddress);
-    } else if (this.username) {
-      this.usernameInput.value = this.username;
-      this.usernameInput.dispatchEvent(new Event('input'));
-      this.username = null;
     }
     try {
       await walletScreen.updateWalletBalances();
@@ -34563,7 +34561,6 @@ class SendAssetFormModal {
   async close() {
     chatsScreen.updateChatList();
     this.reset();
-    this.username = null;
   }
 
   getAutocompleteContacts() {
