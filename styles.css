@@ -9753,6 +9753,11 @@ small {
   overflow: hidden; /* Clip children to border-radius */
 }
 
+#payChoiceModal .dialog-box-content {
+  width: min(340px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+}
+
 .modal-dialog .modal-header {
   padding: 12px 16px;
   /* display: flex, align-items: center are inherited or default */

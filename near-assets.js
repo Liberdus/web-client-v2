@@ -3680,6 +3680,7 @@ function assetTitle(asset) {
 class MultichainModal {
   constructor(controller) {
     this.controller = controller;
+    this.recipient = null;
   }
 
   load() {
@@ -3721,12 +3722,14 @@ class MultichainModal {
     ));
   }
 
-  async open() {
-    openModal(this.modal);
+  async open({ recipient = null } = {}) {
+    if (!openModal(this.modal)) return;
+    this.recipient = recipient ? { ...recipient } : null;
     await this.update();
   }
 
   close() {
+    this.recipient = null;
     this.modal.classList.remove('active');
   }
 
@@ -3758,6 +3761,7 @@ class MultichainModal {
   }
 
   reset() {
+    this.recipient = null;
     if (!this.totalBalance) return;
     this.totalBalance.textContent = '$ -';
     this.totalBalance.style.color = '';
@@ -3915,7 +3919,9 @@ class MultichainAssetModal {
       .addEventListener('click', () => this.close());
     this.depositButton.addEventListener('click', () => this.controller.receiveModal.open(this.assetKey));
     this.receiveButton.addEventListener('click', () => this.controller.requestModal.open(this.assetKey));
-    this.sendButton.addEventListener('click', () => this.controller.onSend(this.assetKey));
+    this.sendButton.addEventListener('click', () => {
+      this.controller.onSend(this.assetKey, this.controller.assetsModal.recipient);
+    });
     this.withdrawButton.addEventListener('click', () => this.controller.withdrawModal.open(this.assetKey));
     this.swapButton.addEventListener('click', () => this.controller.swapModal.open(this.assetKey));
   }
@@ -5776,7 +5782,9 @@ export class ChatPaymentPanel {
       void multichain.startDeposit();
     });
 
-    multichain.configure({ onSend: (assetKey) => this.open(null, null, { assetKey }) });
+    multichain.configure({
+      onSend: (assetKey, prefillRecipient) => this.open(null, null, { assetKey, prefillRecipient }),
+    });
     this.loaded = true;
   }
 
@@ -6016,7 +6024,7 @@ export class ChatPaymentPanel {
     this.statusLine.dataset.kind = kind;
   }
 
-  async open(recipientAddress, recipientName = null, { assetKey = null } = {}) {
+  async open(recipientAddress, recipientName = null, { assetKey = null, prefillRecipient = null } = {}) {
     this.load();
     const account = this.getAccount();
     if (!account || !openModal(this.modal)) return false;
@@ -6050,6 +6058,11 @@ export class ChatPaymentPanel {
     this.assetLabel.hidden = !session.fromWallet;
     this.assetPicker.hidden = session.fromWallet;
     this.renderAsset();
+
+    if (session.fromWallet && prefillRecipient?.username) {
+      this.recipientInput.value = prefillRecipient.username;
+      void this.handleRecipientInput(prefillRecipient.address);
+    }
 
     if (!session.fromWallet) {
       // Focus after the slide, without stealing focus from a control already in use.
