@@ -5890,10 +5890,13 @@ export class ChatPaymentPanel {
     this.setReceiptToll();
   }
 
-  setReceiptToll(tollWei = 0n) {
-    const hasToll = tollWei > 0n;
-    this.receiptToll.hidden = !hasToll;
-    this.receiptTollAmount.textContent = hasToll ? `${formatUnits(tollWei)} LIB` : '';
+  setReceiptToll(tollWei = null) {
+    this.receiptToll.hidden = tollWei === null;
+    if (tollWei === null) {
+      this.receiptTollAmount.textContent = '';
+      return;
+    }
+    this.receiptTollAmount.textContent = tollWei === 0n ? 'No toll fee' : `${formatUnits(tollWei)} LIB`;
   }
 
   setRecipientStatus(message, kind = '') {
