@@ -5892,7 +5892,7 @@ export class ChatPaymentPanel {
 
   setReceiptToll(tollWei = null) {
     if (tollWei === null) {
-      this.receiptTollAmount.textContent = '—';
+      this.receiptTollAmount.textContent = '';
       return;
     }
     this.receiptTollAmount.textContent = tollWei === 0n ? 'No toll fee' : `${formatUnits(tollWei)} LIB`;

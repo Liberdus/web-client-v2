@@ -13400,6 +13400,10 @@ button.multichain-token-chip:hover {
   align-content: center;
 }
 
+#chatSendReceiptToll:has(#chatSendReceiptTollAmount:empty) > [aria-hidden="true"] {
+  visibility: hidden;
+}
+
 .chat-send-cost[hidden] {
   display: none;
 }
