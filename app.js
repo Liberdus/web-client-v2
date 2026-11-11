@@ -237,6 +237,7 @@ import {
   multichain,
   INTENTS_CHAT_MESSAGE_TYPE,
   IntentsPaymentTollIncreasedError,
+  IntentsPaymentTollRejectedError,
   buildTransferMessage,
   paymentStatusLabel,
   parseTransferMessage,
@@ -14631,6 +14632,10 @@ function isRecipientTollStateFailure(reason) {
   return /required toll|blocked by the receiver|chat is blocked/i.test(reason);
 }
 
+function isRecipientTollTooLowFailure(reason) {
+  return typeof reason === 'string' && /less than required toll/i.test(reason);
+}
+
 /**
  * Extracts the actionable one-line recipient toll/block reason from a pre-crack message.
  * @param {string} reason
@@ -14645,7 +14650,7 @@ function getRecipientTollPrecrackFailureReason(reason, contact) {
     return 'You are blocked by this user';
   }
 
-  if (/less than required toll/i.test(reason)) {
+  if (isRecipientTollTooLowFailure(reason)) {
     const username = getContactDisplayName(contact);
     return `You can only send reactions to people who have added you as a connection. Ask ${username} to add you as a connection`;
   }
@@ -14675,9 +14680,10 @@ async function refreshNetworkParamsOnTxFeeMismatch(reason) {
  * Inject a transaction
  * @param {Object} tx - The transaction object
  * @param {string} txid - The transaction ID
+ * @param {{deferTollTooLowToast?: boolean}} options - Let the caller report an insufficient toll
  * @returns {Promise<Object>} The response from the injectTx call
  */
-async function injectTx(tx, txid) {
+async function injectTx(tx, txid, { deferTollTooLowToast = false } = {}) {
   if (!isOnline) {
     return null;
   }
@@ -14796,6 +14802,7 @@ async function injectTx(tx, txid) {
         timeDifference()
         toastMessage += ' (Please try again)';
       }
+      if (deferTollTooLowToast && isRecipientTollTooLowFailure(failureReason)) return data;
       if (
         isRecipientTollStateFailure(failureReason)
         && myData.pending.some((pendingTx) => pendingTx.txid === txid && pendingTx.reactionPending)
@@ -24147,28 +24154,35 @@ class ChatModal {
 
     let built;
     try {
-      // Settlement can outlast the pre-transfer quote. Refresh the recipient before signing.
-      const { problem } = await this.checkPaymentRecipient(currentAddress, isCurrentReceipt, { checkBalance: false });
+      if (retry) {
+        const { problem } = await this.checkPaymentRecipient(currentAddress, isCurrentReceipt, { checkBalance: false });
+        if (problem) throw new Error(problem);
+      }
       if (!isCurrentRecipient()) throw new Error('The account or recipient changed during receipt preparation.');
       if (!isCurrentReceipt()) return;
-      if (problem) throw new Error(problem);
+      if (Number(contact.tollRequiredToSend) === 2) throw new Error('This recipient has blocked messages.');
+      const knownTollWei = this.paymentMessageToll(contact);
+      if (!retry && knownTollWei > approvedTollWei) throw new IntentsPaymentTollIncreasedError(knownTollWei);
+
+      const chatCryptoContext = await this.prepareEncryptedChatContext(currentAddress, keys);
+      await getNetworkParams();
+      let balance = getLibBalanceWei();
+      let fee = getTransactionFeeWei({ allowNull: true });
+      if (isCurrentReceipt() && fee !== null && balance < this.paymentMessageToll(contact) + fee) {
+        // A first-time recipient was checked against live LIB, which can be
+        // higher than the saved wallet balance.
+        const live = await queryNetwork(`/account/${longAddress(keys.address)}/balance`);
+        balance = live?.balance;
+        fee = getTransactionFeeWei({ allowNull: true });
+      }
+      if (!isCurrentRecipient()) throw new Error('The account or recipient changed during receipt preparation.');
+      if (!isCurrentReceipt()) return;
+      if (Number(contact.tollRequiredToSend) === 2) throw new Error('This recipient has blocked messages.');
       const tollInLib = this.paymentMessageToll(contact);
       if (!retry && tollInLib > approvedTollWei) throw new IntentsPaymentTollIncreasedError(tollInLib);
-      let sufficientBalance = await validateBalance(tollInLib);
-      if (!sufficientBalance && isCurrentRecipient()) {
-        // A first-time recipient was checked against live LIB, which can be
-        // higher than the cached wallet balance used by validateBalance.
-        const fee = getTransactionFeeWei({ allowNull: true });
-        if (fee !== null) {
-          const balance = await queryNetwork(`/account/${longAddress(keys.address)}/balance`);
-          sufficientBalance = typeof balance?.balance === 'bigint' && balance.balance >= tollInLib + fee;
-        }
-      }
-      if (!isCurrentRecipient()) throw new Error('The account or recipient changed during receipt preparation.');
-      if (!sufficientBalance) {
+      if (fee === null || typeof balance !== 'bigint' || balance < tollInLib + fee) {
         throw new Error('Not enough LIB for the message fee.');
       }
-      if (!isCurrentReceipt()) return;
       if (retry && tollInLib > (approvedTollWei ?? 0n)) {
         const cost = `${formatUnits(tollInLib)} LIB`;
         const prompt = approvedTollWei === undefined
@@ -24178,7 +24192,6 @@ class ChatModal {
         approvedTollWei = tollInLib;
       }
       approvedTollWei ??= 0n;
-      const chatCryptoContext = await this.prepareEncryptedChatContext(currentAddress, keys);
       built = await this.buildEncryptedStructuredChatTx(
         currentAddress,
         // Rebuilt from the parsed claim, so a retry sends what the card shows.
@@ -24205,14 +24218,18 @@ class ChatModal {
     const { payload, chatMessageObj, txid } = built;
     placeCard(txid, payload.sent_timestamp, 'sent');
 
-    const response = await injectTx(chatMessageObj, txid);
+    const response = await injectTx(chatMessageObj, txid, { deferTollTooLowToast: true });
     if (!response?.result?.success) {
       if (isCurrentRecipient()) {
         updateTransactionStatus(txid, currentAddress, 'failed', 'message');
         this.appendChatModal();
         saveState();
       }
-      throw new Error(response?.result?.reason || 'The chat receipt was rejected.');
+      const reason = response?.result?.reason;
+      if (!response?.transportFailure && isRecipientTollTooLowFailure(reason)) {
+        throw new IntentsPaymentTollRejectedError(reason);
+      }
+      throw new Error(reason || 'The chat receipt was rejected.');
     }
   }
 

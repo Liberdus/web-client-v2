@@ -2686,6 +2686,13 @@ export class IntentsPaymentTollIncreasedError extends Error {
   }
 }
 
+export class IntentsPaymentTollRejectedError extends Error {
+  constructor(reason) {
+    super(reason);
+    this.name = 'IntentsPaymentTollRejectedError';
+  }
+}
+
 /**
  * The announcement that travels through chat.
  *
@@ -6312,7 +6319,7 @@ export class ChatPaymentPanel {
 
     const receipt = await this.sendReceipt();
     if (!sheet.shows(reviewSession)) return;
-    if (receipt.sent) {
+    if (receipt.closeReview) {
       sheet.close();
       return;
     }
@@ -6326,7 +6333,7 @@ export class ChatPaymentPanel {
    */
   async sendReceipt() {
     const receipt = this.pendingReceipt;
-    if (!receipt || this.sending) return { sent: false };
+    if (!receipt || this.sending) return { closeReview: false };
     this.sending = true;
     this.sendButton.disabled = true;
     try {
@@ -6334,20 +6341,26 @@ export class ChatPaymentPanel {
       this.sending = false;
       this.close();
       this.showToast(`Sent ${receipt.amount} ${receipt.symbol}`, 3000, 'success');
-      return { sent: true };
+      return { closeReview: true };
     } catch (error) {
       console.error('Payment receipt failed to send:', error);
       this.sending = false;
-      if (error instanceof IntentsPaymentTollIncreasedError) {
+      const tollRejected = error instanceof IntentsPaymentTollRejectedError;
+      if (tollRejected || error instanceof IntentsPaymentTollIncreasedError) {
         const transferStatus = receipt.settled ? 'Asset sent.' : 'Asset transfer submitted.';
         const problem = `${transferStatus} The chat message failed because the toll increased. Retry it from chat.`;
+        if (tollRejected) {
+          this.close();
+          this.showToast(problem, 0, 'error');
+          return { closeReview: true };
+        }
         this.finish(problem, 'error');
-        return { sent: false, problem };
+        return { closeReview: false, problem };
       }
       this.setStatus(`Your ${receipt.symbol} was sent, but the chat message did not go through.`, 'error');
       this.sendButton.textContent = 'Send the message again';
       this.sendButton.disabled = false;
-      return { sent: false };
+      return { closeReview: false };
     }
   }
 
