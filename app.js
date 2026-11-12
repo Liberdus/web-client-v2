@@ -241,6 +241,8 @@ import {
   paymentStatusLabel,
   parseTransferMessage,
   verifyTransferClaim,
+  getIntentStatus,
+  RELAY_MEMORY_MS,
   chatPaymentPanel,
   intentsActivity,
   intentsAccountIdForAddress,
@@ -253,6 +255,8 @@ const wei = 10n ** BigInt(weiDigits);
 const MAX_MEMO_BYTES = 1000; // 1000 bytes for memos
 const MENU_NAVIGATION_LOCK_MS = 400;
 const MAX_CHAT_MESSAGE_BYTES = 10000; // UTF-8 bytes for chat messages
+const NEAR_INTENT_TRANSFER_TYPE = 'near_intent_transfer';
+const NEAR_TRANSFER_HISTORY_LIMIT = 200;
 const BRIDGE_USERNAME = 'liberdusbridge';
 const TRANSACTION_TIMESTAMP_OFFSET_MS = 500; // Transaction offset to allow for slow connections
 const IS_DEV_NETWORK = network?.name === 'Devnet';
@@ -35887,6 +35891,28 @@ chatPaymentPanel.configure({
   getAccount: () => myAccount,
   onSent: (recipientAddress, messageObj, approvedTollWei) =>
     chatModal.sendIntentsPaymentMessage(recipientAddress, messageObj, approvedTollWei),
+  onAddressSubmitted(account, prepared, { intentHash, initiatedAt }) {
+    if (myAccount !== account || !myData) return;
+    const transfers = myData.intentsAddressTransfers ??= [];
+    if (transfers.some((transfer) => transfer.intentHash === intentHash)) return;
+    transfers.unshift({
+      intentHash,
+      assetId: prepared.assetId,
+      amount: prepared.amount,
+      recipientAddress: prepared.recipientId,
+      time: initiatedAt,
+      status: 'pending',
+    });
+    myData.intentsAddressTransfers = transfers.filter((transfer, index) => (
+      index < NEAR_TRANSFER_HISTORY_LIMIT || transfer.status === 'pending'
+    ));
+    (myData.pending ??= []).push({ type: NEAR_INTENT_TRANSFER_TYPE, txid: intentHash, submittedts: initiatedAt });
+    try {
+      saveState();
+    } catch (error) {
+      console.warn('Could not save NEAR transfer activity:', error);
+    }
+  },
   showToast,
   lookupUsername: (username) => getUsernameAddress(username, { requireNetworkResult: true }),
   openQRScanner: (fill, onCancel, background) => qrScanModal.open(fill, onCancel, background),
@@ -35918,15 +35944,6 @@ intentsActivity.configure({
   getAddressTransfers: (senderAddress) => {
     if (!senderAddress || senderAddress !== intentsAccountIdForAddress(myAccount?.keys?.address)) return [];
     return Array.isArray(myData?.intentsAddressTransfers) ? myData.intentsAddressTransfers : [];
-  },
-  saveAddressTransfers: (senderAddress, transfers) => {
-    if (!myData || !senderAddress || senderAddress !== intentsAccountIdForAddress(myAccount?.keys?.address)) return;
-    myData.intentsAddressTransfers = transfers;
-    try {
-      saveState();
-    } catch (error) {
-      console.warn('Could not save NEAR transfer activity:', error);
-    }
   },
   listPayments: () => Object.values(myData?.contacts || {}).flatMap((contact) => (contact.messages || [])
     .filter((message) => message.type === INTENTS_CHAT_MESSAGE_TYPE && message.payment)
@@ -38117,6 +38134,7 @@ async function refreshActiveBalanceDisplays(didSettlePendingState) {
 }
 
 let checkPendingTransactionsPromise = null;
+let pendingNearChecks = null;
 
 /**
  * Check pending transactions that are at least 5 seconds old
@@ -38139,12 +38157,62 @@ async function checkPendingTransactionsOnce() {
     return;
   }
   const account = myAccount;
+  const data = myData;
 
-  // initialize the pending array if it is not already initialized
-  myData.pending ??= [];
-  if (myData.pending.length === 0) return; // No pending transactions to check
+  data.pending ??= [];
+  const addressTransfers = data.intentsAddressTransfers ?? [];
+  const nearQueued = new Set(data.pending.filter((entry) => entry.type === NEAR_INTENT_TRANSFER_TYPE)
+    .map((entry) => entry.txid));
+  const startingPendingCount = data.pending.length;
+  // Recover Activity rows saved before NEAR transfers used the shared queue.
+  for (const transfer of addressTransfers) {
+    if (transfer.status !== 'pending' || nearQueued.has(transfer.intentHash)) continue;
+    data.pending.push({ type: NEAR_INTENT_TRANSFER_TYPE, txid: transfer.intentHash, submittedts: transfer.time });
+    nearQueued.add(transfer.intentHash);
+  }
+  if (data.pending.length !== startingPendingCount) saveState();
 
-  const startingPendingCount = myData.pending.length;
+  // A slow NEAR relay must not delay the next Liberdus receipt check.
+  if (navigator.onLine && pendingNearChecks?.data !== data) {
+    const transfersByHash = new Map(addressTransfers.map((transfer) => [transfer.intentHash, transfer]));
+    const entries = data.pending.filter((entry) => entry.type === NEAR_INTENT_TRANSFER_TYPE);
+    if (entries.length) {
+      const batch = pendingNearChecks = { data };
+      void Promise.all(entries.map(async (entry) => {
+        const transfer = transfersByHash.get(entry.txid);
+        const result = transfer?.status === 'pending' ? await getIntentStatus(entry.txid).catch(() => null) : null;
+        return { entry, transfer, result };
+      })).then((results) => {
+        if (myAccount !== account || myData !== data) return;
+        let changed = false;
+        let refresh = false;
+        for (const { entry, transfer, result } of results) {
+          const index = data.pending.indexOf(entry);
+          if (index === -1) continue;
+          if (transfer?.status === 'pending') {
+            switch (result?.status) {
+              case 'SETTLED': transfer.status = 'done'; break;
+              case 'FAILED': transfer.status = 'failed'; break;
+              case 'NOT_FOUND_OR_NOT_VALID':
+                transfer.status = Date.now() - transfer.time > RELAY_MEMORY_MS ? 'expired' : 'failed';
+                break;
+              default: continue;
+            }
+            transfer.transactionHash = result.transactionHash;
+            refresh = true;
+          }
+          data.pending.splice(index, 1);
+          changed = true;
+        }
+        if (changed) saveState();
+        if (refresh) return multichain.refreshAfterMove();
+      }).catch((error) => console.warn('Could not update NEAR transfers:', error)).finally(() => {
+        if (pendingNearChecks === batch) pendingNearChecks = null;
+      });
+    }
+  }
+  const nativePending = data.pending.filter((entry) => entry.type !== NEAR_INTENT_TRANSFER_TYPE);
+  if (!nativePending.length) return;
   let didMutatePendingState = false;
   const resolvedReactionChains = [];
   const settleAndQueueReactionCleanup = (pendingTxInfo, result) => {
@@ -38163,9 +38231,9 @@ async function checkPendingTransactionsOnce() {
   const eightSecondsAgo = now - 8000;
   const twentySecondsAgo = now - 20000;
   const thirtySecondsAgo = now - 30000;
-  // Process each transaction in reverse to safely remove items
-  for (let i = myData.pending.length - 1; i >= 0; i--) {
-    const pendingTxInfo = myData.pending[i];
+  // Use a snapshot so NEAR queue removals cannot change the iteration order.
+  for (const pendingTxInfo of nativePending.reverse()) {
+    if (!data.pending.includes(pendingTxInfo)) continue;
     const { txid, type, submittedts } = pendingTxInfo;
     const isPendingDaoTransaction = isDaoTransactionType(type);
     const isPendingDaoVote = type === DAO_ACTION_TYPES.VOTE;
@@ -38451,7 +38519,8 @@ async function checkPendingTransactionsOnce() {
     cleanupResolvedReactionChain(chain.contactAddress, chain.targetTxid);
   }
 
-  const didSettlePendingState = startingPendingCount !== myData.pending.length || didMutatePendingState;
+  const nativePendingCount = data.pending.filter((entry) => entry.type !== NEAR_INTENT_TRANSFER_TYPE).length;
+  const didSettlePendingState = nativePending.length !== nativePendingCount || didMutatePendingState;
 
   // save state if pending transactions were processed
   if (didSettlePendingState) {
