@@ -6059,6 +6059,7 @@ input[type='file'].form-control::file-selector-button {
   width: var(--icon-size-24);
   height: var(--icon-size-24);
   display: inline-block;
+  background-image: var(--action-icon, none);
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
@@ -6067,14 +6068,37 @@ input[type='file'].form-control::file-selector-button {
 
 /* Send icon (up chevron) */
 #openSendAssetFormModal .action-icon,
-#assetDetailsSend .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='18 15 12 9 6 15'%3E%3C/polyline%3E%3C/svg%3E");
+#assetDetailsSend .action-icon,
+#multichainAssetSend .action-icon,
+.multichain-activity-icon[data-icon='sent'] {
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='18 15 12 9 6 15'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 /* Receive icon (down chevron) */
 #openReceiveModal .action-icon,
 #assetDetailsReceive .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+#multichainAssetReceive .action-icon,
+.multichain-activity-icon[data-icon='received'] {
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* Use thinner strokes on the denser arrow shapes to match the chevrons visually. */
+#multichainAssetDeposit .action-icon,
+.multichain-activity-icon[data-icon='deposit'] {
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
+}
+
+#multichainAssetWithdraw .action-icon,
+.multichain-activity-icon[data-icon='withdraw'] {
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
+}
+
+#multichainAssetSwap .action-icon,
+.multichain-activity-icon[data-icon='swap'] {
+  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 3 21 8 16 13'/%3E%3Cpath d='M21 8H8'/%3E%3Cpolyline points='8 21 3 16 8 11'/%3E%3Cpath d='M3 16h13'/%3E%3C/svg%3E");
 }
 
 /* History icon (clock) */
@@ -12314,22 +12338,20 @@ small {
   background: var(--background-color);
 }
 
-/* The glyph on a tinted disc, as a mask so it takes the accent (DESIGN.md
-   §6 -- currentColor does not reach inside the data-URI artwork). */
 .multichain-activity-icon {
   position: relative;
   flex: 0 0 40px;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: var(--hover-background-purple);
+  border-radius: 8px;
+  background: var(--light-color);
 }
 
 .multichain-activity-icon::after {
   content: '';
   position: absolute;
-  inset: 10px;
-  background-color: var(--primary-color);
+  inset: 8px;
+  background-color: var(--text-color);
   -webkit-mask: var(--action-icon) center / contain no-repeat;
   mask: var(--action-icon) center / contain no-repeat;
 }
@@ -12567,34 +12589,14 @@ small {
 }
 
 #multichainAssetModal .wallet-action-button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
   padding: 16px 8px;
-  border: 1px solid var(--border-color);
   border-radius: 12px;
-  background: var(--background-color);
-}
-
-#multichainAssetModal .wallet-action-button:hover:not(:disabled) {
-  background: var(--hover-background-purple);
-  border-color: var(--primary-color);
 }
 
 #multichainAssetModal .wallet-action-button:disabled {
+  background-color: var(--light-color);
   opacity: 0.4;
   cursor: default;
-}
-
-#multichainAssetModal .action-icon {
-  color: var(--primary-color);
-}
-
-#multichainAssetModal .action-label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-color);
 }
 
 /* --- task screens (receive, withdraw, swap) ------------------------------- */
@@ -13433,38 +13435,6 @@ textarea.chat-send-note {
   color: var(--secondary-text-color);
 }
 
-
-/* Action icons, in the app's own language: diagonals rather than chevrons,
-   matching the asset detail screen. Deposit points in, withdraw points out.
-
-   Painted as masks: `currentColor` does not reach inside a data-URI SVG, so as
-   background images these drew black whatever colour the icon was given
-   (DESIGN.md §6). Each rule publishes its artwork; the mask takes the colour. */
-#multichainAssetModal .action-icon {
-  background-color: currentColor;
-  background-image: none;
-  -webkit-mask: var(--action-icon) center / contain no-repeat;
-  mask: var(--action-icon) center / contain no-repeat;
-}
-
-:is(#multichainAssetReceive, #multichainAssetDeposit) .action-icon,
-.multichain-activity-icon[data-icon='in'] {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
-}
-
-:is(#multichainAssetSend, #multichainAssetWithdraw) .action-icon,
-.multichain-activity-icon[data-icon='out'] {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
-}
-
-.multichain-activity-icon[data-icon='send'] {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13'/%3E%3Cpath d='M22 2 15 22l-4-9-9-4z'/%3E%3C/svg%3E");
-}
-
-#multichainAssetSwap .action-icon,
-.multichain-activity-icon[data-icon='swap'] {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 3 21 8 16 13'/%3E%3Cpath d='M21 8H8'/%3E%3Cpolyline points='8 21 3 16 8 11'/%3E%3Cpath d='M3 16h13'/%3E%3C/svg%3E");
-}
 
 /* An option's icon in the popup that stands in for a native select. Same
    shape as .asset-mark: the label is drawn and the image laid over it, so an
