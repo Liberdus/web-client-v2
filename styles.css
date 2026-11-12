@@ -6223,6 +6223,17 @@ input[type='file'].form-control::file-selector-button {
   object-fit: cover;
 }
 
+.evm-asset-logo-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background-color: hsl(var(--asset-logo-hue) 62% 88%);
+  color: var(--dark-color);
+  font-size: 20px;
+  font-weight: var(--font-weight-bold);
+}
+
 .connected-asset-logo-fallback {
   color: var(--primary-color);
   font-family: var(--font-primary);
@@ -6288,13 +6299,8 @@ input[type='file'].form-control::file-selector-button {
   vertical-align: middle;
 }
 
-.asset-detail-logo > span {
-  display: grid;
-  place-items: center;
-  background-color: hsl(var(--asset-logo-hue, 0) 62% 88%);
-  color: var(--dark-color);
+.asset-detail-logo .evm-asset-logo-fallback {
   font-size: 32px;
-  font-weight: var(--font-weight-bold);
 }
 
 .asset-detail-amount {
