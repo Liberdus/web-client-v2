@@ -13,6 +13,7 @@ import {
   BUTTON_COOLDOWN_MS,
   PaymentQR,
   QRImageDecoder,
+  isValidEthereumAddress,
   WalletUsdValuation,
   escapeHtml,
   openModal,
@@ -1792,17 +1793,21 @@ export class IntentsTransferService {
     }
   }
 
-  /**
-   * Publish, then wait for the relayer to land it.
-   *
-   * The only call in this file with consequences.
-   */
-  async send(prepared, secretKey, { waitMs = 60_000 } = {}) {
+  /** Simulate and publish the transfer, then wait for settlement. */
+  async send(prepared, secretKey, { waitMs = 60_000, beforePublish } = {}) {
     const signed = await this.sign(prepared, secretKey);
+    const check = await this.simulate(signed);
+    if (!check.ok) {
+      throw new IntentsTransferError(`This payment would fail: ${check.reason}`, 'WOULD_FAIL', { reason: check.reason });
+    }
+    beforePublish?.();
+    const initiatedAt = Date.now();
     const intentHash = await publishIntent(signed);
-    const settlement = await waitForIntentSettlement(intentHash, { timeoutMs: waitMs });
+    const settlement = await waitForIntentSettlement(intentHash, { timeoutMs: waitMs })
+      .catch(() => ({ status: 'TIMED_OUT', transactionHash: null }));
     return {
       intentHash,
+      initiatedAt,
       status: settlement.status,
       transactionHash: settlement.transactionHash,
       settled: settlement.status === 'SETTLED',
@@ -2923,41 +2928,16 @@ export class IntentsChatPayments {
    * chat message, and if that fails it still knows the funds moved.
    */
   async send(prepared, secretKey, { asset, note = null, beforePublish } = {}) {
-    const signed = await this.transfers.sign(prepared, secretKey);
-
-    // Rehearse first. A refusal here costs nothing; discovering the same
-    // problem after publishing costs the relay's gas and confuses the sender.
-    const check = await this.transfers.simulate(signed);
-    if (!check.ok) {
-      throw new IntentsChatError(
-        `This payment would fail: ${check.reason}`,
-        'WOULD_FAIL',
-        { reason: check.reason },
-      );
-    }
-
-    beforePublish?.();
-    const initiatedAt = Date.now();
-    const intentHash = await publishIntent(signed);
-
-    // Wait for it to land before announcing it: the receipt then names the
-    // transaction the recipient will check, and no receipt is ever sent for
-    // a transfer that visibly failed. Seconds, usually. Still unsettled after
-    // the wait, the receipt goes without it and is checked through the relay.
-    let settlement = null;
-    try {
-      settlement = await waitForIntentSettlement(intentHash, { timeoutMs: 30_000 });
-    } catch {
-      settlement = null;
-    }
-    if (settlement && !['SETTLED', 'TIMED_OUT'].includes(settlement.status)) {
+    const settlement = await this.transfers.send(prepared, secretKey, { waitMs: 30_000, beforePublish });
+    const { intentHash, initiatedAt } = settlement;
+    if (!['SETTLED', 'TIMED_OUT'].includes(settlement.status)) {
       throw new IntentsChatError(
         `The transfer did not go through (${settlement.status}).`,
         'NOT_SETTLED',
         { intentHash, settlement },
       );
     }
-    const transactionHash = settlement?.status === 'SETTLED' ? settlement.transactionHash : null;
+    const transactionHash = settlement.status === 'SETTLED' ? settlement.transactionHash : null;
 
     return {
       intentHash,
@@ -2977,7 +2957,7 @@ export class IntentsChatPayments {
   }
 }
 
-export const intentsChatPayments = new IntentsChatPayments();
+export const intentsChatPayments = new IntentsChatPayments({ transfers: intentsTransfers });
 
 // === Wallet activity ===
 
@@ -2990,8 +2970,7 @@ export const intentsChatPayments = new IntentsChatPayments();
 //
 //   deposits    the bridge's recent_deposits, per account and chain. Public,
 //               and complete: it includes deposits sent from anywhere.
-//   payments    chat payment messages, sent and received, which the app
-//               already keeps and which travel with the conversation.
+//   payments    Liberdus Intents payment messages saved in conversations.
 //   swaps,      a record this device writes when it places the order, whose
 //   withdrawals state is then read back from 1Click by deposit address.
 //               Orders placed on another device do not appear -- a known,
@@ -5658,17 +5637,15 @@ export const multichain = new MultichainController();
 //
 // Sends an intents balance to another account. Their intents account is their
 // Liberdus address. A conversation supplies its recipient, while the wallet
-// resolves the username entered in the form.
+// resolves a username or accepts an address for an asset-only transfer.
 //
 // Built from the swap screen's parts -- the same amount panel, token chip and
 // picker, and the same confirmation screen -- so they read as one wallet.
 //
-// The value and the receipt settle on different networks, so the order matters
-// and is fixed: publish the transfer, then send the chat message. If the
-// message fails the sender is told plainly that the money moved and the receipt
-// did not, because the opposite order would let a receipt exist for a payment
-// that never happened. And once the transfer may be out, nothing on these
-// screens can send it again -- only the receipt can be retried.
+// Publish the transfer before sending the Liberdus Intents payment message so
+// the message cannot announce a transfer that was never published. If sending
+// the message fails, tell the sender the money moved and let them retry the
+// message without sending the transfer again.
 
 const $ = (id) => document.getElementById(id);
 const CHAT_MESSAGE_TOLL_LABEL = 'Chat message toll';
@@ -5688,7 +5665,7 @@ export class ChatPaymentPanel {
     this.recipientName = null;
     this.assetKey = null;
     this.sending = false;
-    // Set once the transfer is out and only the chat receipt is outstanding.
+    // Set when the transfer has been sent and its Liberdus Intents payment message is pending.
     this.pendingReceipt = null;
     // Set when the outcome is known or unknowable; the button only leaves.
     this.done = false;
@@ -5875,6 +5852,12 @@ export class ChatPaymentPanel {
 
   async fillFromQR(text, session) {
     if (!this.canReadQR(session)) return;
+    if (isValidEthereumAddress(text.trim())) {
+      this.contactAutocomplete?.close();
+      this.recipientInput.value = text.trim();
+      this.handleRecipientInput();
+      return;
+    }
     let request;
     try {
       const qr = PaymentQR.decode(text);
@@ -5892,7 +5875,8 @@ export class ChatPaymentPanel {
 
     this.contactAutocomplete?.close();
     const lookup = this.qrLookup = {
-      session, input: this.recipientInput.value, username: request.username, expectedAddress: request.address, request,
+      session, input: this.recipientInput.value, kind: 'username',
+      username: request.username, expectedAddress: request.address, request,
     };
     this.validate();
     try {
@@ -5924,6 +5908,7 @@ export class ChatPaymentPanel {
   }
 
   setReceiptToll(tollWei = null) {
+    this.receiptToll.hidden = !this.session?.fromWallet || tollWei === null;
     if (tollWei === null) {
       this.receiptTollAmount.textContent = '';
       return;
@@ -5937,6 +5922,15 @@ export class ChatPaymentPanel {
     this.recipientStatus.dataset.kind = kind;
   }
 
+  setNoteAvailability(reason = '') {
+    this.noteInput.disabled = Boolean(reason);
+    this.noteInput.placeholder = reason || 'What is it for?';
+    if (reason) this.noteInput.value = '';
+    this.noteInput.hidden = !reason && !this.noteInput.value;
+    this.noteToggle.hidden = !this.noteInput.hidden;
+    this.noteToggle.disabled = Boolean(reason);
+  }
+
   handleRecipientInput(expectedAddress) {
     const session = this.session;
     if (!this.isCurrentSession(session) || !session.fromWallet || this.recipientInput.disabled) return;
@@ -5946,17 +5940,37 @@ export class ChatPaymentPanel {
     this.recipientAddress = null;
     this.recipientName = null;
     this.setRecipientStatus('');
+    this.receiptToll.hidden = true;
+    this.setNoteAvailability('Cannot send a note to an invalid username.');
     this.validate();
 
     const input = this.recipientInput.value;
+    if (isValidEthereumAddress(input.trim())) {
+      const address = intentsAccountIdForAddress(input);
+      this.setNoteAvailability('Cannot send a note when the recipient is an address.');
+      if (address === intentsAccountIdForAddress(session.account.keys.address)) {
+        this.setRecipientStatus('You cannot send this to yourself.', 'error');
+        return;
+      }
+      this.recipientLookup = { session, input, kind: 'address' };
+      this.recipientAddress = address;
+      this.recipientName = address;
+      this.setRecipientStatus('Valid NEAR Intents address — asset transfer only', 'ok');
+      this.validate();
+      return;
+    }
     const username = input.trim().replace(/^@/, '').toLowerCase();
-    if (!username) return;
+    if (!username) {
+      this.setNoteAvailability('Enter a verified username to add a note.');
+      return;
+    }
     if (!/^[a-z0-9]{3,15}$/.test(username)) {
-      this.setRecipientStatus('Enter a username with 3 to 15 letters or numbers.', 'error');
+      this.setRecipientStatus('Enter a username or a valid 0x NEAR Intents address.', 'error');
       return;
     }
 
-    const lookup = this.recipientLookup = { session, input, username, expectedAddress };
+    const lookup = this.recipientLookup = { session, input, kind: 'username', username, expectedAddress };
+    this.setNoteAvailability('Checking username…');
     this.setRecipientStatus('Checking username…');
     if (expectedAddress) return this.resolveRecipient(lookup);
     this.recipientLookupTimer = setTimeout(() => this.resolveRecipient(lookup), 300);
@@ -5971,7 +5985,10 @@ export class ChatPaymentPanel {
     if (!this.isCurrentRecipientLookup(lookup)) return;
     const showError = (message) => {
       if (lookup.request) this.showToast(message, 0, 'error');
-      else this.setRecipientStatus(message, 'error');
+      else {
+        this.setRecipientStatus(message, 'error');
+        this.setNoteAvailability('Cannot send a note to an invalid username.');
+      }
     };
     const resolved = await this.lookupUsername(lookup.username).catch(() => undefined);
     if (!this.isCurrentRecipientLookup(lookup)) return;
@@ -6012,6 +6029,7 @@ export class ChatPaymentPanel {
     }
     this.recipientAddress = address;
     this.recipientName = `@${lookup.username}`;
+    this.setNoteAvailability();
     this.setRecipientStatus(`Verified ${this.recipientName}`, 'ok');
     this.setReceiptToll(tollWei);
     this.validate();
@@ -6035,7 +6053,7 @@ export class ChatPaymentPanel {
     this.clearRecipientLookup();
     this.contactAutocomplete?.close();
     this.recipientGroup.hidden = !session.fromWallet;
-    this.receiptToll.hidden = !session.fromWallet;
+    this.receiptToll.hidden = true;
     this.recipientInput.value = '';
     this.qrFileInput.value = '';
     this.setRecipientStatus('');
@@ -6056,6 +6074,7 @@ export class ChatPaymentPanel {
     this.sendButton.classList.replace('btn--secondary', 'btn--primary');
     this.sendButton.disabled = true;
     this.lockForm(false);
+    this.setNoteAvailability(session.fromWallet ? 'Enter a verified username to add a note.' : '');
     this.form.hidden = false;
     this.empty.hidden = true;
     this.assetLabel.hidden = !session.fromWallet;
@@ -6158,15 +6177,17 @@ export class ChatPaymentPanel {
     if (!this.isCurrentSession(session) || session.loading || this.hasPendingQR() || this.reviewing || this.sending
       || !asset || !this.recipientAddress || this.amount.problem() !== null) return;
 
-    const note = this.noteInput.value.trim() || null;
-    const payment = { session, asset, amount, note, address: this.recipientAddress, lookup: this.recipientLookup };
+    const transferOnly = this.recipientLookup?.kind === 'address';
+    const note = transferOnly ? null : this.noteInput.value.trim() || null;
+    const payment = { session, asset, amount, note, transferOnly, address: this.recipientAddress, lookup: this.recipientLookup };
 
     this.reviewing = true;
     this.syncQRButtons();
     this.contactAutocomplete?.close();
     this.sendButton.disabled = true;
     this.setStatus('Checking…');
-    const { problem, tollWei } = await this.checkRecipient(payment.address, payment.lookup);
+    const { problem, tollWei } = payment.transferOnly
+      ? {} : await this.checkRecipient(payment.address, payment.lookup);
     if (!this.isCurrentSession(session)) return;
     const current = this.isCurrentPayment(payment);
     if (current && session.fromWallet) this.setReceiptToll(tollWei);
@@ -6189,11 +6210,9 @@ export class ChatPaymentPanel {
     if (session.fromWallet && asset.chainName) rows.push(['Asset network', asset.chainName]);
     if (shown !== amount) rows.push(['Exact amount', `${amount} ${asset.tokenSymbol}`]);
     if (note) rows.push(['Note', note]);
-    rows.push(
-      ['Network fee', 'None'],
-      [CHAT_MESSAGE_TOLL_LABEL, tollWei === 0n ? 'None' : `${formatUnits(tollWei)} LIB`],
-      ['Arrives', 'Instantly'],
-    );
+    rows.push(['Network fee', 'None']);
+    if (!transferOnly) rows.push([CHAT_MESSAGE_TOLL_LABEL, tollWei === 0n ? 'None' : `${formatUnits(tollWei)} LIB`]);
+    rows.push(['Arrives', 'Instantly']);
 
     multichain.confirmModal.open({
       title: 'Confirm payment',
@@ -6202,7 +6221,7 @@ export class ChatPaymentPanel {
         ${usd !== null ? `<div class="multichain-confirm-sub">about ${escapeHtml(formatUsd(usd))}</div>` : ''}`,
       rows,
       actionLabel: `Send ${asset.tokenSymbol}`,
-      note: 'Payments cannot be undone.',
+      note: transferOnly ? 'Asset transfer only. Payments cannot be undone.' : 'Payments cannot be undone.',
       run: (sheet) => this.run(sheet, payment),
       onClose: () => this.endReview(session),
     });
@@ -6219,11 +6238,12 @@ export class ChatPaymentPanel {
       && !this.hasPendingQR()
       && (!payment.session.fromWallet || this.isCurrentRecipientLookup(payment.lookup))
       && this.recipientAddress === payment.address && this.assetKey === payment.asset.key
-      && this.amount.tokenAmount() === payment.amount && (this.noteInput.value.trim() || null) === payment.note
+      && this.amount.tokenAmount() === payment.amount
+      && (payment.transferOnly ? null : this.noteInput.value.trim() || null) === payment.note
       && this.amount.problem() === null;
   }
 
-  /** Check whether the chat receipt can reach the recipient before funds move. */
+  /** Check whether the Liberdus Intents payment message can reach the recipient before funds move. */
   async checkRecipient(address, lookup) {
     try {
       const isCurrentLookup = () => !lookup || this.isCurrentRecipientLookup(lookup);
@@ -6243,7 +6263,7 @@ export class ChatPaymentPanel {
       sheet.finish(changed, 'error');
       return;
     }
-    const { asset, amount, note, address } = payment;
+    const { asset, amount, note, address, transferOnly } = payment;
     const secretKey = payment.session.account.keys?.secret;
     if (!secretKey) {
       sheet.finish('Your account is not available. Sign in again to continue.', 'error');
@@ -6260,7 +6280,7 @@ export class ChatPaymentPanel {
     try {
       // Toll, blocks, and the LIB balance can change during confirmation.
       sheet.setStatus('Checking…');
-      if (payment.lookup) {
+      if (payment.lookup && !transferOnly) {
         const resolved = await this.lookupUsername(payment.lookup.username).catch(() => {
           throw new Error('Could not check the username. Try again.');
         });
@@ -6269,7 +6289,8 @@ export class ChatPaymentPanel {
           throw new Error('This username no longer matches the reviewed recipient. Go back and enter it again.');
         }
       }
-      const { problem, beforePublish, tollWei } = await this.checkRecipient(address, payment.lookup);
+      const { problem, beforePublish, tollWei } = transferOnly
+        ? {} : await this.checkRecipient(address, payment.lookup);
       if (!isCurrent()) throw new Error(changed);
       if (payment.session.fromWallet) this.setReceiptToll(tollWei);
       if (tollWei !== undefined && tollWei > payment.tollWei) {
@@ -6278,19 +6299,19 @@ export class ChatPaymentPanel {
       if (problem) throw new Error(problem);
 
       sheet.setStatus('Sending…');
-      prepared = await intentsChatPayments.prepare({
-        asset, recipientAddress: address, amount,
-      });
+      const transfers = transferOnly ? intentsTransfers : intentsChatPayments;
+      prepared = await transfers.prepare({ asset, recipientAddress: address, amount });
       if (!isCurrent()) throw new Error(changed);
-      sent = await intentsChatPayments.send(prepared, secretKey, {
-        asset,
-        note,
-        beforePublish: () => {
-          if (!isCurrent()) throw new Error(changed);
-          beforePublish?.(payment.tollWei);
-          publishStarted = true;
-        },
-      });
+      const beforeTransferPublish = () => {
+        if (!isCurrent()) throw new Error(changed);
+        beforePublish?.(payment.tollWei);
+        publishStarted = true;
+      };
+      if (transferOnly) {
+        sent = await intentsTransfers.send(prepared, secretKey, { waitMs: 30_000, beforePublish: beforeTransferPublish });
+      } else {
+        sent = await intentsChatPayments.send(prepared, secretKey, { asset, note, beforePublish: beforeTransferPublish });
+      }
     } catch (error) {
       this.sending = false;
       // Any failure before publication is safe to retry.
@@ -6315,13 +6336,27 @@ export class ChatPaymentPanel {
       }
       // A failure while publishing may come after the relay took it.
       console.warn('Payment outcome unknown:', error);
-      this.finish(UNCONFIRMED, 'error');
+      if (this.isCurrentSession(payment.session)) this.finish(UNCONFIRMED, 'error');
       if (sheet.shows(reviewSession)) sheet.finish(UNCONFIRMED, 'error');
       return;
     }
 
-    // The money has moved. From here a failure is about the receipt only, and
-    // the form is locked so it cannot describe a second payment.
+    if (transferOnly) {
+      this.sending = false;
+      const failed = ['FAILED', 'NOT_FOUND_OR_NOT_VALID'].includes(sent.status);
+      const message = failed ? 'The transfer did not go through.'
+        : sent.settled ? `Sent ${prepared.amount} ${prepared.symbol}.`
+        : 'Transfer submitted. Settlement could not be confirmed. Check your balance before trying again.';
+      if (this.isCurrentSession(payment.session)) {
+        this.close();
+        void multichain.refreshAfterMove().catch(() => {});
+      }
+      if (sheet.shows(reviewSession)) sheet.finish(message, failed ? 'error' : '');
+      return;
+    }
+
+    // Lock the form after the transfer so retrying the Liberdus Intents payment
+    // message cannot send the transfer again.
     this.lockForm(true);
     this.pendingReceipt = {
       message: sent.message,
@@ -6383,12 +6418,15 @@ export class ChatPaymentPanel {
   /** Every control that could describe a different payment. */
   lockForm(locked) {
     this.amount.setLocked(locked);
-    for (const control of [this.recipientInput, this.noteInput, this.noteToggle]) control.disabled = locked;
+    this.recipientInput.disabled = locked;
+    const canAddNote = !this.session.fromWallet || (this.recipientAddress && this.recipientLookup?.kind === 'username');
+    this.noteInput.disabled = locked || !canAddNote;
+    this.noteToggle.disabled = locked || !canAddNote;
     this.assetPicker.disabled = locked || this.session.fromWallet || this.session.loading;
     this.syncQRButtons();
   }
 
-  /** This form is finished. Leave any remaining receipt retry to chat. */
+  /** Leave any retry of the Liberdus Intents payment message to chat. */
   finish(message, kind) {
     this.done = true;
     this.pendingReceipt = null;

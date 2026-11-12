@@ -35900,15 +35900,14 @@ chatPaymentPanel.configure({
         .map((contact) => ({ ...contact, displayName: getContactDisplayName(contact) }));
     },
   }),
-  // Whether the receipt can reach them and be paid for, checked fresh: the
-  // toll may be stale when the chat was never opened.
+  // Check whether the Liberdus Intents payment message can reach the recipient
+  // and whether the sender can pay the current toll.
   checkReceiptRecipient: (address, username, isCurrentLookup) =>
     chatModal.checkIntentsPaymentReceipt(address, username, isCurrentLookup),
 });
 
-// The asset screen's activity. Swaps and withdrawals this device placed are
-// kept with the account's own saved state, so a backup carries them; chat
-// payments are read from the conversations that already hold them.
+// Swaps and withdrawals are saved with the account. Liberdus Intents
+// payment messages are read from the conversations that hold them.
 intentsActivity.configure({
   getOrders: () => (Array.isArray(myData?.intentsOrders) ? myData.intentsOrders : []),
   saveOrders: (orders) => {
