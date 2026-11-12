@@ -659,10 +659,6 @@ class WalletDiscoveryService {
     return this.status;
   }
 
-  getUpdatedAt() {
-    return this.updatedAt;
-  }
-
   getNetwork(networkId) {
     return this.getCatalog().find((network) => network.id === networkId) || null;
   }
@@ -1432,23 +1428,6 @@ function connectedAssetLogoMarkup(asset, walletNetwork) {
   return `<span class="connected-asset-logo-fallback">${escapeHtml(walletNetwork.shortName.slice(0, 3))}</span>`;
 }
 
-function formatAssetDetailsUpdatedAt(timestamp) {
-  if (!timestamp) return 'Updated just now';
-  return `Updated ${new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(timestamp))}`;
-}
-
-function formatConnectedTokenType(asset) {
-  const type = String(asset?.tokenType || '').toLowerCase();
-  if (type === 'native') return 'Native asset';
-  if (type === 'erc20') return 'ERC-20';
-  return type ? type.toUpperCase() : 'Token';
-}
-
 class AssetsModal {
   constructor(controller) {
     this.controller = controller;
@@ -1664,21 +1643,10 @@ class AssetDetailsModal {
   load() {
     this.modal = document.getElementById('assetDetailsModal');
     this.title = document.getElementById('assetDetailsModalTitle');
-    this.symbol = document.getElementById('assetDetailsSymbol');
-    this.price = document.getElementById('assetDetailsPrice');
-    this.updated = document.getElementById('assetDetailsUpdated');
     this.logo = document.getElementById('assetDetailsLogo');
-    this.name = document.getElementById('assetDetailsName');
-    this.balanceSymbol = document.getElementById('assetDetailsBalanceSymbol');
     this.value = document.getElementById('assetDetailsValue');
     this.amount = document.getElementById('assetDetailsAmount');
-    this.network = document.getElementById('assetDetailsNetwork');
-    this.chainId = document.getElementById('assetDetailsChainId');
-    this.type = document.getElementById('assetDetailsType');
-    this.decimals = document.getElementById('assetDetailsDecimals');
     this.contract = document.getElementById('assetDetailsContract');
-    this.marketPrice = document.getElementById('assetDetailsMarketPrice');
-    this.holdingValue = document.getElementById('assetDetailsHoldingValue');
 
     document.getElementById('closeAssetDetailsModal').addEventListener('click', () => this.close());
     document.getElementById('assetDetailsSend').addEventListener('click', () => {
@@ -1720,35 +1688,33 @@ class AssetDetailsModal {
   }
 
   render(walletNetwork, asset) {
-    const priceText = asset.tokenPriceUsd === null
-      ? '$0'
-      : formatConnectedUsd(asset.tokenPriceUsd);
-    const valueText = formatConnectedUsd(asset.tokenValueUsd);
-    const amountText = `${formatConnectedTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
+    this.title.textContent = [asset.tokenSymbol, walletNetwork.name, 'EVM'].filter(Boolean).join(' - ');
+    this.renderLogo(asset);
+    this.amount.textContent = `${formatConnectedTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
+    this.value.textContent = formatConnectedUsd(asset.tokenValueUsd);
 
-    this.title.textContent = asset.tokenSymbol;
-    this.symbol.textContent = `${asset.tokenName} price`;
-    this.price.textContent = priceText;
-    this.price.style.color = asset.tokenPriceUsd === null ? 'var(--danger-color)' : '';
-    this.updated.textContent = formatAssetDetailsUpdatedAt(this.controller.getUpdatedAt());
-    this.logo.innerHTML = connectedAssetLogoMarkup(asset, walletNetwork);
-    this.name.textContent = asset.tokenName;
-    this.balanceSymbol.textContent = asset.tokenSymbol;
-    this.value.textContent = valueText;
-    this.amount.textContent = amountText;
-    this.network.textContent = walletNetwork.name;
-    this.chainId.textContent = walletNetwork.chainId ?? 'Unavailable';
-    this.type.textContent = formatConnectedTokenType(asset);
-    this.decimals.textContent = Number.isInteger(asset.tokenDecimals)
-      ? String(asset.tokenDecimals)
-      : 'Unavailable';
     const tokenExplorerUrl = buildEvmTokenExplorerUrl(walletNetwork, asset.contractAddress);
     this.contract.innerHTML = tokenExplorerUrl
       ? `<a href="${escapeHtml(tokenExplorerUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(asset.contractAddress)}</a>`
       : escapeHtml(asset.contractAddress || 'Native asset — no contract');
-    this.marketPrice.textContent = priceText;
-    this.marketPrice.style.color = this.price.style.color;
-    this.holdingValue.textContent = valueText;
+  }
+
+  renderLogo(asset) {
+    const letters = Array.from(String(asset.tokenSymbol ?? '').trim().toUpperCase());
+    const hue = letters.reduce((hash, letter) => (hash * 31 + letter.codePointAt(0)) % 360, 0);
+    const fallback = document.createElement('span');
+    fallback.textContent = letters[0] || '?';
+    this.logo.style.setProperty('--asset-logo-hue', hue);
+    this.logo.replaceChildren(fallback);
+
+    const url = normalizeConnectedAssetLogoUrl(asset.logoUrl);
+    if (!url) return;
+
+    const image = document.createElement('img');
+    image.alt = '';
+    image.className = 'connected-asset-logo-image';
+    image.addEventListener('load', () => fallback.replaceWith(image), { once: true });
+    image.src = url;
   }
 
   openHistory() {
@@ -2542,7 +2508,6 @@ class EvmAssetsController {
   getTotalUsd() { return this.discovery.getTotalUsd(); }
   getUsdValuation() { return this.discovery.getUsdValuation(); }
   getStatus() { return this.discovery.getStatus(); }
-  getUpdatedAt() { return this.discovery.getUpdatedAt(); }
   getNetwork(networkId) { return this.discovery.getNetwork(networkId); }
   getPaymentExplorerUrl({ chainId, transactionHash }) {
     if (!Number.isSafeInteger(chainId) || chainId <= 0

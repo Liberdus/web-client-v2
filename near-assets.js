@@ -4007,8 +4007,7 @@ class MultichainAssetModal {
   render() {
     const asset = intentsAssets.getCatalogAsset(this.assetKey);
     if (!asset) return;
-    // The title carries symbol and chain, so the body never repeats them.
-    this.title.textContent = assetTitle(asset);
+    this.title.textContent = [asset.tokenSymbol, asset.chainName, 'NEAR'].filter(Boolean).join(' - ');
     this.icon.innerHTML = assetMark(asset, 64);
     const balancesKnown = intentsAssets.balances !== null;
     this.amount.textContent = balancesKnown ? `${formatDisplayAmount(asset.tokenAmount)} ${asset.tokenSymbol}` : '—';
