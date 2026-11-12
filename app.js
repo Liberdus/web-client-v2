@@ -35900,14 +35900,14 @@ chatPaymentPanel.configure({
         .map((contact) => ({ ...contact, displayName: getContactDisplayName(contact) }));
     },
   }),
-  // Whether the receipt can reach them and be paid for, checked fresh: the
-  // toll may be stale when the chat was never opened.
+  // Check whether the Liberdus Intents payment message can reach the recipient
+  // and whether the sender can pay the current toll.
   checkReceiptRecipient: (address, username, isCurrentLookup) =>
     chatModal.checkIntentsPaymentReceipt(address, username, isCurrentLookup),
 });
 
 // Wallet transfers and orders are saved with the account. Liberdus Intents
-// payments are read from the conversations that hold them.
+// payment messages are read from the conversations that hold them.
 intentsActivity.configure({
   getTransfers: (accountId) => {
     if (accountId !== intentsAccountIdForAddress(myAccount?.keys?.address)) return [];

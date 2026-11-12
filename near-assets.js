@@ -2971,8 +2971,8 @@ export const intentsChatPayments = new IntentsChatPayments({ transfers: intentsT
 //
 //   deposits    the bridge's recent_deposits, per account and chain. Public,
 //               and complete: it includes deposits sent from anywhere.
-//   payments    Liberdus Intents payments from conversations, plus address
-//               transfers saved by this device and verified when Activity opens.
+//   payments    Liberdus Intents payment messages from conversations, plus
+//               address transfers saved by this device and verified on Activity open.
 //   swaps,      a record this device writes when it places the order, whose
 //   withdrawals state is then read back from 1Click by deposit address.
 //               Orders placed on another device do not appear -- a known,
@@ -5680,12 +5680,10 @@ export const multichain = new MultichainController();
 // Built from the swap screen's parts -- the same amount panel, token chip and
 // picker, and the same confirmation screen -- so they read as one wallet.
 //
-// The value and the receipt settle on different networks, so the order matters
-// and is fixed: publish the transfer, then send the chat message. If the
-// message fails the sender is told plainly that the money moved and the receipt
-// did not, because the opposite order would let a receipt exist for a payment
-// that never happened. And once the transfer may be out, nothing on these
-// screens can send it again -- only the receipt can be retried.
+// Publish the transfer before sending the Liberdus Intents payment message so
+// the message cannot announce a transfer that was never published. If sending
+// the message fails, tell the sender the money moved and let them retry the
+// message without sending the transfer again.
 
 const $ = (id) => document.getElementById(id);
 const CHAT_MESSAGE_TOLL_LABEL = 'Chat message toll';
@@ -5705,7 +5703,7 @@ export class ChatPaymentPanel {
     this.recipientName = null;
     this.assetKey = null;
     this.sending = false;
-    // Set once the transfer is out and only the chat receipt is outstanding.
+    // Set when the transfer has been sent and its Liberdus Intents payment message is pending.
     this.pendingReceipt = null;
     // Set when the outcome is known or unknowable; the button only leaves.
     this.done = false;
@@ -6283,7 +6281,7 @@ export class ChatPaymentPanel {
       && this.amount.problem() === null;
   }
 
-  /** Check whether the chat receipt can reach the recipient before funds move. */
+  /** Check whether the Liberdus Intents payment message can reach the recipient before funds move. */
   async checkRecipient(address, lookup) {
     try {
       const isCurrentLookup = () => !lookup || this.isCurrentRecipientLookup(lookup);
@@ -6406,8 +6404,8 @@ export class ChatPaymentPanel {
       return;
     }
 
-    // The money has moved. From here a failure is about the receipt only, and
-    // the form is locked so it cannot describe a second payment.
+    // Lock the form after the transfer so retrying the Liberdus Intents payment
+    // message cannot send the transfer again.
     this.lockForm(true);
     this.pendingReceipt = {
       message: sent.message,
@@ -6477,7 +6475,7 @@ export class ChatPaymentPanel {
     this.syncQRButtons();
   }
 
-  /** This form is finished. Leave any remaining receipt retry to chat. */
+  /** Leave any retry of the Liberdus Intents payment message to chat. */
   finish(message, kind) {
     this.done = true;
     this.pendingReceipt = null;
