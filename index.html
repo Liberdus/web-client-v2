@@ -191,28 +191,28 @@
         </div>
         <div class="wallet-actions" role="group" aria-label="Liberdus actions">
           <button type="button" class="wallet-action-button" id="openSendAssetFormModal">
-            <span class="action-icon" aria-hidden="true"></span>
+            <span class="action-icon" data-wallet-icon="sent" aria-hidden="true"></span>
             <span class="action-label">Send</span>
           </button>
           <button type="button" class="wallet-action-button" id="openReceiveModal">
-            <span class="action-icon" aria-hidden="true"></span>
+            <span class="action-icon" data-wallet-icon="receive" aria-hidden="true"></span>
             <span class="action-label">Receive</span>
           </button>
           <button type="button" class="wallet-action-button" id="openHistoryModal">
-            <span class="action-icon" aria-hidden="true"></span>
+            <span class="action-icon" data-wallet-icon="history" aria-hidden="true"></span>
             <span class="action-label">History</span>
           </button>
           <div class="wallet-actions-break"></div>
           <button type="button" class="wallet-action-button" id="openBuyButton" aria-label="Buy LIB (opens in a new tab)">
-            <span class="action-icon" aria-hidden="true"></span>
+            <span class="action-icon" data-wallet-icon="buy" aria-hidden="true"></span>
             <span class="action-label">Buy</span>
           </button>
           <button type="button" class="wallet-action-button" id="openSellButton" aria-label="Sell LIB (opens in a new tab)">
-            <span class="action-icon" aria-hidden="true"></span>
+            <span class="action-icon" data-wallet-icon="sell" aria-hidden="true"></span>
             <span class="action-label">Sell</span>
           </button>
           <button type="button" class="wallet-action-button" id="openFaucetBridgeButton">
-            <span class="action-icon" aria-hidden="true"></span>
+            <span class="action-icon" data-wallet-icon="faucet" aria-hidden="true"></span>
             <span class="action-label">Faucet</span>
           </button>
         </div>
@@ -1730,11 +1730,11 @@
               <p class="multichain-action-group-description">Between NEAR Intents addresses and external wallet addresses</p>
               <div class="wallet-actions asset-detail-actions">
                 <button type="button" class="wallet-action-button" id="multichainAssetDeposit">
-                  <span class="action-icon" aria-hidden="true"></span>
+                  <span class="action-icon" data-wallet-icon="deposit" aria-hidden="true"></span>
                   <span class="action-label">Deposit</span>
                 </button>
                 <button type="button" class="wallet-action-button" id="multichainAssetWithdraw">
-                  <span class="action-icon" aria-hidden="true"></span>
+                  <span class="action-icon" data-wallet-icon="withdraw" aria-hidden="true"></span>
                   <span class="action-label">Withdraw</span>
                 </button>
               </div>
@@ -1744,15 +1744,15 @@
               <p class="multichain-action-group-description">Send to other NEAR Intents addresses or swap assets</p>
               <div class="wallet-actions asset-detail-actions">
                 <button type="button" class="wallet-action-button" id="multichainAssetReceive">
-                  <span class="action-icon" aria-hidden="true"></span>
+                  <span class="action-icon" data-wallet-icon="received" aria-hidden="true"></span>
                   <span class="action-label">Receive</span>
                 </button>
                 <button type="button" class="wallet-action-button" id="multichainAssetSend">
-                  <span class="action-icon" aria-hidden="true"></span>
+                  <span class="action-icon" data-wallet-icon="sent" aria-hidden="true"></span>
                   <span class="action-label">Send</span>
                 </button>
                 <button type="button" class="wallet-action-button" id="multichainAssetSwap">
-                  <span class="action-icon" aria-hidden="true"></span>
+                  <span class="action-icon" data-wallet-icon="swap" aria-hidden="true"></span>
                   <span class="action-label">Swap</span>
                 </button>
               </div>
@@ -2750,15 +2750,15 @@
 
           <div class="wallet-actions asset-detail-actions">
             <button class="wallet-action-button" id="assetDetailsSend">
-              <span class="action-icon"></span>
+              <span class="action-icon" data-wallet-icon="sent" aria-hidden="true"></span>
               <span class="action-label">Send</span>
             </button>
             <button class="wallet-action-button" id="assetDetailsReceive">
-              <span class="action-icon"></span>
+              <span class="action-icon" data-wallet-icon="receive" aria-hidden="true"></span>
               <span class="action-label">Receive</span>
             </button>
             <button class="wallet-action-button" id="assetDetailsHistory">
-              <span class="action-icon"></span>
+              <span class="action-icon" data-wallet-icon="history" aria-hidden="true"></span>
               <span class="action-label">History</span>
             </button>
           </div>

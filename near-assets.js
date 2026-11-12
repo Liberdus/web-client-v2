@@ -3981,7 +3981,7 @@ class MultichainAssetModal {
       const amount = `${sign}${entry.estimated ? '≈' : ''}${formatDisplayAmount(entry.amount)}`;
       return `
         <div class="multichain-row is-static" data-entry-id="${escapeHtml(entry.id)}" data-status="${escapeHtml(entry.status)}">
-          <span class="multichain-activity-icon" data-icon="${escapeHtml(entry.kind)}" aria-hidden="true"></span>
+          <span class="multichain-activity-icon" data-wallet-icon="${escapeHtml(entry.kind)}" aria-hidden="true"></span>
           <span class="multichain-row-main">
             <span class="multichain-row-name">${escapeHtml(entry.title)}</span>
             ${sub ? `<span class="multichain-row-chain">${escapeHtml(sub)}</span>` : ''}

@@ -6059,72 +6059,68 @@ input[type='file'].form-control::file-selector-button {
   width: var(--icon-size-24);
   height: var(--icon-size-24);
   display: inline-block;
-  background-image: var(--action-icon, none);
+  background-image: var(--wallet-action-icon, none);
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
   opacity: 0.9;
 }
 
-/* Send icon (up chevron) */
-#openSendAssetFormModal .action-icon,
-#assetDetailsSend .action-icon,
-#multichainAssetSend .action-icon,
-.multichain-activity-icon[data-icon='sent'] {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='18 15 12 9 6 15'%3E%3C/polyline%3E%3C/svg%3E");
+.action-label {
+  font-weight: 500;
+}
+
+/* Wallet artwork is shared by action buttons and matching Activity rows. */
+[data-wallet-icon='sent'] {
+  --wallet-action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='18 15 12 9 6 15'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 /* Receive icon (down chevron) */
-#openReceiveModal .action-icon,
-#assetDetailsReceive .action-icon {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+[data-wallet-icon='receive'] {
+  --wallet-action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-#multichainAssetReceive .action-icon,
-.multichain-activity-icon[data-icon='received'] {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+/* NEAR Receive uses a lighter stroke on the asset detail screen. */
+[data-wallet-icon='received'] {
+  --wallet-action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 /* Use thinner strokes on the denser arrow shapes to match the chevrons visually. */
-#multichainAssetDeposit .action-icon,
-.multichain-activity-icon[data-icon='deposit'] {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
+[data-wallet-icon='deposit'] {
+  --wallet-action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='17' y1='7' x2='7' y2='17'/%3E%3Cpolyline points='17 17 7 17 7 7'/%3E%3C/svg%3E");
 }
 
-#multichainAssetWithdraw .action-icon,
-.multichain-activity-icon[data-icon='withdraw'] {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
+[data-wallet-icon='withdraw'] {
+  --wallet-action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='7' y1='17' x2='17' y2='7'/%3E%3Cpolyline points='7 7 17 7 17 17'/%3E%3C/svg%3E");
 }
 
-#multichainAssetSwap .action-icon,
-.multichain-activity-icon[data-icon='swap'] {
-  --action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 3 21 8 16 13'/%3E%3Cpath d='M21 8H8'/%3E%3Cpolyline points='8 21 3 16 8 11'/%3E%3Cpath d='M3 16h13'/%3E%3C/svg%3E");
+[data-wallet-icon='swap'] {
+  --wallet-action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='16 3 21 8 16 13'/%3E%3Cpath d='M21 8H8'/%3E%3Cpolyline points='8 21 3 16 8 11'/%3E%3Cpath d='M3 16h13'/%3E%3C/svg%3E");
 }
 
 /* History icon (clock) */
-#openHistoryModal .action-icon,
-#assetDetailsHistory .action-icon {
-  background-image: var(--icon-clock);
+[data-wallet-icon='history'] {
+  --wallet-action-icon: var(--icon-clock);
 }
 
 /* Buy icon (shopping cart) */
-#openBuyButton .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='21' r='1'%3E%3C/circle%3E%3Ccircle cx='20' cy='21' r='1'%3E%3C/circle%3E%3Cpath d='M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6'%3E%3C/path%3E%3C/svg%3E");
+[data-wallet-icon='buy'] {
+  --wallet-action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='21' r='1'%3E%3C/circle%3E%3Ccircle cx='20' cy='21' r='1'%3E%3C/circle%3E%3Cpath d='M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6'%3E%3C/path%3E%3C/svg%3E");
 }
 
 /* Sell icon (dollar sign) */
-#openSellButton .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'%3E%3C/line%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'%3E%3C/path%3E%3C/svg%3E");
+[data-wallet-icon='sell'] {
+  --wallet-action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'%3E%3C/line%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'%3E%3C/path%3E%3C/svg%3E");
 }
 
 /* Faucet/Bridge icon - default to water drop (faucet) */
-#openFaucetBridgeButton .action-icon {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z'%3E%3C/path%3E%3C/svg%3E");
+[data-wallet-icon='faucet'] {
+  --wallet-action-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z'%3E%3C/path%3E%3C/svg%3E");
 }
 
 /* Bridge icon when on mainnet (same as menu bridge icon) */
-#openFaucetBridgeButton.bridge-mode .action-icon {
-  background-image: var(--icon-bridge);
+.bridge-mode [data-wallet-icon='faucet'] {
+  --wallet-action-icon: var(--icon-bridge);
 }
 
 /* Profile Sharing Note */
@@ -6134,10 +6130,6 @@ input[type='file'].form-control::file-selector-button {
   font-size: 14px;
   margin-bottom: 16px;
   font-family: var(--font-primary);
-}
-
-.action-label {
-  font-weight: 500;
 }
 
 .section-title {
@@ -6321,13 +6313,10 @@ input[type='file'].form-control::file-selector-button {
   color: var(--secondary-text-color);
 }
 
-.asset-detail-actions {
-  flex-wrap: nowrap;
-  padding: 0 0 1.25rem;
-}
-
 .asset-details-content > .asset-detail-actions {
+  flex-wrap: nowrap;
   margin-top: 32px;
+  padding: 0 0 1.25rem;
 }
 
 .asset-detail-actions .wallet-action-button {
@@ -12352,8 +12341,8 @@ small {
   position: absolute;
   inset: 8px;
   background-color: var(--text-color);
-  -webkit-mask: var(--action-icon) center / contain no-repeat;
-  mask: var(--action-icon) center / contain no-repeat;
+  -webkit-mask: var(--wallet-action-icon) center / contain no-repeat;
+  mask: var(--wallet-action-icon) center / contain no-repeat;
 }
 
 .multichain-activity-status {
