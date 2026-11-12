@@ -27715,19 +27715,22 @@ class ChatModal {
     const account = myAccount;
     const isCurrent = () => this.paymentWalletRequestId === requestId
       && myAccount === account && findTopModal() === this.modal;
+    // Send from the asset details goes back to the person in this chat.
+    const contact = myData?.contacts?.[this.address];
+    const recipient = contact ? { username: contact.username || '', address: contact.address } : null;
 
     if (target.type === EVM_CHAT_MESSAGE_TYPE) {
       const { walletNetwork, asset } = await evmAssets.resolvePaymentAsset(target);
       if (!isCurrent()) return;
       if (asset) {
-        evmAssets.assetDetailsModal.open(walletNetwork.id, asset.key);
+        evmAssets.assetDetailsModal.open(walletNetwork.id, asset.key, { recipient });
         return;
       }
     } else {
       const asset = await multichain.resolvePaymentAsset(target);
       if (!isCurrent()) return;
       if (asset) {
-        multichain.assetModal.open(asset.key);
+        multichain.assetModal.open(asset.key, { recipient });
         return;
       }
     }
