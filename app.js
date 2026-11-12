@@ -35906,10 +35906,18 @@ chatPaymentPanel.configure({
     chatModal.checkIntentsPaymentReceipt(address, username, isCurrentLookup),
 });
 
-// The asset screen's activity. Swaps and withdrawals this device placed are
-// kept with the account's own saved state, so a backup carries them; chat
-// payments are read from the conversations that already hold them.
+// Wallet transfers and orders are saved with the account. Liberdus Intents
+// payments are read from the conversations that hold them.
 intentsActivity.configure({
+  getTransfers: (accountId) => {
+    if (accountId !== intentsAccountIdForAddress(myAccount?.keys?.address)) return [];
+    return Array.isArray(myData?.intentsTransfers) ? myData.intentsTransfers : [];
+  },
+  saveTransfers: (accountId, transfers) => {
+    if (!myData || accountId !== intentsAccountIdForAddress(myAccount?.keys?.address)) return;
+    myData.intentsTransfers = transfers;
+    saveState();
+  },
   getOrders: () => (Array.isArray(myData?.intentsOrders) ? myData.intentsOrders : []),
   saveOrders: (orders) => {
     if (!myData) return;
