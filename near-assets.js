@@ -1793,8 +1793,8 @@ export class IntentsTransferService {
     }
   }
 
-  /** Simulate and publish, record the accepted intent, then wait for settlement. */
-  async send(prepared, secretKey, { waitMs = 60_000, beforePublish, onPublished } = {}) {
+  /** Simulate and publish the transfer, then wait for settlement. */
+  async send(prepared, secretKey, { waitMs = 60_000, beforePublish } = {}) {
     const signed = await this.sign(prepared, secretKey);
     const check = await this.simulate(signed);
     if (!check.ok) {
@@ -1803,8 +1803,6 @@ export class IntentsTransferService {
     beforePublish?.();
     const initiatedAt = Date.now();
     const intentHash = await publishIntent(signed);
-    onPublished?.({ intentHash, initiatedAt });
-    // An accepted intent remains trackable even when the settlement lookup fails.
     const settlement = await waitForIntentSettlement(intentHash, { timeoutMs: waitMs })
       .catch(() => ({ status: 'TIMED_OUT', transactionHash: null }));
     return {
@@ -2864,7 +2862,7 @@ export async function verifyTransferClaim(claim, {
   try {
     transfers = await getTransfers(transactionHash);
   } catch (error) {
-    return { state: 'unverifiable', transactionHash, reason: error.message || String(error) };
+    return { state: 'unverifiable', reason: error.message || String(error) };
   }
   const logged = transfers.find((transfer) => transfer.intentHash === claim.intentHash);
   if (!logged) return { state: 'failed', reason: 'The transaction carries no such transfer', transactionHash };
@@ -2967,12 +2965,12 @@ export const intentsChatPayments = new IntentsChatPayments({ transfers: intentsT
 //
 // There is no single public history for an intents account -- the verifier
 // keeps balances, not events, and 1Click's account history is invite-only --
-// so the list combines the available records for each kind:
+// so the list is assembled from three sources, each authoritative for its
+// own kind:
 //
 //   deposits    the bridge's recent_deposits, per account and chain. Public,
 //               and complete: it includes deposits sent from anywhere.
-//   payments    Liberdus Intents payment messages from conversations, plus
-//               address transfers saved by this device and verified on Activity open.
+//   payments    Liberdus Intents payment messages saved in conversations.
 //   swaps,      a record this device writes when it places the order, whose
 //   withdrawals state is then read back from 1Click by deposit address.
 //               Orders placed on another device do not appear -- a known,
@@ -3148,41 +3146,16 @@ export class IntentsActivity {
     this.getOrders = () => [];
     this.saveOrders = () => {};
     this.listPayments = () => [];
-    this.getTransfers = () => [];
-    this.saveTransfers = () => {};
     this.claims = new Map();
   }
 
-  configure({
-    getOrders, saveOrders, listPayments, getTransfers, saveTransfers,
-    fetchDeposits, fetchOrderStatus, verifyClaim,
-  } = {}) {
+  configure({ getOrders, saveOrders, listPayments, fetchDeposits, fetchOrderStatus, verifyClaim } = {}) {
     if (typeof getOrders === 'function') this.getOrders = getOrders;
     if (typeof saveOrders === 'function') this.saveOrders = saveOrders;
     if (typeof listPayments === 'function') this.listPayments = listPayments;
-    if (typeof getTransfers === 'function') this.getTransfers = getTransfers;
-    if (typeof saveTransfers === 'function') this.saveTransfers = saveTransfers;
     if (typeof fetchDeposits === 'function') this.fetchDeposits = fetchDeposits;
     if (typeof fetchOrderStatus === 'function') this.fetchOrderStatus = fetchOrderStatus;
     if (typeof verifyClaim === 'function') this.verifyClaim = verifyClaim;
-  }
-
-  /** Persist an accepted wallet transfer before waiting for settlement. */
-  recordTransfer(accountId, transfer) {
-    const transfers = this.getTransfers(accountId);
-    if (transfers.some((item) => item.intentHash === transfer.intentHash)) return;
-    this.saveTransfers(accountId, [{ ...transfer, verified: 'unchecked' }, ...transfers]);
-  }
-
-  updateTransfer(accountId, intentHash, patch) {
-    const transfers = this.getTransfers(accountId);
-    if (!transfers.some((item) => item.intentHash === intentHash)) return;
-    this.saveTransfers(accountId, transfers.map((item) => {
-      if (item.intentHash !== intentHash) return item;
-      // A slower, overlapping check must not replace a saved final verdict.
-      if (patch.verified && PAYMENT_ACTIVITY_STATUS.has(item.verified)) return item;
-      return { ...item, ...patch, transactionHash: patch.transactionHash || item.transactionHash || null };
-    }));
   }
 
   /**
@@ -3306,37 +3279,26 @@ export class IntentsActivity {
       .filter((order) => !(order.toAssetId === assetId && order.status !== 'done' && order.status !== 'pending'))
       .map((order) => orderEntry(order, assetId));
 
-    const transfers = this.getTransfers(accountId)
-      .filter((transfer) => transfer.assetId === assetId)
-      .map((transfer) => ({
-        ...paymentEntry({
-          ...transfer, my: true, peer: transfer.recipientAddress,
-          peerAccount: transfer.recipientAddress, time: transfer.initiatedAt,
-        }),
-        walletTransfer: true,
-        status: PAYMENT_ACTIVITY_STATUS.get(transfer.verified) ?? 'checking',
-      }));
-    const entries = [...deposits, ...payments, ...orders, ...transfers].sort((a, b) => b.time - a.time);
+    const entries = [...deposits, ...payments, ...orders].sort((a, b) => b.time - a.time);
     return { entries, depositsUnavailable };
   }
 
-  /** Check the expected transfer direction and retain wallet results across reloads. */
+  /**
+   * Check a received payment's claim. Only resting answers are remembered;
+   * "pending" and "unverifiable" are asked again next time.
+   */
+  /** Check a received payment row: its claim against the logged transfer. */
   async verifyPayment(entry, accountId = null) {
     const intentHash = entry?.intentHash;
     const known = this.claims.get(intentHash);
-    if (!entry.walletTransfer && known) return known;
+    if (known) return known;
     try {
       const result = await this.verifyClaim(entry.claim || { intentHash }, {
-        expectedFrom: entry.walletTransfer ? accountId : entry.peerAccount,
-        expectedTo: entry.walletTransfer ? entry.peerAccount : accountId,
+        expectedFrom: entry.peerAccount,
+        expectedTo: accountId,
       });
       const status = PAYMENT_ACTIVITY_STATUS.get(result?.state) ?? 'checking';
-      if (entry.walletTransfer) {
-        this.updateTransfer(accountId, intentHash, {
-          verified: result.state,
-          transactionHash: result.transactionHash || entry.claim.transactionHash,
-        });
-      } else if (status !== 'checking') this.claims.set(intentHash, status);
+      if (status !== 'checking') this.claims.set(intentHash, status);
       return status;
     } catch {
       return 'checking';
@@ -3962,17 +3924,17 @@ class MultichainAssetModal {
     }
     this.activityKey = this.assetKey;
 
-    const accountId = intentsAssets.getAccountId();
-    const { entries, depositsUnavailable } = await intentsActivity.forAsset(accountId, asset);
-    if (seq !== this.activitySeq || accountId !== intentsAssets.getAccountId()) return;
+    const { entries, depositsUnavailable } = await intentsActivity.forAsset(intentsAssets.getAccountId(), asset);
+    if (seq !== this.activitySeq) return;
     this.activity.removeAttribute('aria-busy');
     this.renderActivity(entries, depositsUnavailable, asset);
 
-    // Check unresolved payments and wallet transfers, then update their rows in place.
+    // A received payment is a claim until checked; check the ones on screen
+    // and update their rows in place.
     for (const entry of entries) {
       if (entry.status !== 'checking' || !entry.intentHash) continue;
-      intentsActivity.verifyPayment(entry, accountId).then((status) => {
-        if (seq !== this.activitySeq || accountId !== intentsAssets.getAccountId()) return;
+      intentsActivity.verifyPayment(entry, intentsAssets.getAccountId()).then((status) => {
+        if (seq !== this.activitySeq) return;
         const row = [...this.activity.querySelectorAll('[data-entry-id]')]
           .find((element) => element.dataset.entryId === entry.id);
         if (row) this.renderActivityStatus(row, status);
@@ -6346,14 +6308,7 @@ export class ChatPaymentPanel {
         publishStarted = true;
       };
       if (transferOnly) {
-        sent = await intentsTransfers.send(prepared, secretKey, {
-          waitMs: 30_000,
-          beforePublish: beforeTransferPublish,
-          onPublished: ({ intentHash, initiatedAt }) => intentsActivity.recordTransfer(prepared.senderId, {
-            intentHash, initiatedAt, assetId: prepared.assetId, amount: prepared.amount,
-            decimals: asset.tokenDecimals, recipientAddress: prepared.recipientId,
-          }),
-        });
+        sent = await intentsTransfers.send(prepared, secretKey, { waitMs: 30_000, beforePublish: beforeTransferPublish });
       } else {
         sent = await intentsChatPayments.send(prepared, secretKey, { asset, note, beforePublish: beforeTransferPublish });
       }
@@ -6389,13 +6344,9 @@ export class ChatPaymentPanel {
     if (transferOnly) {
       this.sending = false;
       const failed = ['FAILED', 'NOT_FOUND_OR_NOT_VALID'].includes(sent.status);
-      intentsActivity.updateTransfer(prepared.senderId, sent.intentHash, {
-        transactionHash: sent.transactionHash,
-        ...(failed ? { verified: 'failed' } : {}),
-      });
       const message = failed ? 'The transfer did not go through.'
         : sent.settled ? `Sent ${prepared.amount} ${prepared.symbol}.`
-        : 'Transfer submitted. Check Activity for updates.';
+        : 'Transfer submitted. Settlement could not be confirmed. Check your balance before trying again.';
       if (this.isCurrentSession(payment.session)) {
         this.close();
         void multichain.refreshAfterMove().catch(() => {});

@@ -35906,18 +35906,9 @@ chatPaymentPanel.configure({
     chatModal.checkIntentsPaymentReceipt(address, username, isCurrentLookup),
 });
 
-// Wallet transfers and orders are saved with the account. Liberdus Intents
+// Swaps and withdrawals are saved with the account. Liberdus Intents
 // payment messages are read from the conversations that hold them.
 intentsActivity.configure({
-  getTransfers: (accountId) => {
-    if (accountId !== intentsAccountIdForAddress(myAccount?.keys?.address)) return [];
-    return Array.isArray(myData?.intentsTransfers) ? myData.intentsTransfers : [];
-  },
-  saveTransfers: (accountId, transfers) => {
-    if (!myData || accountId !== intentsAccountIdForAddress(myAccount?.keys?.address)) return;
-    myData.intentsTransfers = transfers;
-    saveState();
-  },
   getOrders: () => (Array.isArray(myData?.intentsOrders) ? myData.intentsOrders : []),
   saveOrders: (orders) => {
     if (!myData) return;
