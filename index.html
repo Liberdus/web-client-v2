@@ -1713,15 +1713,15 @@
 
       <!-- One asset: what you hold, and the things you can do with it. -->
       <div class="modal fixed-header" id="multichainAssetModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeMultichainAssetModal"></button>
+        <div class="modal-header asset-detail-header">
+          <button class="back-button" id="closeMultichainAssetModal" aria-label="Back"></button>
           <div class="modal-title" id="multichainAssetTitle">Asset</div>
         </div>
         <div class="modal-content">
-          <section class="multichain-asset-hero">
-            <div class="multichain-asset-icon" id="multichainAssetIcon"></div>
-            <div class="multichain-asset-amount" id="multichainAssetAmount">&#8212;</div>
-            <div class="multichain-asset-value" id="multichainAssetValue">&#8212;</div>
+          <section class="asset-detail-hero">
+            <div id="multichainAssetIcon"></div>
+            <div class="asset-detail-amount" id="multichainAssetAmount">&#8212;</div>
+            <div class="asset-detail-value" id="multichainAssetValue">&#8212;</div>
           </section>
 
           <div class="multichain-action-groups">
@@ -2737,15 +2737,15 @@
 
       <!-- Connected EVM Asset Details Modal -->
       <div class="modal fixed-header" id="assetDetailsModal">
-        <div class="modal-header">
-          <button class="back-button" id="closeAssetDetailsModal"></button>
+        <div class="modal-header asset-detail-header">
+          <button class="back-button" id="closeAssetDetailsModal" aria-label="Back"></button>
           <div class="modal-title" id="assetDetailsModalTitle">Asset Details</div>
         </div>
         <div class="modal-content asset-details-content">
           <section class="asset-detail-hero">
-            <div class="asset-detail-symbol" id="assetDetailsSymbol">—</div>
-            <div class="asset-detail-price" id="assetDetailsPrice" style="color: var(--danger-color)">$0</div>
-            <div class="asset-detail-updated" id="assetDetailsUpdated">Updated —</div>
+            <div class="asset-detail-logo" id="assetDetailsLogo" aria-hidden="true"></div>
+            <div class="asset-detail-amount" id="assetDetailsAmount">—</div>
+            <div class="asset-detail-value" id="assetDetailsValue">Value unavailable</div>
           </section>
 
           <div class="wallet-actions asset-detail-actions">
@@ -2764,38 +2764,9 @@
           </div>
 
           <section class="asset-detail-section">
-            <h2>Your balance</h2>
-            <div class="asset-detail-balance-card">
-              <div class="asset-logo connected-asset-logo" id="assetDetailsLogo"></div>
-              <div class="asset-detail-balance-name">
-                <strong id="assetDetailsName">—</strong>
-                <span id="assetDetailsBalanceSymbol">—</span>
-              </div>
-              <div class="asset-detail-balance-values">
-                <strong id="assetDetailsValue">Value unavailable</strong>
-                <span id="assetDetailsAmount">0</span>
-              </div>
-            </div>
-          </section>
-
-          <section class="asset-detail-section">
             <h2>Token details</h2>
             <dl class="asset-detail-list">
-              <div><dt>Network</dt><dd id="assetDetailsNetwork">—</dd></div>
-              <div><dt>Chain ID</dt><dd id="assetDetailsChainId">—</dd></div>
-              <div><dt>Token type</dt><dd id="assetDetailsType">—</dd></div>
-              <div><dt>Decimals</dt><dd id="assetDetailsDecimals">—</dd></div>
-              <div class="asset-detail-address-row"><dt>Contract</dt><dd id="assetDetailsContract">—</dd></div>
-            </dl>
-          </section>
-
-          <section class="asset-detail-section" hidden>
-            <h2>Market details</h2>
-            <dl class="asset-detail-list">
-              <div><dt>Token price</dt><dd id="assetDetailsMarketPrice" style="color: var(--danger-color)">$0</dd></div>
-              <div><dt>Your holding value</dt><dd id="assetDetailsHoldingValue">Value unavailable</dd></div>
-              <div><dt>Data source</dt><dd>Multichain RPC</dd></div>
-              <div><dt>Additional market data</dt><dd>Unavailable from RPC</dd></div>
+              <div><dt>Contract</dt><dd id="assetDetailsContract">—</dd></div>
             </dl>
           </section>
         </div>

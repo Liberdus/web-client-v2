@@ -6245,33 +6245,65 @@ input[type='file'].form-control::file-selector-button {
   text-align: left;
 }
 
+.asset-detail-header {
+  height: auto;
+  min-height: 56px;
+  padding-block: 8px;
+}
+
+.asset-detail-header .modal-title {
+  margin-inline: 56px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
 .asset-detail-hero {
-  padding: 1rem 0 1.25rem;
+  padding: 48px 16px 0;
+  text-align: center;
 }
 
-.asset-detail-symbol {
-  color: var(--secondary-text-color);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  margin-bottom: 0.5rem;
+.asset-detail-logo {
+  display: inline-grid;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  vertical-align: middle;
 }
 
-.asset-detail-price {
-  color: var(--text-color);
-  font-size: var(--font-size-xxl);
-  font-weight: var(--font-weight-semibold);
+.asset-detail-logo > span {
+  display: grid;
+  place-items: center;
+  background-color: hsl(var(--asset-logo-hue, 0) 62% 88%);
+  color: var(--dark-color);
+  font-size: 32px;
+  font-weight: var(--font-weight-bold);
+}
+
+.asset-detail-amount {
+  margin-top: 16px;
+  font-size: 32px;
+  font-weight: var(--font-weight-bold);
   line-height: 1.1;
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
-.asset-detail-updated {
-  color: var(--secondary-text-color);
+.asset-detail-value {
+  margin-top: 8px;
   font-size: var(--font-size-sm);
-  margin-top: 0.75rem;
+  color: var(--secondary-text-color);
 }
 
 .asset-detail-actions {
   flex-wrap: nowrap;
   padding: 0 0 1.25rem;
+}
+
+.asset-details-content > .asset-detail-actions {
+  margin-top: 32px;
 }
 
 .asset-detail-actions .wallet-action-button {
@@ -6287,45 +6319,6 @@ input[type='file'].form-control::file-selector-button {
   color: var(--text-color);
   font-size: var(--font-size-lg);
   margin-bottom: 1rem;
-}
-
-.asset-detail-balance-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.asset-detail-balance-card .asset-logo {
-  flex: 0 0 40px;
-  margin-right: 0;
-}
-
-.asset-detail-balance-name,
-.asset-detail-balance-values {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.asset-detail-balance-name {
-  flex: 1;
-  min-width: 0;
-}
-
-.asset-detail-balance-values {
-  align-items: flex-end;
-  text-align: right;
-}
-
-.asset-detail-balance-name span,
-.asset-detail-balance-values span {
-  color: var(--secondary-text-color);
-  font-size: var(--font-size-sm);
-}
-
-.asset-detail-list {
-  display: grid;
-  gap: 1rem;
 }
 
 .asset-detail-list > div {
@@ -6345,9 +6338,6 @@ input[type='file'].form-control::file-selector-button {
   font-weight: var(--font-weight-medium);
   max-width: 62%;
   text-align: right;
-}
-
-.asset-detail-address-row dd {
   overflow-wrap: anywhere;
 }
 
@@ -12605,30 +12595,6 @@ small {
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-color);
-}
-
-/* --- asset screen --------------------------------------------------------- */
-
-.multichain-asset-hero {
-  padding: 48px 16px 0;
-  text-align: center;
-}
-
-
-
-.multichain-asset-amount {
-  margin-top: 16px;
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1.1;
-  color: var(--text-color);
-  font-variant-numeric: tabular-nums;
-}
-
-.multichain-asset-value {
-  margin-top: 8px;
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text-color);
 }
 
 /* --- task screens (receive, withdraw, swap) ------------------------------- */
