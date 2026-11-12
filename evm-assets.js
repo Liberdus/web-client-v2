@@ -1610,9 +1610,7 @@ class AssetsModal {
             data-asset-key="${escapeHtml(asset.key)}"
             aria-label="View ${escapeHtml(asset.tokenName)} details"
           >
-            <div class="asset-logo connected-asset-logo">
-              ${connectedAssetLogoMarkup(asset, walletNetwork)}
-            </div>
+            <div class="asset-logo connected-asset-logo" aria-hidden="true"></div>
             <div class="asset-info">
               <div class="asset-name">${escapeHtml(asset.tokenName)}</div>
               <div class="wallet-network-chain">${escapeHtml(walletNetwork.name)}</div>
@@ -1630,6 +1628,11 @@ class AssetsModal {
         }).join('')}
       </section>
     `;
+
+    const logos = this.assetsList.querySelectorAll('.connected-asset-logo');
+    visibleAssets.forEach(({ walletNetwork, asset }, index) => {
+      this.controller.renderAssetLogo(logos[index], asset, walletNetwork);
+    });
   }
 }
 
@@ -1689,7 +1692,7 @@ class AssetDetailsModal {
 
   render(walletNetwork, asset) {
     this.title.textContent = [asset.tokenSymbol, walletNetwork.name, 'EVM'].filter(Boolean).join(' - ');
-    this.renderLogo(asset);
+    this.controller.renderAssetLogo(this.logo, asset, walletNetwork);
     this.amount.textContent = `${formatConnectedTokenAmount(asset.tokenAmount)} ${asset.tokenSymbol}`;
     this.value.textContent = formatConnectedUsd(asset.tokenValueUsd);
 
@@ -1697,24 +1700,6 @@ class AssetDetailsModal {
     this.contract.innerHTML = tokenExplorerUrl
       ? `<a href="${escapeHtml(tokenExplorerUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(asset.contractAddress)}</a>`
       : escapeHtml(asset.contractAddress || 'Native asset — no contract');
-  }
-
-  renderLogo(asset) {
-    const letters = Array.from(String(asset.tokenSymbol ?? '').trim().toUpperCase());
-    const hue = letters.reduce((hash, letter) => (hash * 31 + letter.codePointAt(0)) % 360, 0);
-    const fallback = document.createElement('span');
-    fallback.textContent = letters[0] || '?';
-    this.logo.style.setProperty('--asset-logo-hue', hue);
-    this.logo.replaceChildren(fallback);
-
-    const url = normalizeConnectedAssetLogoUrl(asset.logoUrl);
-    if (!url) return;
-
-    const image = document.createElement('img');
-    image.alt = '';
-    image.className = 'connected-asset-logo-image';
-    image.addEventListener('load', () => fallback.replaceWith(image), { once: true });
-    image.src = url;
   }
 
   openHistory() {
@@ -2444,6 +2429,27 @@ class EvmAssetsController {
     document.getElementById('evmAssetsSummary').addEventListener('click', () => this.assetsModal.open());
     document.getElementById('openAssets').addEventListener('click', () => this.assetsModal.open());
     this.loaded = true;
+  }
+
+  renderAssetLogo(container, asset, walletNetwork) {
+    const symbol = String(asset.tokenSymbol ?? '').trim().toUpperCase();
+    const [initial = '?'] = symbol;
+    const colorSeed = JSON.stringify([symbol, asset.tokenName, walletNetwork.name]);
+    const hue = Array.from(colorSeed).reduce((hash, character) => (hash * 31 + character.codePointAt(0)) % 360, 0);
+    const fallback = document.createElement('span');
+    fallback.className = 'evm-asset-logo-fallback';
+    fallback.textContent = initial;
+    fallback.style.setProperty('--asset-logo-hue', hue);
+    container.replaceChildren(fallback);
+
+    const url = normalizeConnectedAssetLogoUrl(asset.logoUrl);
+    if (!url) return;
+
+    const image = document.createElement('img');
+    image.alt = '';
+    image.className = 'connected-asset-logo-image';
+    image.addEventListener('load', () => fallback.replaceWith(image), { once: true });
+    image.src = url;
   }
 
   reset() {
