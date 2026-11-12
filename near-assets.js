@@ -3859,10 +3859,6 @@ class MultichainModal {
   }
 }
 
-// Which glyph a row carries: money in, money out to a person, money out to
-// another chain, or a swap.
-const ACTIVITY_ICON = { deposit: 'in', received: 'in', sent: 'send', withdraw: 'out', swap: 'swap' };
-
 // Only states that need saying. A finished entry says nothing (DESIGN.md §1.2).
 const ACTIVITY_STATUS = {
   pending: 'Pending',
@@ -3985,7 +3981,7 @@ class MultichainAssetModal {
       const amount = `${sign}${entry.estimated ? '≈' : ''}${formatDisplayAmount(entry.amount)}`;
       return `
         <div class="multichain-row is-static" data-entry-id="${escapeHtml(entry.id)}" data-status="${escapeHtml(entry.status)}">
-          <span class="multichain-activity-icon" data-icon="${ACTIVITY_ICON[entry.kind] || 'in'}" aria-hidden="true"></span>
+          <span class="multichain-activity-icon" data-icon="${escapeHtml(entry.kind)}" aria-hidden="true"></span>
           <span class="multichain-row-main">
             <span class="multichain-row-name">${escapeHtml(entry.title)}</span>
             ${sub ? `<span class="multichain-row-chain">${escapeHtml(sub)}</span>` : ''}
