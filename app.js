@@ -35906,15 +35906,27 @@ chatPaymentPanel.configure({
     chatModal.checkIntentsPaymentReceipt(address, username, isCurrentLookup),
 });
 
-// The asset screen's activity. Swaps and withdrawals this device placed are
-// kept with the account's own saved state, so a backup carries them; chat
-// payments are read from the conversations that already hold them.
+// The asset screen's activity. Swaps, withdrawals and address transfers are
+// kept in the account's saved state. Chat payments come from conversations.
 intentsActivity.configure({
   getOrders: () => (Array.isArray(myData?.intentsOrders) ? myData.intentsOrders : []),
   saveOrders: (orders) => {
     if (!myData) return;
     myData.intentsOrders = orders;
     saveState();
+  },
+  getAddressTransfers: (senderAddress) => {
+    if (!senderAddress || senderAddress !== intentsAccountIdForAddress(myAccount?.keys?.address)) return [];
+    return Array.isArray(myData?.intentsAddressTransfers) ? myData.intentsAddressTransfers : [];
+  },
+  saveAddressTransfers: (senderAddress, transfers) => {
+    if (!myData || !senderAddress || senderAddress !== intentsAccountIdForAddress(myAccount?.keys?.address)) return;
+    myData.intentsAddressTransfers = transfers;
+    try {
+      saveState();
+    } catch (error) {
+      console.warn('Could not save NEAR transfer activity:', error);
+    }
   },
   listPayments: () => Object.values(myData?.contacts || {}).flatMap((contact) => (contact.messages || [])
     .filter((message) => message.type === INTENTS_CHAT_MESSAGE_TYPE && message.payment)
