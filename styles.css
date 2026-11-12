@@ -6154,6 +6154,12 @@ input[type='file'].form-control::file-selector-button {
   margin-bottom: 1rem;
 }
 
+.assets-list-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 1rem 8px;
+}
+
 .assets-portfolio #connectedAssetsList {
   padding: 0 1rem;
 }
@@ -12219,7 +12225,7 @@ small {
 
 /* A switch drawn over a real checkbox: the input stays for state, keyboard
    and screen readers, and is only made invisible. */
-.multichain-switch {
+.wallet-asset-switch {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -12229,7 +12235,7 @@ small {
   cursor: pointer;
 }
 
-.multichain-switch input {
+.wallet-asset-switch input {
   position: absolute;
   opacity: 0;
   width: 1px;
@@ -12237,7 +12243,7 @@ small {
   margin: 0;
 }
 
-.multichain-switch-track {
+.wallet-asset-switch-track {
   position: relative;
   width: 32px;
   height: 20px;
@@ -12246,7 +12252,7 @@ small {
   transition: background-color 0.15s ease;
 }
 
-.multichain-switch-track::after {
+.wallet-asset-switch-track::after {
   content: '';
   position: absolute;
   top: 2px;
@@ -12259,19 +12265,20 @@ small {
   transition: transform 0.15s ease;
 }
 
-.multichain-switch input:checked + .multichain-switch-track {
+.wallet-asset-switch input:checked + .wallet-asset-switch-track {
   background: var(--primary-color);
 }
 
-.multichain-switch input:checked + .multichain-switch-track::after {
+.wallet-asset-switch input:checked + .wallet-asset-switch-track::after {
   transform: translateX(12px);
 }
 
-.multichain-switch input:focus-visible + .multichain-switch-track {
+.wallet-asset-switch input:focus-visible + .wallet-asset-switch-track {
   outline: 2px solid var(--primary-color);
   outline-offset: 2px;
 }
 
+.assets-list-empty,
 .multichain-empty {
   margin: 24px 16px;
   text-align: center;

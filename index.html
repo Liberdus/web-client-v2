@@ -1697,10 +1697,10 @@
           <!-- Shown only when there is a zero row to hide. -->
           <div class="multichain-list-head" id="multichainListHead" hidden>
             <div class="multichain-section-title">Assets</div>
-            <label class="multichain-switch">
+            <label class="wallet-asset-switch">
               <span>Hide empty</span>
               <input type="checkbox" role="switch" id="multichainHideEmpty" />
-              <span class="multichain-switch-track" aria-hidden="true"></span>
+              <span class="wallet-asset-switch-track" aria-hidden="true"></span>
             </label>
           </div>
           <div class="multichain-empty" id="multichainEmpty" role="status" hidden></div>
@@ -2722,6 +2722,13 @@
                 <option value="bsc">BNB Smart Chain (BSC)</option>
                 <option value="polygon">Polygon (POL)</option>
               </select>
+            </div>
+            <div class="assets-list-controls">
+              <label class="wallet-asset-switch">
+                <span>Show all</span>
+                <input type="checkbox" role="switch" id="assetsShowAll" aria-controls="connectedAssetsList" />
+                <span class="wallet-asset-switch-track" aria-hidden="true"></span>
+              </label>
             </div>
             <div id="connectedAssetsList">
               <div class="empty-state">

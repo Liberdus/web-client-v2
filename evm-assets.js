@@ -27,6 +27,7 @@ const EVM_BROADCAST_TIMEOUT_MS = 60_000;
 const EVM_BROADCAST_ATTEMPTS = 3;
 const EVM_RECEIPT_TIMEOUT_MS = 60_000;
 const EVM_RECEIPT_POLL_MS = 2_000;
+const MIN_VISIBLE_ASSET_USD = 0.001;
 const DEFAULT_EVM_RPC_URLS = Object.freeze({
   ethereum: Object.freeze([
     'https://ethereum-rpc.publicnode.com',
@@ -1441,6 +1442,7 @@ class AssetsModal {
     this.priceStatus = document.getElementById('assetsPriceStatus');
     this.refreshButton = document.getElementById('refreshAssetsBalance');
     this.networkSelect = document.getElementById('assetsNetwork');
+    this.showAllInput = document.getElementById('assetsShowAll');
     this.connectionSummary = document.getElementById('assetsConnectionSummary');
     this.assetsList = document.getElementById('connectedAssetsList');
     this.recovery = document.getElementById('evmPaymentRecovery');
@@ -1455,6 +1457,7 @@ class AssetsModal {
 
     document.getElementById('closeAssetsModal').addEventListener('click', () => this.close());
     this.networkSelect.addEventListener('change', () => this.render());
+    this.showAllInput.addEventListener('change', () => this.render());
     this.assetsList.addEventListener('click', (event) => {
       const assetButton = event.target.closest('.connected-asset-button');
       if (!assetButton) return;
@@ -1478,6 +1481,10 @@ class AssetsModal {
   async open({ recipient = null } = {}) {
     if (!openModal(this.modal)) return;
     this.recipient = recipient ? { ...recipient } : null;
+    if (this.showAllInput?.checked) {
+      this.showAllInput.checked = false;
+      this.render();
+    }
 
     // A recently closed toast may still be fading out when the modal reopens.
     const toastId = this.controller.showToast('Loading EVM assets...', 0, 'loading', false, { dedupe: false });
@@ -1583,21 +1590,21 @@ class AssetsModal {
       ? catalog
       : catalog.filter((walletNetwork) => walletNetwork.id === selectedNetworkId);
     const assetUsdValue = ({ asset }) => asset.tokenValueUsd === null ? -Infinity : Number(asset.tokenValueUsd);
-    const visibleAssets = visibleNetworks
-      .flatMap((walletNetwork) => walletNetwork.assets.map((asset) => ({ walletNetwork, asset })))
-      .sort((left, right) => assetUsdValue(right) - assetUsdValue(left));
+    const assets = visibleNetworks
+      .flatMap((walletNetwork) => walletNetwork.assets.map((asset) => ({ walletNetwork, asset })));
+    const visibleAssets = this.showAllInput.checked ? assets : assets.filter((entry) => {
+      const unitPrice = entry.asset.tokenPriceUsd;
+      return unitPrice !== null
+        && (Number(unitPrice) >= MIN_VISIBLE_ASSET_USD || assetUsdValue(entry) >= MIN_VISIBLE_ASSET_USD);
+    });
 
     if (visibleAssets.length === 0) {
-      this.assetsList.innerHTML = `
-        <div class="empty-state">
-          <div></div>
-          <div>No EVM assets yet</div>
-          <div>Refresh to check this wallet again</div>
-        </div>
-      `;
+      const message = assets.length ? 'Turn on Show all to see hidden assets' : 'No EVM assets yet';
+      this.assetsList.innerHTML = `<p class="assets-list-empty" role="status">${message}</p>`;
       return;
     }
 
+    visibleAssets.sort((left, right) => assetUsdValue(right) - assetUsdValue(left));
     this.assetsList.innerHTML = `
       <section class="wallet-network-assets">
         ${visibleAssets.map(({ walletNetwork, asset }) => {
