@@ -2532,6 +2532,22 @@ class EvmAssetsController {
   findAsset(networkId, assetKey) {
     return this.discovery.findAsset(networkId, assetKey);
   }
+
+  findPaymentAsset(payment) {
+    const walletNetwork = this.getEvmCatalog().find((network) => network.chainId === payment.chainId);
+    const asset = walletNetwork?.assets.find((entry) =>
+      (entry.contractAddress?.toLowerCase() || null) === payment.contractAddress
+    );
+    return { walletNetwork, asset };
+  }
+
+  async resolvePaymentAsset(payment) {
+    const selection = this.findPaymentAsset(payment);
+    if (selection.asset && ['connected', 'partial'].includes(this.getStatus())) return selection;
+    await this.refresh();
+    return this.findPaymentAsset(payment);
+  }
+
   populateNetworkSelect(select, options) {
     this.discovery.populateNetworkSelect(select, options);
     this.syncSelect(select);
@@ -2716,11 +2732,10 @@ class EvmAssetsController {
         const state = await this.transactions.verifyPayment(payment, payment.from, payment.to);
         if (state !== 'reverted') throw new Error('A new transfer requires a verified failure. Check the original transfer again.');
       }
-      const network = this.getEvmCatalog().find((item) => item.chainId === payment.chainId);
-      const asset = network?.assets?.find((item) => (item.contractAddress?.toLowerCase() || null) === payment.contractAddress);
+      const { walletNetwork, asset } = this.findPaymentAsset(payment);
       if (!asset) throw new Error('Refresh EVM Assets to load this asset before retrying it.');
       const form = this.sendModal;
-      if (!form.open({ networkId: network.id, assetKey: asset.key })) return;
+      if (!form.open({ networkId: walletNetwork.id, assetKey: asset.key })) return;
       const session = form.session;
       form.usernameInput.value = recipient;
       form.amountInput.value = evmPaymentAmount(payment);

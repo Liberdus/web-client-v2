@@ -16868,7 +16868,7 @@ function markConnectivityDependentElements() {
     '#confirmDateTimePicker',
 
     // Delete for all stays clickable so its handler can explain offline requirements.
-    '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="delete-for-all"]):not([data-action="copy"]):not([data-action="join"]):not([data-action="location"])',
+    '.message-context-menu .context-menu-option:not([data-action="delete"]):not([data-action="delete-for-all"]):not([data-action="copy"]):not([data-action="join"]):not([data-action="location"]):not([data-action="wallet"])',
 
     // bridgeModal
     '#bridgeForm button[type="submit"]',
@@ -21279,6 +21279,7 @@ class ChatModal {
     this.locationSendInProgress = false;
     // context menu properties
     this.currentContextMessage = null;
+    this.paymentWalletRequestId = 0;
 
     // Flag to prevent multiple downloads
     this.attachmentDownloadInProgress = false; 
@@ -22639,6 +22640,7 @@ class ChatModal {
    * @returns {void}
    */
   close() {
+    this.paymentWalletRequestId++;
     this.closeReactionSheet();
     const closingAddress = this.address;
     this.hideAttachmentLoadingToastsForContact(closingAddress);
@@ -26208,6 +26210,8 @@ class ChatModal {
     const evmActions = evmMessage ? evmAssets.getPaymentActions(messageRecord.payment, messageRecord) : {};
     this.contextMenu.querySelector('[data-action="evm-check"]').style.display = evmActions.checkAgain ? 'flex' : 'none';
     this.contextMenu.querySelector('[data-action="evm-review"]').style.display = evmActions.retryTransfer ? 'flex' : 'none';
+    const walletTarget = this.getPaymentWalletTarget(messageRecord);
+    this.contextMenu.querySelector('[data-action="wallet"]').style.display = walletTarget ? 'flex' : 'none';
     
     const deleteOption = this.contextMenu.querySelector('[data-action="delete"]');
     if (deleteOption) deleteOption.style.display = 'flex';
@@ -27689,6 +27693,48 @@ class ChatModal {
     }
   }
 
+  getPaymentWalletTarget(message) {
+    if (!message || isDeleted(message) || message.status === 'failed') return null;
+    if (typeof message.amount === 'bigint') return { type: 'lib' };
+    if (message.type === EVM_CHAT_MESSAGE_TYPE) return parseEvmTransferMessage(message.payment);
+    if (message.type === INTENTS_CHAT_MESSAGE_TYPE) return parseTransferMessage(message.payment);
+    return null;
+  }
+
+  async openPaymentWallet(messageEl) {
+    const target = this.getPaymentWalletTarget(this.getMessageRecordFromElement(messageEl));
+    if (!target) return;
+
+    if (target.type === 'lib') {
+      this.close();
+      await footer.switchView('wallet');
+      return;
+    }
+
+    const requestId = ++this.paymentWalletRequestId;
+    const account = myAccount;
+    const isCurrent = () => this.paymentWalletRequestId === requestId
+      && myAccount === account && findTopModal() === this.modal;
+
+    if (target.type === EVM_CHAT_MESSAGE_TYPE) {
+      const { walletNetwork, asset } = await evmAssets.resolvePaymentAsset(target);
+      if (!isCurrent()) return;
+      if (asset) {
+        evmAssets.assetDetailsModal.open(walletNetwork.id, asset.key);
+        return;
+      }
+    } else {
+      const asset = await multichain.resolvePaymentAsset(target);
+      if (!isCurrent()) return;
+      if (asset) {
+        multichain.assetModal.open(asset.key);
+        return;
+      }
+    }
+
+    showToast('This asset is unavailable in your wallet.', 3000, 'warning');
+  }
+
   /**
    * Handles context menu option selection
    * @param {string} action - The action to perform
@@ -27698,6 +27744,10 @@ class ChatModal {
     if (!messageEl) return;
     
     switch (action) {
+      case 'wallet':
+        this.closeContextMenu();
+        void this.openPaymentWallet(messageEl);
+        return;
       case 'evm-check':
       case 'evm-review':
         this.handleEvmPaymentAction(action, messageEl);

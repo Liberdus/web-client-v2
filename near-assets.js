@@ -5573,6 +5573,14 @@ class MultichainController {
     return intentsAssets.refresh(options);
   }
 
+  async resolvePaymentAsset({ assetId }) {
+    const assetKey = `${INTENTS_NETWORK_ID}:${assetId}`;
+    const asset = intentsAssets.getCatalogAsset(assetKey);
+    if (asset && ['connected', 'unpriced'].includes(intentsAssets.getStatus())) return asset;
+    await this.refresh();
+    return intentsAssets.getCatalogAsset(assetKey);
+  }
+
   openOtherAssets() {
     return this.openDepositableAssetPicker({
       title: 'Other assets',
