@@ -5155,8 +5155,9 @@ input[type='file'].form-control::file-selector-button {
   font-family: var(--font-primary);
   resize: none;
   height: 48px;
-  min-height: unset;
-  line-height: 24px;
+  line-height: 1.5;
+  min-height: calc(1lh + 24px); /* One line plus vertical padding */
+  max-height: max(120px, calc(3lh + 24px)); /* Fit three lines at larger font sizes */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
