@@ -38156,6 +38156,15 @@ async function checkPendingTransactionsOnce() {
   const eightSecondsAgo = now - 8000;
   const twentySecondsAgo = now - 20000;
   const thirtySecondsAgo = now - 30000;
+  const queryConfirmation = async (path) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      return await queryNetwork(path, controller.signal);
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
   // An unavailable or malformed response cannot establish that a receipt is missing.
   const reportsMissingReceipt = (response) => {
     const receipt = response?.transaction;
@@ -38198,14 +38207,14 @@ async function checkPendingTransactionsOnce() {
         res = result.response;
       } else {
         res = needsReachableReceiptSource
-          ? await queryNetwork(endpointPath, AbortSignal.timeout(8000))
+          ? await queryConfirmation(endpointPath)
           : await queryNetwork(endpointPath);
         if (myAccount !== account) return;
         if ((isPendingDaoVote || needsReachableReceiptSource) && submittedts < twentySecondsAgo
           && typeof res?.transaction?.success !== 'boolean') {
           collectorReportsMissingReceipt = reportsMissingReceipt(res);
           res = needsReachableReceiptSource
-            ? await queryNetwork(`/transaction/${txid}`, AbortSignal.timeout(8000))
+            ? await queryConfirmation(`/transaction/${txid}`)
             : await queryNetwork(`/transaction/${txid}`);
           if (myAccount !== account) return;
         }
@@ -38216,7 +38225,7 @@ async function checkPendingTransactionsOnce() {
       let registrationConfirmedByAlias = false;
       if (type === 'register' && submittedts < thirtySecondsAgo && !hasReceiptOutcome) {
         const usernameHash = hashBytes(utf82bin(pendingTxInfo.username));
-        const lookup = await queryNetwork(`/address/${usernameHash}`, AbortSignal.timeout(8000));
+        const lookup = await queryConfirmation(`/address/${usernameHash}`);
         if (myAccount !== account) return;
         const hasAddress = !lookup?.error && typeof lookup?.address === 'string'
           && /^(?:0x)?[0-9a-f]{40}(?:0{24})?$/i.test(lookup.address);
