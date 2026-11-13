@@ -1,3 +1,5 @@
+Before removing or renaming an identifier, search the repo for references and update any affected uses.
+
 # Client regression tests
 
 Before changing behavior or creating a PR, read
