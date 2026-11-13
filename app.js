@@ -18857,8 +18857,8 @@ class RestoreAccountModal {
       
       const data = parse(content);
       
-      // Check if backup requires password
-      const requiresBackupPassword = data.lock && !(localStorage.lock && data.lock === localStorage.lock);
+      const entries = this.getBackupAccountEntries(data, this.parseBackupAccountsRegistry(data));
+      const requiresBackupPassword = data.lock && entries.length && !this.getReusableBackupKey(data, entries);
       if (requiresBackupPassword) {
         this.backupAccountLockGroup.style.display = 'block';
       } else {
@@ -18967,27 +18967,27 @@ class RestoreAccountModal {
    */
   async mergeBackupAccountsToLocal(backupData) {
     const overwrite = this.overwriteAccountsCheckbox?.checked;
-    const locksMatch = !!(backupData.lock && localStorage.lock && backupData.lock === localStorage.lock);
+    const backupAccountsRegistry = this.parseBackupAccountsRegistry(backupData);
+    const backupAccountEntries = this.getBackupAccountEntries(backupData, backupAccountsRegistry);
+    let backupEncKey = backupData.lock ? this.getReusableBackupKey(backupData, backupAccountEntries) : null;
 
-    // If backup has a lock, require backup password
-    let backupEncKey = null;
-    if (backupData.lock && !locksMatch) {
+    if (backupData.lock && backupAccountEntries.length && !backupEncKey) {
+      this.backupAccountLockGroup.style.display = 'block';
       const password = this.backupAccountLock.value || '';
       if (!password) {
         showToast('Backup password required to unlock accounts in the backup file', 0, 'error');
         return false;
       }
       backupEncKey = await passwordToKey(password + 'liberdusData');
-      if (!backupEncKey) {
+      if (!backupAccountEntries.some(({ key }) => this.tryDecryptBackupAccount(backupData[key], backupEncKey) !== null)) {
         showToast('Invalid backup password', 0, 'error');
         return false;
       }
     }
 
+    const localEncKey = localStorage.lock && !unlockModal.isLocked() ? lockModal.encKey : null;
     // Iterate over account payloads and copy account entries.
     const restoredAccountKeys = new Set();
-    const backupAccountsRegistry = this.parseBackupAccountsRegistry(backupData);
-    const backupAccountEntries = this.getBackupAccountEntries(backupData, backupAccountsRegistry);
     for (const { key, username, netid, registryAccount } of backupAccountEntries) {
 
       const localKey = `${username}_${netid}`;
@@ -18998,51 +18998,33 @@ class RestoreAccountModal {
         continue;
       }
 
-      let value = backupData[key];
-      let decryptedAccount = null;
+      const value = backupData[key];
+      const decryptedAccount = backupData.lock ? this.tryDecryptBackupAccount(value, backupEncKey) : value;
+      if (decryptedAccount === null) {
+        showToast(`Failed to decrypt account ${username} on ${netid}. Skipping.`, 0, 'error');
+        continue;
+      }
 
-      if (locksMatch) {
-        localStorage.setItem(localKey, value);
-        restoredAccountKeys.add(localKey);
-        decryptedAccount = this.tryDecryptWithLocalLock(value);
-      } else {
-        // Need to decrypt with backupEncKey if available
-        let decrypted = value;
-        if (backupData.lock) {
-          try {
-            const maybe = decryptData(value, backupEncKey, true);
-            if (maybe != null) {
-              decrypted = maybe;
-            } else {
-              showToast(`Failed to decrypt account ${username} on ${netid}. Skipping.`, 0, 'error');
-              continue;
-            }
-          } catch (e) {
-            showToast(`Failed to decrypt account ${username} on ${netid}. Skipping.`, 0, 'error');
-            continue;
-          }
+      let finalValue = decryptedAccount;
+      if (localStorage.lock) {
+        if (!localEncKey) {
+          showToast('Local lock is set but unlock state is missing. Please unlock before importing.', 0, 'error');
+          return false;
         }
-
-        decryptedAccount = decrypted;
-
-        // Now re-encrypt with local lock if localStorage.lock exists
-        let finalValue = decrypted;
-        if (localStorage.lock) {
-          if (!lockModal?.encKey) {
-            showToast('Local lock is set but unlock state is missing. Please unlock before importing.', 0, 'error');
-            return false;
-          }
+        if (backupEncKey === localEncKey) {
+          finalValue = value;
+        } else {
           try {
-            finalValue = encryptData(decrypted, lockModal.encKey, true);
+            finalValue = encryptData(decryptedAccount, localEncKey, true);
           } catch (e) {
             showToast(`Failed to re-encrypt account ${username} on ${netid}. Skipping.`, 0, 'error');
             continue;
           }
         }
-
-        localStorage.setItem(localKey, finalValue);
-        restoredAccountKeys.add(localKey);
       }
+
+      localStorage.setItem(localKey, finalValue);
+      restoredAccountKeys.add(localKey);
 
       if (decryptedAccount) {
         this.updateAccountRegistryAddress(netid, username, decryptedAccount);
@@ -19314,12 +19296,18 @@ class RestoreAccountModal {
     localStorage.setItem('accounts', stringify(accountsObj));
   }
 
-  tryDecryptWithLocalLock(value) {
-    if (!localStorage.lock) return value;
-    if (!lockModal?.encKey) return null;
+  getReusableBackupKey(backupData, entries) {
+    if (!localStorage.lock || unlockModal.isLocked() || !lockModal.encKey) return null;
 
+    // Verifier salts differ between devices. Authenticate backup data with the unlocked account key.
+    const key = lockModal.encKey;
+    return entries.some(entry => this.tryDecryptBackupAccount(backupData[entry.key], key) !== null) ? key : null;
+  }
+
+  tryDecryptBackupAccount(value, key) {
+    if (!key) return null;
     try {
-      return decryptData(value, lockModal.encKey, true);
+      return decryptData(value, key, true);
     } catch (e) {
       return null;
     }
