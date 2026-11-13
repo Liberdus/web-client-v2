@@ -38176,8 +38176,12 @@ async function checkPendingTransactionsOnce() {
   for (let i = myData.pending.length - 1; i >= 0; i--) {
     const pendingTxInfo = myData.pending[i];
     const { txid, type, submittedts } = pendingTxInfo;
+    const statusTx = type === 'update_toll_required' && pendingTxInfo.updateTollRequiredTx;
     const needsReachableReceiptSource = type === 'register' || type === 'update_toll_required';
-    if (needsReachableReceiptSource && !isOnline) continue;
+    if (needsReachableReceiptSource && !isOnline) {
+      if (statusTx) delete pendingTxInfo.tollStatusMismatchSince;
+      continue;
+    }
     const isPendingDaoTransaction = isDaoTransactionType(type);
     const isPendingDaoVote = type === DAO_ACTION_TYPES.VOTE;
     const voteReceiptRetryAt = pendingTxInfo.daoVoteReceiptRetryAt;
@@ -38222,6 +38226,34 @@ async function checkPendingTransactionsOnce() {
       const receipt = res?.transaction;
       const hasReceiptOutcome = typeof receipt?.success === 'boolean';
       let authoritativeAbsence = collectorReportsMissingReceipt && reportsMissingReceipt(res);
+      if (statusTx && !authoritativeAbsence) delete pendingTxInfo.tollStatusMismatchSince;
+      if (submittedts < thirtySecondsAgo && authoritativeAbsence && statusTx?.chatId
+        && typeof statusTx.from === 'string' && typeof statusTx.to === 'string'
+        && statusTx.from !== statusTx.to && Number.isInteger(statusTx.required)) {
+        const tollInfo = await queryConfirmation(`/messages/${statusTx.chatId}/toll`);
+        if (myAccount !== account) return;
+        const required = tollInfo?.toll?.required;
+        const ownRequired = Array.isArray(required) && required.length === 2
+          ? required[statusTx.from < statusTx.to ? 0 : 1]
+          : undefined;
+        if (typeof ownRequired !== 'number' || !isValidRequiredValue(ownRequired)) {
+          delete pendingTxInfo.tollStatusMismatchSince;
+          continue;
+        }
+        if (ownRequired === statusTx.required) {
+          if (!removePendingTransaction(txid)) continue;
+          didMutatePendingState = true;
+          const contact = myData.contacts?.[pendingTxInfo.to];
+          if (contact) {
+            applyUpdateTollRequiredState(contact, { my: true, required: ownRequired });
+            friendModal.handlePendingStatusSettled(pendingTxInfo.to);
+          }
+          continue;
+        }
+        // Allow the chat state to catch up before reverting an accepted status change.
+        pendingTxInfo.tollStatusMismatchSince ??= now;
+        if (now - pendingTxInfo.tollStatusMismatchSince < 15000) continue;
+      }
       let registrationConfirmedByAlias = false;
       if (type === 'register' && submittedts < thirtySecondsAgo && !hasReceiptOutcome) {
         const usernameHash = hashBytes(utf82bin(pendingTxInfo.username));
