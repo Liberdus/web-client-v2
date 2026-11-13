@@ -3892,6 +3892,7 @@ class MultichainAssetModal {
   constructor(controller) {
     this.controller = controller;
     this.assetKey = null;
+    this.recipient = null;
   }
 
   load() {
@@ -3916,16 +3917,23 @@ class MultichainAssetModal {
     this.depositButton.addEventListener('click', () => this.controller.receiveModal.open(this.assetKey));
     this.receiveButton.addEventListener('click', () => this.controller.requestModal.open(this.assetKey));
     this.sendButton.addEventListener('click', () => {
-      this.controller.onSend(this.assetKey, this.controller.assetsModal.recipient);
+      this.controller.onSend(this.assetKey, this.recipient || this.controller.assetsModal.recipient);
     });
     this.withdrawButton.addEventListener('click', () => this.controller.withdrawModal.open(this.assetKey));
     this.swapButton.addEventListener('click', () => this.controller.swapModal.open(this.assetKey));
   }
 
-  open(assetKey) {
+  /**
+   * @param {string} assetKey
+   * @param {{recipient?: {username: string, address: string} | null}} [options]
+   *   recipient: who Send should be prefilled with when the asset was not
+   *   opened from the assets list (which carries its own recipient).
+   */
+  open(assetKey, { recipient = null } = {}) {
     const asset = intentsAssets.getCatalogAsset(assetKey);
     if (!asset) return;
     this.assetKey = assetKey;
+    this.recipient = recipient ? { ...recipient } : null;
     this.render();
     openModal(this.modal);
     void this.loadActivity();
@@ -4017,6 +4025,7 @@ class MultichainAssetModal {
   }
 
   close() {
+    this.recipient = null;
     this.modal.classList.remove('active');
     this.controller.assetsModal.render();
     this.controller.updateSummary();

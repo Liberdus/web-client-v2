@@ -1648,6 +1648,7 @@ class AssetDetailsModal {
     this.controller = controller;
     this.networkId = null;
     this.assetKey = null;
+    this.recipient = null;
   }
 
   load() {
@@ -1663,7 +1664,7 @@ class AssetDetailsModal {
       this.controller.openContextualSend({
         networkId: this.networkId,
         assetKey: this.assetKey,
-        prefillRecipient: this.controller.assetsModal.recipient,
+        prefillRecipient: this.recipient || this.controller.assetsModal.recipient,
       });
     });
     document.getElementById('assetDetailsReceive').addEventListener('click', () => {
@@ -1679,9 +1680,17 @@ class AssetDetailsModal {
     return this.controller.findAsset(this.networkId, this.assetKey);
   }
 
-  open(networkId, assetKey) {
+  /**
+   * @param {string} networkId
+   * @param {string} assetKey
+   * @param {{recipient?: {username: string, address: string} | null}} [options]
+   *   recipient: who Send should be prefilled with when the details were not
+   *   opened from the assets list (which carries its own recipient).
+   */
+  open(networkId, assetKey, { recipient = null } = {}) {
     this.networkId = networkId;
     this.assetKey = assetKey;
+    this.recipient = recipient ? { ...recipient } : null;
     const { walletNetwork, asset } = this.getSelection();
     if (!walletNetwork || !asset) {
       this.controller.showToast(
@@ -1749,6 +1758,7 @@ class AssetDetailsModal {
   }
 
   close() {
+    this.recipient = null;
     this.modal.classList.remove('active');
   }
 
