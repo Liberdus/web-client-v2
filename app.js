@@ -34340,6 +34340,16 @@ class CreateAccountModal {
 
     if (res && res.result && res.result.success && res.txid) {
       const txid = res.txid;
+      let confirmationNoticeId = null;
+      const noticeTimer = setTimeout(() => {
+        if (waitingToastId) hideToast(waitingToastId);
+        waitingToastId = null;
+        confirmationNoticeId = showToast(
+          'Still waiting for account confirmation. Checking will continue when the network is available.',
+          0,
+          'warning'
+        );
+      }, 30000);
 
       try {
         // Start interval since trying to create account and tx should be in pending
@@ -34349,6 +34359,8 @@ class CreateAccountModal {
 
         // Wait for the transaction confirmation
         const confirmationDetails = await pendingPromiseService.register(txid);
+        clearTimeout(noticeTimer);
+        if (confirmationNoticeId) hideToast(confirmationNoticeId);
         if (
           confirmationDetails.username !== username ||
           confirmationDetails.address !== longAddress(myAccount.keys.address)
@@ -34379,6 +34391,8 @@ class CreateAccountModal {
 
         signInModal.open(username);
       } catch (error) {
+        clearTimeout(noticeTimer);
+        if (confirmationNoticeId) hideToast(confirmationNoticeId);
         if (waitingToastId) hideToast(waitingToastId);
         console.error(`DEBUG: handleCreateAccount error`, JSON.stringify(error, null, 2));
         showToast(`account creation failed: ${error}`, 0, 'error');
@@ -38142,10 +38156,19 @@ async function checkPendingTransactionsOnce() {
   const eightSecondsAgo = now - 8000;
   const twentySecondsAgo = now - 20000;
   const thirtySecondsAgo = now - 30000;
+  // An unavailable or malformed response cannot establish that a receipt is missing.
+  const reportsMissingReceipt = (response) => {
+    const receipt = response?.transaction;
+    return receipt === null || (
+      receipt && typeof receipt === 'object' && !Array.isArray(receipt) && Object.keys(receipt).length === 0
+    );
+  };
   // Process each transaction in reverse to safely remove items
   for (let i = myData.pending.length - 1; i >= 0; i--) {
     const pendingTxInfo = myData.pending[i];
     const { txid, type, submittedts } = pendingTxInfo;
+    const needsReachableReceiptSource = type === 'register' || type === 'update_toll_required';
+    if (needsReachableReceiptSource && !isOnline) continue;
     const isPendingDaoTransaction = isDaoTransactionType(type);
     const isPendingDaoVote = type === DAO_ACTION_TYPES.VOTE;
     const voteReceiptRetryAt = pendingTxInfo.daoVoteReceiptRetryAt;
@@ -38167,24 +38190,44 @@ async function checkPendingTransactionsOnce() {
       }
       //console.log(`DEBUG: txid ${txid} endpointPath: ${endpointPath}`);
       let res;
+      let collectorReportsMissingReceipt = false;
       if (isPendingMessage) {
         const result = await chatModal.checkPendingMessageReceipt(pendingTxInfo, endpointPath);
         if (myAccount !== account) return;
         if (result.cancelled || !isOnline || document.visibilityState === 'hidden') continue;
         res = result.response;
       } else {
-        res = await queryNetwork(endpointPath);
+        res = needsReachableReceiptSource
+          ? await queryNetwork(endpointPath, AbortSignal.timeout(8000))
+          : await queryNetwork(endpointPath);
         if (myAccount !== account) return;
-        if (isPendingDaoVote && submittedts < twentySecondsAgo
+        if ((isPendingDaoVote || needsReachableReceiptSource) && submittedts < twentySecondsAgo
           && typeof res?.transaction?.success !== 'boolean') {
-          res = await queryNetwork(`/transaction/${txid}`);
+          collectorReportsMissingReceipt = reportsMissingReceipt(res);
+          res = needsReachableReceiptSource
+            ? await queryNetwork(`/transaction/${txid}`, AbortSignal.timeout(8000))
+            : await queryNetwork(`/transaction/${txid}`);
           if (myAccount !== account) return;
         }
       }
-      //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
       const receipt = res?.transaction;
       const hasReceiptOutcome = typeof receipt?.success === 'boolean';
-      const missingReceipt = isPendingDaoVote ? !hasReceiptOutcome : !receipt || Object.keys(receipt).length === 0;
+      let authoritativeAbsence = collectorReportsMissingReceipt && reportsMissingReceipt(res);
+      let registrationConfirmedByAlias = false;
+      if (type === 'register' && submittedts < thirtySecondsAgo && !hasReceiptOutcome) {
+        const usernameHash = hashBytes(utf82bin(pendingTxInfo.username));
+        const lookup = await queryNetwork(`/address/${usernameHash}`, AbortSignal.timeout(8000));
+        if (myAccount !== account) return;
+        const hasAddress = !lookup?.error && typeof lookup?.address === 'string'
+          && /^(?:0x)?[0-9a-f]{40}(?:0{24})?$/i.test(lookup.address);
+        registrationConfirmedByAlias = hasAddress && longAddress(lookup.address.toLowerCase()) === pendingTxInfo.address;
+        const aliasLookupSucceeded = hasAddress || lookup?.error === 'No account exists for the given handle';
+        authoritativeAbsence &&= aliasLookupSucceeded && !registrationConfirmedByAlias;
+      }
+      //console.log(`DEBUG: txid ${txid} res: ${JSON.stringify(res)}`);
+      const missingReceipt = needsReachableReceiptSource
+        ? authoritativeAbsence
+        : isPendingDaoVote ? !hasReceiptOutcome : !receipt || Object.keys(receipt).length === 0;
       const confirmationTimedOut = isPendingMessage
         ? !hasReceiptOutcome && getCorrectedTimestamp() - pendingTxInfo.checkedts >= ChatModal.CONFIRMATION_WINDOW_MS
         : submittedts < thirtySecondsAgo && missingReceipt;
@@ -38210,6 +38253,10 @@ async function checkPendingTransactionsOnce() {
         }
         if (!removePendingTransaction(txid)) continue;
         didMutatePendingState = true;
+
+        if (type === 'register') {
+          pendingPromiseService.reject(txid, new Error('Account confirmation timed out. Please try again.'));
+        }
 
         if (type === 'withdraw_stake') {
           myData.wallet.history = myData.wallet.history.filter((tx) => tx.txid !== txid);
@@ -38244,7 +38291,7 @@ async function checkPendingTransactionsOnce() {
         continue;
       }
 
-      if (res?.transaction?.success === true) {
+      if (registrationConfirmedByAlias || receipt?.success === true) {
         if (reactionPending) {
           settleAndQueueReactionCleanup(pendingTxInfo, 'success');
         } else {
