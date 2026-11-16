@@ -254,6 +254,7 @@ const MAX_MEMO_BYTES = 1000; // 1000 bytes for memos
 const MENU_NAVIGATION_LOCK_MS = 400;
 const MAX_CHAT_MESSAGE_BYTES = 10000; // UTF-8 bytes for chat messages
 const BRIDGE_USERNAME = 'liberdusbridge';
+const TRANSACTION_TIMESTAMP_OFFSET_MS = 0; // Transaction offset to allow for slow connections
 const IS_DEV_NETWORK = network?.name === 'Devnet';
 
 let myData = null;
@@ -17240,7 +17241,7 @@ function getCorrectedTimestamp() {
 }
 
 function getTransactionTimestamp() {
-  return getCorrectedTimestamp();
+  return getCorrectedTimestamp() + TRANSACTION_TIMESTAMP_OFFSET_MS;
 }
 
 // Validator Modals
