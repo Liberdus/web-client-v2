@@ -529,11 +529,13 @@ export async function publishIntent(signedPayload, { quoteHashes = null } = {}) 
 /** PENDING until the relayer lands it, then SETTLED with the NEAR transaction. */
 export async function getIntentStatus(intentHash) {
   const result = await solverRelayRpc('get_status', { intent_hash: intentHash });
-  return {
-    status: String(result?.status || 'UNKNOWN'),
-    transactionHash: result?.data?.hash ? String(result.data.hash) : null,
-    raw: result,
-  };
+  const status = result?.status;
+  const hash = result?.data?.hash;
+  const transactionHash = typeof hash === 'string' ? hash.trim() || null : null;
+  if (typeof status !== 'string' || !status.trim() || (status === 'SETTLED' && !transactionHash)) {
+    throw new IntentsError('The solver relay returned an incomplete or invalid settlement result', 'INVALID_RELAY_RESPONSE');
+  }
+  return { status, transactionHash, raw: result };
 }
 
 /**
