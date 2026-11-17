@@ -4276,6 +4276,7 @@ class AddProposalModal {
 
     let { value } = input;
     if (field === 'durationDays') {
+      value = value.trim();
       if (!/^\d*$/.test(value) || value.length > String(DAO_PROJECT_DURATION_MAX_DAYS).length) {
         value = milestone[field];
       }
