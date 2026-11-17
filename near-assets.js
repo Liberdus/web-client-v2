@@ -5658,6 +5658,7 @@ export const multichain = new MultichainController();
 
 const $ = (id) => document.getElementById(id);
 const CHAT_MESSAGE_TOLL_LABEL = 'Chat message toll';
+const ADDRESS_SEND_UNCONFIRMED_WARNING = 'It may still settle. Sending again could transfer the funds twice.';
 
 // Inline so they take the control's colour (DESIGN.md §6).
 const CARET = '<svg class="multichain-chip-caret" viewBox="0 0 24 24" aria-hidden="true">'
@@ -6260,6 +6261,16 @@ export class ChatPaymentPanel {
     }
   }
 
+  discardStaleAddressSend(session, sheet, reviewSession) {
+    if (this.isCurrentSession(session)) return false;
+    if (this.session === session) {
+      this.sending = false;
+      this.close();
+    }
+    if (sheet.shows(reviewSession)) sheet.close();
+    return true;
+  }
+
   async run(sheet, payment) {
     if (this.sending) return;
     const reviewSession = sheet.session;
@@ -6319,6 +6330,7 @@ export class ChatPaymentPanel {
         sent = await intentsChatPayments.send(prepared, secretKey, { asset, note, beforePublish: beforeTransferPublish });
       }
     } catch (error) {
+      if (transferOnly && this.discardStaleAddressSend(payment.session, sheet, reviewSession)) return;
       this.sending = false;
       // Any failure before publication is safe to retry.
       if (!publishStarted) {
@@ -6342,25 +6354,27 @@ export class ChatPaymentPanel {
       }
       // A failure while publishing may come after the relay took it.
       console.warn('Payment outcome unknown:', error);
-      if (this.isCurrentSession(payment.session)) this.finish(UNCONFIRMED, 'error');
-      if (sheet.shows(reviewSession)) sheet.finish(UNCONFIRMED, 'error');
+      const message = transferOnly
+        ? `Could not confirm submission. ${ADDRESS_SEND_UNCONFIRMED_WARNING}`
+        : UNCONFIRMED;
+      if (this.isCurrentSession(payment.session)) this.finish(message, 'error');
+      if (sheet.shows(reviewSession)) sheet.finish(message, 'error');
       return;
     }
 
     if (transferOnly) {
+      if (this.discardStaleAddressSend(payment.session, sheet, reviewSession)) return;
+      this.sending = false;
       const failed = ['FAILED', 'NOT_FOUND_OR_NOT_VALID'].includes(sent.status);
       const message = failed ? 'The transfer did not go through.'
         : sent.settled ? `Sent ${prepared.amount} ${prepared.symbol}.`
-        : 'Transfer submitted. Settlement could not be confirmed. Check your balance before trying again.';
+        : `Transfer submitted. ${ADDRESS_SEND_UNCONFIRMED_WARNING}`;
       const kind = failed ? 'error' : '';
-      const confirmationOpen = sheet.shows(reviewSession);
-      if (this.isCurrentSession(payment.session)) {
-        this.sending = false;
-        if (confirmationOpen) this.close();
-        else this.finish(message, kind);
-        void multichain.refreshAfterMove().catch(() => {});
-      }
-      if (confirmationOpen) sheet.finish(message, kind);
+      if (sheet.shows(reviewSession)) {
+        this.close();
+        sheet.finish(message, kind);
+      } else this.finish(message, kind);
+      void multichain.refreshAfterMove().catch(() => {});
       return;
     }
 
