@@ -3823,13 +3823,17 @@ class AddProposalModal {
     }, 325);
   }
 
-  close(skipWarning = false) {
-    if (!skipWarning && !this.discardWarningShown && this.hasUnsavedChanges()) {
+  close() {
+    if (!this.discardWarningShown && this.hasUnsavedChanges()) {
       this.discardWarningShown = true;
       showToast('Press back again to discard changes.', 5000, 'warning');
       return;
     }
 
+    this.forceClose();
+  }
+
+  forceClose() {
     PopupSelect.hide();
     this.modal.classList.remove('active');
     this.discardWarningShown = false;
@@ -5636,7 +5640,7 @@ class ConfirmProposalModal {
       }
       this.setSubmitting(false);
       this.close();
-      addProposalModal.close(true);
+      addProposalModal.forceClose();
       showToast('Proposal submitted—pending confirmation', 4000, 'info');
     } catch (error) {
       console.warn('Failed to submit DAO proposal:', error);
