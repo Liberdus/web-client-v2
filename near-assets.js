@@ -6342,12 +6342,15 @@ export class ChatPaymentPanel {
       const rejected = transferOnly && error instanceof IntentsError && error.code === 'INTENT_REJECTED';
       // A definite refusal is safe to retry, just like a failure before publication.
       if (!publishStarted || rejected) {
+        const message = rejected && error.message.toLowerCase() === 'internal'
+          ? 'Your transfer wasn’t submitted. Try again in a moment.'
+          : error.message || 'That payment is not valid.';
         if (this.isCurrentSession(payment.session)) {
           this.lockForm(false);
           this.validate();
         }
         if (!sheet.shows(reviewSession)) {
-          if (rejected) this.setStatus(error.message, 'error');
+          if (rejected) this.setStatus(message, 'error');
           return;
         }
         if (!this.isCurrentPayment(payment)) {
@@ -6359,7 +6362,7 @@ export class ChatPaymentPanel {
           payment.tollWei = error.tollWei;
           if (payment.session.fromWallet) this.setReceiptToll(error.tollWei);
         }
-        sheet.setStatus(error.message || 'That payment is not valid.', 'error');
+        sheet.setStatus(message, 'error');
         sheet.action.disabled = false;
         return;
       }
