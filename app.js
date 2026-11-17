@@ -4280,10 +4280,11 @@ class AddProposalModal {
         value = milestone[field];
       }
     } else if (field === 'costUsdStr' || field === 'penaltyUsdStr' || field === 'bonusUsdStr') {
+      value = value.trim().replace(',', '.');
       if (value.startsWith('.')) value = `0${value}`;
       // Allow a trailing decimal point while the amount is being edited.
       const completeValue = value.endsWith('.') ? `${value}0` : value;
-      if (value && (value.trim() !== value || !isValidDaoDecimalString(completeValue))) {
+      if (value && !isValidDaoDecimalString(completeValue)) {
         value = milestone[field];
       }
     }
