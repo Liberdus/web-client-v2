@@ -487,8 +487,8 @@ async function solverRelayRpc(method, params) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id, method, params: [params ?? {}] }),
   });
-  if (method === 'publish_intent' && body?.id !== id) {
-    throw new IntentsError('The solver relay response did not match the publish request', 'INVALID_RELAY_RESPONSE');
+  if (body?.id !== id) {
+    throw new IntentsError('The solver relay response did not match the request', 'INVALID_RELAY_RESPONSE');
   }
   if (body?.error) {
     const message = typeof body.error === 'string'
@@ -519,8 +519,8 @@ export async function publishIntent(signedPayload, { quoteHashes = null } = {}) 
     }
     throw new IntentsError('The solver relay returned an unconfirmed publish result', 'INVALID_RELAY_RESPONSE', { result });
   }
-  const intentHash = result.intent_hash;
-  if (typeof intentHash !== 'string' || !intentHash.trim()) {
+  const intentHash = typeof result.intent_hash === 'string' ? result.intent_hash.trim() : '';
+  if (!intentHash) {
     throw new IntentsError('The solver relay returned no valid intent hash', 'INVALID_RELAY_RESPONSE', { result });
   }
   return intentHash;
