@@ -4274,6 +4274,7 @@ class AddProposalModal {
     );
     if (!milestone) return;
 
+    const isBulkEdit = ['insertFromPaste', 'insertFromDrop', 'insertReplacementText'].includes(event.inputType);
     let { value } = input;
     let validUsdEdit = true;
     if (field === 'durationDays') {
@@ -4285,7 +4286,7 @@ class AddProposalModal {
       value = value.trim().replace(',', '.');
       if (value.startsWith('.')) value = `0${value}`;
       validUsdEdit = this.isValidProjectUsdEdit(value);
-      if (!validUsdEdit && event.inputType !== 'insertFromPaste' && this.isValidProjectUsdEdit(milestone[field])) {
+      if (!validUsdEdit && !isBulkEdit && this.isValidProjectUsdEdit(milestone[field])) {
         input.value = milestone[field];
         return;
       }
@@ -4294,7 +4295,7 @@ class AddProposalModal {
     if (input.value !== value) input.value = value;
     if (validUsdEdit) {
       this.clearValidationError(input);
-    } else if (event.inputType === 'insertFromPaste' || input.getAttribute('aria-invalid') !== 'true') {
+    } else if (isBulkEdit || input.getAttribute('aria-invalid') !== 'true') {
       this.showValidationError(this.createValidationError('Enter a USD amount with up to 18 decimal places', input));
     }
     if (milestone[field] === value) return;
