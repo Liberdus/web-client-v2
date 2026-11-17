@@ -6374,7 +6374,7 @@ export class ChatPaymentPanel {
     if (transferOnly) {
       if (this.discardStaleAddressSend(payment.session, sheet, reviewSession)) return;
       this.sending = false;
-      const failed = ['FAILED', 'NOT_FOUND_OR_NOT_VALID'].includes(sent.status);
+      const failed = sent.status === 'FAILED';
       const message = failed ? 'The transfer did not go through.'
         : sent.settled ? `Sent ${prepared.amount} ${prepared.symbol}.`
         : `Transfer submitted. ${ADDRESS_SEND_UNCONFIRMED_WARNING}`;
