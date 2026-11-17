@@ -4240,20 +4240,20 @@ class AddProposalModal {
           </div>
           <div class="form-group">
             <label for="${idPrefix}Duration">Duration (days) <span class="dao-form-required" aria-hidden="true">*</span></label>
-            <input id="${idPrefix}Duration" class="form-control" type="text" inputmode="numeric" maxlength="4" placeholder="30" value="${escapeDaoFormAttribute(milestone.durationDays)}" data-dao-milestone-field="durationDays" data-dao-milestone-id="${uiId}" required />
+            <input id="${idPrefix}Duration" class="form-control" type="text" inputmode="numeric" placeholder="30" value="${escapeDaoFormAttribute(milestone.durationDays)}" data-dao-milestone-field="durationDays" data-dao-milestone-id="${uiId}" required />
             <div class="dao-form-help">1–${DAO_PROJECT_DURATION_MAX_DAYS} days</div>
           </div>
           <div class="form-group">
             <label for="${idPrefix}Cost">Cost (USD) <span class="dao-form-required" aria-hidden="true">*</span></label>
-            <input id="${idPrefix}Cost" class="form-control" type="text" inputmode="decimal" maxlength="34" placeholder="0" value="${escapeDaoFormAttribute(milestone.costUsdStr)}" data-dao-milestone-field="costUsdStr" data-dao-milestone-id="${uiId}" required />
+            <input id="${idPrefix}Cost" class="form-control" type="text" inputmode="decimal" placeholder="0" value="${escapeDaoFormAttribute(milestone.costUsdStr)}" data-dao-milestone-field="costUsdStr" data-dao-milestone-id="${uiId}" required />
           </div>
           <div class="form-group">
             <label for="${idPrefix}Penalty">Late Penalty (USD) <span class="dao-form-required" aria-hidden="true">*</span></label>
-            <input id="${idPrefix}Penalty" class="form-control" type="text" inputmode="decimal" maxlength="34" value="${escapeDaoFormAttribute(milestone.penaltyUsdStr)}" data-dao-milestone-field="penaltyUsdStr" data-dao-milestone-id="${uiId}" required />
+            <input id="${idPrefix}Penalty" class="form-control" type="text" inputmode="decimal" value="${escapeDaoFormAttribute(milestone.penaltyUsdStr)}" data-dao-milestone-field="penaltyUsdStr" data-dao-milestone-id="${uiId}" required />
           </div>
           <div class="form-group">
             <label for="${idPrefix}Bonus">Early Bonus (USD) <span class="dao-form-required" aria-hidden="true">*</span></label>
-            <input id="${idPrefix}Bonus" class="form-control" type="text" inputmode="decimal" maxlength="34" value="${escapeDaoFormAttribute(milestone.bonusUsdStr)}" data-dao-milestone-field="bonusUsdStr" data-dao-milestone-id="${uiId}" required />
+            <input id="${idPrefix}Bonus" class="form-control" type="text" inputmode="decimal" value="${escapeDaoFormAttribute(milestone.bonusUsdStr)}" data-dao-milestone-field="bonusUsdStr" data-dao-milestone-id="${uiId}" required />
           </div>
         </div>
       </section>
@@ -4261,26 +4261,35 @@ class AddProposalModal {
   }
 
   handleProjectInput(event) {
-    if (event.target.matches('[data-dao-project-field="address"]')) {
-      this.projectDraft.address = event.target.value;
+    const input = event.target;
+    if (input.matches('[data-dao-project-field="address"]')) {
+      this.projectDraft.address = input.value;
       return;
     }
-    if (!event.target.matches('[data-dao-milestone-field]')) return;
+    if (!input.matches('[data-dao-milestone-field]')) return;
 
+    const { daoMilestoneField: field, daoMilestoneId } = input.dataset;
     const milestone = this.projectDraft.milestones.find(
-      (item) => item.uiId === event.target.dataset.daoMilestoneId
+      (item) => item.uiId === daoMilestoneId
     );
     if (!milestone) return;
 
-    const field = event.target.dataset.daoMilestoneField;
-    let value = event.target.value;
+    let { value } = input;
     if (field === 'durationDays') {
-      value = value.replace(/\D/g, '').slice(0, String(DAO_PROJECT_DURATION_MAX_DAYS).length);
+      if (!/^\d*$/.test(value) || value.length > String(DAO_PROJECT_DURATION_MAX_DAYS).length) {
+        value = milestone[field];
+      }
     } else if (field === 'costUsdStr' || field === 'penaltyUsdStr' || field === 'bonusUsdStr') {
-      value = normalizeDaoParameterInput(value);
+      if (value.startsWith('.')) value = `0${value}`;
+      // Allow a trailing decimal point while the amount is being edited.
+      const completeValue = value.endsWith('.') ? `${value}0` : value;
+      if (value && (value.trim() !== value || !isValidDaoDecimalString(completeValue))) {
+        value = milestone[field];
+      }
     }
 
-    event.target.value = value;
+    if (input.value !== value) input.value = value;
+    if (milestone[field] === value) return;
     milestone[field] = value;
     if (field === 'costUsdStr' || field === 'bonusUsdStr') this.renderProjectBudgetSummary();
   }
