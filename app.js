@@ -21972,8 +21972,7 @@ class ChatModal {
 
     // Add input event listener for message textarea auto-resize
     this.messageInput.addEventListener('input', (e) => {
-      this.messageInput.style.height = '48px';
-      this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
+      this.resizeMessageInput();
 
       const messageText = e.target.value;
       this.revalidateSendButtonState();
@@ -22438,6 +22437,14 @@ class ChatModal {
     }
   }
 
+  resizeMessageInput() {
+    const input = this.messageInput;
+    input.style.height = '';
+    if (input.value) {
+      input.style.height = input.scrollHeight + 'px';
+    }
+  }
+
   /**
    * Opens the chat modal for the given address.
    * @param {string} address - The address of the contact to open the chat modal for.
@@ -22452,7 +22459,7 @@ class ChatModal {
 
     // clear message input
     this.messageInput.value = '';
-    this.messageInput.style.height = '48px';
+    this.resizeMessageInput();
     this.messageByteCounter.style.display = 'none';
     this.clearPendingLocation();
     this.toggleSendButtonVisibility();
@@ -23223,7 +23230,7 @@ class ChatModal {
 
       // Clear input and reset height, and delete any saved draft
            this.messageInput.value = '';
-      this.messageInput.style.height = '48px'; // original height
+      this.resizeMessageInput();
 
       // Hide byte counter
       this.messageByteCounter.style.display = 'none';
@@ -24235,7 +24242,7 @@ class ChatModal {
       if (editInput) editInput.value = '';
       // Clear input text and reset height
       this.messageInput.value = '';
-      this.messageInput.style.height = '48px';
+      this.resizeMessageInput();
       this.messageByteCounter.style.display = 'none';
       // Clear any saved draft
       if (typeof this.debouncedSaveDraft === 'function') {
@@ -25105,7 +25112,7 @@ class ChatModal {
   loadDraft(address) {
     // Always clear the input first
     this.messageInput.value = '';
-    this.messageInput.style.height = '48px';
+    this.resizeMessageInput();
     
     // Clear any existing reply state
     this.cancelReply();
@@ -25121,9 +25128,7 @@ class ChatModal {
     const contact = myData.contacts[address];
     if (contact?.draft) {
       this.messageInput.value = contact.draft;
-      // Trigger resize
-      this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
-      // trigger input event to update the byte counter
+      // Resize and update the composer controls.
       this.messageInput.dispatchEvent(new Event('input'));
     }
     this.toggleSendButtonVisibility();
@@ -28145,10 +28150,7 @@ class ChatModal {
       
       // Manually resize textarea after browser has updated layout
       // requestAnimationFrame ensures scrollHeight is accurate
-      requestAnimationFrame(() => {
-        this.messageInput.style.height = '48px';
-        this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
-      });
+      requestAnimationFrame(() => this.resizeMessageInput());
       
       // Toggle button visibility to show send button since input has content
       this.toggleSendButtonVisibility();
@@ -33015,10 +33017,7 @@ class FailedMessageMenu {
       
       // Manually resize textarea after browser has updated layout
       // requestAnimationFrame ensures scrollHeight is accurate
-      requestAnimationFrame(() => {
-        chatModal.messageInput.style.height = '48px';
-        chatModal.messageInput.style.height = Math.min(chatModal.messageInput.scrollHeight, 120) + 'px';
-      });
+      requestAnimationFrame(() => chatModal.resizeMessageInput());
       
       chatModal.toggleSendButtonVisibility();
       chatModal.messageInput.focus();
