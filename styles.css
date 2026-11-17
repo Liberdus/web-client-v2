@@ -13398,6 +13398,12 @@ textarea.chat-send-note {
   resize: vertical;
 }
 
+.chat-send-recipient-hint {
+  margin: 8px 0 0;
+  color: var(--secondary-text-color);
+  font-size: var(--font-size-sm);
+}
+
 /* One quiet row until someone wants a note (DESIGN.md §1.7). */
 .chat-send-note-toggle {
   align-self: flex-start;
@@ -13416,6 +13422,7 @@ textarea.chat-send-note {
 }
 
 .chat-send-note-toggle[hidden],
+.chat-send-note-label[hidden],
 .chat-send-note[hidden] {
   display: none;
 }

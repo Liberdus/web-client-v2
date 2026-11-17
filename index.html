@@ -1931,7 +1931,7 @@
         <a class="last-item" href="#"> </a>
       </div>
 
-      <!-- Send from the wallet by username or to the current chat recipient. -->
+      <!-- Send from the wallet by username or address, or to the current chat recipient. -->
       <div class="modal fixed-header" id="nearIntentsSendModal">
         <div class="modal-header">
           <button class="back-button" id="closeNearIntentsSendModal"></button>
@@ -1940,18 +1940,23 @@
         <div class="modal-content">
           <div class="multichain-screen multichain-swap" id="chatSendForm">
             <section id="chatSendRecipientGroup" hidden>
-              <label class="multichain-swap-label" for="chatSendRecipient">Username</label>
+              <label class="multichain-swap-label" for="chatSendRecipient">Recipient</label>
               <div class="contact-autocomplete-field">
                 <div class="chat-send-recipient-line">
-                  <input type="text" id="chatSendRecipient" class="form-control" placeholder="Enter username"
-                    autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="chatSendRecipientStatus" />
+                  <input type="text" id="chatSendRecipient" class="form-control" placeholder="Username or address"
+                    autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="chatSendRecipientFeedback" />
                   <button type="button" id="chatSendUploadQR" class="icon-button qr-upload-icon" title="Upload QR Code" aria-label="Upload QR Code"></button>
                   <button type="button" id="chatSendScanQR" class="icon-button qr-scan-icon" title="Scan QR Code" aria-label="Scan QR Code"></button>
                   <input type="file" id="chatSendQRFile" accept="image/*" hidden />
                 </div>
                 <div id="chatSendRecipientSuggestions" class="contact-autocomplete-list" aria-label="Saved contacts" hidden></div>
               </div>
-              <div class="multichain-status" id="chatSendRecipientStatus" role="status" hidden></div>
+              <div id="chatSendRecipientFeedback">
+                <p class="chat-send-recipient-hint" id="chatSendRecipientHint" hidden>
+                  Send to a username to include an optional note. Username sends include a Liberdus Intents payment message.
+                </p>
+                <div class="multichain-status" id="chatSendRecipientStatus" role="status" hidden></div>
+              </div>
             </section>
 
             <section class="multichain-swap-leg">
@@ -1973,10 +1978,10 @@
               </div>
             </section>
 
-            <!-- Most payments carry no note, so it starts as one quiet row. -->
             <button type="button" class="chat-send-note-toggle" id="chatSendNoteToggle">Add a note</button>
+            <label class="multichain-swap-label chat-send-note-label" id="chatSendNoteLabel" for="chatSendNote" hidden>Note (optional)</label>
             <textarea class="form-control chat-send-note" id="chatSendNote" rows="2" maxlength="140"
-              autocomplete="off" aria-label="Note" placeholder="What is it for?" hidden></textarea>
+              autocomplete="off" aria-labelledby="chatSendNoteLabel" placeholder="What is it for?" hidden></textarea>
 
             <button class="btn btn--primary btn--pill btn--full" id="chatSendButton" disabled>Review payment</button>
             <div class="multichain-quote-note chat-send-costs">
