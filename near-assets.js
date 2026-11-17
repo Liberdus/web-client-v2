@@ -5935,19 +5935,21 @@ export class ChatPaymentPanel {
     this.noteInput.disabled = !available;
     this.noteInput.hidden = !available;
     this.noteLabel.hidden = !available;
-    if (!available) this.noteInput.value = '';
   }
 
   handleRecipientInput(expectedAddress) {
     const session = this.session;
     if (!this.isCurrentSession(session) || !session.fromWallet || this.recipientInput.disabled) return;
 
+    const input = this.recipientInput.value;
+    const recipient = input.trim();
+    const username = recipient.replace(/^@/, '').toLowerCase();
+    if (username !== this.recipientLookup?.username) this.noteInput.value = '';
+
     this.qrFileInput.value = '';
     this.clearRecipientLookup();
     this.recipientAddress = null;
     this.recipientName = null;
-    const input = this.recipientInput.value;
-    const recipient = input.trim();
     this.recipientHint.hidden = Boolean(recipient);
     this.setRecipientStatus('');
     this.setWalletNoteAvailable(false);
@@ -5967,7 +5969,6 @@ export class ChatPaymentPanel {
       this.validate();
       return;
     }
-    const username = recipient.replace(/^@/, '').toLowerCase();
     if (!/^[a-z0-9]{3,15}$/.test(username)) {
       this.setRecipientStatus('Enter a username or a valid 0x NEAR Intents address.', 'error');
       return;
