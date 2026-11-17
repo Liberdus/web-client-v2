@@ -5283,10 +5283,6 @@ input[type='file'].form-control::file-selector-button {
   transition: filter 0.2s ease;
 }
 
-.message.has-reactions {
-  margin-bottom: 0.75rem;
-}
-
 .message:hover {
   filter: brightness(95%);
 }
@@ -5331,13 +5327,10 @@ input[type='file'].form-control::file-selector-button {
 
 .message-reactions {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-start;
-  position: absolute;
-  left: 10px;
-  bottom: -14px;
-  z-index: 2;
+  gap: 4px;
+  margin-top: 6px;
 }
 
 .message-reaction-chip {
@@ -5345,28 +5338,23 @@ input[type='file'].form-control::file-selector-button {
   align-items: center;
   justify-content: center;
   min-width: 26px;
-  min-height: 24px;
+  max-width: 100%;
+  min-height: max(24px, 1.45em);
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--surface-muted);
   color: #1f2430;
-  font-size: 15px;
+  font-size: max(15px, calc(var(--chat-message-font-size, var(--font-size-base)) * 15 / 16));
   line-height: 1;
+  overflow-wrap: anywhere;
   box-shadow:
     0 2px 6px rgba(31, 36, 48, 0.12),
     inset 0 0 0 1px rgba(31, 36, 48, 0.08);
-  position: relative;
-  z-index: 1;
-}
-
-.message-reaction-chip + .message-reaction-chip {
-  margin-left: -8px;
 }
 
 .message-reaction-chip.my-reaction {
   background: var(--primary-color);
   color: var(--background-color);
-  z-index: 1;
   box-shadow:
     0 2px 6px rgba(31, 36, 48, 0.16),
     inset 0 0 0 1px rgba(255, 255, 255, 0.14);
@@ -5433,8 +5421,6 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .chat-settings-preview {
-  --chat-settings-preview-message-font-size: 16px;
-  --chat-settings-preview-message-meta-font-size: 12px;
   background: var(--hover-background);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -5466,12 +5452,7 @@ input[type='file'].form-control::file-selector-button {
 }
 
 .chat-settings-preview .message-content {
-  font-size: var(--chat-settings-preview-message-font-size);
   line-height: 1.35;
-}
-
-.chat-settings-preview .message-time {
-  font-size: var(--chat-settings-preview-message-meta-font-size);
 }
 
 .chat-settings-font-slider-row {
@@ -11819,6 +11800,7 @@ small {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.chat-settings-preview .message-content,
 .messages-list .message-content,
 .messages-list .payment-header,
 .messages-list .payment-direction,
@@ -11842,6 +11824,7 @@ small {
   font-size: var(--chat-message-detail-font-size, var(--font-size-sm));
 }
 
+.chat-settings-preview .message-time,
 .messages-list .message-time,
 .messages-list .reply-quote-label,
 .messages-list .attachment-preview-hint,
