@@ -6209,6 +6209,7 @@ export class ChatPaymentPanel {
     // rest. The exact amount earns a row only when the hero had to trim it --
     // this is the screen where what is sent must be readable in full.
     const rows = [['To', name]];
+    if (transferOnly) rows.push(['Destination network', 'NEAR Intents']);
     if (session.fromWallet && asset.chainName) rows.push(['Asset network', asset.chainName]);
     if (shown !== amount) rows.push(['Exact amount', `${amount} ${asset.tokenSymbol}`]);
     if (note) rows.push(['Note', note]);
@@ -6223,7 +6224,9 @@ export class ChatPaymentPanel {
         ${usd !== null ? `<div class="multichain-confirm-sub">about ${escapeHtml(formatUsd(usd))}</div>` : ''}`,
       rows,
       actionLabel: `Send ${asset.tokenSymbol}`,
-      note: transferOnly ? 'Asset transfer only. Payments cannot be undone.' : 'Payments cannot be undone.',
+      note: transferOnly
+        ? 'Asset transfer only. To send to an external wallet, use Withdraw. Payments cannot be undone.'
+        : 'Payments cannot be undone.',
       run: (sheet) => this.run(sheet, payment),
       onClose: () => this.endReview(session),
     });
@@ -6344,16 +6347,19 @@ export class ChatPaymentPanel {
     }
 
     if (transferOnly) {
-      this.sending = false;
       const failed = ['FAILED', 'NOT_FOUND_OR_NOT_VALID'].includes(sent.status);
       const message = failed ? 'The transfer did not go through.'
         : sent.settled ? `Sent ${prepared.amount} ${prepared.symbol}.`
         : 'Transfer submitted. Settlement could not be confirmed. Check your balance before trying again.';
+      const kind = failed ? 'error' : '';
+      const confirmationOpen = sheet.shows(reviewSession);
       if (this.isCurrentSession(payment.session)) {
-        this.close();
+        this.sending = false;
+        if (confirmationOpen) this.close();
+        else this.finish(message, kind);
         void multichain.refreshAfterMove().catch(() => {});
       }
-      if (sheet.shows(reviewSession)) sheet.finish(message, failed ? 'error' : '');
+      if (confirmationOpen) sheet.finish(message, kind);
       return;
     }
 
@@ -6428,7 +6434,7 @@ export class ChatPaymentPanel {
     this.syncQRButtons();
   }
 
-  /** Leave any retry of the Liberdus Intents payment message to chat. */
+  /** Show the outcome and leave Done as the only action. */
   finish(message, kind) {
     this.done = true;
     this.pendingReceipt = null;
