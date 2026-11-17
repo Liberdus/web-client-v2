@@ -5704,6 +5704,7 @@ export class ChatPaymentPanel {
     this.empty = $('chatSendEmpty');
     this.recipientGroup = $('chatSendRecipientGroup');
     this.recipientInput = $('chatSendRecipient');
+    this.recipientHint = $('chatSendRecipientHint');
     this.recipientStatus = $('chatSendRecipientStatus');
     this.receiptToll = $('chatSendReceiptToll');
     this.receiptTollAmount = $('chatSendReceiptTollAmount');
@@ -5724,6 +5725,7 @@ export class ChatPaymentPanel {
       onChange: () => this.validate(),
     });
     this.noteToggle = $('chatSendNoteToggle');
+    this.noteLabel = $('chatSendNoteLabel');
     this.noteInput = $('chatSendNote');
     this.sendButton = $('chatSendButton');
     this.statusLine = $('chatSendStatus');
@@ -5905,8 +5907,6 @@ export class ChatPaymentPanel {
     this.recipientInput.value = lookup.input = lookup.username;
     this.amount.reset(amount);
     this.noteInput.value = memo;
-    this.noteInput.hidden = !memo;
-    this.noteToggle.hidden = Boolean(memo);
   }
 
   clearRecipientLookup() {
@@ -5931,13 +5931,11 @@ export class ChatPaymentPanel {
     this.recipientStatus.dataset.kind = kind;
   }
 
-  setNoteAvailability(reason = '') {
-    this.noteInput.disabled = Boolean(reason);
-    this.noteInput.placeholder = reason || 'What is it for?';
-    if (reason) this.noteInput.value = '';
-    this.noteInput.hidden = !reason && !this.noteInput.value;
-    this.noteToggle.hidden = !this.noteInput.hidden;
-    this.noteToggle.disabled = Boolean(reason);
+  setWalletNoteAvailable(available) {
+    this.noteInput.disabled = !available;
+    this.noteInput.hidden = !available;
+    this.noteLabel.hidden = !available;
+    if (!available) this.noteInput.value = '';
   }
 
   handleRecipientInput(expectedAddress) {
@@ -5948,15 +5946,16 @@ export class ChatPaymentPanel {
     this.clearRecipientLookup();
     this.recipientAddress = null;
     this.recipientName = null;
+    const input = this.recipientInput.value;
+    const recipient = input.trim();
+    this.recipientHint.hidden = Boolean(recipient);
     this.setRecipientStatus('');
-    this.receiptToll.hidden = true;
-    this.setNoteAvailability('Cannot send a note to an invalid username.');
+    this.setWalletNoteAvailable(false);
     this.validate();
 
-    const input = this.recipientInput.value;
-    if (isValidEthereumAddress(input.trim())) {
+    if (!recipient) return;
+    if (isValidEthereumAddress(recipient)) {
       const address = intentsAccountIdForAddress(input);
-      this.setNoteAvailability('Cannot send a note when the recipient is an address.');
       if (address === intentsAccountIdForAddress(session.account.keys.address)) {
         this.setRecipientStatus('You cannot send this to yourself.', 'error');
         return;
@@ -5964,22 +5963,17 @@ export class ChatPaymentPanel {
       this.recipientLookup = { session, input, kind: 'address' };
       this.recipientAddress = address;
       this.recipientName = address;
-      this.setRecipientStatus('Valid NEAR Intents address — asset transfer only', 'ok');
+      this.setRecipientStatus('Asset transfer only', 'ok');
       this.validate();
       return;
     }
-    const username = input.trim().replace(/^@/, '').toLowerCase();
-    if (!username) {
-      this.setNoteAvailability('Enter a verified username to add a note.');
-      return;
-    }
+    const username = recipient.replace(/^@/, '').toLowerCase();
     if (!/^[a-z0-9]{3,15}$/.test(username)) {
       this.setRecipientStatus('Enter a username or a valid 0x NEAR Intents address.', 'error');
       return;
     }
 
     const lookup = this.recipientLookup = { session, input, kind: 'username', username, expectedAddress };
-    this.setNoteAvailability('Checking username…');
     this.setRecipientStatus('Checking username…');
     if (expectedAddress) return this.resolveRecipient(lookup);
     this.recipientLookupTimer = setTimeout(() => this.resolveRecipient(lookup), 300);
@@ -5994,10 +5988,7 @@ export class ChatPaymentPanel {
     if (!this.isCurrentRecipientLookup(lookup)) return;
     const showError = (message) => {
       if (lookup.request) this.showToast(message, 0, 'error');
-      else {
-        this.setRecipientStatus(message, 'error');
-        this.setNoteAvailability('Cannot send a note to an invalid username.');
-      }
+      else this.setRecipientStatus(message, 'error');
     };
     const resolved = await this.lookupUsername(lookup.username).catch(() => undefined);
     if (!this.isCurrentRecipientLookup(lookup)) return;
@@ -6038,7 +6029,8 @@ export class ChatPaymentPanel {
     }
     this.recipientAddress = address;
     this.recipientName = `@${lookup.username}`;
-    this.setNoteAvailability();
+    this.recipientHint.hidden = true;
+    this.setWalletNoteAvailable(true);
     this.setRecipientStatus(`Verified ${this.recipientName}`, 'ok');
     this.setReceiptToll(tollWei);
     this.validate();
@@ -6062,6 +6054,7 @@ export class ChatPaymentPanel {
     this.clearRecipientLookup();
     this.contactAutocomplete?.close();
     this.recipientGroup.hidden = !session.fromWallet;
+    this.recipientHint.hidden = !session.fromWallet;
     this.receiptToll.hidden = true;
     this.recipientInput.value = '';
     this.qrFileInput.value = '';
@@ -6077,13 +6070,13 @@ export class ChatPaymentPanel {
     this.amount.reset();
     this.noteInput.value = '';
     this.noteInput.hidden = true;
-    this.noteToggle.hidden = false;
+    this.noteLabel.hidden = true;
+    this.noteToggle.hidden = session.fromWallet;
     this.setStatus('');
     this.sendButton.textContent = 'Review payment';
     this.sendButton.classList.replace('btn--secondary', 'btn--primary');
     this.sendButton.disabled = true;
     this.lockForm(false);
-    this.setNoteAvailability(session.fromWallet ? 'Enter a verified username to add a note.' : '');
     this.form.hidden = false;
     this.empty.hidden = true;
     this.assetLabel.hidden = !session.fromWallet;
