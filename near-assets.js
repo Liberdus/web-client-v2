@@ -509,11 +509,12 @@ export async function publishIntent(signedPayload, { quoteHashes = null } = {}) 
   });
 
   if (result?.status !== 'OK') {
-    throw new IntentsError(
-      result?.reason || result?.message || 'The solver relay did not accept the intent',
-      'INTENT_REJECTED',
-      { result },
-    );
+    const reason = typeof result?.reason === 'string' ? result.reason.trim() : '';
+    // An "already processed" reply does not establish that this send failed.
+    if (result?.status === 'FAILED' && reason && reason.toLowerCase() !== 'already processed') {
+      throw new IntentsError(reason, 'INTENT_REJECTED', { result });
+    }
+    throw new IntentsError('The solver relay returned an unconfirmed publish result', 'INVALID_RELAY_RESPONSE', { result });
   }
   if (!result.intent_hash) {
     throw new IntentsError('The solver relay returned no intent hash', 'INVALID_RELAY_RESPONSE', { result });
@@ -6332,13 +6333,17 @@ export class ChatPaymentPanel {
     } catch (error) {
       if (transferOnly && this.discardStaleAddressSend(payment.session, sheet, reviewSession)) return;
       this.sending = false;
-      // Any failure before publication is safe to retry.
-      if (!publishStarted) {
+      const rejected = transferOnly && error instanceof IntentsError && error.code === 'INTENT_REJECTED';
+      // A definite refusal is safe to retry, just like a failure before publication.
+      if (!publishStarted || rejected) {
         if (this.isCurrentSession(payment.session)) {
           this.lockForm(false);
           this.validate();
         }
-        if (!sheet.shows(reviewSession)) return;
+        if (!sheet.shows(reviewSession)) {
+          if (rejected) this.setStatus(error.message, 'error');
+          return;
+        }
         if (!this.isCurrentPayment(payment)) {
           sheet.finish(changed, 'error');
           return;
