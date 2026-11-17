@@ -3697,6 +3697,16 @@ function formatDurationParts(milliseconds) {
 }
 
 class AddProposalModal {
+  static EMPTY_MILESTONE = Object.freeze({
+    title: '',
+    description: '',
+    deliverable: '',
+    durationDays: '',
+    costUsdStr: '',
+    penaltyUsdStr: '0',
+    bonusUsdStr: '0',
+  });
+
   load() {
     this.modal = document.getElementById('addProposalModal');
     this.bindCommitteeAddressCopy(this.modal);
@@ -3800,7 +3810,6 @@ class AddProposalModal {
       address: '',
       milestones: [this.createProjectMilestone()],
     };
-    this.initialDraft = this.getDraftSnapshot();
     this.renderReviewStartTime();
     this.options = [this.createOption()];
     this.renderProposalTypeEditor();
@@ -3833,21 +3842,23 @@ class AddProposalModal {
   }
 
   hasUnsavedChanges() {
-    return this.getDraftSnapshot() !== this.initialDraft || this.hasOptionChanges();
+    if (
+      this.titleInput?.value || this.descriptionInput?.value ||
+      (this.typeSelect && this.typeSelect.value !== 'governance') ||
+      (this.emergencySelect && this.emergencySelect.value !== 'false') ||
+      this.reviewStartTimeMs !== 0 || this.gracePeriodMs !== 0
+    ) {
+      return true;
+    }
+    return this.hasProjectChanges() || this.hasOptionChanges();
   }
 
-  getDraftSnapshot() {
+  hasProjectChanges() {
     const { address, milestones } = this.projectDraft;
-    return JSON.stringify({
-      title: this.titleInput?.value,
-      description: this.descriptionInput?.value,
-      type: this.typeSelect?.value,
-      emergency: this.emergencySelect?.value,
-      reviewStartTimeMs: this.reviewStartTimeMs,
-      gracePeriodMs: this.gracePeriodMs,
-      address,
-      milestones: milestones.map(({ uiId, ...fields }) => fields),
-    });
+    if (address || milestones.length !== 1) return true;
+
+    const [milestone] = milestones;
+    return Object.entries(AddProposalModal.EMPTY_MILESTONE).some(([field, value]) => milestone[field] !== value);
   }
 
   hasOptionChanges() {
@@ -4158,13 +4169,7 @@ class AddProposalModal {
     this.projectMilestoneSequence += 1;
     return {
       uiId: `milestone-${this.projectMilestoneSequence}`,
-      title: '',
-      description: '',
-      deliverable: '',
-      durationDays: '',
-      costUsdStr: '',
-      penaltyUsdStr: '0',
-      bonusUsdStr: '0',
+      ...AddProposalModal.EMPTY_MILESTONE,
     };
   }
 
