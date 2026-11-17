@@ -3842,7 +3842,7 @@ class AddProposalModal {
 
   handleDraftInput(event) {
     this.discardWarningShown = false;
-    this.clearValidationError(event.target);
+    if (!event.target.matches('[data-dao-milestone-field]')) this.clearValidationError(event.target);
   }
 
   hasUnsavedChanges() {
@@ -4275,6 +4275,7 @@ class AddProposalModal {
     if (!milestone) return;
 
     let { value } = input;
+    let validUsdEdit = true;
     if (field === 'durationDays') {
       value = value.trim();
       if (!/^\d*$/.test(value) || value.length > String(DAO_PROJECT_DURATION_MAX_DAYS).length) {
@@ -4283,17 +4284,28 @@ class AddProposalModal {
     } else if (field === 'costUsdStr' || field === 'penaltyUsdStr' || field === 'bonusUsdStr') {
       value = value.trim().replace(',', '.');
       if (value.startsWith('.')) value = `0${value}`;
-      // Allow a trailing decimal point while the amount is being edited.
-      const completeValue = value.endsWith('.') ? `${value}0` : value;
-      if (value && !isValidDaoDecimalString(completeValue)) {
-        value = milestone[field];
+      validUsdEdit = this.isValidProjectUsdEdit(value);
+      if (!validUsdEdit && event.inputType !== 'insertFromPaste' && this.isValidProjectUsdEdit(milestone[field])) {
+        input.value = milestone[field];
+        return;
       }
     }
 
     if (input.value !== value) input.value = value;
+    if (validUsdEdit) {
+      this.clearValidationError(input);
+    } else if (event.inputType === 'insertFromPaste' || input.getAttribute('aria-invalid') !== 'true') {
+      this.showValidationError(this.createValidationError('Enter a USD amount with up to 18 decimal places', input));
+    }
     if (milestone[field] === value) return;
     milestone[field] = value;
     if (field === 'costUsdStr' || field === 'bonusUsdStr') this.renderProjectBudgetSummary();
+  }
+
+  isValidProjectUsdEdit(value) {
+    // Allow a trailing decimal point while the amount is being edited.
+    const completeValue = value.endsWith('.') ? `${value}0` : value;
+    return value === '' || isValidDaoDecimalString(completeValue);
   }
 
   handleProjectClick(event) {
