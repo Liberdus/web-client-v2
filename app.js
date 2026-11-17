@@ -10953,7 +10953,7 @@ class EditContactModal {
     // Update the avatar section
     this.avatarDiv.innerHTML = document.getElementById('contactInfoAvatar').innerHTML;
     // update the name and subtitle
-    nameDiv.textContent = contactInfoModal.usernameDiv.textContent;
+    nameDiv.textContent = document.getElementById('contactInfoUsername').textContent;
     subtitleDiv.textContent = contactInfoModal.subtitleDiv.textContent;
 
     // update the provided name
