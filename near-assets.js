@@ -64,7 +64,6 @@ const DEFAULT_NEAR_ARCHIVAL_RPC_URLS = Object.freeze([
   'https://archival-rpc.mainnet.near.org',
 ]);
 const DEFAULT_ONECLICK_BASE_URL = 'https://1click.chaindefuser.com/v0';
-const DEFAULT_BRIDGE_RPC_URL = 'https://bridge.chaindefuser.com/rpc';
 const DEFAULT_SOLVER_RELAY_URL = 'https://solver-relay-v2.chaindefuser.com/rpc';
 
 const INTENTS_REQUEST_TIMEOUT_MS = 20_000;
@@ -102,10 +101,6 @@ export function getNearArchivalRpcUrls() {
 
 export function getOneClickBaseUrl() {
   return (overrideList('LIBERDUS_ONECLICK_BASE_URL') || [DEFAULT_ONECLICK_BASE_URL])[0];
-}
-
-export function getBridgeRpcUrl() {
-  return (overrideList('LIBERDUS_INTENTS_BRIDGE_URL') || [DEFAULT_BRIDGE_RPC_URL])[0];
 }
 
 export function getSolverRelayUrl() {
@@ -367,102 +362,6 @@ export function fetchIntentsTokens({ baseUrl = null } = {}) {
   return fetchJson(`${baseUrl || getOneClickBaseUrl()}/tokens`, {
     headers: { accept: 'application/json' },
   });
-}
-
-// ---------------------------------------------------------------------------
-// Deposits.
-//
-// The bridge derives a deposit address per (account, chain) and credits the
-// intents balance once the transfer confirms on the origin chain. The address
-// is stable: asking twice returns the same one, so it can be shown and reused
-// like any receive address.
-// ---------------------------------------------------------------------------
-
-let bridgeRequestId = 0;
-
-async function bridgeRpc(method, params) {
-  const url = getBridgeRpcUrl();
-  const id = ++bridgeRequestId;
-  const body = await fetchJson(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id, method, params: [params ?? {}] }),
-  });
-  // The bridge reports failures as a plain string in `error`, not an object.
-  if (body?.error) {
-    const message = typeof body.error === 'string'
-      ? body.error
-      : body.error.message || 'The deposit service rejected the request';
-    throw new IntentsError(message, 'BRIDGE_ERROR', { error: body.error, method });
-  }
-  if (!body?.result) {
-    throw new IntentsError(`${method} returned no result`, 'INVALID_BRIDGE_RESPONSE', { body });
-  }
-  return body.result;
-}
-
-/**
- * Every asset the bridge can move, with the per-token deposit and withdrawal
- * minimums. Those minimums are not advisory: a deposit below one is not
- * credited, so the UI has to state them before someone sends funds.
- */
-export async function fetchBridgeTokens() {
-  const result = await bridgeRpc('supported_tokens', {});
-  return Array.isArray(result?.tokens) ? result.tokens : [];
-}
-
-/** The chain part of a defuse asset identifier, e.g. "btc:mainnet:native" -> "btc:mainnet". */
-export function bridgeChainOf(defuseAssetIdentifier) {
-  const parts = String(defuseAssetIdentifier || '').split(':');
-  return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : null;
-}
-
-/**
- * A deposit address for one chain.
- *
- * Some chains (Stellar among them) share one address and tell depositors apart
- * by memo. The service refuses a plain request for those, so the refusal is
- * used as the signal to ask again in MEMO mode rather than guessing per chain.
- * A memo in the result is mandatory for the depositor -- funds sent without it
- * are not credited.
- */
-export async function requestDepositAddress(accountId, chain) {
-  if (!accountId) throw new IntentsError('A deposit address needs an account id', 'MISSING_ACCOUNT');
-  if (!chain) throw new IntentsError('A deposit address needs a chain', 'MISSING_CHAIN');
-
-  let result;
-  try {
-    result = await bridgeRpc('deposit_address', { account_id: accountId, chain });
-  } catch (error) {
-    if (error instanceof IntentsError && /memo/i.test(error.message)) {
-      result = await bridgeRpc('deposit_address', {
-        account_id: accountId,
-        chain,
-        deposit_mode: 'MEMO',
-      });
-    } else {
-      throw error;
-    }
-  }
-
-  if (!result?.address) {
-    throw new IntentsError('The deposit service returned no address', 'INVALID_BRIDGE_RESPONSE', { result });
-  }
-  return {
-    address: String(result.address),
-    chain: String(result.chain || chain),
-    memo: result.memo ? String(result.memo) : null,
-  };
-}
-
-/** Deposits the bridge has seen for this account and chain, newest first. */
-export async function fetchRecentDeposits(accountId, chain, { limit = 20 } = {}) {
-  const result = await bridgeRpc('recent_deposits', {
-    account_id: accountId,
-    chain,
-    limit,
-  });
-  return Array.isArray(result?.deposits) ? result.deposits : [];
 }
 
 // ---------------------------------------------------------------------------
@@ -1824,17 +1723,25 @@ export class IntentsTransferService {
 
 export const intentsTransfers = new IntentsTransferService();
 
-// === Deposit addresses and history ===
+// === Deposit addresses ===
 
-// Funding an intents account from another chain.
+// Funding an intents account from another chain, through 1Click.
 //
-// The bridge derives one deposit address per (account, chain) and credits the
-// intents balance once the transfer confirms. Sending BTC to that address is
-// the whole deposit: no NEAR, no signature, no transaction from this client.
+// Deposits used to come from the bridge's JSON-RPC (bridge.chaindefuser.com),
+// which handed out one stable address per account and chain. That service
+// was shut down in November 2026 and now answers 403 to everything; 1Click's
+// stable multichain addresses (ANY_INPUT) are kept for authorized partners.
+//
+// What any client can still get is a quote: asset X on its own chain into the
+// same asset X inside intents, credited to this account. FLEX_INPUT takes any
+// amount at or above the quoted one, so quoting the smallest amount the bridge
+// accepts turns the quote into a deposit address with a minimum. It has a
+// lifetime rather than living forever, and refunds go back to the same intents
+// account, so a late or short deposit still lands with the person.
 //
 // Two rules the UI cannot soften, because breaking either loses the money:
 //
-//   - A deposit below the token's min_deposit_amount is not credited.
+//   - A deposit below the minimum is not credited.
 //   - On a memo chain, a transfer without the memo is not credited.
 //
 // So both are part of the deposit target rather than presentational extras,
@@ -1842,143 +1749,256 @@ export const intentsTransfers = new IntentsTransferService();
 // background balance refresh, this is an explicit action whose failure the
 // person must see before they send funds anywhere.
 
-const BRIDGE_TOKEN_TTL_MS = 300_000;
+// How long a new address is asked to stay open. 1Click keeps the address a
+// few days past this, but this is the time it promises to credit by.
+const DEPOSIT_ADDRESS_LIFETIME_MS = 7 * 24 * 60 * 60_000;
+// An address this close to its end is not handed out again: a Bitcoin
+// transfer can take hours to confirm.
+const DEPOSIT_ADDRESS_REUSE_MARGIN_MS = 24 * 60 * 60_000;
 
-// The bridge names chains as "<family>:<network>", and every EVM chain shares
-// the "eth" family: Base is eth:8453, BNB Chain is eth:56. Naming them by the
-// family alone would label ten different chains "Ethereum" and invite someone
-// to send Base funds to a mainnet address, so the key is the whole chain id.
-//
-// Unmapped chains fall back to the raw id rather than a guess. "eth:36900" is
-// unhelpful, but it is not wrong, and on this screen being wrong loses money.
-const BRIDGE_CHAIN_NAMES = Object.freeze({
-  'btc:mainnet': 'Bitcoin', 'sol:mainnet': 'Solana', 'near:mainnet': 'NEAR',
-  'eth:1': 'Ethereum', 'eth:8453': 'Base', 'eth:42161': 'Arbitrum', 'eth:10': 'Optimism',
-  'eth:56': 'BNB Chain', 'eth:137': 'Polygon', 'eth:100': 'Gnosis', 'eth:43114': 'Avalanche',
-  'eth:534352': 'Scroll', 'eth:196': 'X Layer', 'eth:143': 'Monad', 'eth:80094': 'Berachain',
-  'eth:9745': 'Plasma',
-  'doge:mainnet': 'Dogecoin', 'ltc:mainnet': 'Litecoin', 'bch:mainnet': 'Bitcoin Cash',
-  'dash:mainnet': 'Dash', 'zec:mainnet': 'Zcash', 'xrp:mainnet': 'XRP Ledger',
-  'ton:mainnet': 'TON', 'tron:mainnet': 'Tron', 'sui:mainnet': 'Sui', 'aptos:mainnet': 'Aptos',
-  'stellar:mainnet': 'Stellar', 'cardano:mainnet': 'Cardano', 'starknet:mainnet': 'Starknet',
-  'aleo:mainnet': 'Aleo', 'movement:mainnet': 'Movement', 'fogo:mainnet': 'Fogo',
-  'hypercore:mainnet': 'Hypercore',
+// The asset a deposit has to start from, when it is not the asset credited.
+// Inverse of DEPOSIT_CREDITS below: receiving "BTC" credits nBTC, which is
+// funded from Bitcoin. 1Click converts btc.omft.near to nBTC at par.
+const DEPOSIT_ORIGINS = Object.freeze({
+  'nep141:nbtc.bridge.near': 'nep141:btc.omft.near',
 });
 
-export function bridgeChainDisplayName(chain) {
-  return BRIDGE_CHAIN_NAMES[chain] || chain || 'Unknown';
+/** The asset sent on its own chain to fund `assetId`. */
+export function depositOriginOf(assetId) {
+  return DEPOSIT_ORIGINS[assetId] || assetId;
+}
+
+// 1Click keeps retired tokens in its list, renamed "USDT(DEPRECATED)", and
+// refuses to quote them.
+const isRetiredToken = (token) => /\(DEPRECATED\)/i.test(String(token?.symbol || ''));
+
+/** The quote body that asks for a deposit address into `recipient`'s own account. */
+export function depositQuoteRequest({
+  accountId,
+  originAsset,
+  destinationAsset,
+  amount = '1',
+  deadline,
+  memo = false,
+  dry = false,
+}) {
+  const request = {
+    dry,
+    swapType: 'FLEX_INPUT',
+    slippageTolerance: 0,
+    originAsset,
+    depositType: 'ORIGIN_CHAIN',
+    destinationAsset,
+    amount: String(amount),
+    refundTo: accountId,
+    refundType: 'INTENTS',
+    recipient: accountId,
+    recipientType: 'INTENTS',
+    deadline,
+  };
+  if (memo) request.depositMode = 'MEMO';
+  return request;
+}
+
+/**
+ * A live deposit address for `assetId`, credited to `accountId`.
+ *
+ * Asked first for any amount. When the bridge has a floor it says so -- "try
+ * at least 6400" -- and that floor is asked for instead, which makes it the
+ * minimum the address accepts. A chain that needs a memo (Stellar) refuses a
+ * plain request, and that refusal is the signal to ask in MEMO mode rather
+ * than keeping a per-chain list.
+ */
+export async function requestDepositQuote({
+  accountId,
+  assetId,
+  now = Date.now(),
+  quote = requestSwapQuote,
+}) {
+  if (!accountId) throw new IntentsError('A deposit address needs an account id', 'MISSING_ACCOUNT');
+  if (!assetId) throw new IntentsError('A deposit address needs an asset', 'MISSING_ASSET');
+
+  const deadline = new Date(now + DEPOSIT_ADDRESS_LIFETIME_MS).toISOString();
+  const base = { accountId, originAsset: depositOriginOf(assetId), destinationAsset: assetId, deadline };
+  let memo = false;
+  let amount = '1';
+  let response = null;
+  for (let attempt = 0; attempt < 3 && !response; attempt += 1) {
+    try {
+      response = await quote(depositQuoteRequest({ ...base, amount, memo }));
+    } catch (error) {
+      const message = String(error?.message || '');
+      const floor = /try at least (\d+)/i.exec(message)?.[1];
+      if (!memo && /depositMode/i.test(message)) {
+        memo = true;
+      } else if (floor && floor !== amount) {
+        amount = floor;
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  const result = response?.quote;
+  if (!result?.depositAddress) {
+    throw new IntentsError('The deposit service returned no address', 'INVALID_DEPOSIT_QUOTE', { response });
+  }
+  if (memo && !result.depositMemo) {
+    throw new IntentsError('The deposit service returned no memo', 'INVALID_DEPOSIT_QUOTE', { response });
+  }
+  return {
+    address: String(result.depositAddress),
+    memo: result.depositMemo ? String(result.depositMemo) : null,
+    minDepositRaw: String(result.minAmountIn ?? amount),
+    // The earlier of the two: ours is when refunds begin, 1Click's when the
+    // address goes cold.
+    expiresAt: Math.min(Date.parse(deadline), Date.parse(result.deadline) || Infinity),
+  };
 }
 
 export class IntentsDepositService {
-  constructor({ bridgeTokenTtlMs = BRIDGE_TOKEN_TTL_MS } = {}) {
-    this.bridgeTokenTtlMs = bridgeTokenTtlMs;
-    this.bridgeTokens = [];
-    this.bridgeTokensFetchedAt = 0;
-    this.addresses = new Map();
+  constructor({
+    catalog = null,
+    activity = null,
+    quote = requestSwapQuote,
+    fetchStatus = getSwapStatus,
+  } = {}) {
+    // Resolved on use: both singletons are declared further down this module.
+    this.catalog = catalog;
+    this.activity = activity;
+    this.quote = quote;
+    this.fetchStatus = fetchStatus;
   }
 
-  reset() {
-    this.addresses.clear();
+  getCatalog() { return this.catalog || intentsAssets; }
+  getActivity() { return this.activity || intentsActivity; }
+
+  reset() {}
+
+  /** The asset list deposits are offered from -- the same 1Click catalog. */
+  load({ force = false } = {}) {
+    return this.getCatalog().loadTokens({ force });
   }
 
-  async loadBridgeTokens({ force = false } = {}) {
-    const now = Date.now();
-    if (!force && this.bridgeTokens.length && now - this.bridgeTokensFetchedAt < this.bridgeTokenTtlMs) {
-      return this.bridgeTokens;
-    }
-    const tokens = await fetchBridgeTokens();
-    if (!tokens.length) {
-      throw new TypeError('The deposit service listed no supported tokens');
-    }
-    this.bridgeTokens = tokens;
-    this.bridgeTokensFetchedAt = now;
-    return this.bridgeTokens;
+  token(assetId) {
+    return this.getCatalog().tokens.find((entry) => entry.assetId === assetId) || null;
+  }
+
+  /** Whether an asset can be funded from its own chain at all. */
+  isDepositable(assetId) {
+    const credited = this.token(assetId);
+    const origin = this.token(depositOriginOf(assetId));
+    return Boolean(credited && origin && origin.blockchain && !isRetiredToken(origin));
   }
 
   /**
-   * What it takes to fund one asset: which chain to send on, and the smallest
-   * amount that will actually arrive.
-   *
-   * Several intents assets share a chain -- every SPL token deposits to the
-   * same Solana address -- so the chain alone does not identify what gets
-   * credited. `siblings` counts the other tokens the bridge carries on this
-   * chain under the same name, which is what makes a deposit ambiguous.
+   * What it takes to fund one asset: which chain to send on, and in what
+   * units. The minimum and the address come with the quote.
    */
   describeDepositTarget(assetId) {
-    const token = this.bridgeTokens.find((entry) => entry.intents_token_id === assetId);
-    if (!token) return null;
-
-    const chain = bridgeChainOf(token.defuse_asset_identifier);
-    const decimals = Number.isInteger(token.decimals) ? token.decimals : 18;
-    const siblings = this.bridgeTokens.filter((entry) => (
-      entry.intents_token_id !== assetId
-      && entry.asset_name === token.asset_name
-      && bridgeChainOf(entry.defuse_asset_identifier) === chain
-    )).length;
-
-    return Object.freeze({
+    if (!this.isDepositable(assetId)) return null;
+    const origin = this.token(depositOriginOf(assetId));
+    const blockchain = String(origin.blockchain).toLowerCase();
+    return {
       assetId,
-      chain,
-      chainName: bridgeChainDisplayName(chain),
-      assetName: token.asset_name || null,
-      decimals,
-      minDepositRaw: String(token.min_deposit_amount ?? '0'),
-      minDeposit: formatUnits(token.min_deposit_amount ?? 0, decimals),
-      minWithdrawalRaw: String(token.min_withdrawal_amount ?? '0'),
-      minWithdrawal: formatUnits(token.min_withdrawal_amount ?? 0, decimals),
-      withdrawalFeeRaw: String(token.withdrawal_fee ?? '0'),
-      withdrawalFee: formatUnits(token.withdrawal_fee ?? 0, decimals),
-      siblings,
-    });
+      originAssetId: origin.assetId,
+      chain: blockchain,
+      chainName: chainDisplayName(blockchain),
+      assetName: origin.symbol || null,
+      decimals: Number.isInteger(origin.decimals) ? origin.decimals : 18,
+    };
   }
 
-  /** Whether the bridge takes deposits of this asset at all. */
-  isDepositable(assetId) {
-    return Boolean(this.describeDepositTarget(assetId)?.chain);
-  }
-
-  /** Chains this account can be funded on at all. */
-  listDepositChains() {
-    const chains = new Map();
-    for (const token of this.bridgeTokens) {
-      const chain = bridgeChainOf(token.defuse_asset_identifier);
-      if (!chain || chains.has(chain)) continue;
-      chains.set(chain, {
-        chain,
-        chainName: bridgeChainDisplayName(chain),
-      });
+  /**
+   * An address from an earlier visit that can still take a deposit: open for
+   * at least another day, and with nothing sent to it yet. One that has been
+   * used is finished -- the next deposit gets its own.
+   */
+  async reusableAddress(assetId, now) {
+    const activity = this.getActivity();
+    const order = activity.getOrders().find((entry) => (
+      entry.kind === 'deposit'
+      && entry.assetId === assetId
+      && entry.depositAddress
+      && (entry.phase || 'PENDING_DEPOSIT') === 'PENDING_DEPOSIT'
+      && Number(entry.expiresAt) - now > DEPOSIT_ADDRESS_REUSE_MARGIN_MS
+    ));
+    if (!order) return null;
+    try {
+      const response = await this.fetchStatus(order.depositAddress, order.depositMemo || null);
+      if (response?.status && response.status !== 'PENDING_DEPOSIT') {
+        activity.updateOrder(order.id, depositOrderPatch(order, response));
+        return null;
+      }
+    } catch {
+      // Unknown is not "used": a refund from a reused address still lands in
+      // this account.
     }
-    return Object.freeze([...chains.values()]);
+    return order;
   }
 
   /**
    * The address to send to, plus everything that must be said alongside it.
    *
-   * Addresses are stable per account and chain, so they are cached and reused
-   * the way a receive address is.
+   * Each address is recorded as a deposit order with this account's saved
+   * state, so it is reused until it is spent or about to expire, and so the
+   * deposit can be followed into Activity once 1Click sees it.
    */
-  async requestDepositTarget(accountId, assetId, { force = false } = {}) {
-    await this.loadBridgeTokens();
+  async requestDepositTarget(accountId, assetId, { force = false, now = Date.now() } = {}) {
+    await this.load();
 
     const target = this.describeDepositTarget(assetId);
-    if (!target?.chain) {
-      throw new Error(`The deposit service does not carry ${assetId}`);
+    if (!target) {
+      throw new IntentsError('This asset cannot be deposited right now', 'NOT_DEPOSITABLE', { assetId });
     }
 
-    const cacheKey = `${accountId}|${target.chain}`;
-    if (!force && this.addresses.has(cacheKey)) {
-      return Object.freeze({ ...target, ...this.addresses.get(cacheKey) });
-    }
+    const existing = force ? null : await this.reusableAddress(assetId, now);
+    if (existing) return Object.freeze(depositTargetFrom(target, existing));
 
-    const address = await requestDepositAddress(accountId, target.chain);
-    this.addresses.set(cacheKey, address);
-    return Object.freeze({ ...target, ...address });
+    const quote = await requestDepositQuote({ accountId, assetId, now, quote: this.quote });
+    const order = {
+      kind: 'deposit',
+      assetId,
+      originAssetId: target.originAssetId,
+      blockchain: target.chain,
+      depositAddress: quote.address,
+      depositMemo: quote.memo,
+      minDepositRaw: quote.minDepositRaw,
+      decimals: target.decimals,
+      expiresAt: quote.expiresAt,
+      phase: 'PENDING_DEPOSIT',
+    };
+    const id = this.getActivity().recordOrder(order);
+    return Object.freeze(depositTargetFrom(target, { ...order, id }));
   }
+}
 
-  /** Deposits the bridge has seen, newest first, for the pending-state UI. */
-  async listRecentDeposits(accountId, chain, options = {}) {
-    return fetchRecentDeposits(accountId, chain, options);
+function depositTargetFrom(target, order) {
+  // 1Click quotes "1" (one base unit) where the bridge has no floor; that is
+  // no minimum worth stating.
+  let minDepositRaw = String(order.minDepositRaw || '0');
+  if (!/^\d+$/.test(minDepositRaw) || BigInt(minDepositRaw) <= 1n) minDepositRaw = '0';
+  return {
+    ...target,
+    address: order.depositAddress,
+    memo: order.depositMemo || null,
+    minDepositRaw,
+    minDeposit: formatUnits(minDepositRaw, target.decimals),
+    expiresAt: Number(order.expiresAt) || null,
+  };
+}
+
+/** What a 1Click status answer changes on a deposit order. */
+export function depositOrderPatch(order, response) {
+  const details = response?.swapDetails || {};
+  const patch = { phase: String(response?.status || order.phase || 'PENDING_DEPOSIT') };
+  patch.status = orderStatusFrom(response?.status);
+  const amount = details.amountOutFormatted || details.depositedAmountFormatted || details.amountInFormatted;
+  if (amount) patch.amount = String(amount);
+  if (!order.depositedAt && patch.phase !== 'PENDING_DEPOSIT') {
+    patch.depositedAt = Date.parse(response?.updatedAt) || Date.now();
   }
+  return patch;
 }
 
 export const intentsDeposits = new IntentsDepositService();
@@ -1992,11 +2012,11 @@ export const intentsDeposits = new IntentsDepositService();
  */
 export function depositUri(chain, address, { amount = null } = {}) {
   const scheme = {
-    'btc:mainnet': 'bitcoin',
-    'ltc:mainnet': 'litecoin',
-    'doge:mainnet': 'dogecoin',
-    'bch:mainnet': 'bitcoincash',
-    'dash:mainnet': 'dash',
+    btc: 'bitcoin',
+    ltc: 'litecoin',
+    doge: 'dogecoin',
+    bch: 'bitcoincash',
+    dash: 'dash',
   }[chain];
   if (!scheme || !address) return null;
   const query = amount ? `?amount=${encodeURIComponent(amount)}` : '';
@@ -2972,25 +2992,22 @@ export const intentsChatPayments = new IntentsChatPayments({ transfers: intentsT
 //
 // There is no single public history for an intents account -- the verifier
 // keeps balances, not events, and 1Click's account history is invite-only --
-// so the list is assembled from three sources, each authoritative for its
-// own kind:
+// so the list is assembled from two sources, each authoritative for its own
+// kind:
 //
-//   deposits    the bridge's recent_deposits, per account and chain. Public,
-//               and complete: it includes deposits sent from anywhere.
 //   payments    Liberdus Intents payment messages saved in conversations.
-//   swaps,      a record this device writes when it places the order, whose
-//   withdrawals state is then read back from 1Click by deposit address.
-//               Orders placed on another device do not appear -- a known,
-//               accepted gap.
+//   deposits,   a record this device writes when it hands out a deposit
+//   swaps,      address or places an order, whose state is then read back
+//   withdrawals from 1Click by deposit address. Orders placed on another
+//               device do not appear -- a known, accepted gap. Deposits made
+//               through the retired bridge (before November 2026) had their
+//               history there, and it went with it.
 //
 // Activity entries are data; the wallet screens below render them.
 
 // A record per order is small, but a long-lived account would otherwise grow
 // its saved state without bound.
 const MAX_ORDERS = 200;
-
-// Enough history for an asset screen; the bridge pages beyond this.
-const DEPOSIT_LIMIT = 20;
 
 const shortAddress = (address) => {
   const text = String(address || '');
@@ -3008,60 +3025,6 @@ export function orderStatusFrom(status) {
 }
 
 const FINAL = new Set(['done', 'refunded', 'failed']);
-
-/**
- * Which intents asset a bridge deposit credited.
- *
- * Taken from the bridge's own token list, never built by hand: a record's
- * `near_token_id` is a NEP-141 contract for some tokens ("sol.omft.near")
- * and "<contract>:<token>" for multi-tokens ("v2_1.omni.hot.tg:56_2CM…",
- * USDT on BNB Chain), whose asset id is nep245. Prefixing nep141 to every
- * one silently dropped the multi-token deposits from the list.
- *
- * Matched on the NEAR-side token, not `defuse_asset_identifier`: two tokens
- * can share one origin asset -- Bitcoin has two on btc:mainnet:native -- and
- * the NEAR-side token is what tells them apart.
- */
-export function depositAssetId(record, bridgeTokens = []) {
-  const nearToken = String(record?.near_token_id || '');
-  if (!nearToken) return null;
-  const known = bridgeTokens.find((token) => (
-    token.multi_token_id ? `${token.near_token_id}:${token.multi_token_id}` : token.near_token_id
-  ) === nearToken);
-  if (known?.intents_token_id) return known.intents_token_id;
-  // Not in the list we hold: infer the standard from the id's shape.
-  return nearToken.includes(':') ? `nep245:${nearToken}` : `nep141:${nearToken}`;
-}
-
-/**
- * One bridge deposit record, as a row.
- *
- * `amount` arrives as a JSON number of base units, so above 2^53 it is
- * already rounded by the time it is parsed. It is displayed to a few
- * significant digits, so the loss never shows -- but it is not exact, and
- * nothing here may treat it as a balance.
- */
-export function depositEntry(record, bridgeTokens = []) {
-  const decimals = Number.isInteger(record?.decimals) ? record.decimals : 18;
-  let amount = '0';
-  try {
-    amount = formatUnits(BigInt(Math.trunc(Number(record?.amount) || 0)), decimals);
-  } catch {
-    amount = '0';
-  }
-  const status = { COMPLETED: 'done', PENDING: 'pending', FAILED: 'failed' }[record?.status] || 'pending';
-  return {
-    id: `deposit:${record?.tx_hash}`,
-    kind: 'deposit',
-    assetId: depositAssetId(record, bridgeTokens),
-    title: 'Deposit',
-    detail: record?.from ? `From ${shortAddress(record.from)}` : null,
-    amount,
-    direction: 1,
-    time: Date.parse(record?.created_at) || 0,
-    status,
-  };
-}
 
 const PAYMENT_ACTIVITY_STATUS = new Map([
   ['settled', 'done'],
@@ -3106,6 +3069,19 @@ export function paymentEntry(payment) {
  */
 export function orderEntry(order, assetId) {
   const base = { id: `order:${order.id}:${assetId}`, time: order.time, status: order.status || 'pending' };
+  if (order.kind === 'deposit') {
+    return {
+      ...base,
+      // When 1Click first saw money arrive, not when the address was made.
+      time: order.depositedAt || order.time,
+      kind: 'deposit',
+      assetId: order.assetId,
+      title: 'Deposit',
+      detail: order.blockchain ? `From ${chainDisplayName(order.blockchain)}` : null,
+      amount: order.amount || '0',
+      direction: 1,
+    };
+  }
   if (order.kind === 'withdraw') {
     return {
       ...base,
@@ -3143,11 +3119,9 @@ export function orderEntry(order, assetId) {
 
 export class IntentsActivity {
   constructor({
-    fetchDeposits = fetchRecentDeposits,
     fetchOrderStatus = getSwapStatus,
     verifyClaim = verifyTransferClaim,
   } = {}) {
-    this.fetchDeposits = fetchDeposits;
     this.fetchOrderStatus = fetchOrderStatus;
     this.verifyClaim = verifyClaim;
     this.getOrders = () => [];
@@ -3156,11 +3130,10 @@ export class IntentsActivity {
     this.claims = new Map();
   }
 
-  configure({ getOrders, saveOrders, listPayments, fetchDeposits, fetchOrderStatus, verifyClaim } = {}) {
+  configure({ getOrders, saveOrders, listPayments, fetchOrderStatus, verifyClaim } = {}) {
     if (typeof getOrders === 'function') this.getOrders = getOrders;
     if (typeof saveOrders === 'function') this.saveOrders = saveOrders;
     if (typeof listPayments === 'function') this.listPayments = listPayments;
-    if (typeof fetchDeposits === 'function') this.fetchDeposits = fetchDeposits;
     if (typeof fetchOrderStatus === 'function') this.fetchOrderStatus = fetchOrderStatus;
     if (typeof verifyClaim === 'function') this.verifyClaim = verifyClaim;
   }
@@ -3221,6 +3194,11 @@ export class IntentsActivity {
       .map(async (order) => {
         try {
           const response = await this.fetchOrderStatus(order.depositAddress, order.depositMemo || null);
+          if (order.kind === 'deposit') {
+            const patch = depositOrderPatch(order, response);
+            if (patch.phase !== order.phase || patch.amount !== order.amount) this.updateOrder(order.id, patch);
+            return;
+          }
           const status = orderStatusFrom(response?.status);
           const received = response?.swapDetails?.amountOutFormatted || null;
           if (status !== order.status || (received && status === 'done')) {
@@ -3236,32 +3214,34 @@ export class IntentsActivity {
   }
 
   /**
+   * Drop deposit addresses that expired with nothing sent to them. They were
+   * only ever offers; a used one stays, because it is the deposit's record.
+   */
+  forgetUnusedDeposits(now = Date.now()) {
+    const orders = this.getOrders();
+    const kept = orders.filter((order) => !(
+      order.kind === 'deposit'
+      && (order.phase || 'PENDING_DEPOSIT') === 'PENDING_DEPOSIT'
+      && Number(order.expiresAt) <= now
+    ));
+    if (kept.length !== orders.length) this.saveOrders(kept);
+  }
+
+  /**
    * Everything known about one asset, newest first.
    *
    * Never throws: each source that fails is reported and the rest are still
    * shown, because a list that blanks when one service is down reads as the
    * money having gone.
+   *
+   * Deposits are known from the addresses this account was given, so a
+   * deposit appears once 1Click has seen money arrive at one of them.
    */
   async forAsset(accountId, asset) {
     const assetId = asset?.assetId;
-    if (!assetId) return { entries: [], depositsUnavailable: false };
+    if (!assetId) return { entries: [] };
 
-    let depositsUnavailable = false;
-    const deposits = [];
-    try {
-      await intentsDeposits.loadBridgeTokens();
-      const chain = intentsDeposits.describeDepositTarget(assetId)?.chain;
-      if (chain && accountId) {
-        const records = await this.fetchDeposits(accountId, chain, { limit: DEPOSIT_LIMIT });
-        for (const record of records) {
-          const entry = depositEntry(record, intentsDeposits.bridgeTokens);
-          if (entry.assetId === assetId) deposits.push(entry);
-        }
-      }
-    } catch (error) {
-      console.warn('Deposit history unavailable:', error);
-      depositsUnavailable = true;
-    }
+    this.forgetUnusedDeposits();
 
     let payments = [];
     try {
@@ -3284,10 +3264,12 @@ export class IntentsActivity {
       .filter((order) => mine.some((before) => before.id === order.id))
       // A swap that never filled delivered nothing to the asset it targeted.
       .filter((order) => !(order.toAssetId === assetId && order.status !== 'done' && order.status !== 'pending'))
+      // An address nothing was sent to is not a deposit.
+      .filter((order) => !(order.kind === 'deposit' && (order.phase || 'PENDING_DEPOSIT') === 'PENDING_DEPOSIT'))
       .map((order) => orderEntry(order, assetId));
 
-    const entries = [...deposits, ...payments, ...orders].sort((a, b) => b.time - a.time);
-    return { entries, depositsUnavailable };
+    const entries = [...payments, ...orders].sort((a, b) => b.time - a.time);
+    return { entries };
   }
 
   /**
@@ -3355,9 +3337,11 @@ const POPULAR = Object.freeze([
 const STARTER_ASSETS = POPULAR.slice(0, 6);
 
 // Where a deposit to an asset's address is actually credited, when that is
-// not the asset itself. Bitcoin sent to the btc:mainnet address lands as nBTC
-// -- both real test deposits did, 2026-09-28 -- so receiving "BTC" must mean
-// nBTC: the screen whose balance will move, and whose Activity will show it.
+// not the asset itself. Bitcoin deposits through the old bridge landed as
+// nBTC -- both real test deposits did, 2026-09-28 -- and the 1Click deposit
+// quote asks for nBTC too (at par, where btc.omft.near costs a fee), so
+// receiving "BTC" means nBTC: the screen whose balance will move, and whose
+// Activity will show it. DEPOSIT_ORIGINS is the same map read backwards.
 const DEPOSIT_CREDITS = Object.freeze({
   'nep141:btc.omft.near': 'nep141:nbtc.bridge.near',
 });
@@ -3857,6 +3841,9 @@ const ACTIVITY_STATUS = {
 };
 
 const dayFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+const depositExpiryFormat = new Intl.DateTimeFormat('en-US', {
+  month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+});
 const yearFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 /** "Just now", "5 min ago", "3 h ago", "Yesterday", "Sep 23". */
@@ -3939,10 +3926,10 @@ class MultichainAssetModal {
     }
     this.activityKey = this.assetKey;
 
-    const { entries, depositsUnavailable } = await intentsActivity.forAsset(intentsAssets.getAccountId(), asset);
+    const { entries } = await intentsActivity.forAsset(intentsAssets.getAccountId(), asset);
     if (seq !== this.activitySeq) return;
     this.activity.removeAttribute('aria-busy');
-    this.renderActivity(entries, depositsUnavailable, asset);
+    this.renderActivity(entries, asset);
 
     // A received payment is a claim until checked; check the ones on screen
     // and update their rows in place.
@@ -3957,13 +3944,9 @@ class MultichainAssetModal {
     }
   }
 
-  renderActivity(entries, depositsUnavailable, asset) {
-    // "No activity" would be a claim when deposits could not be read.
-    const unavailable = depositsUnavailable
-      ? '<p class="multichain-activity-note">Deposits could not be checked right now.</p>'
-      : '';
+  renderActivity(entries, asset) {
     if (!entries.length) {
-      this.activity.innerHTML = unavailable || '<p class="multichain-activity-note">No activity yet</p>';
+      this.activity.innerHTML = '<p class="multichain-activity-note">No activity yet</p>';
       return;
     }
     this.activity.innerHTML = `<div class="multichain-list">${entries.map((entry) => {
@@ -3985,7 +3968,7 @@ class MultichainAssetModal {
             <span class="multichain-activity-status">${escapeHtml(ACTIVITY_STATUS[entry.status] || '')}</span>
           </span>
         </div>`;
-    }).join('')}</div>${unavailable}`;
+    }).join('')}</div>`;
   }
 
   renderActivityStatus(row, status) {
@@ -4248,11 +4231,10 @@ class MultichainReceiveModal {
     if (target.memo) {
       rules.unshift('Include the memo. A deposit without it is lost.');
     }
-    // Known now for the assets in DEPOSIT_CREDITS; still a live question for
-    // any other network carrying two tokens under one name.
-    const knownDestination = Object.values(DEPOSIT_CREDITS).includes(asset.assetId);
-    if (target.siblings > 0 && !knownDestination) {
-      rules.push(`This network carries more than one ${escapeHtml(name)} token; check your balance after the first deposit.`);
+    // Addresses come from a quote now, and a quote ends. Saying when is what
+    // keeps someone from saving it as a permanent receive address.
+    if (target.expiresAt) {
+      rules.push(`Send one deposit before <strong>${escapeHtml(depositExpiryFormat.format(target.expiresAt))}</strong>. Come back here for a new address after that.`);
     }
 
     this.body.innerHTML = `
@@ -5593,7 +5575,7 @@ class MultichainController {
   async openDepositableAssetPicker({ title, onPick }) {
     const requestId = ++this.depositPickerRequestId;
     try {
-      this.depositPickerLoad ??= intentsDeposits.loadBridgeTokens().finally(() => {
+      this.depositPickerLoad ??= intentsDeposits.load().finally(() => {
         this.depositPickerLoad = null;
       });
       await this.depositPickerLoad;
