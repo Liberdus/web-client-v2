@@ -8639,8 +8639,8 @@ class ChatSettingsModal {
   }
 
   updatePreview() {
-    this.preview.style.setProperty('--chat-settings-preview-message-font-size', this.draftFontSizePx + 'px');
-    this.preview.style.setProperty('--chat-settings-preview-message-meta-font-size', this.metaFontSizePx(this.draftFontSizePx) + 'px');
+    this.preview.style.setProperty('--chat-message-font-size', this.draftFontSizePx + 'px');
+    this.preview.style.setProperty('--chat-message-meta-font-size', this.metaFontSizePx(this.draftFontSizePx) + 'px');
   }
 
   setSliderValue(value) {
@@ -26738,7 +26738,7 @@ class ChatModal {
     if (chips.length === 0) return '';
 
     return `
-      <div class="message-reactions" aria-label="Reactions">
+      <div class="message-reactions" role="group" aria-label="Reactions">
         ${chips.join('')}
       </div>
     `;
@@ -26757,7 +26757,6 @@ class ChatModal {
     if (existingContainer) {
       existingContainer.remove();
     }
-    messageEl.classList.remove('has-reactions');
 
     const messageRecord = this.getMessageRecordFromElement(messageEl);
     if (messageRecord && isDeleted(messageRecord)) {
@@ -26767,7 +26766,6 @@ class ChatModal {
     const reactionHtml = this.buildReactionChipsHTML(reactionsForTarget);
     if (!reactionHtml) return;
 
-    messageEl.classList.add('has-reactions');
     messageEl.insertAdjacentHTML('beforeend', reactionHtml);
   }
 
