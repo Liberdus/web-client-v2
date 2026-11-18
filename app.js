@@ -3697,14 +3697,16 @@ function formatDurationParts(milliseconds) {
 }
 
 class AddProposalModal {
+  static USD_EXTRA_DECIMALS = /\.\d{3}/;
+
   static EMPTY_MILESTONE = Object.freeze({
     title: '',
     description: '',
     deliverable: '',
     durationDays: '',
     costUsdStr: '',
-    penaltyUsdStr: '0',
-    bonusUsdStr: '0',
+    penaltyUsdStr: '0.00',
+    bonusUsdStr: '0.00',
   });
 
   load() {
@@ -4245,15 +4247,15 @@ class AddProposalModal {
           </div>
           <div class="form-group">
             <label for="${idPrefix}Cost">Cost (USD) <span class="dao-form-required" aria-hidden="true">*</span></label>
-            <input id="${idPrefix}Cost" class="form-control" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${escapeDaoFormAttribute(milestone.costUsdStr)}" data-dao-milestone-field="costUsdStr" data-dao-milestone-id="${uiId}" required />
+            <input id="${idPrefix}Cost" class="form-control" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="${escapeDaoFormAttribute(milestone.costUsdStr)}" data-dao-milestone-field="costUsdStr" data-dao-milestone-id="${uiId}" required />
           </div>
           <div class="form-group">
             <label for="${idPrefix}Penalty">Late Penalty (USD) <span class="dao-form-required" aria-hidden="true">*</span></label>
-            <input id="${idPrefix}Penalty" class="form-control" type="number" inputmode="decimal" min="0" step="any" value="${escapeDaoFormAttribute(milestone.penaltyUsdStr)}" data-dao-milestone-field="penaltyUsdStr" data-dao-milestone-id="${uiId}" required />
+            <input id="${idPrefix}Penalty" class="form-control" type="number" inputmode="decimal" min="0" step="0.01" value="${escapeDaoFormAttribute(milestone.penaltyUsdStr)}" data-dao-milestone-field="penaltyUsdStr" data-dao-milestone-id="${uiId}" required />
           </div>
           <div class="form-group">
             <label for="${idPrefix}Bonus">Early Bonus (USD) <span class="dao-form-required" aria-hidden="true">*</span></label>
-            <input id="${idPrefix}Bonus" class="form-control" type="number" inputmode="decimal" min="0" step="any" value="${escapeDaoFormAttribute(milestone.bonusUsdStr)}" data-dao-milestone-field="bonusUsdStr" data-dao-milestone-id="${uiId}" required />
+            <input id="${idPrefix}Bonus" class="form-control" type="number" inputmode="decimal" min="0" step="0.01" value="${escapeDaoFormAttribute(milestone.bonusUsdStr)}" data-dao-milestone-field="bonusUsdStr" data-dao-milestone-id="${uiId}" required />
           </div>
         </div>
       </section>
@@ -4332,10 +4334,14 @@ class AddProposalModal {
   }
 
   renderProjectBudgetSummary() {
-    const summary = getDaoProjectBudgetSummary(this.projectDraft?.milestones);
-    if (this.projectBaseCost) this.projectBaseCost.textContent = summary.baseCostUsdStr;
-    if (this.projectMaximumBonus) this.projectMaximumBonus.textContent = summary.maximumBonusUsdStr;
-    if (this.projectMaximumBudget) this.projectMaximumBudget.textContent = summary.maximumAuthorizedUsdStr;
+    const amounts = this.projectDraft?.milestones.map(({ costUsdStr, bonusUsdStr }) => ({
+      costUsdStr: AddProposalModal.USD_EXTRA_DECIMALS.test(costUsdStr) ? '' : costUsdStr,
+      bonusUsdStr: AddProposalModal.USD_EXTRA_DECIMALS.test(bonusUsdStr) ? '' : bonusUsdStr,
+    }));
+    const summary = getDaoProjectBudgetSummary(amounts);
+    if (this.projectBaseCost) this.projectBaseCost.textContent = formatDaoProjectDraftUsd(summary.baseCostUsdStr, '');
+    if (this.projectMaximumBonus) this.projectMaximumBonus.textContent = formatDaoProjectDraftUsd(summary.maximumBonusUsdStr, '');
+    if (this.projectMaximumBudget) this.projectMaximumBudget.textContent = formatDaoProjectDraftUsd(summary.maximumAuthorizedUsdStr, '');
   }
 
   createOption() {
@@ -5056,6 +5062,16 @@ class AddProposalModal {
       || milestoneElement;
   }
 
+  validateProjectUsdPrecision() {
+    for (const [index, milestone] of this.projectDraft.milestones.entries()) {
+      const field = ['costUsdStr', 'penaltyUsdStr', 'bonusUsdStr']
+        .find((key) => AddProposalModal.USD_EXTRA_DECIMALS.test(milestone[key]));
+      if (!field) continue;
+      const target = this.getProjectValidationTarget({ daoProjectField: field, daoProjectMilestoneIndex: index });
+      throw this.createValidationError('Enter a USD amount with up to two decimal places', target);
+    }
+  }
+
   async handleCreate() {
     this.clearValidationErrors();
     const title = (this.titleInput?.value || '').trim();
@@ -5094,6 +5110,7 @@ class AddProposalModal {
       }
 
       if (proposalType === DAO_PROJECT_TYPE) {
+        this.validateProjectUsdPrecision();
         const draft = buildDaoProjectProposalCreateDraft({
           from: myAccount?.keys?.address ? longAddress(myAccount.keys.address) : '',
           displayTitle: title,
@@ -5305,9 +5322,9 @@ function renderDaoProjectMilestones(milestones) {
       <div class="proposal-info-grid">
         ${renderDaoProposalRows([
           ['Duration', formatDaoDurationEstimate(milestone.duration)],
-          ['Cost', `${milestone.costUsdStr} USD`],
-          ['Late penalty', `${milestone.penaltyUsdStr} USD`],
-          ['Early bonus', `${milestone.bonusUsdStr} USD`],
+          ['Cost', formatDaoProjectDraftUsd(milestone.costUsdStr)],
+          ['Late penalty', formatDaoProjectDraftUsd(milestone.penaltyUsdStr)],
+          ['Early bonus', formatDaoProjectDraftUsd(milestone.bonusUsdStr)],
         ])}
       </div>
     </article>
@@ -5319,6 +5336,11 @@ function renderDaoProjectMilestones(milestones) {
       <div class="dao-project-review-milestone-list">${milestoneHtml}</div>
     </section>
   `;
+}
+
+function formatDaoProjectDraftUsd(value, unit = ' USD') {
+  const [whole, fraction = ''] = value.split('.');
+  return `${whole}.${fraction.padEnd(2, '0')}${unit}`;
 }
 
 function formatDaoProjectUsd(value) {
@@ -5703,9 +5725,9 @@ class ConfirmProposalModal {
       renderDaoProposalOptions(proposal),
       renderDaoProposalSection('Project Funding', [
         ['Recipient', normalizeDaoAddress(project.address)],
-        ['Base cost', `${budget.baseCostUsdStr} USD`],
-        ['Maximum bonuses', `${budget.maximumBonusUsdStr} USD`],
-        ['Maximum authorized', `${budget.maximumAuthorizedUsdStr} USD`],
+        ['Base cost', formatDaoProjectDraftUsd(budget.baseCostUsdStr)],
+        ['Maximum bonuses', formatDaoProjectDraftUsd(budget.maximumBonusUsdStr)],
+        ['Maximum authorized', formatDaoProjectDraftUsd(budget.maximumAuthorizedUsdStr)],
       ], 'dao-project-review-funding'),
       renderDaoProjectMilestones(project.milestones),
       renderDaoProposalSection('Overview', [
