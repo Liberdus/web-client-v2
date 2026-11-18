@@ -299,20 +299,27 @@ class NetworkConfig {
 
   static getMeetBaseUrl() {
     const value = typeof network === 'undefined' ? null : network?.meetUrl;
-    if (typeof value !== 'string' || !/^https?:\/\//i.test(value.trim())) return null;
-    const normalized = normalizeResourceUrl(value, value);
-    return normalized ? new URL(normalized) : null;
+    return this.parseMeetUrl(value);
+  }
+
+  static parseMeetUrl(value) {
+    if (typeof value !== 'string') return null;
+    const candidate = value.trim();
+    if (candidate.length > 4096 || !/^https?:\/\//i.test(candidate)) return null;
+
+    try {
+      const url = new URL(candidate);
+      return url.username || url.password ? null : url;
+    } catch {
+      return null;
+    }
   }
 }
 
 function normalizeCallUrl(value) {
-  if (typeof value !== 'string' || !/^https?:\/\//i.test(value.trim())) return '';
-  const meetBaseUrl = NetworkConfig.getMeetBaseUrl();
-  if (!meetBaseUrl) return '';
-  const normalized = normalizeResourceUrl(value, meetBaseUrl.href);
-  if (!normalized) return '';
-  const url = new URL(normalized);
-  if (url.origin !== meetBaseUrl.origin) return '';
+  const url = NetworkConfig.parseMeetUrl(value);
+  const allowedOrigin = NetworkConfig.getMeetBaseUrl()?.origin;
+  if (!url || url.origin !== allowedOrigin) return '';
   url.hash = '';
   return url.toString();
 }
