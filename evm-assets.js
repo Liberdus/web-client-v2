@@ -1480,6 +1480,7 @@ class AssetsModal {
 
   async open({ recipient = null } = {}) {
     if (!openModal(this.modal)) return;
+    this.controller.showBetaWarning();
     this.recipient = recipient ? { ...recipient } : null;
     if (this.showAllInput?.checked) {
       this.showAllInput.checked = false;
@@ -2349,6 +2350,7 @@ class EvmAssetsController {
     this.getAccount = () => null;
     this.openQRScanner = () => {};
     this.showToast = () => {};
+    this.showBetaWarning = () => {};
     this.hideToast = () => {};
     this.syncSelect = () => {};
     this.lookupUsername = async () => null;
@@ -2412,6 +2414,7 @@ class EvmAssetsController {
     dismissPayment,
     openQRScanner,
     showToast,
+    showBetaWarning,
     hideToast,
     confirmTransfer,
     syncSelect,
@@ -2429,6 +2432,7 @@ class EvmAssetsController {
     if (typeof prepareChatPayment === 'function') this.prepareChatPayment = prepareChatPayment;
     if (typeof openQRScanner === 'function') this.openQRScanner = openQRScanner;
     if (typeof showToast === 'function') this.showToast = showToast;
+    if (typeof showBetaWarning === 'function') this.showBetaWarning = showBetaWarning;
     if (typeof hideToast === 'function') this.hideToast = hideToast;
     if (typeof confirmTransfer === 'function') this.confirmTransfer = confirmTransfer;
     if (typeof syncSelect === 'function') this.syncSelect = syncSelect;

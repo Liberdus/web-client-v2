@@ -3694,6 +3694,7 @@ class MultichainModal {
 
   async open({ recipient = null } = {}) {
     if (!openModal(this.modal)) return;
+    this.controller.showBetaWarning();
     this.recipient = recipient ? { ...recipient } : null;
     await this.update();
   }
@@ -5439,6 +5440,7 @@ class MultichainController {
     this.depositPickerLoad = null;
     this.depositPickerRequestId = 0;
     this.getAccount = () => null;
+    this.showBetaWarning = () => {};
     // The chat payment panel registers its send action when configured.
     this.onSend = () => {};
     this.assetsModal = new MultichainModal(this);
@@ -5477,8 +5479,9 @@ class MultichainController {
     return this.getAccount()?.keys?.secret || null;
   }
 
-  configure({ getAccount, onSend, getSettings, saveSettings } = {}) {
+  configure({ getAccount, onSend, getSettings, saveSettings, showBetaWarning } = {}) {
     if (typeof onSend === 'function') this.onSend = onSend;
+    if (typeof showBetaWarning === 'function') this.showBetaWarning = showBetaWarning;
     if (typeof getSettings === 'function') this.getSettings = getSettings;
     if (typeof saveSettings === 'function') {
       this.saveSettings = saveSettings;

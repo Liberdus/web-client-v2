@@ -2375,6 +2375,13 @@ class WalletScreen {
     }
   }
 
+  showAssetBetaWarning(tipName, assetLabel) {
+    if (!myData?.account || checkFirstTimeTip(tipName)) return;
+
+    showToast(`${assetLabel} is experimental (beta). Use only small amounts.`, 0, 'warning');
+    setFirstTimeTipShown(tipName);
+  }
+
   close() {
     this.screen.classList.remove('active');
     this.stopBalanceUpdatedTimer();
@@ -35999,6 +36006,7 @@ multichain.configure({
     saveState();
   },
   getAccount: () => myAccount,
+  showBetaWarning: () => walletScreen.showAssetBetaWarning('nearBetaWarning', 'NEAR Assets'),
 });
 
 chatPaymentPanel.configure({
@@ -36134,6 +36142,7 @@ function removeEvmPayment(record) {
 
 evmAssets.configure({
   getAccount: () => myAccount,
+  showBetaWarning: () => walletScreen.showAssetBetaWarning('evmBetaWarning', 'EVM Assets'),
   lookupUsername: getUsernameAddress,
   createContactAutocomplete: ({ input, list, onSelect }) => new ContactAutocomplete({
     input,
