@@ -5325,12 +5325,22 @@ input[type='file'].form-control::file-selector-button {
   text-align: left;
 }
 
+:is(.messages-list, .chat-settings-preview-list) > .message:has(> .message-reactions) {
+  --message-reaction-overhang: 0.75rem;
+  padding-bottom: 0;
+  margin-bottom: var(--message-reaction-overhang);
+}
+
 .message-reactions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   margin-top: 6px;
+  /* Let the last row cross the bubble edge while keeping all rows in flow. */
+  margin-bottom: calc(-1 * var(--message-reaction-overhang, 0px));
+  position: relative;
+  z-index: 2;
 }
 
 .message-reaction-chip {
