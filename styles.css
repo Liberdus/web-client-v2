@@ -13115,12 +13115,9 @@ button.multichain-token-chip:hover {
 
 /* --- token picker --------------------------------------------------------- */
 
-.multichain-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px 16px 24px;
-  text-align: left;
+.multichain-picker-search {
+  flex-shrink: 0;
+  margin: 16px;
 }
 
 /* The shared search bar is styled for a read-only field that opens a search
@@ -13128,6 +13125,11 @@ button.multichain-token-chip:hover {
 .multichain-picker-search,
 .multichain-picker-search .search-input {
   cursor: text;
+}
+
+.multichain-picker-results {
+  padding: 0 16px 24px;
+  text-align: left;
 }
 
 .multichain-section-title {

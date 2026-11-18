@@ -5020,7 +5020,6 @@ class MultichainTokenPicker {
     this.title.textContent = title;
     this.search.value = '';
     this.render();
-    this.results.scrollTop = 0;
     openModal(this.modal);
     // Off-screen while it slides in; see DESIGN.md §6.
     setTimeout(() => this.search.focus({ preventScroll: true }), 350);
@@ -5031,6 +5030,7 @@ class MultichainTokenPicker {
   }
 
   render() {
+    this.results.scrollTop = 0;
     const query = this.search.value.trim().toLowerCase();
     const all = this.candidates();
     const held = all
