@@ -4,6 +4,8 @@ const version = 'u'; // Also increment this when you increment version.html
 const BOOT_SPLASH_HANDOFF_MS = 1000;
 const BOOT_SPLASH_FRAME_TIMEOUT_MS = 100;
 const BOOT_SPLASH_IMAGE_TIMEOUT_MS = 2000;
+const VERSION_CHECK_TIMEOUT_MS = 5000;
+const UPDATE_REFRESH_TIMEOUT_MS = 10000;
 let myVersion = '0';
 
 function getComparableVersion(value) {
@@ -18,34 +20,32 @@ async function checkVersion() {
   // Use network-specific version key to avoid false update alerts when switching networks
   const versionKey = network?.netid ? `version_${network.netid}` : 'version';
   myVersion = (localStorage.getItem(versionKey) || '0').trim();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), VERSION_CHECK_TIMEOUT_MS);
   let newVersion;
   try {
-    const response = await fetch(`version.html`, {cache: 'reload', headers: {
-      'Cache-Control': 'no-cache',
-      Pragma: 'no-cache',
-    }});
+    const response = await fetch('version.html', {
+      cache: 'reload',
+      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+      signal: controller.signal,
+    });
     if (!response.ok) throw new Error('Version check failed');
     newVersion = (await response.text()).trim();
   } catch (error) {
     console.error('Version check failed:', error);
-    showToast('Version check failed. Your Internet connection may be down.', 0, 'error');
-    // Only trigger offline UI if it's a network error
+    showToast('Could not check for updates. Refresh the app to try again.', 0, 'warning');
     if (!navigator.onLine || error instanceof TypeError) {
       isOnline = false;
       updateUIForConnectivity();
     }
-    newVersion = myVersion; // Allow continuing with the old version
+    newVersion = myVersion;
+  } finally {
+    clearTimeout(timeout);
   }
-  const currentComparableVersion = getComparableVersion(myVersion);
-  const newComparableVersion = getComparableVersion(newVersion);
-  console.log(currentComparableVersion, newComparableVersion);
-  if (currentComparableVersion !== newComparableVersion) {
-    alert('Updating to new version: ' + newVersion + ' ' + version);
-    localStorage.setItem(versionKey, newVersion); // Save new version with network-specific key
-    const newUrl = window.location.href.split('?')[0];
 
-    logsModal.log(`Updated to version: ${newVersion}`)
-    await forceReload([
+  if (getComparableVersion(myVersion) !== getComparableVersion(newVersion)) {
+    const newUrl = window.location.href.split('?')[0];
+    const refreshed = await forceReload([
       newUrl,
       'styles.css',
       'app.js',
@@ -60,32 +60,43 @@ async function checkVersion() {
       'offline.html',
       'meet/index.html',
     ]);
+    if (!refreshed) {
+      showToast('Could not download the update. Refresh the app to try again.', 0, 'warning');
+      return;
+    }
+    alert('Updating to new version: ' + newVersion + ' ' + version);
+    localStorage.setItem(versionKey, newVersion);
+    logsModal.log(`Updated to version: ${newVersion}`);
     window.location.replace(newUrl);
   } else if (myVersion !== newVersion) {
     // Store the canonical format without reloading when only the separators changed.
     myVersion = newVersion;
     localStorage.setItem(versionKey, newVersion);
   }
-  logsModal.log(`Started version: ${myVersion}`)
+  logsModal.log(`Started version: ${myVersion}`);
 }
 
 async function forceReload(urls) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), UPDATE_REFRESH_TIMEOUT_MS);
   try {
-    // Fetch with cache-busting headers
-    const fetchPromises = urls.map((url) =>
-      fetch(url, {
-        cache: 'reload',  // this bypasses the cache to get from the server and updates the cache
-        headers: {        // this bypasses the cache of any proxies between the client and the server
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
-        },
-      })
-    );
-    const results = await Promise.all(fetchPromises);
-    return results;
+    await Promise.all(urls.map(async (url) => {
+      const response = await fetch(url, {
+        cache: 'reload',
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Could not refresh ${url} (HTTP ${response.status})`);
+      // Keep the timeout active until the asset body finishes downloading.
+      await response.arrayBuffer();
+    }));
+    return true;
   } catch (error) {
-    console.error('Force reload failed:', error);
-    throw error;
+    console.error('Update download failed:', error);
+    return false;
+  } finally {
+    clearTimeout(timeout);
+    controller.abort();
   }
 }
 
@@ -255,8 +266,6 @@ const MENU_NAVIGATION_LOCK_MS = 400;
 const MAX_CHAT_MESSAGE_BYTES = 10000; // UTF-8 bytes for chat messages
 const BRIDGE_USERNAME = 'liberdusbridge';
 const TRANSACTION_TIMESTAMP_OFFSET_MS = 0; // Transaction offset to allow for slow connections
-const IS_DEV_NETWORK = network?.name === 'Devnet';
-
 let myData = null;
 let myAccount = null; // this is set to myData.account for convience
 let timeSkew = 0;
@@ -273,15 +282,37 @@ let initialViewportHeight = window.innerHeight;
 
 // parameters to add to the call URL when opening the page
 const callUrlParams = `#config.toolbarButtons=["camera","microphone","desktop","hangup"]&config.disableDeepLinking=true&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&startWithVideoMuted=false&userInfo.displayName=`
-// Keep existing default-host call links valid when the configured service changes.
-const ALLOWED_CALL_ORIGINS = Object.freeze(['https://meet.liberdus.com', new URL(network.meetUrl).origin]);
+
+class NetworkConfig {
+  static isUsable() {
+    return typeof network !== 'undefined' && this.isValidNetworkId(network?.netid);
+  }
+
+  static isValidNetworkId(value) {
+    return typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value);
+  }
+
+  static getKnownNetworkIds() {
+    if (!Array.isArray(network.netids)) return [];
+    return [...new Set(network.netids.filter(value => this.isValidNetworkId(value)))];
+  }
+
+  static getMeetBaseUrl() {
+    const value = typeof network === 'undefined' ? null : network?.meetUrl;
+    if (typeof value !== 'string' || !/^https?:\/\//i.test(value.trim())) return null;
+    const normalized = normalizeResourceUrl(value, value);
+    return normalized ? new URL(normalized) : null;
+  }
+}
 
 function normalizeCallUrl(value) {
   if (typeof value !== 'string' || !/^https?:\/\//i.test(value.trim())) return '';
-  const normalized = normalizeResourceUrl(value, network.meetUrl);
+  const meetBaseUrl = NetworkConfig.getMeetBaseUrl();
+  if (!meetBaseUrl) return '';
+  const normalized = normalizeResourceUrl(value, meetBaseUrl.href);
   if (!normalized) return '';
   const url = new URL(normalized);
-  if (!ALLOWED_CALL_ORIGINS.includes(url.origin)) return '';
+  if (url.origin !== meetBaseUrl.origin) return '';
   url.hash = '';
   return url.toString();
 }
@@ -833,9 +864,14 @@ function lockRapidMenuClicks(menuList) {
 
 // Load saved account data and update chat list on page load
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!NetworkConfig.isUsable()) {
+    welcomeScreen.showNetworkStartupError();
+    return;
+  }
+
   installModalTransitionListeners();
   markConnectivityDependentElements();
-  await checkVersion(); // version needs to be checked before anything else happens
+  await checkVersion();
   timeDifference(); // Calculate and log time difference early
 
   setupConnectivityDetection();
@@ -1211,6 +1247,14 @@ function setFirstTimeTipShown(tipName) {
 
 class WelcomeScreen {
   constructor() {}
+
+  showNetworkStartupError() {
+    const retryButton = document.getElementById('retryNetworkStartup');
+    retryButton.addEventListener('click', () => window.location.reload());
+    document.getElementById('networkStartupError').classList.remove('hidden');
+    document.getElementById('bootSplash').classList.add('hidden');
+    retryButton.focus();
+  }
 
   load() {
     this.screen = document.getElementById('welcomeScreen');
@@ -17564,7 +17608,7 @@ class RemoveAccountsModal {
   }
 
   sortAccounts(accounts) {
-    const orderedNetids = network.netids || [];
+    const orderedNetids = NetworkConfig.getKnownNetworkIds();
     return accounts.sort((a,b) => {
       const ia = orderedNetids.indexOf(a.netid);
       const ib = orderedNetids.indexOf(b.netid);
@@ -17593,7 +17637,7 @@ class RemoveAccountsModal {
     const accounts = this.sortAccounts(this.getAllAccountsData());
     const groups = this.groupByNetid(accounts);
     this.listContainer.innerHTML = '';
-    const orderedNetids = [...(network.netids || [])];
+    const orderedNetids = NetworkConfig.getKnownNetworkIds();
     // Append unknown netids afterwards
     const unknownNetids = Object.keys(groups).filter(n => !orderedNetids.includes(n)).sort();
     const finalOrder = [...orderedNetids.filter(n => groups[n]), ...unknownNetids];
@@ -18992,13 +19036,11 @@ class RestoreAccountModal {
 
   // populate the netid dropdowns
   populateNetidDropdowns() {
-    // get all netids from network.js
-    const allNetids = [...new Set([network.netid, ...(network?.netids || [])])]; // Remove duplicates with Set
-    // remove any null or undefined netids
-    allNetids.filter(Boolean).forEach(netid => {
+    const netids = new Set([network.netid, ...NetworkConfig.getKnownNetworkIds()]);
+    for (const netid of netids) {
       this.oldStringSelect.add(new Option(netid, netid));
       this.newStringSelect.add(new Option(netid, netid));
-    });
+    }
   }
 
   // get the string substitution
@@ -28979,6 +29021,12 @@ class ChatModal {
    * @returns {Promise<void>}
    */
   async handleCallUser() {
+    const meetBaseUrl = NetworkConfig.getMeetBaseUrl();
+    if (!meetBaseUrl) {
+      showToast('Calling is unavailable on this network.', 0, 'error');
+      return;
+    }
+
     try {
       // Synchronous eligibility based on cached value fetched on ChatModal open
       const contact = myData.contacts[this.address] || {};
@@ -29014,7 +29062,9 @@ class ChatModal {
       const randomHex = bin2hex(randomBytes).slice(0, 20);
 
       // Create the Meet URL
-      const callUrl = `${network.meetUrl.replace(/\/+$/, '')}/${randomHex}`;
+      meetBaseUrl.pathname = `${meetBaseUrl.pathname.replace(/\/+$/, '')}/${randomHex}`;
+      meetBaseUrl.hash = '';
+      const callUrl = meetBaseUrl.href;
       
       // Send a call message to the contact with callTime (0 or future timestamp)
       const success = await this.sendCallMessage(callUrl, chosenCallTime);
@@ -36258,9 +36308,12 @@ class FailedTransactionModal {
 const failedTransactionModal = new FailedTransactionModal();
 
 class BridgeModal {
-  constructor() {
-    this.direction = 'in'; // 'out' = from Liberdus to external, 'in' = from external to Liberdus
-    this.selectedNetwork = null;
+  static getConfiguredBridges() {
+    if (!Array.isArray(network.bridges)) return [];
+    return network.bridges.filter(bridge =>
+      typeof bridge?.name === 'string' && bridge.name.trim()
+      && typeof bridge.username === 'string' && SendAssetFormModal.USERNAME_PATTERN.test(bridge.username)
+    );
   }
 
   load() {
@@ -36269,7 +36322,7 @@ class BridgeModal {
     this.form = document.getElementById('bridgeForm');
     this.submitButton = this.form.querySelector('button[type="submit"]');
     this.networkSelect = document.getElementById('bridgeNetwork');
-    this.networkSelectGroup = document.querySelector('#bridgeNetwork').closest('.form-group');
+    this.networkSelectGroup = this.networkSelect.closest('.form-group');
     this.directionSelect = document.getElementById('bridgeDirection');
 
     // Add event listeners
@@ -36277,73 +36330,39 @@ class BridgeModal {
     this.form.addEventListener('submit', withButtonCooldown(
       this.submitButton,
       BUTTON_COOLDOWN_MS,
-      null,
+      () => this.handleDirectionChange(),
       (e) => this.handleSubmit(e)
     ));
-    this.networkSelect.addEventListener('change', () => this.updateSelectedNetwork());
     this.directionSelect.addEventListener('change', () => this.handleDirectionChange());
     
     // Load bridge networks from network.js
     this.populateBridgeNetworks();
+    this.handleDirectionChange();
   }
   
   populateBridgeNetworks() {
-    // Clear existing options
-    this.networkSelect.innerHTML = '';
-    
-    // Check if network.bridges exists
-    if (network && network.bridges && Array.isArray(network.bridges)) {
-      // Add each bridge network as an option
-      network.bridges.forEach((bridge, index) => {
-        const option = document.createElement('option');
-        option.value = index;
-        option.textContent = bridge.name;
-        this.networkSelect.appendChild(option);
-      });
-      
-      // Set default selected network
-      if (network.bridges.length > 0) {
-        this.selectedNetwork = network.bridges[0];
-      }
+    const bridges = BridgeModal.getConfiguredBridges();
+    this.networkSelect.replaceChildren();
+    for (const bridge of bridges) {
+      this.networkSelect.add(new Option(bridge.name, bridge.username));
     }
+    if (bridges.length === 0) {
+      this.networkSelect.add(new Option('No outbound bridge routes available', ''));
+    }
+    this.networkSelect.disabled = bridges.length === 0;
     PopupSelect.sync(this.networkSelect);
   }
   
-  updateSelectedNetwork() {
-    const index = parseInt(this.networkSelect.value);
-    if (network && network.bridges && network.bridges[index]) {
-      this.selectedNetwork = network.bridges[index];
-    }
-  }
-  
   handleDirectionChange() {
-    this.direction = this.directionSelect.value;
-
-    // Show network dropdown only for 'out' direction (Liberdus to external network)
-    if (this.direction === 'out') {
-      this.networkSelectGroup.style.display = 'block';
-    } else {
-      // Hide network dropdown for 'in' direction (external network to Liberdus)
-      this.networkSelectGroup.style.display = 'none';
-    }
+    const isOutbound = this.directionSelect.value === 'out';
+    this.networkSelectGroup.style.display = isOutbound ? 'block' : 'none';
+    this.submitButton.disabled = isOutbound && !this.networkSelect.value;
   }
 
   open() {
     openModal(this.modal);
-    
-    // Reset defaults
-    this.direction = 'in';
-    if (this.directionSelect) {
-      this.directionSelect.value = 'in';
-    }
-    
-    // Ensure networks are populated
+    this.directionSelect.value = 'in';
     this.populateBridgeNetworks();
-    
-    // Update selected network
-    this.updateSelectedNetwork();
-    
-    // Set initial visibility of network dropdown
     this.handleDirectionChange();
     PopupSelect.sync(this.directionSelect);
   }
@@ -36358,23 +36377,19 @@ class BridgeModal {
   
   handleSubmit(event) {
     event.preventDefault();
-    this.direction = this.directionSelect.value;
 
-    if (this.direction === 'out') {
-      // From Liberdus to external network
-      this.openSendAssetModalToBridge();
+    if (this.directionSelect.value === 'out') {
+      const username = this.networkSelect.value;
+      if (username) this.openSendAssetModalToBridge(username);
     } else {
-      // From external network to Liberdus
       this.openBridgePage();
     }
   }
 
-  openSendAssetModalToBridge() {
-    if (!this.selectedNetwork) return;
-    
+  openSendAssetModalToBridge(username) {
     this.close();
     sendAssetFormModal.open();
-    sendAssetFormModal.usernameInput.value = this.selectedNetwork.username;
+    sendAssetFormModal.usernameInput.value = username;
     sendAssetFormModal.usernameInput.dispatchEvent(new Event('input', { bubbles: true }));
   }
   
@@ -36518,10 +36533,9 @@ class MigrateAccountsModal {
     const currentNetId = parameters?.networkId;
     if (!accountsObj.netids || !currentNetId) return false;
 
-    // Loop through all netids except current
+    const knownNetids = NetworkConfig.getKnownNetworkIds();
     for (const netid in accountsObj.netids) {
-      // if netid is the current-netid or not in network.netids, skip
-      if (netid === currentNetId || !network.netids.includes(netid)) continue;
+      if (netid === currentNetId || !knownNetids.includes(netid)) continue;
 
       const usernamesObj = accountsObj.netids[netid]?.usernames;
       if (!usernamesObj) continue;
@@ -36553,10 +36567,9 @@ class MigrateAccountsModal {
       error: []      // error checking username availability
     };
 
-    // Loop through all netids except current
+    const knownNetids = NetworkConfig.getKnownNetworkIds();
     for (const netid in accountsObj.netids) {
-      // if netid is the current netid or not in network.netids, skip
-      if (netid === currentNetId || !network.netids.includes(netid)) continue;
+      if (netid === currentNetId || !knownNetids.includes(netid)) continue;
 
       const usernamesObj = accountsObj.netids[netid]?.usernames;
       if (!usernamesObj) continue;
@@ -36594,10 +36607,10 @@ class MigrateAccountsModal {
 
   // Sort function for accounts - first by netid (using network.netids order), then by username
   sortAccounts = (accounts) => {
+    const knownNetids = NetworkConfig.getKnownNetworkIds();
     return accounts.sort((a, b) => {
-      // First compare by netid order in network.netids
-      const netidIndexA = network.netids.indexOf(a.netid);
-      const netidIndexB = network.netids.indexOf(b.netid);
+      const netidIndexA = knownNetids.indexOf(a.netid);
+      const netidIndexB = knownNetids.indexOf(b.netid);
       if (netidIndexA !== netidIndexB) {
         return netidIndexA - netidIndexB;
       }
@@ -38924,19 +38937,12 @@ function isFaucetAddress(address) {
  * @returns {boolean} - True if contact username matches a bridge username
  */
 function isBridgeContact(contact) {
-  if (!contact || !Array.isArray(network.bridges) || network.bridges.length === 0) {
-    return false;
-  }
-
-  const username = normalizeUsername(contact.username || '');
+  const username = normalizeUsername(contact?.username || '');
   if (!username) {
     return false;
   }
 
-  return network.bridges.some((bridge) => {
-    const bridgeUsername = normalizeUsername(bridge?.username || '');
-    return bridgeUsername && bridgeUsername === username;
-  });
+  return BridgeModal.getConfiguredBridges().some(bridge => normalizeUsername(bridge.username) === username);
 }
 
 function isMobile() {
