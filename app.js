@@ -1249,11 +1249,8 @@ class WelcomeScreen {
   constructor() {}
 
   showNetworkStartupError() {
-    const retryButton = document.getElementById('retryNetworkStartup');
-    retryButton.addEventListener('click', () => window.location.reload());
     document.getElementById('networkStartupError').classList.remove('hidden');
     document.getElementById('bootSplash').classList.add('hidden');
-    retryButton.focus();
   }
 
   load() {
@@ -36334,10 +36331,6 @@ class BridgeModal {
       (e) => this.handleSubmit(e)
     ));
     this.directionSelect.addEventListener('change', () => this.handleDirectionChange());
-    
-    // Load bridge networks from network.js
-    this.populateBridgeNetworks();
-    this.handleDirectionChange();
   }
   
   populateBridgeNetworks() {
@@ -38937,12 +38930,13 @@ function isFaucetAddress(address) {
  * @returns {boolean} - True if contact username matches a bridge username
  */
 function isBridgeContact(contact) {
-  const username = normalizeUsername(contact?.username || '');
-  if (!username) {
-    return false;
-  }
+  const { bridges } = network;
+  if (typeof contact?.username !== 'string' || !Array.isArray(bridges)) return false;
 
-  return BridgeModal.getConfiguredBridges().some(bridge => normalizeUsername(bridge.username) === username);
+  const username = normalizeUsername(contact.username);
+  return Boolean(username) && bridges.some(bridge =>
+    typeof bridge?.username === 'string' && normalizeUsername(bridge.username) === username
+  );
 }
 
 function isMobile() {
