@@ -3465,6 +3465,7 @@ class DaoModal {
         if (headlineEl) headlineEl.textContent = 'No claimable proposals found';
         if (sublineEl) sublineEl.textContent = 'Claimable proposals appear here when available';
       } else if (DAO_PROJECT_FILTER_KEYS.has(this.selectedFilterKey)) {
+        const label = getDaoStateLabel(this.selectedFilterKey);
         if (headlineEl) headlineEl.textContent = `No ${label.toLowerCase()} projects found`;
         if (sublineEl) sublineEl.textContent = 'Projects appear here after proposal acceptance';
       } else {
