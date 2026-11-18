@@ -3697,6 +3697,16 @@ function formatDurationParts(milliseconds) {
 }
 
 class AddProposalModal {
+  static EMPTY_MILESTONE = Object.freeze({
+    title: '',
+    description: '',
+    deliverable: '',
+    durationDays: '',
+    costUsdStr: '',
+    penaltyUsdStr: '0',
+    bonusUsdStr: '0',
+  });
+
   load() {
     this.modal = document.getElementById('addProposalModal');
     this.bindCommitteeAddressCopy(this.modal);
@@ -3743,8 +3753,8 @@ class AddProposalModal {
         null,
         () => this.handleCreate()
       ));
-      this.form.addEventListener('input', (event) => this.clearValidationError(event.target));
-      this.form.addEventListener('change', (event) => this.clearValidationError(event.target));
+      this.form.addEventListener('input', (event) => this.handleDraftInput(event));
+      this.form.addEventListener('change', (event) => this.handleDraftInput(event));
       this.form.addEventListener('click', (event) => this.handleFormHelpClick(event));
     }
 
@@ -3778,6 +3788,7 @@ class AddProposalModal {
   open() {
     openModal(this.modal);
     enterFullscreen();
+    this.discardWarningShown = false;
     this.resetConfigCache();
     this.proposalFeeUsdStr = null;
     this.maxGracePeriodMs = null;
@@ -3813,9 +3824,55 @@ class AddProposalModal {
   }
 
   close() {
+    if (!this.discardWarningShown && this.hasUnsavedChanges()) {
+      this.discardWarningShown = true;
+      showToast('Press back again to discard changes.', 5000, 'warning');
+      return;
+    }
+
+    this.forceClose();
+  }
+
+  forceClose() {
     PopupSelect.hide();
     this.modal.classList.remove('active');
+    this.discardWarningShown = false;
     enterFullscreen();
+  }
+
+  handleDraftInput(event) {
+    this.discardWarningShown = false;
+    this.clearValidationError(event.target);
+  }
+
+  hasUnsavedChanges() {
+    if (
+      this.titleInput?.value || this.descriptionInput?.value ||
+      (this.typeSelect && this.typeSelect.value !== 'governance') ||
+      (this.emergencySelect && this.emergencySelect.value !== 'false') ||
+      this.reviewStartTimeMs !== 0 || this.gracePeriodMs !== 0
+    ) {
+      return true;
+    }
+    return this.hasProjectChanges() || this.hasOptionChanges();
+  }
+
+  hasProjectChanges() {
+    const { address, milestones } = this.projectDraft;
+    if (address || milestones.length !== 1) return true;
+
+    const [milestone] = milestones;
+    return Object.entries(AddProposalModal.EMPTY_MILESTONE).some(([field, value]) => milestone[field] !== value);
+  }
+
+  hasOptionChanges() {
+    if (this.options.length > 1) return true;
+    const { changes } = this.options[0];
+    if (changes.length === 0) return false;
+
+    // The first parameter is filled in automatically when config values load.
+    const [defaultOption] = this.getConfigOptions();
+    return !defaultOption || JSON.stringify(changes) !== JSON.stringify([this.createChange(defaultOption.key)]);
   }
 
   isActive() {
@@ -4116,13 +4173,7 @@ class AddProposalModal {
     this.projectMilestoneSequence += 1;
     return {
       uiId: `milestone-${this.projectMilestoneSequence}`,
-      title: '',
-      description: '',
-      deliverable: '',
-      durationDays: '',
-      costUsdStr: '',
-      penaltyUsdStr: '0',
-      bonusUsdStr: '0',
+      ...AddProposalModal.EMPTY_MILESTONE,
     };
   }
 
@@ -4246,6 +4297,7 @@ class AddProposalModal {
     if (actionButton.matches('[data-dao-remove-milestone]')) {
       if (this.projectDraft.milestones.length === 1) return;
       this.projectDraft.milestones.splice(index, 1);
+      this.discardWarningShown = false;
       this.renderProjectEditor();
       const nextIndex = Math.min(index, this.projectDraft.milestones.length - 1);
       this.focusProjectMilestone(this.projectDraft.milestones[nextIndex].uiId);
@@ -4257,6 +4309,7 @@ class AddProposalModal {
     if (destination < 0 || destination >= this.projectDraft.milestones.length) return;
     const [milestone] = this.projectDraft.milestones.splice(index, 1);
     this.projectDraft.milestones.splice(destination, 0, milestone);
+    this.discardWarningShown = false;
     this.renderProjectEditor();
     this.focusProjectMilestone(uiId);
     this.announceProjectChange(`Moved milestone to position ${destination + 1}`);
@@ -4270,6 +4323,7 @@ class AddProposalModal {
 
     const milestone = this.createProjectMilestone();
     this.projectDraft.milestones.push(milestone);
+    this.discardWarningShown = false;
     this.renderProjectEditor();
     this.focusProjectMilestone(milestone.uiId);
     this.announceProjectChange(`Added milestone ${this.projectDraft.milestones.length}`);
@@ -4621,6 +4675,7 @@ class AddProposalModal {
       change.value.splice(index, 1);
       focusIndex = Math.min(index, change.value.length - 1);
     }
+    this.discardWarningShown = false;
     const groupId = group.id;
     this.renderOptions();
     const updatedGroup = document.getElementById(groupId);
@@ -4644,6 +4699,7 @@ class AddProposalModal {
     }
 
     this.options.push(this.createOption());
+    this.discardWarningShown = false;
     this.synchronizeOptions();
     this.renderOptions();
     PopupSelect.focus(this.optionsList?.querySelector(
@@ -4665,6 +4721,7 @@ class AddProposalModal {
     }
 
     template.changes.push(this.createChange(nextOption.key));
+    this.discardWarningShown = false;
     this.synchronizeOptions();
     this.renderOptions();
     const parameterSelect = this.optionsList?.querySelector(
@@ -4688,6 +4745,7 @@ class AddProposalModal {
     const removeOptionButton = event.target.closest('[data-dao-remove-option]');
     if (removeOptionButton) {
       this.options.splice(Number(removeOptionButton.dataset.daoRemoveOption), 1);
+      this.discardWarningShown = false;
       this.renderOptions();
       return;
     }
@@ -4701,6 +4759,7 @@ class AddProposalModal {
     const template = this.options[0];
     if (!template || template.changes.length <= 1) return;
     template.changes.splice(changeIndex, 1);
+    this.discardWarningShown = false;
     this.synchronizeOptions();
     this.renderOptions();
   }
@@ -4766,6 +4825,7 @@ class AddProposalModal {
     dateTimePickerModal.open({
       onDone: (timestamp) => {
         if (timestamp === null) return;
+        if (timestamp !== this.reviewStartTimeMs) this.discardWarningShown = false;
         this.reviewStartTimeMs = timestamp;
         this.renderReviewStartTime();
         this.clearValidationError(this.reviewStartButton);
@@ -4802,6 +4862,7 @@ class AddProposalModal {
       }),
       onDone: (durationMs) => {
         if (durationMs === null) return;
+        if (durationMs !== this.gracePeriodMs) this.discardWarningShown = false;
         this.gracePeriodMs = durationMs;
         this.renderGracePeriodLimitHint();
         this.clearValidationError(this.gracePeriodButton);
@@ -5579,7 +5640,7 @@ class ConfirmProposalModal {
       }
       this.setSubmitting(false);
       this.close();
-      addProposalModal.close();
+      addProposalModal.forceClose();
       showToast('Proposal submitted—pending confirmation', 4000, 'info');
     } catch (error) {
       console.warn('Failed to submit DAO proposal:', error);
