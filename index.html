@@ -1312,7 +1312,7 @@
               </div>
               <div class="form-group" id="localFileGroup">
                 <label for="importFile">Select File</label>
-                <input type="file" id="importFile" class="form-control" accept=".json,application/json" />
+                <input type="file" id="importFile" class="form-control" accept=".json,application/json" aria-describedby="restoreFileStatus" />
               </div>
               <div class="form-group" id="googleDriveFileGroup" style="display: none;">
                 <label>Google Drive File</label>
@@ -1341,6 +1341,7 @@
                 </label>
               </div>
 
+              <div id="restoreFileStatus" role="status" aria-live="polite"></div>
               <div class="form-group" id="backupAccountLockGroup" style="display: none;">
                 <label for="backupAccountLock">Backup Account Password</label>
                 <input
