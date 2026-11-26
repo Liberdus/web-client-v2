@@ -1878,7 +1878,56 @@ const footer = new Footer();
 
 class ChatsScreen {
   constructor() {
+    this.syncLog = new Map();
+  }
 
+  // Record changes in outcome, so polling the same failed chat stays quiet.
+  logSyncOutcome(operation, id, outcome, recovered = false) {
+    const key = `${myAccount?.keys?.address}:${operation}:${id}`;
+    if (recovered) {
+      const hadFailure = this.syncLog.delete(key);
+      if (!outcome && !hadFailure) return;
+    } else {
+      if (this.syncLog.get(key) === outcome) return;
+      if (this.syncLog.size >= 100) this.syncLog.delete(this.syncLog.keys().next().value);
+      this.syncLog.set(key, outcome);
+    }
+    logsModal.log(`Chat sync (${String(id).slice(0, 12)}): ${operation} — ${outcome || 'Recovered'}`);
+  }
+
+  async retrySyncRead(operation, id, read) {
+    const account = myAccount;
+    try {
+      const value = await read();
+      if (myAccount !== account) return undefined;
+      this.logSyncOutcome(operation, id, null, true);
+      return value;
+    } catch (firstError) {
+      if (myAccount !== account) return undefined;
+      try {
+        const value = await read();
+        if (myAccount !== account) return undefined;
+        this.logSyncOutcome(operation, id, `${firstError.message}; retry succeeded`, true);
+        return value;
+      } catch (retryError) {
+        if (myAccount !== account) return undefined;
+        this.logSyncOutcome(operation, id, `${firstError.message}; retry failed: ${retryError.message}`);
+        return undefined;
+      }
+    }
+  }
+
+  async verifySyncUsername(username, address, txid) {
+    const name = typeof username === 'string' && normalizeUsername(username);
+    if (name) {
+      const resolved = await this.retrySyncRead('Username lookup', txid,
+        () => getUsernameAddress(name, { requireNetworkResult: true }));
+      if (resolved === undefined) return null; // Both network attempts failed.
+      const verified = await getVerifiedUsername(name, address, () => resolved);
+      if (verified) return verified;
+    }
+    this.logSyncOutcome('Username check', txid, 'Rejected unverified username');
+    return null;
   }
 
   load() {
@@ -12007,14 +12056,16 @@ async function updateAssetPricesIfNeeded() {
   await getLibUsdPrice();
 }
 
-async function queryNetwork(url, abortSignal = null) {
+async function queryNetwork(url, abortSignal = null, requireResponse = false) {
   //console.log('queryNetwork', url)
   if (!isOnline) {
+    if (requireResponse) throw new Error('Offline');
     console.warn('QueryNetwork: not online');
     return null;
   }
   const selectedGateway = getGatewayForRequest();
   if (!selectedGateway) {
+    if (requireResponse) throw new Error('No gateway available');
     console.error('No gateway available for network query');
     showToast('queryNetwork: no gateway', 0, 'error')
     return null;
@@ -12025,9 +12076,11 @@ async function queryNetwork(url, abortSignal = null) {
 //      showToast(`${now} query ${selectedGateway.web}${url}`, 0, 'info')
     }
     const response = await fetch(`${selectedGateway.web}${url}`, { signal: abortSignal });
+    if (requireResponse && !response.ok) throw new Error(`Gateway returned HTTP ${response.status}`);
     const data = parse(await response.text());
     return data;
   } catch (error) {
+    if (requireResponse) throw error;
     // Check if error is due to abort
     if (error.name === 'AbortError') {
       console.error('queryNetwork aborted:', url);
@@ -12061,19 +12114,21 @@ async function getChats(keys, retry = 1) {
   //console.log('messages', myData.contacts[keys.address].messages)
   //console.log('last messages', myData.contacts[keys.address].messages.at(-1))
   //console.log('timestamp', myData.contacts[keys.address].messages.at(-1).timestamp)
-  let timestamp = myAccount.chatTimestamp || 0;
+  const account = myAccount;
+  let timestamp = account.chatTimestamp || 0;
   //    const timestamp = myData.contacts[keys.address]?.messages?.at(-1).timestamp || 0
 
   if (timestamp > longPollResult.timestamp){ timestamp = longPollResult.timestamp }
 
   const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/${timestamp}`); // TODO get this working
+  if (myAccount !== account) return 0;
   //    const senders = await queryNetwork(`/account/${longAddress(keys.address)}/chats/0`) // TODO stop using this
   let chatCount = senders?.chats ? Object.keys(senders.chats).length : 0; // Handle null/undefined senders.chats
   if (senders && senders.chats && chatCount) {
     await processChats(senders.chats, keys);
+    if (myAccount !== account) return 0;
   } else {
     console.error('getChats: no senders found')
-    myAccount.chatTimestamp = timestamp;
   }
   if (chatModal.address) {
     // clear the unread count of address for open chat modal
@@ -12151,18 +12206,20 @@ async function getVerifiedChatContactKeys(address) {
     };
   }
 
-  try {
-    const accountInfo = await queryNetwork(`/account/${longAddress(address)}`);
+  const keys = await chatsScreen.retrySyncRead('Signing-key lookup', address, async () => {
+    const accountInfo = await queryNetwork(`/account/${longAddress(address)}`, null, true);
     const publicKey = accountInfo?.account?.publicKey;
-    if (!isPublicKeyForAddress(publicKey, address, generateAddress)) return null;
+    if (!publicKey) throw new Error('Signing key unavailable');
+    if (!isPublicKeyForAddress(publicKey, address, generateAddress)) {
+      chatsScreen.logSyncOutcome('Signing-key check', address, 'Rejected key/address mismatch');
+      return null;
+    }
     return {
       public: publicKey.replace(/^0x/i, ''),
       pqPublic: accountInfo?.account?.pqPublicKey || existingContact?.pqPublic || null,
     };
-  } catch (error) {
-    console.warn('Unable to resolve authenticated chat participant keys', error);
-    return null;
-  }
+  });
+  return keys ?? null;
 }
 
 /**
@@ -13505,6 +13562,7 @@ function syncChatTabNotificationBubble() {
 
 // Actually payments also appear in the chats, so we can add these to
 async function processChats(chats, keys) {
+  const syncAccount = myAccount;
   const avatarOwner = MediaCacheOwnership.getOwnerKey();
   let newTimestamp = 0;
   const timestamp = myAccount.chatTimestamp || 0;
@@ -13518,7 +13576,8 @@ async function processChats(chats, keys) {
     : bin2hex(getPublicKey(hex2bin(keys.secret)));
   const verifiedChats = new Map();
 
-  // Prepare the whole batch before changing contacts, messages, or the sync cursor.
+  const crypto = { ethHashMessage, generateAddress, hashBytes, stringify, verifyMessage };
+  // A failed lookup in one chat must not prevent other verified transactions from syncing.
   for (const sender in chats) {
     let from;
     let expectedChatId;
@@ -13526,48 +13585,50 @@ async function processChats(chats, keys) {
       from = normalizeAddress(sender);
       expectedChatId = getExpectedChatId(currentUserAddress, from, hashBytes);
     } catch {
-      console.warn('Ignoring chat entry with an invalid participant address');
+      chatsScreen.logSyncOutcome('Chat check', sender, 'Rejected invalid participant address');
       continue;
     }
     if (chats[sender] !== expectedChatId) {
-      console.warn('Ignoring chat entry with a mismatched chat identifier');
+      chatsScreen.logSyncOutcome('Chat check', from, 'Rejected mismatched chat identifier');
       continue;
     }
 
-    // Fetch messages using the adjusted timestamp
-    const res = await queryNetwork(`/messages/${expectedChatId}/${messageQueryTimestamp}`);
-    if (res && res.messages) {
-      const contactKeys = await getVerifiedChatContactKeys(from);
+    const messages = await chatsScreen.retrySyncRead('Message history', expectedChatId, async () => {
+      const res = await queryNetwork(`/messages/${expectedChatId}/${messageQueryTimestamp}`, null, true);
+      if (!res?.messages || typeof res.messages !== 'object') throw new Error('Message history unavailable');
+      return res.messages;
+    });
+    if (myAccount !== syncAccount) return;
+    if (messages) {
+      let contactKeys; // Resolve once, only if an inbound transaction needs a signing key.
       const verifiedMessages = [];
-      for (const [order, tx] of Object.entries(res.messages)) {
+      for (const [order, tx] of Object.entries(messages)) {
         let transactionFrom = '';
         try {
           transactionFrom = normalizeAddress(tx?.from);
         } catch {
           // validateChatTransaction returns the specific participant error below.
         }
-        const publicKey = transactionFrom === currentUserAddress
-          ? currentUserPublicKey
-          : contactKeys?.public;
-        const validation = validateChatTransaction(tx, {
+        const context = {
           currentAddress: currentUserAddress,
           contactAddress: from,
           expectedChatId,
           networkId: network.netid,
-          publicKey,
-        }, {
-          ethHashMessage,
-          generateAddress,
-          hashBytes,
-          stringify,
-          verifyMessage,
-        });
-        if (!validation.ok) {
-          if (validation.reason === 'public_key_unavailable') {
-            console.warn('Deferring chat sync until the participant signing key is available');
-            return;
+          publicKey: transactionFrom === currentUserAddress ? currentUserPublicKey : contactKeys?.public,
+        };
+        let validation = validateChatTransaction(tx, context, crypto);
+        if (validation.reason === 'public_key_unavailable' && contactKeys === undefined) {
+          contactKeys = await getVerifiedChatContactKeys(from);
+          if (myAccount !== syncAccount) return;
+          if (contactKeys) {
+            context.publicKey = contactKeys.public;
+            validation = validateChatTransaction(tx, context, crypto);
           }
-          console.warn(`Ignoring unauthenticated chat transaction: ${validation.reason}`);
+        }
+        if (!validation.ok) {
+          if (validation.reason !== 'public_key_unavailable') {
+            chatsScreen.logSyncOutcome('Transaction check', expectedChatId, `Rejected: ${validation.reason}`);
+          }
           continue;
         }
         verifiedMessages.push({ order, tx, txid: validation.txid });
@@ -13617,7 +13678,6 @@ async function processChats(chats, keys) {
         const { order: i, tx, txid: txidHex } = verifiedMessage;
         let useTxTimestamp = false;
 
-        newTimestamp = tx.timestamp > newTimestamp ? tx.timestamp : newTimestamp;
         mine = normalizeAddress(tx.from) === currentUserAddress;
         // timestamp-skew check for incoming messages/transfers (ensures we don't use out of range sent_timestamp)
         if (!mine && (tx.type === 'message' || tx.type === 'transfer')) {
@@ -13661,6 +13721,7 @@ async function processChats(chats, keys) {
           const statusContact = myData.contacts[statusContactAddress];
           if (txFrom !== currentUserAddress && !statusContact.username && tx.username) {
             const verifiedUsername = await getVerifiedUsername(tx.username, txFrom, getUsernameAddress);
+            if (myAccount !== syncAccount) return;
             if (verifiedUsername) {
               statusContact.username = verifiedUsername;
             } else {
@@ -13686,6 +13747,7 @@ async function processChats(chats, keys) {
             needsStatusChatRefresh = true;
           }
 
+          newTimestamp = Math.max(newTimestamp, tx.timestamp);
           continue;
         }
 
@@ -13708,6 +13770,7 @@ async function processChats(chats, keys) {
           }
           else if (payload.encrypted) {
             await ensureContactKeys(from);
+            if (myAccount !== syncAccount) return;
             if (!myData.contacts[from]?.public) {
               console.warn(`no public key found for sender ${sender}`);
               continue;
@@ -13819,6 +13882,7 @@ async function processChats(chats, keys) {
                     reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
                   }
                   if (didDeleteMessage) {
+                    newTimestamp = Math.max(newTimestamp, tx.timestamp);
                     purgeContactReactionsForTarget(contact, messageToDelete.txid);
                     purgePendingReactionsForTarget(from, messageToDelete.txid);
                     syncChatLatestActivityTimestamp(from, contact);
@@ -13861,6 +13925,7 @@ async function processChats(chats, keys) {
                         messageToEdit.message = newText;
                         messageToEdit.edited = 1;
                         messageToEdit.edited_timestamp = tx.timestamp;
+                        newTimestamp = Math.max(newTimestamp, tx.timestamp);
                         syncChatLatestActivityTimestamp(from, contact);
                         // Also update wallet history entry memo if present
                         if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
@@ -13990,10 +14055,7 @@ async function processChats(chats, keys) {
                         reactionTxId: txidHex,
                         order: Number(i)
                       });
-                      continue; // reaction control messages update target state instead of adding a chat bubble
-                    }
-
-                    if (reactAction === 'remove') {
+                    } else if (reactAction === 'remove') {
                       const targetReactionTxId = typeof parsedMessage.targetReactionTxId === 'string'
                         ? parsedMessage.targetReactionTxId.trim()
                         : '';
@@ -14006,11 +14068,13 @@ async function processChats(chats, keys) {
                         targetReactionTxId: targetReactionTxId || undefined,
                         order: Number(i)
                       });
-                      continue; // reaction control messages update target state instead of adding a chat bubble
+                    } else {
+                      console.error('Unknown reaction action', reactAction);
+                      continue;
                     }
 
-                    console.error('Unknown reaction action', reactAction);
-                    continue;
+                    newTimestamp = Math.max(newTimestamp, tx.timestamp);
+                    continue; // Apply reaction controls after their target messages are loaded.
                   }
                   // Regular message format processing
                   payload.message = parsedMessage.message;
@@ -14039,7 +14103,15 @@ async function processChats(chats, keys) {
           }
           
           if (payload.senderInfo && !mine){
-            contact.senderInfo = cleanSenderInfo(payload.senderInfo)
+            const senderInfo = cleanSenderInfo(payload.senderInfo);
+            if (!contact.username) {
+              const username = await chatsScreen.verifySyncUsername(senderInfo.username, tx.from, txidHex);
+              if (myAccount !== syncAccount) return;
+              if (!username) continue;
+              contact.username = username;
+            }
+            senderInfo.username = contact.username;
+            contact.senderInfo = senderInfo;
             delete payload.senderInfo;
             if (contact.senderInfo.avatarId && contact.senderInfo.avatarKey && contact.avatarId !== contact.senderInfo.avatarId) {
               const { avatarId, avatarKey } = contact.senderInfo;
@@ -14049,6 +14121,7 @@ async function processChats(chats, keys) {
                   try {
                     // Save blob under the server-provided avatar id
                     await contactAvatarCache.save(avatarId, blob, avatarOwner);
+                    if (myAccount !== syncAccount) return;
                     contact.avatarId = avatarId;
                     contact.hasAvatar = true;
                     // If contact provided a new avatar, prefer their sent avatar
@@ -14070,21 +14143,9 @@ async function processChats(chats, keys) {
                 })
                 .catch(err => console.warn('Failed to download avatar:', err));
             }
-            if (contact.username) {
-              // if we already have the username, we can use it
-              contact.senderInfo.username = contact.username;
-            } else if (contact.senderInfo.username) {
-              const verifiedUsername = await getVerifiedUsername(contact.senderInfo.username, tx.from, getUsernameAddress);
-              if (!verifiedUsername) {
-                console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
-                continue;
-              }
-              contact.username = verifiedUsername;
-            } else {
-              console.error(`Username not provided in senderInfo.`)
-              continue
-            }
           }
+          // The message passed its checks, including any required username lookup.
+          newTimestamp = Math.max(newTimestamp, tx.timestamp);
           if (payload.type === EVM_CHAT_MESSAGE_TYPE) {
             // A queried message proves Liberdus delivery, not EVM settlement.
             payload.paymentMessageConfirmed = true;
@@ -14197,6 +14258,7 @@ async function processChats(chats, keys) {
           }
           else if (payload.encrypted) {
             await ensureContactKeys(from);
+            if (myAccount !== syncAccount) return;
             if (!myData.contacts[from]?.public) {
               console.warn(`no public key found for sender ${sender}`);
               continue;
@@ -14221,7 +14283,15 @@ async function processChats(chats, keys) {
           }
 
           if (payload.senderInfo && !mine) {
-            contact.senderInfo = cleanSenderInfo(payload.senderInfo);
+            const senderInfo = cleanSenderInfo(payload.senderInfo);
+            if (!contact.username) {
+              const username = await chatsScreen.verifySyncUsername(senderInfo.username, tx.from, txidHex);
+              if (myAccount !== syncAccount) return;
+              if (!username) continue;
+              contact.username = username;
+            }
+            senderInfo.username = contact.username;
+            contact.senderInfo = senderInfo;
             delete payload.senderInfo;
             if (contact.senderInfo.avatarId && contact.senderInfo.avatarKey && contact.avatarId !== contact.senderInfo.avatarId) {
               const { avatarId, avatarKey } = contact.senderInfo;
@@ -14230,6 +14300,7 @@ async function processChats(chats, keys) {
                 .then(async blob => {
                   try {
                     await contactAvatarCache.save(avatarId, blob, avatarOwner);
+                    if (myAccount !== syncAccount) return;
                     contact.avatarId = avatarId;
                     contact.hasAvatar = true;
                     // If contact provided a new avatar, prefer their sent avatar
@@ -14251,22 +14322,9 @@ async function processChats(chats, keys) {
                 })
                 .catch(err => console.warn('Failed to download avatar:', err));
             }
-            if (contact.username) {
-              // if we already have the username, we can use it
-              contact.senderInfo.username = contact.username;
-            } else if (contact.senderInfo.username) {
-              const verifiedUsername = await getVerifiedUsername(contact.senderInfo.username, tx.from, getUsernameAddress);
-              if (!verifiedUsername) {
-                console.error(`Username: ${contact.senderInfo.username} does not match address ${tx.from}`);
-                continue;
-              }
-              contact.username = verifiedUsername;
-            } else {
-              console.error(`Username not provided in senderInfo.`)
-              continue
-            }
           }
 
+          newTimestamp = Math.max(newTimestamp, tx.timestamp);
           // skip if this tx was processed before and is already in the history array;
           //    txs are the same if the history[x].txid is the same as txidHex
           const history = myData.wallet.history;
@@ -14478,9 +14536,7 @@ async function processChats(chats, keys) {
     refreshUpcomingCallsUi();
   }
 
-  // Update the global timestamp AFTER processing all senders
-  if (newTimestamp > 0) {
-    // Update the timestamp
+  if (newTimestamp > (myAccount.chatTimestamp || 0)) {
     myAccount.chatTimestamp = newTimestamp;
   }
   // Save queried messages and their verification work together.
