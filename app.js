@@ -18639,6 +18639,7 @@ class RestoreAccountModal {
     this.validationId = 0;
     this.submitCoolingDown = false;
     this.selectedBackup = null;
+    this.encryptedFile = null;
     this.selectedGoogleDriveFile = null; // Store selected Google Drive file info
     this.googleDriveFileContent = null; // Store downloaded file content
   }
@@ -18658,7 +18659,7 @@ class RestoreAccountModal {
     if (/android/i.test(navigator.userAgent)) this.fileInput.removeAttribute('accept');
     this.fileStatus = document.getElementById('restoreFileStatus');
     this.passwordInput = document.getElementById('importPassword');
-    this.passwordRequired = document.getElementById('importPasswordRequired');
+    this.filePasswordGroup = document.getElementById('restoreFilePasswordGroup');
     this.overwriteAccountsCheckbox = document.getElementById('overwriteAccountsCheckbox');
     this.backupAccountLockGroup = document.getElementById('backupAccountLockGroup');
     this.backupAccountLock = document.getElementById('backupAccountLock');
@@ -18699,13 +18700,20 @@ class RestoreAccountModal {
     this.setupMutualExclusion(this.newStringSelect, this.newStringCustom);
     
     this.fileInput.addEventListener('change', () => {
+      this.passwordInput.value = '';
+      this.filePasswordGroup.hidden = true;
+      this.encryptedFile = null;
       this.resetBackupLockPrompt();
       this.validateSelectedFile();
     });
-    const checkPassword = debounce(() => this.validateSelectedFile(), 500);
+    const checkDrivePassword = debounce(() => {
+      if (this.sourceLocationSelect.value === 'google-drive') this.validateSelectedFile();
+    }, 500);
     this.passwordInput.addEventListener('input', () => {
+      this.resetBackupLockPrompt();
+      this.removeFileInjectedNetids();
       this.resetFileValidation();
-      checkPassword();
+      if (this.sourceLocationSelect.value === 'google-drive') checkDrivePassword();
     });
     this.backupAccountLock.addEventListener('input', () => this.updateButtonState());
 
@@ -18766,17 +18774,18 @@ class RestoreAccountModal {
     if (isGoogleDrive) this.fileInput.value = '';
     this.clearSelectedGoogleDriveFile();
     
-    // Update password required indicator
-    if (this.passwordRequired) {
-      this.passwordRequired.style.display = isGoogleDrive ? 'inline' : 'none';
-    }
+    this.encryptedFile = null;
+    this.passwordInput.value = '';
+    this.filePasswordGroup.hidden = !isGoogleDrive;
+    this.updateButtonState();
   }
 
   // Update the submit button state based on form validity
   updateButtonState() {
-    const needsFilePassword = this.sourceLocationSelect.value === 'google-drive' && !this.passwordInput.value.trim();
+    const isDrive = this.sourceLocationSelect.value === 'google-drive';
+    const needsFilePassword = !this.filePasswordGroup.hidden && !(isDrive ? this.passwordInput.value.trim() : this.passwordInput.value);
     const needsAccountPassword = this.backupAccountLockGroup.style.display !== 'none' && !this.backupAccountLock.value;
-    this.submitButton.disabled = this.submitCoolingDown || !this.selectedBackup || needsFilePassword || needsAccountPassword;
+    this.submitButton.disabled = this.submitCoolingDown || !(this.selectedBackup || this.encryptedFile) || needsFilePassword || needsAccountPassword;
   }
 
   resetFileValidation() {
@@ -18955,37 +18964,49 @@ class RestoreAccountModal {
     if (isDrive ? !this.selectedGoogleDriveFile : !file) return;
 
     try {
-      const content = isDrive ? this.googleDriveFileContent : await file.text();
+      const content = (isDrive ? this.googleDriveFileContent : await file.text()).trim();
       if (validationId !== this.validationId) return;
-      const backup = this.parseBackupFile(content);
-      const { entries, skipped } = this.getBackupAccountEntries(backup);
-      if (!entries.length) {
-        this.showUnavailableAccounts(skipped);
-        return;
-      }
-      if (backup.lock && !this.getReusableBackupKey(backup, entries)) {
-        this.backupAccountLockGroup.style.display = 'block';
-      } else {
-        this.resetBackupLockPrompt();
-      }
-      const existing = new Set(Array.from(this.oldStringSelect.options, option => option.value));
-      for (const { netid } of entries) {
-        if (existing.has(netid)) continue;
-        existing.add(netid);
-        for (const select of [this.oldStringSelect, this.newStringSelect]) {
-          const option = new Option(`${netid} (from file)`, netid);
-          option.dataset.source = 'file';
-          select.add(option);
+      if (RestoreAccountModal.isBackupCiphertext(content)) {
+        if (isDrive) {
+          this.readBackup(this.decryptFile(content, this.passwordInput.value.trim()));
+        } else {
+          this.encryptedFile = content;
+          this.filePasswordGroup.hidden = false;
         }
+      } else {
+        this.readBackup(content);
       }
-      PopupSelect.syncAll(this.importForm);
-      this.selectedBackup = { data: backup, entries, skipped };
     } catch (error) {
       if (validationId !== this.validationId) return;
-      this.resetBackupLockPrompt();
       this.fileStatus.textContent = error.message;
     }
     this.updateButtonState();
+  }
+
+  readBackup(content) {
+    const backup = this.parseBackupFile(content);
+    const { entries, skipped } = this.getBackupAccountEntries(backup);
+    if (!entries.length) {
+      this.showUnavailableAccounts(skipped);
+      return;
+    }
+    if (backup.lock && !this.getReusableBackupKey(backup, entries)) {
+      this.backupAccountLockGroup.style.display = 'block';
+    } else {
+      this.resetBackupLockPrompt();
+    }
+    const existing = new Set(Array.from(this.oldStringSelect.options, option => option.value));
+    for (const { netid } of entries) {
+      if (existing.has(netid)) continue;
+      existing.add(netid);
+      for (const select of [this.oldStringSelect, this.newStringSelect]) {
+        const option = new Option(`${netid} (from file)`, netid);
+        option.dataset.source = 'file';
+        select.add(option);
+      }
+    }
+    PopupSelect.syncAll(this.importForm);
+    this.selectedBackup = { data: backup, entries, skipped };
   }
 
   static invalidBackup() {
@@ -18998,14 +19019,14 @@ class RestoreAccountModal {
       && /^[A-Za-z0-9+/]+={0,2}$/.test(value);
   }
 
-  parseBackupFile(content) {
-    let text = content.trim();
-    if (RestoreAccountModal.isBackupCiphertext(text)) {
-      const password = this.passwordInput.value.trim();
-      if (!password) throw new Error('Enter the file password to check this backup.');
-      text = decryptData(text, password);
-      if (text === null) throw new Error('Unable to decrypt the backup. Check the file password.');
-    }
+  decryptFile(content, password) {
+    if (!password) throw new Error('Enter the file password to check this backup.');
+    const plaintext = decryptData(content, password);
+    if (plaintext === null) throw new Error('Unable to decrypt the backup. Check the file password.');
+    return plaintext;
+  }
+
+  parseBackupFile(text) {
     let data;
     try {
       data = parse(text);
@@ -19178,10 +19199,22 @@ class RestoreAccountModal {
     event.preventDefault();
 
     this.submitCoolingDown = true;
-    const backup = this.selectedBackup;
-    if (!backup) return;
+    if (!this.selectedBackup && this.encryptedFile) {
+      this.fileStatus.textContent = '';
+      try {
+        this.readBackup(this.decryptFile(this.encryptedFile, this.passwordInput.value));
+      } catch (error) {
+        this.fileStatus.textContent = error.message;
+        return;
+      }
+      if (this.backupAccountLockGroup.style.display !== 'none') {
+        this.backupAccountLock.focus();
+        return;
+      }
+    }
+    if (!this.selectedBackup) return;
     try {
-      const result = await this.mergeBackupAccountsToLocal(backup);
+      const result = await this.mergeBackupAccountsToLocal(this.selectedBackup);
       if (!result) return;
       const { restored, skipped } = result;
       const skippedSummary = this.sourceLocationSelect.value === 'google-drive' ? `, ${skipped} skipped` : '';
