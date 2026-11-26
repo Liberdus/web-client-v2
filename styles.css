@@ -8237,6 +8237,10 @@ mark {
   padding-left: 15px; /* Add some padding back for the left edge */
 }
 
+.toast.restore-progress {
+  transition: none;
+}
+
 .toast.loading::before {
   content: '';
   width: 20px;
