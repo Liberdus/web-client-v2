@@ -1386,6 +1386,17 @@
         <a class="last-item" href="#"> </a>
       </div>
 
+      <dialog id="restoreReviewDialog" aria-labelledby="restoreReviewTitle">
+        <h2 id="restoreReviewTitle">Review Google Drive restore</h2>
+        <p id="restoreReviewSummary"></p>
+        <p>These records will be skipped.</p>
+        <ul id="restoreSkippedRecords"></ul>
+        <form method="dialog" class="form-actions">
+          <button value="cancel" class="btn btn--secondary btn--pill" autofocus>Cancel</button>
+          <button value="restore" class="btn btn--primary btn--pill" id="confirmPartialRestore"></button>
+        </form>
+      </dialog>
+
       <!-- Google Drive File Picker Modal -->
       <div class="modal fixed-header" id="googleDrivePickerModal">
         <div class="modal-header">

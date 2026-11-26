@@ -9701,6 +9701,31 @@ small {
   gap: 16px;
 }
 
+#restoreReviewDialog {
+  width: min(28rem, 90vw);
+  max-height: 80vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  margin: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--background-color);
+  color: var(--text-color);
+}
+
+#restoreReviewDialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+#restoreReviewDialog p, #restoreReviewDialog ul {
+  margin-block: 0.75rem;
+}
+
+#restoreSkippedRecords, #restoreFileStatus ul {
+  padding-inline-start: 1.5rem;
+}
+
 .modal-dialog .modal-actions {
   display: flex;
   flex-direction: column; /* Stack buttons vertically */
