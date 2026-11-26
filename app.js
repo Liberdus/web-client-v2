@@ -19252,7 +19252,7 @@ class RestoreAccountModal {
       const identity = this.parseBackupAccountKey(key);
       if (!identity) continue;
       // All-account exports also include the per-network client version.
-      if (identity.username === 'version' && typeof value === 'string' && /^[0-9.]+$/.test(value)) continue;
+      if (identity.username === 'version' && typeof value === 'string' && /^[0-9.]+$/.test(value.trim())) continue;
       const entry = { key, ...identity };
       if (backupData.lock) {
         if (!RestoreAccountModal.isBackupCiphertext(value)) throw RestoreAccountModal.invalidBackup();
