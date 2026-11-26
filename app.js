@@ -18699,7 +18699,10 @@ class RestoreAccountModal {
     
     this.fileInput.addEventListener('change', () => this.selectLocalFile());
     this.passwordInput.addEventListener('input', () => this.resetFileValidation());
-    this.backupAccountLock.addEventListener('input', () => this.updateButtonState());
+    this.backupAccountLock.addEventListener('input', () => {
+      this.validationId++;
+      this.updateButtonState();
+    });
 
     // Google Drive event listeners
     this.sourceLocationSelect.addEventListener('change', () => this.handleSourceLocationChange());
@@ -19079,7 +19082,22 @@ class RestoreAccountModal {
     return modifiedContent;
   }
 
-  async mergeBackupAccountsToLocal({ data: backupData, entries, skipped }) {
+  async prepareRestore() {
+    if (!this.selectedBackup && this.encryptedFile !== null) {
+      this.fileStatus.textContent = '';
+      try {
+        this.readBackup(this.decryptFile(this.encryptedFile, this.passwordInput.value));
+      } catch (error) {
+        this.fileStatus.textContent = error.message;
+        return;
+      }
+      if (this.backupAccountLockGroup.style.display !== 'none') {
+        this.backupAccountLock.focus();
+        return;
+      }
+    }
+    if (!this.selectedBackup?.entries.length) return;
+    let { data: backupData, entries, skipped } = this.selectedBackup;
     const isDrive = this.sourceLocationSelect.value === 'google-drive';
     const overwrite = this.overwriteAccountsCheckbox.checked;
     const validationId = this.validationId;
@@ -19090,11 +19108,11 @@ class RestoreAccountModal {
         const password = this.backupAccountLock.value;
         if (!password) throw new Error('Enter the backup account password.');
         backupEncKey = await passwordToKey(password + 'liberdusData');
-        if (validationId !== this.validationId || password !== this.backupAccountLock.value) return false;
+        if (validationId !== this.validationId || password !== this.backupAccountLock.value) return;
         if (isDrive && !entries.some(({ key }) => this.tryDecryptBackupAccount(backupData[key], backupEncKey) !== null)) {
           // The lock verifier distinguishes a wrong password from a backup with only damaged records.
           const passwordMatches = await lockModal.verifyPassword(password, backupData.lock);
-          if (validationId !== this.validationId || password !== this.backupAccountLock.value) return false;
+          if (validationId !== this.validationId || password !== this.backupAccountLock.value) return;
           if (!passwordMatches) throw new Error('Unable to unlock the backup. Check the backup account password.');
         }
       }
@@ -19117,20 +19135,17 @@ class RestoreAccountModal {
       entries = entries.filter(entry => {
         if (localStorage.getItem(entry.key) === null) return true;
         skipped.push(this.describeSkippedRecord(entry, 'Already on this device.'));
-        return false;
+        return;
       });
     }
     if (!entries.length) {
       this.showUnavailableAccounts(skipped);
-      return false;
+      return;
     }
-    const confirmed = skipped.length
-      ? await this.confirmPartialRestore(entries.length, skipped, overwrite)
-      : confirm('⚠️ WARNING: This will import all accounts from the backup file.\n\nExisting local accounts will not be removed. If "Overwrite existing accounts" is checked, accounts with the same username and netid will be replaced.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
-    if (!confirmed || validationId !== this.validationId) {
-      showToast('Restore cancelled by user', 2000, 'info');
-      return false;
-    }
+    return { backupData, entries, skipped, overwrite, backupEncKey };
+  }
+
+  async mergeBackupAccountsToLocal({ backupData, entries, skipped, overwrite, backupEncKey }) {
     const localEncKey = localStorage.lock && !unlockModal.isLocked() ? lockModal.encKey : null;
     if (localStorage.lock && !localEncKey) throw new Error('Please unlock your local accounts before importing.');
 
@@ -19173,26 +19188,35 @@ class RestoreAccountModal {
     return { restored, skipped: skipped.length + (entries.length - restored) };
   }
 
+  async withRestoreProgress(message, work) {
+    const validationId = this.validationId;
+    const toastId = showToast(message, 0, 'loading', false, { dedupe: false, className: 'restore-progress' });
+    try {
+      // showToast reveals the spinner on a timer. Paint it before synchronous decryption or storage writes.
+      await waitForPaint(20);
+      if (validationId !== this.validationId) return;
+      return await work();
+    } finally {
+      hideToast(toastId);
+    }
+  }
+
   async handleSubmit(event) {
     event.preventDefault();
 
     this.submitCoolingDown = true;
-    if (!this.selectedBackup && this.encryptedFile !== null) {
-      this.fileStatus.textContent = '';
-      try {
-        this.readBackup(this.decryptFile(this.encryptedFile, this.passwordInput.value));
-      } catch (error) {
-        this.fileStatus.textContent = error.message;
-        return;
-      }
-      if (this.backupAccountLockGroup.style.display !== 'none') {
-        this.backupAccountLock.focus();
-        return;
-      }
-    }
-    if (!this.selectedBackup?.entries.length) return;
+    const validationId = this.validationId;
     try {
-      const result = await this.mergeBackupAccountsToLocal(this.selectedBackup);
+      const plan = await this.withRestoreProgress('Checking backup...', () => this.prepareRestore());
+      if (!plan || validationId !== this.validationId) return;
+      const confirmed = plan.skipped.length
+        ? await this.confirmPartialRestore(plan.entries.length, plan.skipped, plan.overwrite)
+        : confirm('⚠️ WARNING: This will import all accounts from the backup file.\n\nExisting local accounts will not be removed. If "Overwrite existing accounts" is checked, accounts with the same username and netid will be replaced.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
+      if (!confirmed || validationId !== this.validationId) {
+        showToast('Restore cancelled by user', 2000, 'info');
+        return;
+      }
+      const result = await this.withRestoreProgress('Restoring accounts...', () => this.mergeBackupAccountsToLocal(plan));
       if (!result) return;
       const { restored, skipped } = result;
       const skippedSummary = this.sourceLocationSelect.value === 'google-drive' ? `, ${skipped} skipped` : '';
