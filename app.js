@@ -18640,8 +18640,6 @@ class RestoreAccountModal {
     this.submitCoolingDown = false;
     this.selectedBackup = null;
     this.encryptedFile = null;
-    this.selectedGoogleDriveFile = null; // Store selected Google Drive file info
-    this.googleDriveFileContent = null; // Store downloaded file content
   }
 
   load() {
@@ -18699,28 +18697,14 @@ class RestoreAccountModal {
     this.setupMutualExclusion(this.oldStringSelect, this.oldStringCustom);
     this.setupMutualExclusion(this.newStringSelect, this.newStringCustom);
     
-    this.fileInput.addEventListener('change', () => {
-      this.passwordInput.value = '';
-      this.filePasswordGroup.hidden = true;
-      this.encryptedFile = null;
-      this.resetBackupLockPrompt();
-      this.validateSelectedFile();
-    });
-    const checkDrivePassword = debounce(() => {
-      if (this.sourceLocationSelect.value === 'google-drive') this.validateSelectedFile();
-    }, 500);
-    this.passwordInput.addEventListener('input', () => {
-      this.resetBackupLockPrompt();
-      this.removeFileInjectedNetids();
-      this.resetFileValidation();
-      if (this.sourceLocationSelect.value === 'google-drive') checkDrivePassword();
-    });
+    this.fileInput.addEventListener('change', () => this.selectLocalFile());
+    this.passwordInput.addEventListener('input', () => this.resetFileValidation());
     this.backupAccountLock.addEventListener('input', () => this.updateButtonState());
 
     // Google Drive event listeners
     this.sourceLocationSelect.addEventListener('change', () => this.handleSourceLocationChange());
     this.pickGoogleDriveFileBtn.addEventListener('click', () => this.openGoogleDrivePicker());
-    this.clearGoogleDriveFileBtn.addEventListener('click', () => this.clearSelectedGoogleDriveFile());
+    this.clearGoogleDriveFileBtn.addEventListener('click', () => this.clearFileSelection());
     this.closePickerBtn.addEventListener('click', () => this.closeGoogleDrivePicker());
 
     // Reset form state
@@ -18772,20 +18756,16 @@ class RestoreAccountModal {
     
     // Clear selections when switching
     if (isGoogleDrive) this.fileInput.value = '';
-    this.clearSelectedGoogleDriveFile();
-    
-    this.encryptedFile = null;
-    this.passwordInput.value = '';
-    this.filePasswordGroup.hidden = !isGoogleDrive;
-    this.updateButtonState();
+    this.closeGoogleDrivePicker();
+    this.clearFileSelection();
   }
 
   // Update the submit button state based on form validity
   updateButtonState() {
-    const isDrive = this.sourceLocationSelect.value === 'google-drive';
-    const needsFilePassword = !this.filePasswordGroup.hidden && !(isDrive ? this.passwordInput.value.trim() : this.passwordInput.value);
+    const hasFile = this.selectedBackup ? this.selectedBackup.entries.length > 0 : this.encryptedFile !== null;
+    const needsFilePassword = !this.filePasswordGroup.hidden && !this.passwordInput.value;
     const needsAccountPassword = this.backupAccountLockGroup.style.display !== 'none' && !this.backupAccountLock.value;
-    this.submitButton.disabled = this.submitCoolingDown || !(this.selectedBackup || this.encryptedFile) || needsFilePassword || needsAccountPassword;
+    this.submitButton.disabled = this.submitCoolingDown || !hasFile || needsFilePassword || needsAccountPassword;
   }
 
   resetFileValidation() {
@@ -18793,15 +18773,19 @@ class RestoreAccountModal {
     if (this.reviewDialog.open) this.reviewDialog.close('cancel');
     this.selectedBackup = null;
     this.fileStatus.textContent = '';
+    this.resetBackupLockPrompt();
+    this.removeFileInjectedNetids();
     this.updateButtonState();
   }
 
   // Open Google Drive file picker
   async openGoogleDrivePicker() {
+    const requestId = ++this.validationId;
     try {
       // Start OAuth flow using the backup modal's auth method
       showToast('Approve Drive access in the Google window.', 3000, 'info');
       const tokenData = await backupModal.startGoogleDriveAuth();
+      if (requestId !== this.validationId) return;
       
       // Show picker modal and load files
       openModal(this.pickerModal);
@@ -18810,15 +18794,16 @@ class RestoreAccountModal {
       this.pickerEmpty.style.display = 'none';
       
       // List files from backup folder
-      await this.loadGoogleDriveFiles(tokenData);
+      await this.loadGoogleDriveFiles(tokenData, requestId);
     } catch (error) {
+      if (requestId !== this.validationId) return;
       console.error('Google Drive authentication failed:', error);
       showToast(error.message || 'Authentication failed.', 0, 'error');
     }
   }
 
   // Load files from Google Drive backup folder
-  async loadGoogleDriveFiles(tokenData) {
+  async loadGoogleDriveFiles(tokenData, requestId) {
     try {
       const folderName = network.googleDrive.backupFolder;
       
@@ -18842,6 +18827,7 @@ class RestoreAccountModal {
       }
       
       const folderData = await folderRes.json();
+      if (requestId !== this.validationId) return;
       
       if (!folderData.files || folderData.files.length === 0) {
         // No backup folder found
@@ -18873,6 +18859,7 @@ class RestoreAccountModal {
       }
       
       const filesData = await filesRes.json();
+      if (requestId !== this.validationId) return;
       
       this.pickerLoading.style.display = 'none';
       
@@ -18886,6 +18873,7 @@ class RestoreAccountModal {
       this.pickerFileList.style.display = 'block';
       
     } catch (error) {
+      if (requestId !== this.validationId) return;
       console.error('Failed to load Google Drive files:', error);
       showToast('Failed to load files from Google Drive.', 0, 'error');
       this.closeGoogleDrivePicker();
@@ -18918,6 +18906,7 @@ class RestoreAccountModal {
 
   // Select a file from Google Drive
   async selectGoogleDriveFile(file, tokenData) {
+    const requestId = ++this.validationId;
     try {
       showToast('Downloading backup file...', 2000, 'info');
       
@@ -18936,43 +18925,33 @@ class RestoreAccountModal {
       }
       
       const fileContent = await downloadRes.text();
-      
-      // Store file info and content
-      this.selectedGoogleDriveFile = file;
-      this.googleDriveFileContent = fileContent;
-      
-      // Update UI
-      this.selectedGoogleDriveFileDisplay.style.display = 'flex';
-      this.selectedGoogleDriveFileDisplay.querySelector('.selected-file-name').textContent = file.name;
-      
+      if (requestId !== this.validationId) return;
       this.closeGoogleDrivePicker();
-      this.resetBackupLockPrompt();
-      await this.validateSelectedFile();
+      this.clearFileSelection();
+      this.encryptedFile = fileContent.trim();
+      this.selectedGoogleDriveFileDisplay.querySelector('.selected-file-name').textContent = file.name;
+      this.selectedGoogleDriveFileDisplay.style.display = 'flex';
+      this.filePasswordGroup.hidden = false;
+      this.updateButtonState();
     } catch (error) {
+      if (requestId !== this.validationId) return;
       console.error('Failed to download file:', error);
       showToast('Failed to download file from Google Drive.', 0, 'error');
     }
   }
 
-  // File type and extension are picker hints. Only the file contents establish a backup.
-  async validateSelectedFile() {
-    this.resetFileValidation();
+  async selectLocalFile() {
+    this.clearFileSelection();
     const validationId = this.validationId;
-    const isDrive = this.sourceLocationSelect.value === 'google-drive';
     const file = this.fileInput.files[0];
-    this.removeFileInjectedNetids();
-    if (isDrive ? !this.selectedGoogleDriveFile : !file) return;
+    if (!file) return;
 
     try {
-      const content = (isDrive ? this.googleDriveFileContent : await file.text()).trim();
+      const content = (await file.text()).trim();
       if (validationId !== this.validationId) return;
       if (RestoreAccountModal.isBackupCiphertext(content)) {
-        if (isDrive) {
-          this.readBackup(this.decryptFile(content, this.passwordInput.value.trim()));
-        } else {
-          this.encryptedFile = content;
-          this.filePasswordGroup.hidden = false;
-        }
+        this.encryptedFile = content;
+        this.filePasswordGroup.hidden = false;
       } else {
         this.readBackup(content);
       }
@@ -18986,6 +18965,7 @@ class RestoreAccountModal {
   readBackup(content) {
     const backup = this.parseBackupFile(content);
     const { entries, skipped } = this.getBackupAccountEntries(backup);
+    this.selectedBackup = { data: backup, entries, skipped };
     if (!entries.length) {
       this.showUnavailableAccounts(skipped);
       return;
@@ -19006,7 +18986,6 @@ class RestoreAccountModal {
       }
     }
     PopupSelect.syncAll(this.importForm);
-    this.selectedBackup = { data: backup, entries, skipped };
   }
 
   static invalidBackup() {
@@ -19041,19 +19020,18 @@ class RestoreAccountModal {
     return data;
   }
 
-  // Clear selected Google Drive file
-  clearSelectedGoogleDriveFile() {
-    this.selectedGoogleDriveFile = null;
-    this.googleDriveFileContent = null;
+  clearFileSelection() {
+    this.encryptedFile = null;
+    this.passwordInput.value = '';
+    this.filePasswordGroup.hidden = true;
     this.selectedGoogleDriveFileDisplay.style.display = 'none';
     this.selectedGoogleDriveFileDisplay.querySelector('.selected-file-name').textContent = '';
-    this.removeFileInjectedNetids();
-    this.resetBackupLockPrompt();
     this.resetFileValidation();
   }
 
   // Close the Google Drive picker modal
   closeGoogleDrivePicker() {
+    this.validationId++;
     this.pickerModal.classList.remove('active');
     this.pickerFileList.innerHTML = '';
   }
@@ -19199,7 +19177,7 @@ class RestoreAccountModal {
     event.preventDefault();
 
     this.submitCoolingDown = true;
-    if (!this.selectedBackup && this.encryptedFile) {
+    if (!this.selectedBackup && this.encryptedFile !== null) {
       this.fileStatus.textContent = '';
       try {
         this.readBackup(this.decryptFile(this.encryptedFile, this.passwordInput.value));
@@ -19212,7 +19190,7 @@ class RestoreAccountModal {
         return;
       }
     }
-    if (!this.selectedBackup) return;
+    if (!this.selectedBackup?.entries.length) return;
     try {
       const result = await this.mergeBackupAccountsToLocal(this.selectedBackup);
       if (!result) return;
@@ -19250,7 +19228,6 @@ class RestoreAccountModal {
 
   clearForm() {
     this.fileInput.value = '';
-    this.passwordInput.value = '';
     this.developerOptionsToggle.checked = false;
     this.oldStringCustom.value = '';
     this.newStringCustom.value = '';
