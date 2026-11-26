@@ -1881,6 +1881,20 @@ class ChatsScreen {
     this.syncLog = new Map();
   }
 
+  // The history request starts at chatTimestamp + 1. Include the first November /test rollout.
+  applyNovemberChatRecovery(account) {
+    if (network.name !== 'Testnet' || !/^\/test(?:\/|$)/.test(window.location.pathname)) return false;
+    if (account.migrations?.november2026ChatRecovery === true) return false;
+
+    const cutoff = Date.parse('2026-11-18T17:31:19Z');
+    if (account.chatTimestamp > cutoff) account.chatTimestamp = cutoff - 1;
+    if (!account.migrations || typeof account.migrations !== 'object' || Array.isArray(account.migrations)) {
+      account.migrations = {};
+    }
+    account.migrations.november2026ChatRecovery = true;
+    return true;
+  }
+
   // Record changes in outcome, so polling the same failed chat stays quiet.
   logSyncOutcome(operation, id, outcome, recovered = false) {
     const key = `${myAccount?.keys?.address}:${operation}:${id}`;
@@ -9908,8 +9922,6 @@ class SignInModal {
     const username = this.selectedUsername;
     assert(username, 'Sign-in requires selected account');
 
-    history.pushState({state:1}, "", ".")
-    window.addEventListener('popstate', handleBrowserBackButton);
     enterFullscreen();
 
     const { netid } = network;
@@ -9919,6 +9931,10 @@ class SignInModal {
     myData = loadState(`${username}_${netid}`);
     assert(myData, `Account data missing for ${username}`);
     myAccount = myData.account;
+    // Check the deployment path before pushState normalizes the sign-in URL.
+    if (chatsScreen.applyNovemberChatRecovery(myAccount)) saveState();
+    history.pushState({state:1}, "", ".");
+    window.addEventListener('popstate', handleBrowserBackButton);
     chatModal.resetPendingMessageConfirmations();
     logsModal.log(`SignIn as ${username}_${netid}`)
     this.recordRecentSignInUsername(username);
@@ -12593,10 +12609,11 @@ function purgePendingReactionsForTarget(contactAddress, targetTxid) {
 /**
  * Applies a reaction control message to the contact-level active reaction state.
  * @param {Object} contact
- * @param {ReactionUpdate} reaction
+ * @param {ReactionUpdate & {order: number}} reaction
+ * @param {Map<string, number>} batchOrder
  * @returns {boolean}
  */
-function applyIncomingReaction(contact, reaction) {
+function applyIncomingReaction(contact, reaction, batchOrder) {
   const targetMessage = contact.messages.find((message) => message.txid === reaction.reactId);
   if (!targetMessage || isDeleted(targetMessage)) {
     console.warn('Reaction target not found locally', reaction);
@@ -12610,8 +12627,14 @@ function applyIncomingReaction(contact, reaction) {
     contact.reactions = [];
   }
 
+  if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
+    return false;
+  }
   const sender = normalizeAddress(reaction.sender);
   const latestReactionState = getLatestReactionStateForSenderTarget(contact, reaction.reactId, sender);
+  // Replaying same-millisecond controls must respect the order already applied from this history.
+  if (latestReactionState?.timestamp === reaction.timestamp &&
+      batchOrder.get(latestReactionState.reactionTxId) > reaction.order) return false;
   const isIncomingOlderThanCurrent = !!latestReactionState && latestReactionState.timestamp > reaction.timestamp;
 
   switch (reaction.action) {
@@ -12642,10 +12665,6 @@ function applyIncomingReaction(contact, reaction) {
     case 'set': {
       const emoji = reaction.emoji.trim();
       const currentReaction = getEffectiveReactionForSenderTarget(contact, reaction.reactId, sender);
-      // don't allow duplicate reactions
-      if (reaction.reactionTxId && contact.reactions.some((entry) => entry.reactionTxId === reaction.reactionTxId)) {
-        return false;
-      }
       if (isIncomingOlderThanCurrent) {
         return false;
       }
@@ -13030,7 +13049,7 @@ const DELETE_FOR_ALL_ACTION_GUARD_MS = 10000;
  * @param {string} contactAddress
  * @param {{
  *   targetTxid: string,
- *   previousMessage: { message: string, edited?: number, edited_timestamp?: number },
+ *   previousMessage: { message: string, edited?: number, edited_timestamp?: number, editTxid?: string },
  *   previousHistory:
  *     | { kind: 'none' }
  *     | { kind: 'payment', memo?: string, edited?: number, edited_timestamp?: number },
@@ -13060,6 +13079,8 @@ function restorePendingMessageEdit(pendingTxid, contactAddress, editPending) {
   } else {
     delete message.edited_timestamp;
   }
+  if (previousMessage.editTxid) message.editTxid = previousMessage.editTxid;
+  else delete message.editTxid;
 
   const existingChatIndex = myData.chats.findIndex((chat) => chat.address === contactAddress);
   if (existingChatIndex !== -1 && myData.chats[existingChatIndex].txid === pendingTxid) {
@@ -13731,14 +13752,12 @@ async function processChats(chats, keys) {
           const statusHistoryItem = buildUpdateTollRequiredHistoryItem(tx, txidHex, currentUserAddress);
           const didInsertStatusHistory = insertUpdateTollRequiredHistoryItem(statusContact, statusHistoryItem);
           if (didInsertStatusHistory) {
-            if (statusHistoryItem.my && isNewerUpdateTollRequiredHistoryItem(statusHistoryItem, myStatusUpdate)) {
-              myStatusUpdate = statusHistoryItem;
-            } else if (!statusHistoryItem.my && isNewerUpdateTollRequiredHistoryItem(statusHistoryItem, contactStatusUpdate)) {
-              contactStatusUpdate = statusHistoryItem;
+            const hasNewerStatus = statusContact.messages.some((item) => item.type === 'update_toll_required'
+              && item.my === statusHistoryItem.my && isNewerUpdateTollRequiredHistoryItem(item, statusHistoryItem));
+            if (!hasNewerStatus) {
+              if (statusHistoryItem.my) myStatusUpdate = statusHistoryItem;
+              else contactStatusUpdate = statusHistoryItem;
             }
-          }
-
-          if (didInsertStatusHistory) {
             syncChatLatestActivityTimestamp(statusContactAddress, statusContact);
             didApplyStatusChange = true;
           }
@@ -13765,10 +13784,19 @@ async function processChats(chats, keys) {
           if (mine && (typeof contact.latestOutboundMessageTimestamp !== 'number' || tx.timestamp > contact.latestOutboundMessageTimestamp)) {
             contact.latestOutboundMessageTimestamp = tx.timestamp;
           }
-          if (mine){
-            // console.warn('my message tx', tx)
+          const savedMessage = contact.messages.find((message) => message.txid === txidHex);
+          // A locally created EVM receipt can still need confirmation from the signed transaction.
+          const needsPaymentConfirmation = savedMessage?.type === EVM_CHAT_MESSAGE_TYPE
+            && !savedMessage.paymentMessageConfirmed && !isDeleted(savedMessage);
+          if (savedMessage && !needsPaymentConfirmation) {
+            if (mine && savedMessage.type === 'call' && savedMessage.pendingCallReminder) {
+              delete savedMessage.pendingCallReminder;
+              if (!isDeleted(savedMessage)) chatModal.scheduleCallReminder(contact.username, savedMessage.callTime);
+            }
+            newTimestamp = Math.max(newTimestamp, tx.timestamp);
+            continue;
           }
-          else if (payload.encrypted) {
+          if (!mine && payload.encrypted) {
             await ensureContactKeys(from);
             if (myAccount !== syncAccount) return;
             if (!myData.contacts[from]?.public) {
@@ -13808,6 +13836,11 @@ async function processChats(chats, keys) {
                   const messageToDelete = contact.messages.find(msg => msg.txid === txidToDelete);
                   if (!messageToDelete) {
                     continue; // ignore delete control messages for missing txid
+                  }
+                  if (messageToDelete.my !== mine) continue;
+                  if (isDeletedForAll(messageToDelete)) {
+                    newTimestamp = Math.max(newTimestamp, tx.timestamp);
+                    continue;
                   }
                   const unreadIncomingMessageCount = Math.max(0, contact.unread || 0);
                   // check if the message is unread and not in the active chat and not a payment
@@ -13878,7 +13911,7 @@ async function processChats(chats, keys) {
                     );
                   }
 
-                  if (reactNativeApp.isReactNativeWebView && messageToDelete.type === 'call' && Number(messageToDelete.callTime) > 0) {
+                  if (didDeleteMessage && reactNativeApp.isReactNativeWebView && messageToDelete.type === 'call' && Number(messageToDelete.callTime) > 0) {
                     reactNativeApp.sendCancelScheduledCall(contact?.username, Number(messageToDelete.callTime));
                   }
                   if (didDeleteMessage) {
@@ -13921,11 +13954,16 @@ async function processChats(chats, keys) {
                           console.warn('Ignoring edit outside allowed time window', { originalTs, editTs, txid: txidToEdit });
                           continue; // too old or invalid edit; skip processing this control message
                         }
-                        // Update chat message memo/text
+                        // A rewind can return edits already reflected in the saved text.
+                        newTimestamp = Math.max(newTimestamp, editTs);
+                        const savedEditTs = Number(messageToEdit.edited_timestamp);
+                        if (editTs < savedEditTs) continue;
+                        if (editTs === savedEditTs &&
+                            (!messageToEdit.editTxid || txidHex <= messageToEdit.editTxid)) continue;
+                        messageToEdit.editTxid = txidHex;
                         messageToEdit.message = newText;
                         messageToEdit.edited = 1;
-                        messageToEdit.edited_timestamp = tx.timestamp;
-                        newTimestamp = Math.max(newTimestamp, tx.timestamp);
+                        messageToEdit.edited_timestamp = editTs;
                         syncChatLatestActivityTimestamp(from, contact);
                         // Also update wallet history entry memo if present
                         if (myData?.wallet?.history && Array.isArray(myData.wallet.history)) {
@@ -13933,7 +13971,7 @@ async function processChats(chats, keys) {
                           if (hIdx !== -1) {
                             myData.wallet.history[hIdx].memo = newText;
                             myData.wallet.history[hIdx].edited = 1;
-                            myData.wallet.history[hIdx].edited_timestamp = tx.timestamp;
+                            myData.wallet.history[hIdx].edited_timestamp = editTs;
                           }
                         }
                         if (!messageToEdit.my && !inActiveChatWithSender) {
@@ -13951,14 +13989,6 @@ async function processChats(chats, keys) {
                   payload.type = 'call';
                   // Use callTime when present; default to 0 (immediate)
                   payload.callTime = Number(parsedMessage.callTime) || 0;
-                  if (payload.callTime && reactNativeApp.isReactNativeWebView) {
-                    // Send it to the native app to display the scheduled call notification
-                    if (!chatModal.isCallExpired(payload.callTime) || chatModal.isFutureCall(payload.callTime)) {
-                      // Pass the current account address so we can show bell in sign-in modal
-                      const accountAddress = myAccount?.keys?.address;
-                      reactNativeApp.sendScheduledCall(contact.username, payload.callTime, accountAddress);
-                    }
-                  }
                 } else if (parsedMessage.type === 'vm') {
                   // Voice message format processing
                   payload.message = ''; // Voice messages don't have text
@@ -14162,20 +14192,8 @@ async function processChats(chats, keys) {
               continue;
             }
           }
-          //  skip if this tx was processed before and is already in contact.messages;
-          //    messages are the same if the messages[x].sent_timestamp is the same as the tx.timestamp,
-          //    and messages[x].my is false and messages[x].message == payload.message
-          let alreadyExists = false;
-          for (const messageTx of contact.messages) {
-            if (messageTx.txid === txidHex) {
-              alreadyExists = true;
-              break;
-            }
-          }
-          if (alreadyExists) {
-            //console.log(`Skipping already existing message: ${payload.sent_timestamp}`);
-            continue; // Skip to the next message
-          }
+          // Another sync can finish while a required key or username lookup is pending.
+          if (contact.messages.some((message) => message.txid === txidHex)) continue;
           // One card per payment. A receipt retried after a lost response can
           // land twice under two txids; the second says nothing new. For our
           // own card it is proof the receipt arrived after all.
@@ -14227,8 +14245,9 @@ async function processChats(chats, keys) {
           
           insertSorted(contact.messages, payload, 'timestamp');
           if (payload.type === EVM_CHAT_MESSAGE_TYPE) queueEvmPaymentMessage(payload);
-          if (payload.type === 'call' && shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) {
-            needsUpcomingCallsUiRefresh = true;
+          if (payload.type === 'call') {
+            chatModal.scheduleCallReminder(contact.username, payload.callTime);
+            if (shouldRefreshUpcomingCallsUiForCallTime(payload.callTime)) needsUpcomingCallsUiRefresh = true;
           }
           if (payload.type === EVM_CHAT_MESSAGE_TYPE || payload.type === INTENTS_CHAT_MESSAGE_TYPE) {
             if (!mine) playTransferSound();
@@ -14242,6 +14261,11 @@ async function processChats(chats, keys) {
 
         //   Process transfer messages; this is a payment with an optional memo 
         else if (tx.type == 'transfer') {
+          const history = myData.wallet.history;
+          if (history.some((payment) => payment.txid === txidHex)) {
+            newTimestamp = Math.max(newTimestamp, tx.timestamp);
+            continue;
+          }
           // Handle transfers without xmemo (e.g., faucet transfers)
           // Ensure payload is always an object, even if xmemo is null/undefined
           let payload = tx.xmemo;
@@ -14325,20 +14349,7 @@ async function processChats(chats, keys) {
           }
 
           newTimestamp = Math.max(newTimestamp, tx.timestamp);
-          // skip if this tx was processed before and is already in the history array;
-          //    txs are the same if the history[x].txid is the same as txidHex
-          const history = myData.wallet.history;
-          let alreadyInHistory = false;
-          for (const historyTx of history) {
-            if (historyTx.txid === txidHex) {
-              alreadyInHistory = true;
-              break;
-            }
-          }
-          if (alreadyInHistory) {
-            //console.log(`Skipping already existing transfer: ${txidHex}`);
-            continue; // Skip to the next message
-          }
+          if (history.some((payment) => payment.txid === txidHex)) continue;
           // add the transfer tx to the wallet history
           const newPayment = {
             txid: txidHex,
@@ -14409,6 +14420,7 @@ async function processChats(chats, keys) {
           return left.timestamp - right.timestamp || left.order - right.order;
         });
 
+        const batchOrder = new Map(pendingReactionControls.map((reaction) => [reaction.reactionTxId, reaction.order]));
         for (const pendingReaction of pendingReactionControls) {
           if (
             pendingReaction.sender === currentUserAddress &&
@@ -14416,7 +14428,7 @@ async function processChats(chats, keys) {
           ) {
             continue;
           }
-          if (applyIncomingReaction(contact, pendingReaction)) {
+          if (applyIncomingReaction(contact, pendingReaction, batchOrder)) {
             didApplyPendingReaction = true;
             syncChatLatestActivityTimestamp(from, contact);
             didChangeReactionPreview = true;
@@ -23319,7 +23331,8 @@ class ChatModal {
           previousMessage: {
             message: editMessage.message,
             edited: editMessage.edited,
-            edited_timestamp: editMessage.edited_timestamp
+            edited_timestamp: editMessage.edited_timestamp,
+            editTxid: editMessage.editTxid
           },
           previousHistory
         };
@@ -23328,6 +23341,7 @@ class ChatModal {
         editMessage.message = message;
         editMessage.edited = 1;
         editMessage.edited_timestamp = payload.sent_timestamp;
+        editMessage.editTxid = txid;
 
         if (previousHistory.kind === 'payment') {
           myData.wallet.history[previousHistoryIndex].memo = message;
@@ -29124,6 +29138,13 @@ class ChatModal {
     }
   }
 
+  scheduleCallReminder(username, callTime) {
+    if (callTime && reactNativeApp.isReactNativeWebView &&
+        (!this.isCallExpired(callTime) || this.isFutureCall(callTime))) {
+      reactNativeApp.sendScheduledCall(username, callTime, myAccount.keys.address);
+    }
+  }
+
   /**
    * Sends a call message with the Meet URL
    * @param {string} meetUrl - The Meet URL to send
@@ -29237,6 +29258,7 @@ class ChatModal {
         type: 'call',
         callTime: normalizedCallTime
       };
+      if (normalizedCallTime && reactNativeApp.isReactNativeWebView) newMessage.pendingCallReminder = true;
       insertSorted(chatsData.contacts[currentAddress].messages, newMessage, 'timestamp');
 
       // Update chats list
@@ -34491,6 +34513,7 @@ class CreateAccountModal {
         };
         // create new data record if it doesn't exist
         myData = newDataRecord(myAccount);
+        chatsScreen.applyNovemberChatRecovery(myAccount);
       }
       res = await postRegisterAlias(username, myAccount.keys, myAccount.private || false);
     } catch (error) {
