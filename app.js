@@ -18664,6 +18664,7 @@ class RestoreAccountModal {
     this.backupAccountLock = document.getElementById('backupAccountLock');
     this.developerOptionsSection = document.getElementById('developerOptionsSection');
     this.submitButton = document.getElementById('restoreSubmitButton');
+    this.reviewDialog = document.getElementById('restoreReviewDialog');
 
     // Google Drive elements
     this.sourceLocationSelect = document.getElementById('restoreSourceLocation');
@@ -18780,6 +18781,7 @@ class RestoreAccountModal {
 
   resetFileValidation() {
     this.validationId++;
+    if (this.reviewDialog.open) this.reviewDialog.close('cancel');
     this.selectedBackup = null;
     this.fileStatus.textContent = '';
     this.updateButtonState();
@@ -18956,7 +18958,11 @@ class RestoreAccountModal {
       const content = isDrive ? this.googleDriveFileContent : await file.text();
       if (validationId !== this.validationId) return;
       const backup = this.parseBackupFile(content);
-      const entries = this.getBackupAccountEntries(backup);
+      const { entries, skipped } = this.getBackupAccountEntries(backup);
+      if (!entries.length) {
+        this.showUnavailableAccounts(skipped);
+        return;
+      }
       if (backup.lock && !this.getReusableBackupKey(backup, entries)) {
         this.backupAccountLockGroup.style.display = 'block';
       } else {
@@ -18973,7 +18979,7 @@ class RestoreAccountModal {
         }
       }
       PopupSelect.syncAll(this.importForm);
-      this.selectedBackup = { data: backup, entries };
+      this.selectedBackup = { data: backup, entries, skipped };
     } catch (error) {
       if (validationId !== this.validationId) return;
       this.resetBackupLockPrompt();
@@ -19074,42 +19080,55 @@ class RestoreAccountModal {
     return modifiedContent;
   }
 
-  /**
-   * @returns {Promise<number|false>} Number of accounts stored, or false if the restore was cancelled.
-   */
-  async mergeBackupAccountsToLocal({ data: backupData, entries }) {
+  async mergeBackupAccountsToLocal({ data: backupData, entries, skipped }) {
+    const isDrive = this.sourceLocationSelect.value === 'google-drive';
     const overwrite = this.overwriteAccountsCheckbox.checked;
+    const validationId = this.validationId;
     let backupEncKey = null;
     if (backupData.lock) {
       backupEncKey = this.getReusableBackupKey(backupData, entries);
       if (!backupEncKey) {
         const password = this.backupAccountLock.value;
         if (!password) throw new Error('Enter the backup account password.');
-        const validationId = this.validationId;
         backupEncKey = await passwordToKey(password + 'liberdusData');
         if (validationId !== this.validationId || password !== this.backupAccountLock.value) return false;
+        if (isDrive && !entries.some(({ key }) => this.tryDecryptBackupAccount(backupData[key], backupEncKey) !== null)) {
+          // The lock verifier distinguishes a wrong password from a backup with only damaged records.
+          const passwordMatches = await lockModal.verifyPassword(password, backupData.lock);
+          if (validationId !== this.validationId || password !== this.backupAccountLock.value) return false;
+          if (!passwordMatches) throw new Error('Unable to unlock the backup. Check the backup account password.');
+        }
       }
-      // Authenticate all account records before asking to overwrite anything.
-      entries = entries.map(entry => {
-        const plaintext = this.tryDecryptBackupAccount(backupData[entry.key], backupEncKey);
-        if (plaintext === null) throw new Error('Unable to unlock the backup. Check the backup account password.');
-        const unlocked = { ...entry, plaintext };
-        return { ...unlocked, address: this.getBackupAddress(unlocked) };
-      });
+      ({ entries, skipped } = this.getBackupAccountEntries(backupData, backupEncKey));
     }
 
     const substitution = this.getStringSubstitution();
     if (substitution) {
-      const unlocked = { ...backupData };
-      delete unlocked.lock;
+      const unlocked = { _avatars: backupData._avatars, _thumbnails: backupData._thumbnails };
       for (const { key, plaintext } of entries) unlocked[key] = plaintext;
       backupData = parse(this.performStringSubstitution(stringify(unlocked), substitution));
-      entries = this.getBackupAccountEntries(backupData);
+      const remapped = this.getBackupAccountEntries(backupData);
+      entries = remapped.entries;
+      skipped = skipped.concat(remapped.skipped);
       backupEncKey = null;
     }
 
-    const confirmed = confirm('⚠️ WARNING: This will import all accounts from the backup file.\n\nExisting local accounts will not be removed. If "Overwrite existing accounts" is checked, accounts with the same username and netid will be replaced.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
-    if (!confirmed) {
+    if (isDrive && !overwrite) {
+      skipped = [...skipped];
+      entries = entries.filter(entry => {
+        if (localStorage.getItem(entry.key) === null) return true;
+        skipped.push(this.describeSkippedRecord(entry, 'Already on this device.'));
+        return false;
+      });
+    }
+    if (!entries.length) {
+      this.showUnavailableAccounts(skipped);
+      return false;
+    }
+    const confirmed = skipped.length
+      ? await this.confirmPartialRestore(entries.length, skipped, overwrite)
+      : confirm('⚠️ WARNING: This will import all accounts from the backup file.\n\nExisting local accounts will not be removed. If "Overwrite existing accounts" is checked, accounts with the same username and netid will be replaced.\n\nIt is recommended to backup your current data before proceeding.\n\nDo you want to continue with the restore?');
+    if (!confirmed || validationId !== this.validationId) {
       showToast('Restore cancelled by user', 2000, 'info');
       return false;
     }
@@ -19151,7 +19170,8 @@ class RestoreAccountModal {
       }
     }
 
-    return restoredAccountKeys.size;
+    const restored = restoredAccountKeys.size;
+    return { restored, skipped: skipped.length + (entries.length - restored) };
   }
 
   async handleSubmit(event) {
@@ -19161,8 +19181,10 @@ class RestoreAccountModal {
     const backup = this.selectedBackup;
     if (!backup) return;
     try {
-      const restoredCount = await this.mergeBackupAccountsToLocal(backup);
-      if (restoredCount === false) return;
+      const result = await this.mergeBackupAccountsToLocal(backup);
+      if (!result) return;
+      const { restored, skipped } = result;
+      const skippedSummary = this.sourceLocationSelect.value === 'google-drive' ? `, ${skipped} skipped` : '';
       clearMyData(); // Prevent stale signed-in state from saving over restored localStorage before refresh.
       let successToastId;
       const refreshAfterRestoreToast = () => {
@@ -19179,7 +19201,7 @@ class RestoreAccountModal {
         hideToast(successToastId);
       }
       successToastId = showToast(
-        `${restoredCount} account${restoredCount === 1 ? '' : 's'} restored`,
+        `${restored} account${restored === 1 ? '' : 's'} restored${skippedSummary}`,
         0,
         'success',
         false,
@@ -19246,24 +19268,76 @@ class RestoreAccountModal {
     return { username, netid };
   }
 
-  getBackupAccountEntries(backupData) {
+  getBackupAccountEntries(backupData, backupEncKey = null) {
     const entries = [];
+    const skipped = [];
+    const isDrive = this.sourceLocationSelect.value === 'google-drive';
     for (const [key, value] of Object.entries(backupData)) {
       const identity = this.parseBackupAccountKey(key);
       if (!identity) continue;
       // All-account exports also include the per-network client version.
       if (identity.username === 'version' && typeof value === 'string' && /^[0-9.]+$/.test(value.trim())) continue;
-      const entry = { key, ...identity };
-      if (backupData.lock) {
-        if (!RestoreAccountModal.isBackupCiphertext(value)) throw RestoreAccountModal.invalidBackup();
-      } else {
-        entry.plaintext = value;
-        entry.address = this.getBackupAddress(entry);
+      const entry = { key, ...identity, number: entries.length + skipped.length + 1 };
+      try {
+        if (backupData.lock && !RestoreAccountModal.isBackupCiphertext(value)) {
+          throw new Error('Expected an encrypted account record.');
+        }
+        if (!backupData.lock || backupEncKey) {
+          entry.plaintext = backupEncKey ? this.tryDecryptBackupAccount(value, backupEncKey) : value;
+          if (backupEncKey && entry.plaintext === null) {
+            throw new Error('Unable to unlock this record with the backup account password.');
+          }
+          entry.address = this.getBackupAddress(entry);
+        }
+        entries.push(entry);
+      } catch (error) {
+        if (!isDrive) {
+          if (backupEncKey && entry.plaintext === null) throw new Error('Unable to unlock the backup. Check the backup account password.');
+          throw RestoreAccountModal.invalidBackup();
+        }
+        skipped.push(this.describeSkippedRecord(entry, error.message));
       }
-      entries.push(entry);
     }
-    if (!entries.length) throw RestoreAccountModal.invalidBackup();
-    return entries;
+    if (!isDrive && !entries.length) throw RestoreAccountModal.invalidBackup();
+    return { entries, skipped };
+  }
+
+  describeSkippedRecord({ username, netid, number }, reason) {
+    const name = username === normalizeUsername(username) ? `${username} (${netid.slice(0, 8)}…)` : `Record ${number}`;
+    return `${name} — ${reason}`;
+  }
+
+  renderSkippedRecords(list, skipped) {
+    list.replaceChildren();
+    for (const description of skipped) {
+      const item = document.createElement('li');
+      item.textContent = description;
+      list.append(item);
+    }
+  }
+
+  showUnavailableAccounts(skipped) {
+    this.fileStatus.textContent = 'No accounts can be restored. ';
+    if (skipped.length) {
+      const list = document.createElement('ul');
+      this.renderSkippedRecords(list, skipped);
+      this.fileStatus.append(list);
+    } else {
+      this.fileStatus.append('The backup contains no account records.');
+    }
+  }
+
+  confirmPartialRestore(count, skipped, overwrite) {
+    const accounts = `${count} account${count === 1 ? '' : 's'}`;
+    const overwriteMessage = overwrite ? 'Matching accounts on this device will be replaced.' : 'Existing accounts will be kept.';
+    this.reviewDialog.querySelector('#restoreReviewSummary').textContent = `Ready to restore ${accounts}. ${overwriteMessage}`;
+    this.renderSkippedRecords(this.reviewDialog.querySelector('ul'), skipped);
+    this.reviewDialog.querySelector('#confirmPartialRestore').textContent = `Restore ${accounts}`;
+    this.reviewDialog.returnValue = 'cancel';
+    this.reviewDialog.showModal();
+    return new Promise(resolve => this.reviewDialog.addEventListener('close', () => {
+      resolve(this.reviewDialog.returnValue === 'restore');
+    }, { once: true }));
   }
 
   getBackupAddress({ plaintext, username, netid }) {
@@ -19271,12 +19345,14 @@ class RestoreAccountModal {
     try {
       account = parse(plaintext)?.account;
     } catch {
-      throw RestoreAccountModal.invalidBackup();
+      throw new Error('Unreadable account data.');
     }
-    const address = account?.keys?.address;
-    if (account?.username !== username || account.netid !== netid || typeof address !== 'string'
-      || !/^(?:0x)?[0-9a-f]{40}(?:0{24})?$/i.test(address)) {
-      throw RestoreAccountModal.invalidBackup();
+    if (!account) throw new Error('Missing account details.');
+    if (account.username !== username) throw new Error('Username differs from the stored record.');
+    if (account.netid !== netid) throw new Error('Network ID differs from the stored record.');
+    const address = account.keys?.address;
+    if (typeof address !== 'string' || !/^(?:0x)?[0-9a-f]{40}(?:0{24})?$/i.test(address)) {
+      throw new Error('Missing or invalid account address.');
     }
     return address;
   }
